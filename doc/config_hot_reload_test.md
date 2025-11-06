@@ -75,7 +75,7 @@ llm:
 LLM配置状态已更新
 ```
 
-5. 访问`http://localhost:8840/api/get-config`，确认配置已更新
+5. 访问`http://localhost:8000/api/get-config`，确认配置已更新
 
 ### 测试2：Recorder进程 - 截图间隔热重载
 
@@ -282,4 +282,3 @@ OCR检查间隔已更新: 5s -> 8s
 - 减少服务中断时间
 
 所有修改都会自动检测并应用，让配置管理更加便捷！
-

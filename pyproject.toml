@@ -1,0 +1,54 @@
+[project]
+name = "lifetrace"
+version = "0.1.0"
+description = "LifeTrace - A macOS screen recording and activity tracking application"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Core dependencies
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.20.0",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.10.0",
+    # Screenshot and image processing
+    "mss>=9.0.0",
+    "Pillow>=10.0.0",
+    "imagehash>=4.3.0",
+    "opencv-python>=4.8.0",
+    # OCR processing
+    "rapidocr-onnxruntime",
+    "numpy>=1.21.0",
+    # Data processing
+    "pyyaml>=6.0",
+    "watchdog>=3.0.0",
+    "typer>=0.9.0",
+    # Web interface
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    # Utils
+    "psutil>=5.9.0",
+    "python-dateutil>=2.8.0",
+    # Command line interface
+    "rich>=13.0.0",
+    # PyTorch (Required by CLIP)
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "torchaudio>=2.0.0",
+    # Transformers (Hugging Face CLIP model)
+    "transformers>=4.21.0",
+    # Numerical computing
+    "scipy>=1.9.0",
+    # Embedding models and vector database
+    "sentence-transformers>=2.2.0",
+    "chromadb>=0.4.0",
+    # OpenAI API
+    "openai>=1.0.0",
+    # Environment variables
+    "python-dotenv>=1.0.0",
+    # macOS specific dependencies
+    "pyobjc-framework-Cocoa>=9.0",
+    "pyobjc-framework-Quartz>=9.0",
+    "open-clip-torch>=3.2.0",
+    "loguru>=0.7.3",
+]

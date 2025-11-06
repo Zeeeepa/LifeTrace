@@ -50,7 +50,7 @@ def is_configured(self) -> bool:
     """检查LLM配置是否已完成"""
     api_key = self.llm_api_key
     base_url = self.llm_base_url
-    return (api_key not in ['', 'xxx'] and 
+    return (api_key not in ['', 'xxx'] and
             base_url not in ['', 'xxx'])
 ```
 
@@ -60,16 +60,16 @@ def is_configured(self) -> bool:
 async def check_configuration_middleware(request: Request, call_next):
     """检查LLM配置状态，未配置时重定向到setup页面"""
     global is_llm_configured
-    
+
     # 允许访问的路径（不需要LLM配置）
-    allowed_paths = ['/setup', '/api/test-llm-config', '/api/save-and-init-llm', 
+    allowed_paths = ['/setup', '/api/test-llm-config', '/api/save-and-init-llm',
                     '/static', '/assets', '/api/get-config', '/api/save-config']
-    
+
     if not is_llm_configured:
         path = request.url.path
         if not any(path.startswith(allowed) for allowed in allowed_paths):
             return RedirectResponse(url='/setup', status_code=302)
-    
+
     response = await call_next(request)
     return response
 ```
@@ -99,10 +99,20 @@ Body: {
 ## 使用说明
 
 ### 首次使用
-1. 启动 LifeTrace 服务：
+1. 安装依赖并激活环境：
    ```bash
-   conda activate laptop_showcase
-   python -m lifetrace_backend.server
+   # 使用 uv 安装依赖（推荐）
+   uv sync
+
+   # 激活虚拟环境
+   source .venv/bin/activate  # macOS/Linux
+   # 或
+   .venv\Scripts\activate     # Windows
+   ```
+
+2. 启动 LifeTrace 服务：
+   ```bash
+   python -m lifetrace.server
    ```
 
 2. 访问任意页面，将自动重定向到 `/setup`
@@ -150,7 +160,7 @@ Body: {
 ## 重新配置
 
 如果需要修改 API 配置：
-1. 访问设置页面：`http://localhost:8840/chat/settings`
+1. 访问设置页面：`http://localhost:8000/chat/settings`
 2. 找到"API 配置"卡片
 3. 修改配置并保存
 4. 重启服务使配置生效
@@ -169,7 +179,7 @@ Body: {
 ### 问题：无法访问引导页面
 - 检查服务是否正常启动
 - 查看控制台日志输出
-- 确认端口 8840 未被占用
+- 确认端口 8000 未被占用
 
 ### 问题：配置验证一直失败
 - 检查网络连接
@@ -198,4 +208,3 @@ Body: {
 - ✅ 添加中间件自动重定向
 - ✅ 添加配置验证和初始化接口
 - ✅ 创建美观的引导配置页面
-

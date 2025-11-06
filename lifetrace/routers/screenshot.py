@@ -1,0 +1,137 @@
+"""截图相关路由"""
+
+import logging
+import os
+import time
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.requests import Request
+from fastapi.responses import FileResponse
+
+from lifetrace.routers import dependencies as deps
+from lifetrace.schemas.screenshot import ScreenshotResponse
+
+router = APIRouter(prefix="/api/screenshots", tags=["screenshot"])
+
+
+@router.get("", response_model=List[ScreenshotResponse])
+async def get_screenshots(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    app_name: Optional[str] = Query(None),
+):
+    """获取截图列表"""
+    try:
+        # 解析日期
+        start_dt = None
+        end_dt = None
+
+        if start_date:
+            start_dt = datetime.fromisoformat(start_date)
+        if end_date:
+            end_dt = datetime.fromisoformat(end_date)
+
+        # 搜索截图 - 直接传递offset和limit给数据库查询
+        results = deps.db_manager.search_screenshots(
+            start_date=start_dt,
+            end_date=end_dt,
+            app_name=app_name,
+            limit=limit,
+            offset=offset,  # 新增offset参数
+        )
+
+        return [ScreenshotResponse(**result) for result in results]
+
+    except Exception as e:
+        logging.error(f"获取截图列表失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{screenshot_id}")
+async def get_screenshot(screenshot_id: int):
+    """获取单个截图详情"""
+    screenshot = deps.db_manager.get_screenshot_by_id(screenshot_id)
+
+    if not screenshot:
+        raise HTTPException(status_code=404, detail="截图不存在")
+
+    # 获取OCR结果
+    ocr_data = None
+    try:
+        with deps.db_manager.get_session() as session:
+            from lifetrace.storage.models import OCRResult
+
+            ocr_result = (
+                session.query(OCRResult).filter_by(screenshot_id=screenshot_id).first()
+            )
+
+            # 在session内提取数据
+            if ocr_result:
+                ocr_data = {
+                    "text_content": ocr_result.text_content,
+                    "confidence": ocr_result.confidence,
+                    "language": ocr_result.language,
+                    "processing_time": ocr_result.processing_time,
+                }
+    except Exception as e:
+        logging.warning(f"获取OCR结果失败: {e}")
+
+    # screenshot已经是字典格式，直接使用
+    result = screenshot.copy()
+    result["ocr_result"] = ocr_data
+
+    return result
+
+
+@router.get("/{screenshot_id}/image")
+async def get_screenshot_image(screenshot_id: int, request: Request):
+    """获取截图图片文件"""
+    start_time = time.time()
+
+    try:
+        screenshot = deps.db_manager.get_screenshot_by_id(screenshot_id)
+
+        if not screenshot:
+            # 记录失败的查看截图行为
+            deps.behavior_tracker.track_action(
+                action_type="view_screenshot",
+                action_details={
+                    "screenshot_id": screenshot_id,
+                    "success": False,
+                    "error": "截图不存在",
+                },
+                user_agent=request.headers.get("user-agent", ""),
+                ip_address=request.client.host if request.client else "",
+                response_time=time.time() - start_time,
+            )
+            raise HTTPException(status_code=404, detail="截图不存在")
+
+        file_path = screenshot["file_path"]
+        return FileResponse(
+            file_path,
+            media_type="image/png",
+            filename=f"screenshot_{screenshot_id}.png",
+        )
+
+    except Exception as e:
+        deps.logger.error(f"获取截图图像时发生错误: {e}")
+        raise HTTPException(status_code=500, detail="服务器内部错误")
+
+
+@router.get("/{screenshot_id}/path")
+async def get_screenshot_path(screenshot_id: int):
+    """获取截图文件路径"""
+    screenshot = deps.db_manager.get_screenshot_by_id(screenshot_id)
+
+    if not screenshot:
+        raise HTTPException(status_code=404, detail="截图不存在")
+
+    file_path = screenshot["file_path"]
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="图片文件不存在")
+
+    return {"screenshot_id": screenshot_id, "file_path": file_path, "exists": True}

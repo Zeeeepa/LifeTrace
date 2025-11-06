@@ -15,7 +15,7 @@ python -m lifetrace_backend.server
 
 ### 2. 访问Web界面
 
-打开浏览器访问：`http://localhost:8840`
+打开浏览器访问：`http://localhost:8000`
 
 ### 3. 打开忆往昔面板
 

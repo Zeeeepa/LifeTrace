@@ -22,7 +22,7 @@ llm:
 # 服务器配置
 server:
   host: 127.0.0.1                           # 服务器监听地址
-  port: 8840                                # 服务器监听端口
+  port: 8000                                # 服务器监听端口
 
 # 聊天配置
 chat:
@@ -39,7 +39,7 @@ chat:
 
 2. 在浏览器中打开聊天页面：
    ```
-   http://localhost:8840/chat
+   http://localhost:8000/chat
    ```
 
 3. 点击右上角的 **设置** 图标（齿轮图标）
@@ -53,7 +53,7 @@ chat:
 
 #### 服务器配置卡片
 - **服务器地址**: 服务器监听地址（默认 127.0.0.1）
-- **服务器端口**: 服务器监听端口（默认 8840）
+- **服务器端口**: 服务器监听端口（默认 8000）
 
 5. 修改后会自动保存到配置文件
 
@@ -109,7 +109,7 @@ GET /api/get-config
     "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     "llmModel": "qwen3-max",
     "serverHost": "127.0.0.1",
-    "serverPort": 8840,
+    "serverPort": 8000,
     "temperature": 0.7,
     "maxTokens": 2048
   }
@@ -126,7 +126,7 @@ Content-Type: application/json
   "baseUrl": "https://api.example.com/v1",
   "llmModel": "model-name",
   "serverHost": "127.0.0.1",
-  "serverPort": 8840,
+  "serverPort": 8000,
   "temperature": 0.7,
   "maxTokens": 2048
 }
@@ -193,4 +193,3 @@ Content-Type: application/json
 - [部署指南](../README.md#deployment-and-configuration)
 - [RAG 服务说明](overview.md)
 - [事件机制说明](event_mechanism.md)
-

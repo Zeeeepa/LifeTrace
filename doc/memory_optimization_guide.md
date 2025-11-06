@@ -33,7 +33,7 @@ multimodal_vector_service = create_multimodal_vector_service(config, db_manager)
 ```tsx
 // front/components/DetailPanel.tsx
 <ImageWithFallback
-  src={`http://localhost:8840/api/screenshots/${id}/image`}
+  src={`http://localhost:8000/api/screenshots/${id}/image`}
   alt="截图"
 />
 ```

@@ -1,4 +1,4 @@
-![LifeTrace Logo](assets/rhn8yu8l.png)
+![LifeTrace Logo](.github/assets/rhn8yu8l.png)
 
 ![GitHub stars](https://img.shields.io/github/stars/tangyuanbo1/LifeTrace_app?style=social) ![GitHub forks](https://img.shields.io/github/forks/tangyuanbo1/LifeTrace_app?style=social) ![GitHub issues](https://img.shields.io/github/issues/tangyuanbo1/LifeTrace_app) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.13+-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 
@@ -23,8 +23,6 @@ LifeTrace is an AI-based intelligent life recording system that can automaticall
 - **Web API Service**: Provides complete RESTful API interfaces
 - **Frontend Integration**: Supports integration with various frontend frameworks
 
-
-
 ## Get started
 
 ### Environment Requirements
@@ -34,39 +32,61 @@ LifeTrace is an AI-based intelligent life recording system that can automaticall
 
 ### Install Dependencies
 
-All dependency files are located in the `requirements/` directory.
+This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.
 
-**For Windows:**
+**Install uv:**
 ```bash
-pip install -r requirements/requirements_windows.txt
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or with pip
+pip install uv
 ```
 
-**For macOS:**
+**Install dependencies and sync environment:**
 ```bash
-pip install -r requirements/requirements_macos.txt
+# Sync dependencies from pyproject.toml and uv.lock
+uv sync
 
+# Activate the virtual environment
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
 ```
 
-### Initialize Database
+### Start the Backend Service
+
 ```bash
-python init_database.py
+python -m lifetrace.server
 ```
 
-### Starting Services
+The backend service will start at `http://localhost:8000`.
 
-#### Start All Services
+### Start the Frontend Service
+
+The frontend is required to use LifeTrace. Start the frontend development server:
+
 ```bash
-python start_all_services.py
+cd frontend
+pnpm install
+pnpm run dev
 ```
 
-Once all services are running, open your browser and navigate to `http://localhost:8840` to enjoy LifeTrace! 🎉
+The frontend development server will start at `http://localhost:3000`, with API requests automatically proxied to backend `:8000`.
 
+Once both services are running, open your browser and navigate to `http://localhost:3000` to enjoy LifeTrace! 🎉
+
+For more details, see: [frontend/README.md](frontend/README.md)
 
 <!--
 #### Start Web Service Only
 ```bash
-python -m lifetrace_backend.server --port 8840
+python -m lifetrace_backend.server --port 8000
 ```
 
 #### Start Individual Services
@@ -81,88 +101,137 @@ python -m lifetrace_backend.processor
 python -m lifetrace_backend.simple_ocr
 ``` -->
 
-
 ## 📋 TODO & Roadmap
 
 ### 🚀 High Priority
-
 
 - ☐ **User Experience Improvements**
   - ☐ Implement keyboard shortcuts for power users
   - ☐ Create interactive onboarding tutorial
 
-
-
-
 ### 💡 Future Ideas
-
 
 - ☐ **Mobile & Cross-Platform**
   - ☐ Develop mobile companion app
   - ☐ Add tablet-optimized interface
   - ☐ Create web-based version
 
-
 ### ✅ Recently Completed
 - ☑ **Core Infrastructure** - Basic screenshot recording and OCR functionality
-
 
 ---
 
 > 💡 **Want to contribute?** Check out our [Contributing Guidelines](#contributing) and pick up any TODO item that interests you!
 
-
 ## Development Guide
 
 ### Project Structure
+
 ```
-LifeTrace_app/
-├── lifetrace_backend/          # Core backend modules
-│   ├── __init__.py
-│   ├── __main__.py
+├── .github/                    # GitHub repository assets
+│   ├── assets/                 # Static assets (images for README)
+│   └── ...                     # Other GitHub repository files
+├── lifetrace/                  # Core backend modules
 │   ├── server.py               # Web API service
-│   ├── models.py               # Data models
-│   ├── config.py               # Configuration management
-│   ├── storage.py              # Storage management
-│   ├── simple_ocr.py           # OCR processing
-│   ├── vector_service.py       # Vector service
-│   ├── multimodal_*.py         # Multimodal services
-│   ├── processor.py            # File processing
-│   ├── recorder.py             # Screen recording
-│   ├── heartbeat.py            # Service heartbeat
-│   ├── rag_service.py          # RAG service
-│   ├── retrieval_service.py    # Retrieval service
-│   ├── sync_service.py         # Sync service
-│   ├── utils.py                # Utility functions
-│   └── templates/              # HTML templates
-├── config/                     # Configuration files
-│   ├── config.yaml
-│   └── default_config.yaml
-├── doc/                        # Documentation
-├── front/                      # Frontend application
+│   ├── config/                 # Configuration files
+│   │   ├── config.yaml         # Main configuration
+│   │   ├── default_config.yaml # Default configuration
+│   │   └── rapidocr_config.yaml# OCR configuration
+│   ├── routers/                # API route handlers
+│   │   ├── screenshot.py       # Screenshot endpoints
+│   │   ├── event.py            # Event management endpoints
+│   │   ├── chat.py             # Chat interface endpoints
+│   │   ├── search.py           # Search endpoints
+│   │   ├── ocr.py              # OCR service endpoints
+│   │   ├── rag.py              # RAG service endpoints
+│   │   ├── plan.py             # Plan management endpoints
+│   │   ├── behavior.py         # User behavior endpoints
+│   │   ├── config.py           # Configuration endpoints
+│   │   ├── health.py           # Health check endpoints
+│   │   ├── logs.py             # Log management endpoints
+│   │   ├── system.py           # System endpoints
+│   │   └── vector.py           # Vector service endpoints
+│   ├── schemas/                # Pydantic data models
+│   │   ├── screenshot.py       # Screenshot models
+│   │   ├── event.py            # Event models
+│   │   ├── chat.py             # Chat models
+│   │   ├── search.py           # Search models
+│   │   ├── plan.py             # Plan models
+│   │   ├── config.py           # Config models
+│   │   ├── stats.py            # Statistics models
+│   │   ├── system.py           # System models
+│   │   └── vector.py           # Vector models
+│   ├── storage/                # Data storage layer
+│   │   ├── database.py         # Database operations
+│   │   └── models.py           # SQLAlchemy models
+│   ├── llm/                    # LLM and AI services
+│   │   ├── llm_client.py       # LLM client wrapper
+│   │   ├── event_summary_service.py # Event summarization
+│   │   ├── rag_service.py      # RAG service
+│   │   ├── retrieval_service.py# Retrieval service
+│   │   ├── context_builder.py  # Context building
+│   │   ├── vector_service.py   # Vector operations
+│   │   ├── vector_db.py        # Vector database
+│   │   ├── multimodal_vector_service.py # Multimodal vectors
+│   │   └── multimodal_embedding.py # Multimodal embeddings
+│   ├── tool/                   # Core tools
+│   │   ├── recorder.py         # Screen recording tool
+│   │   └── ocr.py              # OCR processing tool
+│   ├── util/                   # Utility functions
+│   │   ├── config.py           # Configuration utilities
+│   │   ├── logging_config.py   # Logging configuration
+│   │   ├── utils.py            # General utilities
+│   │   ├── app_utils.py        # Application utilities
+│   │   ├── query_parser.py     # Query parsing
+│   │   └── token_usage_logger.py # Token usage tracking
+│   └── models/                 # OCR model files
+│       ├── ch_PP-OCRv4_det_infer.onnx
+│       ├── ch_PP-OCRv4_rec_infer.onnx
+│       └── ch_ppocr_mobile_v2.0_cls_infer.onnx
+├── frontend/                   # Frontend application (Next.js)
+│   ├── app/                    # Next.js app directory
+│   │   ├── page.tsx            # Home page
+│   │   ├── layout.tsx          # Root layout
+│   │   ├── events/             # Events management page
+│   │   ├── chat/               # Chat interface page
+│   │   ├── analytics/          # Analytics page
+│   │   ├── app-usage/          # App usage page
+│   │   ├── plan/               # Plan management page
+│   │   └── settings/           # Settings page
 │   ├── components/             # React components
-│   ├── services/               # API services
+│   │   ├── common/             # Common components
+│   │   ├── layout/             # Layout components
+│   │   ├── screenshot/         # Screenshot components
+│   │   ├── search/             # Search components
+│   │   └── ui/                 # UI components
+│   ├── lib/                    # Utilities and services
+│   │   ├── api.ts              # API client
+│   │   ├── types.ts            # TypeScript types
+│   │   ├── utils.ts            # Utility functions
+│   │   ├── context/            # React contexts
+│   │   └── store/              # State management
 │   ├── public/                 # Static assets
-│   └── package.json            # Frontend dependencies
-├── debug/                      # Debug and diagnostic tools
-│   ├── test_*.py               # Test files
-│   ├── check_*.py              # Status check tools
-│   ├── diagnostic_tool.py      # System diagnostics
-│   ├── memory_analyzer.py      # Memory analysis
-│   └── *.py                    # Other debug utilities
-├── requirements/               # Dependency files
-│   ├── requirements.txt        # Main dependencies
-│   ├── requirements_multimodal.txt
-│   ├── requirements_rapidocr.txt
-│   └── requirements_vector.txt
-├── assets/                     # Static assets
-├── start_all_services.py       # Main service launcher
-├── init_database.py            # Database initialization
-├── init_config.py              # Configuration initialization
-└── setup.py                    # Project setup
+│   ├── package.json            # Frontend dependencies
+│   ├── pnpm-lock.yaml          # pnpm lock file
+│   ├── next.config.ts          # Next.js configuration
+│   └── tsconfig.json           # TypeScript configuration
+├── doc/                        # Documentation
+│   ├── setup_guide.md          # Setup guide
+│   ├── api_configuration_guide.md # API configuration
+│   ├── uv_usage_guide.md       # uv package manager guide
+│   ├── event_mechanism.md      # Event mechanism docs
+│   ├── memory_optimization_guide.md # Memory optimization
+│   └── ...                     # Other documentation files
+├── deploy/                     # Deployment scripts
+│   ├── build_server.bat        # Server build script
+│   ├── build_ocr.bat           # OCR build script
+│   └── build_recorder.bat      # Recorder build script
+├── pyproject.toml              # Python project configuration
+├── uv.lock                     # uv lock file
+├── LICENSE                     # Apache 2.0 License
+├── README.md                   # This file (English)
+└── README_CN.md                # Chinese README
 ```
-
-
 
 ## Contributing
 
@@ -181,32 +250,6 @@ The LifeTrace community is possible thanks to thousands of kind volunteers like 
 3. **💾 Commit your changes** - `git commit -m 'Add some amazing feature'`
 4. **📤 Push to the branch** - `git push origin feature/amazing-feature`
 5. **🔄 Create a Pull Request** - Submit your changes for review
-
-**Code Style & Quality**
-
-Before submitting any code changes, please make sure your environment is set up for consistent formatting and linting.
-
-1. **Install linting and formatting dependencies**
-
-   ```bash
-   pip install -r requirements/requirements_lint.txt
-   ```
-
-2. **Set up pre-commit hooks**
-
-   ```bash
-   pre-commit install
-   ```
-
-   This will automatically run formatting and lint checks before each commit.
-
-3. **(Optional) Manually format and lint**
-
-   ```bash
-   cd lifetrace_backend/
-   make format
-   make lint
-   ```
 
 **Areas where you can contribute:**
 
@@ -237,17 +280,17 @@ Connect with us and other LifeTrace users! Scan the QR codes below to join our c
   </tr>
   <tr>
     <td align="center">
-      <img src="assets/wechat.jpg" alt="WeChat QR Code" width="200"/>
+      <img src=".github/assets/wechat.jpg" alt="WeChat QR Code" width="200"/>
       <br/>
       <em>Scan to join WeChat group</em>
     </td>
     <td align="center">
-      <img src="assets/feishu.png" alt="Feishu QR Code" width="200"/>
+      <img src=".github/assets/feishu.png" alt="Feishu QR Code" width="200"/>
       <br/>
       <em>Scan to join Feishu group</em>
     </td>
     <td align="center">
-      <img src="assets/xhs.jpg" alt="Xiaohongshu QR Code" width="200"/>
+      <img src=".github/assets/xhs.jpg" alt="Xiaohongshu QR Code" width="200"/>
       <br/>
       <em>Follow us on Xiaohongshu</em>
     </td>
@@ -255,12 +298,12 @@ Connect with us and other LifeTrace users! Scan the QR codes below to join our c
 </table>
 
 ## Document
+
 We use deepwiki to manage our docs, please ref to this [**website.**](https://deepwiki.com/tangyuanbo1/LifeTrace_app/6.2-deployment-and-setup)
 
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=tangyuanbo1/LifeTrace_app&type=Timeline)](https://www.star-history.com/#tangyuanbo1/LifeTrace_app&Timeline)
-
 
 ## License
 

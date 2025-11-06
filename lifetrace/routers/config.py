@@ -1,0 +1,265 @@
+"""配置相关路由"""
+
+import os
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException
+
+from lifetrace.routers import dependencies as deps
+from lifetrace.schemas.config import ConfigResponse
+
+router = APIRouter(prefix="/api", tags=["config"])
+
+
+@router.get("/config", response_model=ConfigResponse)
+async def get_config():
+    """获取配置信息"""
+    return ConfigResponse(
+        base_dir=deps.config.base_dir,
+        screenshots_dir=deps.config.screenshots_dir,
+        database_path=deps.config.database_path,
+        server={
+            "host": deps.config.get("server.host"),
+            "port": deps.config.get("server.port"),
+            "debug": deps.config.get("server.debug", False),
+        },
+        record={
+            "interval": deps.config.get("record.interval"),
+            "screens": deps.config.get("record.screens"),
+            "format": deps.config.get("record.format"),
+        },
+        ocr={
+            "enabled": deps.config.get("ocr.enabled"),
+            "use_gpu": deps.config.get("ocr.use_gpu"),
+            "language": deps.config.get("ocr.language"),
+            "confidence_threshold": deps.config.get("ocr.confidence_threshold"),
+        },
+        storage={
+            "max_days": deps.config.get("storage.max_days"),
+            "deduplicate": deps.config.get("storage.deduplicate"),
+            "hash_threshold": deps.config.get("storage.hash_threshold"),
+        },
+    )
+
+
+@router.post("/test-llm-config")
+async def test_llm_config(config_data: Dict[str, str]):
+    """测试LLM配置是否可用（仅验证认证）"""
+    try:
+        from openai import OpenAI
+
+        llm_key = config_data.get("llmKey", "")
+        base_url = config_data.get("baseUrl", "")
+        model = config_data.get("model", "qwen3-max")
+
+        if not llm_key or not base_url:
+            return {"success": False, "error": "LLM Key 和 Base URL 不能为空"}
+
+        # 创建临时客户端进行测试
+        client = OpenAI(api_key=llm_key, base_url=base_url)
+
+        # 发送最小化测试请求验证认证
+        response = client.chat.completions.create(  # noqa: F841
+            model=model, messages=[{"role": "user", "content": "test"}], max_tokens=5
+        )
+
+        deps.logger.info(f"LLM配置测试成功 - 模型: {model}")
+        return {"success": True, "message": "配置验证成功"}
+
+    except Exception as e:
+        error_msg = str(e)
+        deps.logger.error(f"LLM配置测试失败: {error_msg}")
+        return {"success": False, "error": error_msg}
+
+
+@router.get("/get-config")
+async def get_config_detailed():
+    """获取当前配置"""
+    try:
+        return {
+            "success": True,
+            "config": {
+                # UI配置
+                "isDark": deps.config.get("ui.dark_mode", False),
+                "language": deps.config.get("ui.language", "zh-CN"),
+                "notifications": deps.config.get("ui.notifications", True),
+                "soundEnabled": deps.config.get("ui.sound_enabled", True),
+                "autoSave": deps.config.get("ui.auto_save", True),
+                # 录制配置
+                "autoExcludeSelf": deps.config.get("record.auto_exclude_self", True),
+                "blacklistEnabled": deps.config.get("record.blacklist.enabled", False),
+                "blacklistApps": deps.config.get("record.blacklist.apps", ""),
+                "recordingEnabled": deps.config.get("record.enabled", True),
+                "recordInterval": deps.config.get("record.interval", 1),
+                "screenSelection": deps.config.get("record.screens", "all"),
+                # 存储配置
+                "storageEnabled": deps.config.get("storage.enabled", True),
+                "maxDays": deps.config.get("storage.max_days", 30),
+                "deduplicateEnabled": deps.config.get("storage.deduplicate", True),
+                # LLM配置
+                "llmKey": deps.config.llm_api_key,
+                "baseUrl": deps.config.llm_base_url,
+                "llmModel": deps.config.llm_model,
+                "model": deps.config.llm_model,
+                "temperature": deps.config.llm_temperature,
+                "maxTokens": deps.config.llm_max_tokens,
+                # 服务器配置
+                "serverHost": deps.config.server_host,
+                "serverPort": deps.config.server_port,
+                # 聊天配置
+                "localHistory": deps.config.chat_local_history,
+                "historyLimit": deps.config.chat_history_limit,
+            },
+        }
+    except Exception as e:
+        deps.logger.error(f"获取配置失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取配置失败: {str(e)}") from e
+
+
+@router.post("/save-and-init-llm")
+async def save_and_init_llm(config_data: Dict[str, str]):
+    """保存配置并重新初始化LLM服务"""
+    try:
+        # 验证必需字段
+        required_fields = ["llmKey", "baseUrl", "model"]
+        missing_fields = [f for f in required_fields if not config_data.get(f)]
+        if missing_fields:
+            return {
+                "success": False,
+                "error": f"缺少必需字段: {', '.join(missing_fields)}",
+            }
+
+        # 验证字段类型和内容
+        if (
+            not isinstance(config_data.get("llmKey"), str)
+            or not config_data.get("llmKey").strip()
+        ):
+            return {"success": False, "error": "LLM Key必须是非空字符串"}
+
+        if (
+            not isinstance(config_data.get("baseUrl"), str)
+            or not config_data.get("baseUrl").strip()
+        ):
+            return {"success": False, "error": "Base URL必须是非空字符串"}
+
+        if (
+            not isinstance(config_data.get("model"), str)
+            or not config_data.get("model").strip()
+        ):
+            return {"success": False, "error": "模型名称必须是非空字符串"}
+
+        # 1. 先测试配置
+        test_result = await test_llm_config(config_data)
+        if not test_result["success"]:
+            return test_result
+
+        # 2. 保存配置到文件
+        save_result = await save_config(
+            {
+                "llmKey": config_data.get("llmKey"),
+                "baseUrl": config_data.get("baseUrl"),
+                "llmModel": config_data.get("model"),
+            }
+        )
+
+        if not save_result.get("success"):
+            return {"success": False, "error": "保存配置失败"}
+
+        # 3. 重新加载配置
+        deps.config._config = deps.config._load_config()
+        deps.logger.info("配置已重新加载")
+
+        # 4. 重新初始化RAG服务
+        from lifetrace.llm.rag_service import RAGService
+
+        deps.rag_service = RAGService(
+            db_manager=deps.db_manager,
+            api_key=deps.config.llm_api_key,
+            base_url=deps.config.llm_base_url,
+            model=deps.config.llm_model,
+        )
+        deps.logger.info(f"RAG服务已重新初始化 - 模型: {deps.config.llm_model}")
+
+        # 5. 更新配置状态
+        deps.is_llm_configured = True
+        deps.logger.info("LLM配置状态已更新为：已配置")
+
+        return {"success": True, "message": "配置保存成功，正在跳转..."}
+
+    except Exception as e:
+        error_msg = str(e)
+        deps.logger.error(f"保存并初始化LLM失败: {error_msg}")
+        return {"success": False, "error": error_msg}
+
+
+@router.post("/save-config")
+async def save_config(settings: Dict[str, Any]):
+    """保存配置到config.yaml文件"""
+    try:
+        import yaml
+
+        # 读取当前配置文件
+        config_path = deps.config.config_path
+
+        # 如果配置文件不存在，创建默认配置
+        if not os.path.exists(config_path):
+            deps.config.save_config()
+
+        # 读取现有配置
+        with open(config_path, "r", encoding="utf-8") as f:
+            current_config = yaml.safe_load(f) or {}
+
+        # 更新配置项
+        # 映射前端设置到配置文件结构
+        config_mapping = {
+            "isDark": "ui.dark_mode",
+            "darkMode": "ui.dark_mode",
+            "language": "ui.language",
+            "blacklistEnabled": "record.blacklist.enabled",
+            "blacklistApps": "record.blacklist.apps",
+            "recordingEnabled": "record.enabled",
+            "recordInterval": "record.interval",
+            "screenSelection": "record.screens",
+            "storageEnabled": "storage.enabled",
+            "maxDays": "storage.max_days",
+            "deduplicateEnabled": "storage.deduplicate",
+            "model": "llm.model",
+            "temperature": "llm.temperature",
+            "maxTokens": "llm.max_tokens",
+            "notifications": "ui.notifications",
+            "soundEnabled": "ui.sound_enabled",
+            "autoSave": "ui.auto_save",
+            "localHistory": "chat.local_history",
+            "historyLimit": "chat.history_limit",
+            # API配置
+            "llmKey": "llm.llm_key",
+            "baseUrl": "llm.base_url",
+            "llmModel": "llm.model",
+            # 服务器配置
+            "serverHost": "server.host",
+            "serverPort": "server.port",
+            "autoExcludeSelf": "record.auto_exclude_self",
+        }
+
+        # 更新配置
+        for frontend_key, config_key in config_mapping.items():
+            if frontend_key in settings:
+                # 处理嵌套配置键
+                keys = config_key.split(".")
+                current = current_config
+                for key in keys[:-1]:
+                    if key not in current:
+                        current[key] = {}
+                    current = current[key]
+                current[keys[-1]] = settings[frontend_key]
+
+        # 保存配置文件
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(current_config, f, allow_unicode=True, sort_keys=False)
+
+        deps.logger.info(f"配置已保存到: {config_path}")
+        return {"success": True, "message": "配置保存成功"}
+
+    except Exception as e:
+        deps.logger.error(f"保存配置失败: {e}")
+        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}") from e

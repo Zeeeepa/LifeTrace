@@ -34,24 +34,24 @@ base_url: "xxx"
 async def save_and_init_llm(config_data: Dict[str, str]):
     """保存配置并重新初始化LLM服务"""
     global is_llm_configured, rag_service
-    
+
     try:
         # 验证必需字段
         required_fields = ['apiKey', 'baseUrl', 'model']
         missing_fields = [f for f in required_fields if not config_data.get(f)]
         if missing_fields:
             return {"success": False, "error": f"缺少必需字段: {', '.join(missing_fields)}"}
-        
+
         # 验证字段类型和内容
         if not isinstance(config_data.get('apiKey'), str) or not config_data.get('apiKey').strip():
             return {"success": False, "error": "API Key必须是非空字符串"}
-        
+
         if not isinstance(config_data.get('baseUrl'), str) or not config_data.get('baseUrl').strip():
             return {"success": False, "error": "Base URL必须是非空字符串"}
-        
+
         if not isinstance(config_data.get('model'), str) or not config_data.get('model').strip():
             return {"success": False, "error": "模型名称必须是非空字符串"}
-        
+
         # ... 继续其他逻辑
 ```
 
@@ -72,14 +72,14 @@ async def save_and_init_llm(config_data: Dict[str, str]):
 **修复**: 在 `lifetrace_backend/templates/settings.html` 添加 null 检查
 
 ```javascript
-function setDisabledWhenRecording(disabled){ 
-  if(els.recordInterval) els.recordInterval.disabled = disabled; 
-  if(els.screenSelection) els.screenSelection.disabled = disabled; 
+function setDisabledWhenRecording(disabled){
+  if(els.recordInterval) els.recordInterval.disabled = disabled;
+  if(els.screenSelection) els.screenSelection.disabled = disabled;
 }
 
-function setDisabledWhenStorage(disabled){ 
-  if(els.maxDays) els.maxDays.disabled = disabled; 
-  if(els.deduplicateEnabled) els.deduplicateEnabled.classList.toggle('disabled', disabled); 
+function setDisabledWhenStorage(disabled){
+  if(els.maxDays) els.maxDays.disabled = disabled;
+  if(els.deduplicateEnabled) els.deduplicateEnabled.classList.toggle('disabled', disabled);
 }
 ```
 
@@ -106,7 +106,7 @@ if api_key is None or base_url is None or model is None:
         self.api_key = api_key or config.llm_api_key or "sk-ef4b56e3bc9c4693b596415dd364af56"
         self.base_url = base_url or config.llm_base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1"
         self.model = model or config.llm_model or "qwen3-max"
-        
+
         # 检查关键配置是否为空或默认占位符
         if not self.api_key or self.api_key == 'xxx':
             logger.warning("API Key未配置或为默认占位符，LLM功能可能不可用")
@@ -174,12 +174,12 @@ except Exception as e:
 ### 1. 测试输入验证
 ```bash
 # 缺少字段
-curl -X POST http://localhost:8840/api/save-and-init-llm \
+curl -X POST http://localhost:8000/api/save-and-init-llm \
   -H "Content-Type: application/json" \
   -d '{"apiKey": "test"}'
 
 # 空字符串
-curl -X POST http://localhost:8840/api/save-and-init-llm \
+curl -X POST http://localhost:8000/api/save-and-init-llm \
   -H "Content-Type: application/json" \
   -d '{"apiKey": "", "baseUrl": "http://test", "model": "test"}'
 ```
@@ -202,4 +202,3 @@ curl -X POST http://localhost:8840/api/save-and-init-llm \
 - ✅ 1个代码质量问题（异常链）
 
 代码现在更加健壮、安全和易于维护。
-

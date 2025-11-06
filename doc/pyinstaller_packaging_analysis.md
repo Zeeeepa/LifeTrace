@@ -1519,7 +1519,7 @@ def get_config_path():
 ```python
 exe = EXE(
     # ...
-    icon='assets/logo.ico',  # 添加图标
+    icon='.github/assets/logo.ico',  # 添加图标
     # ...
 )
 ```
@@ -1528,7 +1528,7 @@ exe = EXE(
 
 ```bash
 # 使用在线工具或 ImageMagick 转换
-convert assets/logo.png -resize 256x256 assets/logo.ico
+convert .github/assets/logo.png -resize 256x256 .github/assets/logo.ico
 ```
 
 #### 建议 5：CI/CD 自动化打包

@@ -1,10 +1,10 @@
-![LifeTrace Logo](assets/rhn8yu8l.png)
+![LifeTrace Logo](.github/assets/rhn8yu8l.png)
 
 ![GitHub stars](https://img.shields.io/github/stars/tangyuanbo1/LifeTrace_app?style=social) ![GitHub forks](https://img.shields.io/github/forks/tangyuanbo1/LifeTrace_app?style=social) ![GitHub issues](https://img.shields.io/github/issues/tangyuanbo1/LifeTrace_app) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.13+-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 
 **语言**: [English](README.md) | [中文](README_CN.md)
 
-[📖 文档](https://freeyou.club/lifetrace/introduction.html) • [🚀 快速开始](#get-started) • [💡 功能特性](#核心功能) • [🔧 开发指南](#开发指南) • [🤝 贡献指南](#贡献)
+[📖 文档](https://freeyou.club/lifetrace/introduction.html) • [🚀 快速开始](#get-started) • [💡 功能特性](#核心功能) • [🏗️ 架构说明](ARCHITECTURE.md) • [📡 API 文档](README_API.md) • [🔧 开发指南](#开发指南) • [🤝 贡献指南](#贡献)
 
 # LifeTrace - 智能生活记录系统
 
@@ -23,48 +23,88 @@ LifeTrace 是一个基于 AI 的智能生活记录系统，可以自动管理您
 - **Web API 服务**：提供完整的 RESTful API 接口
 - **前端集成**：支持与各种前端框架集成
 
+## 系统架构
 
+LifeTrace 采用**前后端分离**架构：
+
+- **后端**: FastAPI (Python) - 提供 RESTful API
+- **前端**: Next.js (React + TypeScript) - 现代化 Web 界面
+- **数据层**: SQLite + ChromaDB
+
+详细架构说明请参考 [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Get started
 
 ### 环境要求
+
+**后端**:
 - Python 3.13+
 - 支持的操作系统：Windows、macOS
 - 可选：CUDA 支持（用于 GPU 加速）
 
+**前端**:
+- Node.js 18+
+- pnpm 包管理器
+
 ### 安装依赖
 
-所有依赖文件位于 `requirements/` 目录下：
+本项目使用 [uv](https://github.com/astral-sh/uv) 进行快速可靠的依赖管理。
 
-**For Windows:**
+**安装 uv:**
 ```bash
-pip install -r requirements/requirements_windows.txt
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 或使用 pip 安装
+pip install uv
 ```
 
-**For macOS:**
+**安装依赖并同步环境:**
 ```bash
-pip install -r requirements/requirements_macos.txt
+# 从 pyproject.toml 和 uv.lock 同步依赖
+uv sync
+
+# 激活虚拟环境
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows
+.venv\Scripts\activate
 ```
 
-### 初始化数据库
+### 启动后端服务
+
 ```bash
-python init_database.py
+python -m lifetrace.server
 ```
 
-### 启动服务
+后端服务将在 `http://localhost:8000` 启动。
 
-#### 启动所有服务
+- **API 文档**: `http://localhost:8000/docs`
+
+### 启动前端服务
+
+前端是使用 LifeTrace 的必需组件。启动前端开发服务器：
+
 ```bash
-python start_all_services.py
+cd frontend
+pnpm install
+pnpm run dev
 ```
 
-所有服务运行后，打开浏览器访问 `http://localhost:8840` 即可开始使用 LifeTrace！🎉
+前端开发服务器将在 `http://localhost:3000` 启动，API 请求会自动代理到后端 `:8000`。
 
+服务启动后，在浏览器中访问 `http://localhost:3000` 开始使用 LifeTrace！🎉
+
+详细说明请参考：[frontend/README.md](frontend/README.md)
 
 <!--
 #### 仅启动 Web 服务
 ```bash
-python -m lifetrace_backend.server --port 8840
+python -m lifetrace_backend.server --port 8000
 ```
 
 #### 启动单个服务
@@ -79,88 +119,137 @@ python -m lifetrace_backend.processor
 python -m lifetrace_backend.simple_ocr
 ``` -->
 
-
 ## 📋 待办事项与路线图
 
 ### 🚀 高优先级
-
 
 - ☐ **用户体验改进**
   - ☐ 为高级用户实现键盘快捷键
   - ☐ 创建交互式入门教程
 
-
-
-
 ### 💡 未来计划
-
 
 - ☐ **移动端与跨平台**
   - ☐ 开发移动配套应用
   - ☐ 添加平板优化界面
   - ☐ 创建 Web 版本
 
-
 ### ✅ 最近完成
 - ☑ **核心基础设施** - 基础截图记录和 OCR 功能
-
 
 ---
 
 > 💡 **想要贡献？** 查看我们的[贡献指南](#贡献)并选择任何你感兴趣的待办事项！
 
-
 ## 开发指南
 
 ### 项目结构
+
 ```
-LifeTrace_app/
-├── lifetrace_backend/          # 核心后端模块
-│   ├── __init__.py
-│   ├── __main__.py
+├── .github/                    # GitHub repository assets
+│   ├── assets/                 # Static assets (images for README)
+│   └── ...                     # Other GitHub repository files
+├── lifetrace/                  # 核心后端模块
 │   ├── server.py               # Web API 服务
-│   ├── models.py               # 数据模型
-│   ├── config.py               # 配置管理
-│   ├── storage.py              # 存储管理
-│   ├── simple_ocr.py           # OCR 处理
-│   ├── vector_service.py       # 向量服务
-│   ├── multimodal_*.py         # 多模态服务
-│   ├── processor.py            # 文件处理
-│   ├── recorder.py             # 屏幕录制
-│   ├── heartbeat.py            # 服务心跳
-│   ├── rag_service.py          # RAG 服务
-│   ├── retrieval_service.py    # 检索服务
-│   ├── sync_service.py         # 同步服务
-│   ├── utils.py                # 工具函数
-│   └── templates/              # HTML 模板
-├── config/                     # 配置文件
-│   ├── config.yaml
-│   └── default_config.yaml
-├── doc/                        # 文档
-├── front/                      # 前端应用
+│   ├── config/                 # 配置文件
+│   │   ├── config.yaml         # 主配置文件
+│   │   ├── default_config.yaml # 默认配置
+│   │   └── rapidocr_config.yaml# OCR 配置
+│   ├── routers/                # API 路由处理器
+│   │   ├── screenshot.py       # 截图端点
+│   │   ├── event.py            # 事件管理端点
+│   │   ├── chat.py             # 聊天接口端点
+│   │   ├── search.py           # 搜索端点
+│   │   ├── ocr.py              # OCR 服务端点
+│   │   ├── rag.py              # RAG 服务端点
+│   │   ├── plan.py             # 计划管理端点
+│   │   ├── behavior.py         # 用户行为端点
+│   │   ├── config.py           # 配置端点
+│   │   ├── health.py           # 健康检查端点
+│   │   ├── logs.py             # 日志管理端点
+│   │   ├── system.py           # 系统端点
+│   │   └── vector.py           # 向量服务端点
+│   ├── schemas/                # Pydantic 数据模型
+│   │   ├── screenshot.py       # 截图模型
+│   │   ├── event.py            # 事件模型
+│   │   ├── chat.py             # 聊天模型
+│   │   ├── search.py           # 搜索模型
+│   │   ├── plan.py             # 计划模型
+│   │   ├── config.py           # 配置模型
+│   │   ├── stats.py            # 统计模型
+│   │   ├── system.py           # 系统模型
+│   │   └── vector.py           # 向量模型
+│   ├── storage/                # 数据存储层
+│   │   ├── database.py         # 数据库操作
+│   │   └── models.py           # SQLAlchemy 模型
+│   ├── llm/                    # LLM 和 AI 服务
+│   │   ├── llm_client.py       # LLM 客户端封装
+│   │   ├── event_summary_service.py # 事件摘要
+│   │   ├── rag_service.py      # RAG 服务
+│   │   ├── retrieval_service.py# 检索服务
+│   │   ├── context_builder.py  # 上下文构建
+│   │   ├── vector_service.py   # 向量操作
+│   │   ├── vector_db.py        # 向量数据库
+│   │   ├── multimodal_vector_service.py # 多模态向量
+│   │   └── multimodal_embedding.py # 多模态嵌入
+│   ├── tool/                   # 核心工具
+│   │   ├── recorder.py         # 屏幕录制工具
+│   │   └── ocr.py              # OCR 处理工具
+│   ├── util/                   # 工具函数
+│   │   ├── config.py           # 配置工具
+│   │   ├── logging_config.py   # 日志配置
+│   │   ├── utils.py            # 通用工具
+│   │   ├── app_utils.py        # 应用工具
+│   │   ├── query_parser.py     # 查询解析
+│   │   └── token_usage_logger.py # Token 使用跟踪
+│   └── models/                 # OCR 模型文件
+│       ├── ch_PP-OCRv4_det_infer.onnx
+│       ├── ch_PP-OCRv4_rec_infer.onnx
+│       └── ch_ppocr_mobile_v2.0_cls_infer.onnx
+├── frontend/                   # 前端应用 (Next.js)
+│   ├── app/                    # Next.js 应用目录
+│   │   ├── page.tsx            # 主页
+│   │   ├── layout.tsx          # 根布局
+│   │   ├── events/             # 事件管理页面
+│   │   ├── chat/               # 聊天界面页面
+│   │   ├── analytics/          # 分析页面
+│   │   ├── app-usage/          # 应用使用页面
+│   │   ├── plan/               # 计划管理页面
+│   │   └── settings/           # 设置页面
 │   ├── components/             # React 组件
-│   ├── services/               # API 服务
+│   │   ├── common/             # 通用组件
+│   │   ├── layout/             # 布局组件
+│   │   ├── screenshot/         # 截图组件
+│   │   ├── search/             # 搜索组件
+│   │   └── ui/                 # UI 组件
+│   ├── lib/                    # 工具和服务
+│   │   ├── api.ts              # API 客户端
+│   │   ├── types.ts            # TypeScript 类型
+│   │   ├── utils.ts            # 工具函数
+│   │   ├── context/            # React 上下文
+│   │   └── store/              # 状态管理
 │   ├── public/                 # 静态资源
-│   └── package.json            # 前端依赖
-├── debug/                      # 调试和诊断工具
-│   ├── test_*.py               # 测试文件
-│   ├── check_*.py              # 状态检查工具
-│   ├── diagnostic_tool.py      # 系统诊断
-│   ├── memory_analyzer.py      # 内存分析
-│   └── *.py                    # 其他调试工具
-├── requirements/               # 依赖文件
-│   ├── requirements.txt        # 主要依赖
-│   ├── requirements_multimodal.txt
-│   ├── requirements_rapidocr.txt
-│   └── requirements_vector.txt
-├── assets/                     # 静态资源
-├── start_all_services.py       # 主服务启动器
-├── init_database.py            # 数据库初始化
-├── init_config.py              # 配置初始化
-└── setup.py                    # 项目设置
+│   ├── package.json            # 前端依赖
+│   ├── pnpm-lock.yaml          # pnpm 锁定文件
+│   ├── next.config.ts          # Next.js 配置
+│   └── tsconfig.json           # TypeScript 配置
+├── doc/                        # 文档
+│   ├── setup_guide.md          # 安装指南
+│   ├── api_configuration_guide.md # API 配置
+│   ├── uv_usage_guide.md       # uv 包管理器指南
+│   ├── event_mechanism.md      # 事件机制文档
+│   ├── memory_optimization_guide.md # 内存优化
+│   └── ...                     # 其他文档文件
+├── deploy/                     # 部署脚本
+│   ├── build_server.bat        # 服务器构建脚本
+│   ├── build_ocr.bat           # OCR 构建脚本
+│   └── build_recorder.bat      # 录制器构建脚本
+├── pyproject.toml              # Python 项目配置
+├── uv.lock                     # uv 锁定文件
+├── LICENSE                     # Apache 2.0 许可证
+├── README.md                   # 英文 README
+└── README_CN.md                # 中文 README（本文件）
 ```
-
-
 
 ## 贡献
 
@@ -179,32 +268,6 @@ LifeTrace 社区的存在离不开像您这样的众多友善志愿者。我们�
 3. **💾 提交您的更改** - `git commit -m 'Add some amazing feature'`
 4. **📤 推送到分支** - `git push origin feature/amazing-feature`
 5. **🔄 创建 Pull Request** - 提交您的更改以供审核
-
-**代码风格与质量要求：**
-
-为确保项目代码风格统一，请在开发前进行以下准备：
-
-1. **安装代码检查与格式化依赖**
-
-   ```bash
-   pip install -r requirements/requirements_lint.txt
-   ```
-
-2. **安装 pre-commit 钩子**
-
-   ```bash
-   pre-commit install
-   ```
-
-   这样每次提交代码前都会自动进行格式化与检查。
-
-3. **（可选）手动执行格式化与检查**
-
-   ```bash
-   cd lifetrace_backend/
-   make format
-   make lint
-   ```
 
 **您可以贡献的领域：**
 
@@ -235,17 +298,17 @@ LifeTrace 社区的存在离不开像您这样的众多友善志愿者。我们�
   </tr>
   <tr>
     <td align="center">
-      <img src="assets/wechat.jpg" alt="微信二维码" width="200"/>
+      <img src=".github/assets/wechat.jpg" alt="微信二维码" width="200"/>
       <br/>
       <em>扫码加入微信群</em>
     </td>
     <td align="center">
-      <img src="assets/feishu.png" alt="飞书二维码" width="200"/>
+      <img src=".github/assets/feishu.png" alt="飞书二维码" width="200"/>
       <br/>
       <em>扫码加入飞书群</em>
     </td>
     <td align="center">
-      <img src="assets/xhs.jpg" alt="小红书二维码" width="200"/>
+      <img src=".github/assets/xhs.jpg" alt="小红书二维码" width="200"/>
       <br/>
       <em>关注我们的小红书</em>
     </td>
@@ -253,12 +316,12 @@ LifeTrace 社区的存在离不开像您这样的众多友善志愿者。我们�
 </table>
 
 ## 文档
+
 我们使用 deepwiki 管理文档，请参考此[**网站**](https://deepwiki.com/tangyuanbo1/LifeTrace_app/6.2-deployment-and-setup)。
 
 ## Star 历史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=tangyuanbo1/LifeTrace_app&type=Timeline)](https://www.star-history.com/#tangyuanbo1/LifeTrace_app&Timeline)
-
 
 ## 许可证
 

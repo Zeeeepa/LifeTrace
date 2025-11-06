@@ -174,7 +174,7 @@ Select-Object ProcessName, @{Name="Memory(MB)";Expression={[math]::Round($_.WS/1
 
 访问多模态统计接口：
 ```bash
-curl http://localhost:8840/api/multimodal-stats
+curl http://localhost:8000/api/multimodal-stats
 ```
 
 **禁用状态响应**：

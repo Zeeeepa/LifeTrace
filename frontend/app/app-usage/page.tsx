@@ -1,0 +1,126 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card';
+import { FormField } from '@/components/common/Input';
+import Button from '@/components/common/Button';
+import Loading from '@/components/common/Loading';
+import { formatDuration } from '@/lib/utils';
+
+interface AppUsageData {
+  app_name: string;
+  total_time: number;
+  screenshot_count: number;
+  percentage: number;
+}
+
+export default function AppUsagePage() {
+  const [usageData, setUsageData] = useState<AppUsageData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const loadUsageData = async () => {
+    setLoading(true);
+    try {
+      const params: any = {};
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+
+      const response = await api.getAppUsage(params);
+      setUsageData(response.data);
+    } catch (error) {
+      console.error('加载应用使用数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    loadUsageData();
+  };
+
+  useEffect(() => {
+    // 设置默认日期（最近7天）
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(today.getDate() - 7);
+
+    setEndDate(today.toISOString().split('T')[0]);
+    setStartDate(weekAgo.toISOString().split('T')[0]);
+
+    loadUsageData();
+  }, []);
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold text-foreground">应用使用分析</h1>
+
+      {/* 搜索表单 */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSearch} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <FormField
+              label="开始日期"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <FormField
+              label="结束日期"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+            <div className="flex items-end">
+              <Button type="submit" className="w-full">
+                查询
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* 使用数据 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>应用使用统计</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Loading text="加载中..." />
+          ) : usageData.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground font-medium">
+              暂无数据
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {usageData.map((app, index) => (
+                <div key={index} className="rounded-lg border border-border p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="font-semibold text-foreground">{app.app_name}</div>
+                    <div className="text-sm font-semibold text-muted-foreground">
+                      {app.percentage?.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary"
+                      style={{ width: `${app.percentage || 0}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-sm font-medium text-muted-foreground">
+                    <span>使用时长: {formatDuration(app.total_time || 0)}</span>
+                    <span>截图数: {app.screenshot_count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
