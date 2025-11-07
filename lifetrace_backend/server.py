@@ -2607,6 +2607,13 @@ async def get_plan_image(filename: str):
     return FileResponse(file_path)
 
 
+# ======================================
+# Todo交互编辑器API
+# ======================================
+from lifetrace_backend.server_todo_api import router as todo_router
+app.include_router(todo_router, prefix="/api/todo", tags=["Todo交互编辑器"])
+
+
 def main():
     """主函数 - 命令行入口"""
     import argparse
