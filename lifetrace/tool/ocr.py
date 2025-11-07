@@ -9,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 
+import yaml
+
 from lifetrace.util.config import config
 from lifetrace.storage import db_manager
 from lifetrace.llm.vector_service import create_vector_service
@@ -38,9 +40,7 @@ def _get_application_path() -> str:
 def _get_rapidocr_config_path() -> str:
     """获取RapidOCR配置文件路径"""
     app_path = _get_application_path()
-    return os.path.join(
-        app_path, "config", "rapidocr_config.yaml"
-    )
+    return os.path.join(app_path, "config", "rapidocr_config.yaml")
 
 
 def _setup_rapidocr_config():
@@ -79,9 +79,7 @@ def _create_rapidocr_instance() -> RapidOCR:
 
     # 检查配置文件是否存在
     if not os.path.exists(config_path):
-        logger.warning(
-            f"配置文件不存在: {config_path}，使用默认配置"
-        )
+        logger.warning(f"配置文件不存在: {config_path}，使用默认配置")
         return RapidOCR(
             config_path=None,
             det_use_cuda=False,
@@ -91,9 +89,6 @@ def _create_rapidocr_instance() -> RapidOCR:
         )
 
     logger.info(f"使用RapidOCR配置文件: {config_path}")
-
-    # 读取配置文件以获取外部模型路径
-    import yaml
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -113,15 +108,9 @@ def _create_rapidocr_instance() -> RapidOCR:
         models_config = config_data["Models"]
         app_path = _get_application_path()
 
-        det_model_path = os.path.join(
-            app_path, models_config.get("det_model_path", "")
-        )
-        rec_model_path = os.path.join(
-            app_path, models_config.get("rec_model_path", "")
-        )
-        cls_model_path = os.path.join(
-            app_path, models_config.get("cls_model_path", "")
-        )
+        det_model_path = os.path.join(app_path, models_config.get("det_model_path", ""))
+        rec_model_path = os.path.join(app_path, models_config.get("rec_model_path", ""))
+        cls_model_path = os.path.join(app_path, models_config.get("cls_model_path", ""))
 
         # 验证外部模型文件是否存在
         if (
@@ -179,9 +168,7 @@ def _preprocess_image(image_path: str) -> np.ndarray:
         return np.array(img)
 
 
-def _extract_text_from_ocr_result(
-    result, confidence_threshold: float = None
-) -> str:
+def _extract_text_from_ocr_result(result, confidence_threshold: float = None) -> str:
     """从OCR结果中提取文本内容
 
     Args:
@@ -218,11 +205,7 @@ def _get_ocr_config() -> dict:
     languages = ocr_config.get("language", ["ch"])
 
     # 如果language是列表，取第一个；如果是字符串，直接使用
-    language = (
-        languages[0]
-        if isinstance(languages, list) and languages
-        else "ch"
-    )
+    language = languages[0] if isinstance(languages, list) and languages else "ch"
     if isinstance(languages, str):
         language = languages
 
@@ -370,21 +353,13 @@ def save_to_database(image_path: str, ocr_result: dict, vector_service=None):
                     )
 
                     if ocr_obj:
-                        success = vector_service.add_ocr_result(
-                            ocr_obj, screenshot_obj
-                        )
+                        success = vector_service.add_ocr_result(ocr_obj, screenshot_obj)
                         if success:
-                            logger.debug(
-                                f"OCR结果已添加到向量数据库: {ocr_result_id}"
-                            )
+                            logger.debug(f"OCR结果已添加到向量数据库: {ocr_result_id}")
                         else:
-                            logger.warning(
-                                f"向量数据库添加失败: {ocr_result_id}"
-                            )
+                            logger.warning(f"向量数据库添加失败: {ocr_result_id}")
                     # 同步事件文档（事件级）
-                    if screenshot_obj and getattr(
-                        screenshot_obj, "event_id", None
-                    ):
+                    if screenshot_obj and getattr(screenshot_obj, "event_id", None):
                         try:
                             vector_service.upsert_event_document(
                                 screenshot_obj.event_id
@@ -509,10 +484,7 @@ def process_screenshot_ocr(
             log.warning(f"截图文件不存在，跳过处理: {file_path}")
             return False
 
-        log.info(
-            f"开始处理截图 ID {screenshot_id}: "
-            f"{os.path.basename(file_path)}"
-        )
+        log.info(f"开始处理截图 ID {screenshot_id}: {os.path.basename(file_path)}")
 
         # 记录开始时间
         start_time = time.time()

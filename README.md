@@ -94,24 +94,6 @@ Once both services are running, open your browser and navigate to `http://localh
 
 For more details, see: [frontend/README.md](frontend/README.md)
 
-<!--
-#### Start Web Service Only
-```bash
-python -m lifetrace_backend.server --port 8000
-```
-
-#### Start Individual Services
-```bash
-# Start recorder
-python -m lifetrace_backend.recorder
-
-# Start processor
-python -m lifetrace_backend.processor
-
-# Start OCR service
-python -m lifetrace_backend.simple_ocr
-``` -->
-
 ## 📋 TODO & Roadmap
 
 ### 🚀 High Priority
