@@ -1,0 +1,153 @@
+import axios from 'axios';
+
+// API 基础地址
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 响应拦截器
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;
+export { API_BASE_URL };
+
+// API 接口函数
+export const api = {
+  // 统计信息
+  getStatistics: () => apiClient.get('/api/statistics'),
+
+  // 截图相关
+  getScreenshots: (params?: {
+    limit?: number;
+    offset?: number;
+    startDate?: string;
+    endDate?: string;
+    appName?: string;
+  }) => apiClient.get('/api/screenshots', { params }),
+
+  getScreenshot: (id: number) => apiClient.get(`/api/screenshots/${id}`),
+
+  getScreenshotImage: (id: number) => `${API_BASE_URL}/api/screenshots/${id}/image`,
+
+  // 搜索相关
+  search: (params: {
+    query?: string;
+    start_date?: string;
+    end_date?: string;
+    app_name?: string;
+  }) => apiClient.post('/api/search', params),
+
+  semanticSearch: (params: {
+    query: string;
+    top_k?: number;
+    use_rerank?: boolean;
+    retrieve_k?: number;
+    filters?: any;
+  }) => apiClient.post('/api/semantic-search', params),
+
+  multimodalSearch: (params: {
+    query: string;
+    top_k?: number;
+    text_weight?: number;
+    image_weight?: number;
+    filters?: any;
+  }) => apiClient.post('/api/multimodal-search', params),
+
+  eventSearch: (params: {
+    query?: string;
+    limit?: number;
+  }) => apiClient.post('/api/event-search', params),
+
+  eventSemanticSearch: (params: {
+    query: string;
+    top_k?: number;
+  }) => apiClient.post('/api/event-semantic-search', params),
+
+  // 事件相关
+  getEvents: (params?: {
+    limit?: number;
+    offset?: number;
+    start_date?: string;
+    end_date?: string;
+    app_name?: string;
+  }) => apiClient.get('/api/events', { params }),
+
+  getEventCount: (params?: {
+    start_date?: string;
+    end_date?: string;
+    app_name?: string;
+  }) => apiClient.get('/api/events/count', { params }),
+
+  getEvent: (id: number) => apiClient.get(`/api/events/${id}`),
+
+  // 向量数据库
+  getVectorStats: () => apiClient.get('/api/vector-stats'),
+
+  syncVectorDatabase: (forceReset = false) =>
+    apiClient.post(`/api/vector-sync${forceReset ? '?force_reset=true' : ''}`),
+
+  // 聊天相关
+  sendChatMessage: (params: {
+    message: string;
+    conversation_id?: string;
+    use_rag?: boolean;
+  }) => apiClient.post('/api/chat', params),
+
+  sendChatMessageWithContext: (params: {
+    message: string;
+    conversation_id?: string;
+    event_context?: Array<{ event_id: number; text: string }>;
+  }) => apiClient.post('/api/chat/stream-with-context', params, {
+    responseType: 'stream',
+  }),
+
+  getConversations: () => apiClient.get('/api/conversations'),
+
+  deleteConversation: (id: string) => apiClient.delete(`/api/conversations/${id}`),
+
+  // 应用使用分析
+  getAppUsage: (params?: {
+    start_date?: string;
+    end_date?: string;
+  }) => apiClient.get('/api/app-usage', { params }),
+
+  // 行为分析
+  getAnalytics: (params?: {
+    start_date?: string;
+    end_date?: string;
+  }) => apiClient.get('/api/analytics', { params }),
+
+  // 工作计划
+  savePlan: (plan: { title: string; todos: any[] }) =>
+    apiClient.post('/api/plan/save', plan),
+
+  loadPlan: (planId: string) =>
+    apiClient.get('/api/plan/load', { params: { plan_id: planId } }),
+
+  listPlans: () => apiClient.get('/api/plan/list'),
+
+  // 配置相关
+  getConfig: () => apiClient.get('/api/get-config'),
+
+  saveConfig: (config: any) => apiClient.post('/api/save-config', config),
+
+  testLlmConfig: (config: { llmKey: string; baseUrl: string; model?: string }) =>
+    apiClient.post('/api/test-llm-config', config),
+
+  // 健康检查
+  healthCheck: () => apiClient.get('/health'),
+
+  llmHealthCheck: () => apiClient.get('/health/llm'),
+};
