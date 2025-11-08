@@ -167,3 +167,18 @@ class DailyStats(Base):
 
     def __repr__(self):
         return f"<DailyStats(date={self.date}, searches={self.total_searches})>"
+
+
+class Project(Base):
+    """项目管理模型"""
+
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False)  # 项目名称
+    goal = Column(Text)  # 项目目标
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    updated_at = Column(DateTime, default=get_local_time, onupdate=get_local_time, nullable=False)
+
+    def __repr__(self):
+        return f"<Project(id={self.id}, name={self.name})>"

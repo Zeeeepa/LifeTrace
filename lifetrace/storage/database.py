@@ -22,6 +22,7 @@ from lifetrace.storage.models import (
     Event,
     OCRResult,
     ProcessingQueue,
+    Project,
     Screenshot,
     SearchIndex,
 )
@@ -1113,6 +1114,106 @@ class DatabaseManager:
                 "total_apps": 0,
                 "total_time": 0,
             }
+
+    # 项目管理
+    def create_project(self, name: str, goal: str = None) -> Optional[int]:
+        """创建新项目"""
+        try:
+            with self.get_session() as session:
+                project = Project(name=name, goal=goal)
+                session.add(project)
+                session.flush()
+                logging.info(f"创建项目: {project.id} - {name}")
+                return project.id
+        except SQLAlchemyError as e:
+            logging.error(f"创建项目失败: {e}")
+            return None
+
+    def get_project(self, project_id: int) -> Optional[Dict[str, Any]]:
+        """获取单个项目"""
+        try:
+            with self.get_session() as session:
+                project = session.query(Project).filter_by(id=project_id).first()
+                if project:
+                    return {
+                        "id": project.id,
+                        "name": project.name,
+                        "goal": project.goal,
+                        "created_at": project.created_at,
+                        "updated_at": project.updated_at,
+                    }
+                return None
+        except SQLAlchemyError as e:
+            logging.error(f"获取项目失败: {e}")
+            return None
+
+    def list_projects(
+        self, limit: int = 100, offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """列出所有项目"""
+        try:
+            with self.get_session() as session:
+                projects = (
+                    session.query(Project)
+                    .order_by(Project.created_at.desc())
+                    .offset(offset)
+                    .limit(limit)
+                    .all()
+                )
+                return [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "goal": p.goal,
+                        "created_at": p.created_at,
+                        "updated_at": p.updated_at,
+                    }
+                    for p in projects
+                ]
+        except SQLAlchemyError as e:
+            logging.error(f"列出项目失败: {e}")
+            return []
+
+    def update_project(
+        self, project_id: int, name: str = None, goal: str = None
+    ) -> bool:
+        """更新项目"""
+        try:
+            with self.get_session() as session:
+                project = session.query(Project).filter_by(id=project_id).first()
+                if not project:
+                    logging.warning(f"项目不存在: {project_id}")
+                    return False
+
+                if name is not None:
+                    project.name = name
+                if goal is not None:
+                    project.goal = goal
+
+                project.updated_at = datetime.now()
+                session.flush()
+                logging.info(f"更新项目: {project_id}")
+                return True
+        except SQLAlchemyError as e:
+            logging.error(f"更新项目失败: {e}")
+            return False
+
+    def delete_project(self, project_id: int) -> bool:
+        """删除项目"""
+        try:
+            with self.get_session() as session:
+                project = session.query(Project).filter_by(id=project_id).first()
+                if not project:
+                    logging.warning(f"项目不存在: {project_id}")
+                    return False
+
+                session.delete(project)
+                session.flush()
+                logging.info(f"删除项目: {project_id}")
+                return True
+        except SQLAlchemyError as e:
+            logging.error(f"删除项目失败: {e}")
+            return False
 
 
 # 全局数据库管理器实例

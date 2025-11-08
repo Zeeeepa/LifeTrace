@@ -25,6 +25,7 @@ from lifetrace.routers import (
     logs,
     ocr,
     plan,
+    project,
     rag,
     screenshot,
     search,
@@ -238,6 +239,7 @@ app.include_router(system.router)
 app.include_router(logs.router)
 app.include_router(behavior.router)
 app.include_router(plan.router)
+app.include_router(project.router)
 app.include_router(rag.router)
 
 
