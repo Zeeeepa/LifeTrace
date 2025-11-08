@@ -5346,6 +5346,72 @@
             }
         }
 
+        function connectTodoWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/todo/watch`;
+            
+            const ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function() {
+                console.log('Todo WebSocket 连接成功');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log('收到Todo事件:', data);
+                
+                if (data.event === 'file_created') {
+                    // 新文件创建，刷新 todo 列表或显示新 todo
+                    handleNewTodoCreated(data.todo_id, data.file_path);
+                }
+            };
+            
+            ws.onerror = function(error) {
+                console.error('Todo WebSocket 错误:', error);
+            };
+            
+            ws.onclose = function() {
+                console.log('Todo WebSocket 连接关闭，5秒后重连...');
+                setTimeout(connectTodoWebSocket, 5000);
+            };
+            
+            return ws;
+        }
+        
+        // 处理新 todo 创建
+        function handleNewTodoCreated(todoId, filePath) {
+            console.log('处理新创建的Todo:', todoId, filePath);
+
+            // 通过 API 获取 todo 详情
+            fetch(`/api/todo/get/${todoId}`)
+                .then(response => response.json())
+                .then(todo => {
+                    // 使用现有的 TodoBlock 系统显示
+                    const todoData = {
+                        id: todoId,
+                        title: todo.title || '新待办',
+                        content: todo.description || '',
+                        checked: todo.status === 'completed'
+                    };
+                    
+                    // 添加到 planTodosContainer
+                    addTodoBlock(todoData);
+                    
+                    // 显示通知
+                    showNotification(`已添加待办: ${todo.title}`, 'success');
+                })
+                .catch(error => {
+                    console.error('获取Todo详情失败:', error);
+                    showNotification('获取待办详情失败', 'error');
+                });
+        }
+
+        // 页面加载时连接 WebSocket
+        let todoWebSocket = null;
+        document.addEventListener('DOMContentLoaded', function() {
+            todoWebSocket = connectTodoWebSocket();
+        });
+
         // 初始化Quill主编辑器
         function initPlanEditor() {
             if (planEditor) return;
@@ -5439,6 +5505,13 @@
             const container = document.getElementById('planTodosContainer');
             const element = todo.render();
             container.appendChild(element);
+
+            // 如果是后端创建的 todo，添加特殊标记
+            if (data.fromServer) {
+                element.classList.add('server-todo');
+                element.dataset.todoId = data.id;
+                element.dataset.filePath = data.filePath;
+            }
             
             // 刷新图标
             if (typeof lucide !== 'undefined') {

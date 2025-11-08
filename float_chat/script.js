@@ -367,7 +367,7 @@ function addMessage(role, content) {
     
     // 不再自动滚动到底部，保持用户消息居中显示
 }
-}
+
 
 // 向消息追加内容（用于流式响应）
 function appendToMessage(messageElement, content) {
