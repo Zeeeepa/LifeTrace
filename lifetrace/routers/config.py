@@ -305,6 +305,23 @@ async def save_config(settings: dict[str, Any]):
             "autoExcludeSelf": "jobs.recorder.auto_exclude_self",
         }
 
+        def is_port_in_use(port: int) -> bool:
+            import socket
+
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.5)
+                result = sock.connect_ex(("127.0.0.1", port))
+                return result == 0
+
+        requested_port = settings.get("serverPort")
+        if requested_port is not None:
+            current_port = deps.config.get("server.port", 8000)
+            if requested_port != current_port and is_port_in_use(int(requested_port)):
+                raise HTTPException(
+                    status_code=500,
+                    detail="保存配置失败，端口已被占用",
+                )
+
         # 更新配置
         for frontend_key, config_key in config_mapping.items():
             if frontend_key in settings:
