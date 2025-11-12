@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './Card';
 import Input from './Input';
 import Button from './Button';
@@ -22,6 +22,8 @@ interface ConfigSettings {
   recordingEnabled: boolean;
   recordInterval: number;
   maxDays: number;
+  localHistory: boolean;
+  historyLimit: number;
   blacklistApps: string[];
 }
 
@@ -35,6 +37,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     recordingEnabled: true,
     recordInterval: 5,
     maxDays: 30,
+    localHistory: true,
+    historyLimit: 3,
     blacklistApps: [],
   });
   const [loading, setLoading] = useState(false);
@@ -81,6 +85,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           recordingEnabled: config.recordingEnabled ?? config.record?.enabled ?? true,
           recordInterval: config.recordInterval || 5,
           maxDays: config.maxDays || 30,
+          localHistory: config.localHistory ?? true,
+          historyLimit: config.historyLimit ?? 3,
           blacklistApps: blacklistAppsArray,
         };
 
@@ -165,6 +171,8 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           recordingEnabled: settings.recordingEnabled,
           recordInterval: settings.recordInterval,
           maxDays: settings.maxDays,
+          localHistory: settings.localHistory,
+          historyLimit: settings.historyLimit,
           blacklistApps: settings.blacklistApps,
         });
       } else {
@@ -253,6 +261,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   // 处理定时任务显示开关（仅更新状态，不立即保存）
   const handleSchedulerToggle = (checked: boolean) => {
     setShowScheduler(checked);
+  };
+
+  const handleClearData = () => {
+    toast.warning('清除所有数据功能暂未开放', {
+      description: '请在后端提供相应接口后再尝试该操作',
+    });
   };
 
   // 处理取消操作
@@ -481,6 +495,76 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </div>
                       </div>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 数据与隐私 */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">数据与隐私</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    管理您的数据与隐私相关设置
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">启用对话上下文</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        在本地保留最近 K 轮问答，发送消息时附带上下文
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={settings.localHistory}
+                        onChange={(e) => handleChange('localHistory', e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">上下文轮数 (K)</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          发送时附带最近 K 条问答，帮助改进多轮对话体验
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{settings.historyLimit} 轮</span>
+                    </div>
+                    <div className="mt-3">
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        step={1}
+                        value={settings.historyLimit}
+                        disabled={!settings.localHistory}
+                        onChange={(e) => handleChange('historyLimit', parseInt(e.target.value))}
+                        className="w-full accent-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                      <p className="text-sm font-semibold">危险操作</p>
+                    </div>
+                    <p className="text-xs text-destructive/80 mt-1">
+                      清除 data/ 目录下的所有本地内容，操作不可撤销
+                    </p>
+                    <Button
+                      variant="danger"
+                      className="mt-3 w-full"
+                      onClick={handleClearData}
+                    >
+                      清除所有数据
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
