@@ -19,7 +19,7 @@ interface ConfigSettings {
   model: string;
   temperature: number;
   maxTokens: number;
-  recordEnabled: boolean;
+  recordingEnabled: boolean;
   recordInterval: number;
   maxDays: number;
   blacklistApps: string[];
@@ -32,7 +32,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     model: 'qwen3-max',
     temperature: 0.7,
     maxTokens: 2048,
-    recordEnabled: true,
+    recordingEnabled: true,
     recordInterval: 5,
     maxDays: 30,
     blacklistApps: [],
@@ -78,7 +78,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           model: config.model || 'qwen3-max',
           temperature: config.temperature || 0.7,
           maxTokens: config.maxTokens || 2048,
-          recordEnabled: config.recordEnabled ?? config.record?.enabled ?? true,
+          recordingEnabled: config.recordingEnabled ?? config.record?.enabled ?? true,
           recordInterval: config.recordInterval || 5,
           maxDays: config.maxDays || 30,
           blacklistApps: blacklistAppsArray,
@@ -162,7 +162,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         await api.saveConfig({
           temperature: settings.temperature,
           maxTokens: settings.maxTokens,
-          recordEnabled: settings.recordEnabled,
+          recordingEnabled: settings.recordingEnabled,
           recordInterval: settings.recordInterval,
           maxDays: settings.maxDays,
           blacklistApps: settings.blacklistApps,
@@ -412,14 +412,14 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <input
                           type="checkbox"
                           className="sr-only peer"
-                          checked={settings.recordEnabled}
-                          onChange={(e) => handleChange('recordEnabled', e.target.checked)}
+                          checked={settings.recordingEnabled}
+                          onChange={(e) => handleChange('recordingEnabled', e.target.checked)}
                         />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                       </label>
                     </div>
 
-                    {settings.recordEnabled && (
+                    {settings.recordingEnabled && (
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
