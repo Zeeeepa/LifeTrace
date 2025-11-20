@@ -632,12 +632,16 @@ export default function EventsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 只在组件挂载时执行一次
 
+  const chatWidth = isChatCollapsed ? '64px' : '33.3333%';
+  const timelineWidth = isChatCollapsed ? 'calc(100% - 64px)' : '66.6667%';
+
   return (
     <div className="flex h-full overflow-hidden relative">
       {/* 左侧事件管理区域 - 占2/3或更宽 */}
-      <div className={`flex flex-col overflow-hidden p-4 border-r transition-all duration-300 ${
-        isChatCollapsed ? 'flex-1' : 'w-2/3'
-      }`}>
+      <div
+        className="flex flex-col overflow-hidden p-4 border-r transition-[width] duration-300 ease-in-out min-w-0"
+        style={{ width: timelineWidth }}
+      >
         {/* 选中事件提示 */}
         {selectedEvents.size > 0 && (
           <div className={`mb-4 flex items-center justify-between rounded-lg px-4 py-3 border ${
@@ -956,9 +960,10 @@ export default function EventsPage() {
       </div>
 
       {/* 右侧聊天区域 - 占1/3或窄列 */}
-      <div className={`bg-card flex flex-col flex-shrink-0 h-full overflow-hidden transition-all duration-300 ${
-        isChatCollapsed ? 'w-16' : 'w-1/3'
-      }`}>
+      <div
+        className="bg-card flex flex-col flex-shrink-0 h-full overflow-hidden transition-[width] duration-300 ease-in-out"
+        style={{ width: chatWidth }}
+      >
         {/* 折叠状态：显示展开按钮 */}
         {isChatCollapsed && (
           <div className="flex flex-col items-center h-full">
