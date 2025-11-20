@@ -1129,50 +1129,6 @@ export default function EventsPage() {
                         <p className="text-xs text-muted-foreground mt-0.5">查看今天的活动时间线</p>
                       </div>
                     </button>
-
-                    {/* 应用分析 */}
-                    <button
-                      onClick={() => handleQuickAction('analytics')}
-                      className={`flex items-center gap-3 p-4 rounded-lg border transition-colors text-left group ${
-                        activeQuickAction === 'analytics'
-                          ? 'border-primary bg-primary/10 hover:bg-primary/15'
-                          : 'border-border bg-card hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                        activeQuickAction === 'analytics'
-                          ? 'bg-primary/20'
-                          : 'bg-primary/10 group-hover:bg-primary/20'
-                      }`}>
-                        <TrendingUp className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">应用分析</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">分析应用使用情况和趋势</p>
-                      </div>
-                    </button>
-
-                    {/* 内容搜索 */}
-                    <button
-                      onClick={() => handleQuickAction('search')}
-                      className={`flex items-center gap-3 p-4 rounded-lg border transition-colors text-left group ${
-                        activeQuickAction === 'search'
-                          ? 'border-primary bg-primary/10 hover:bg-primary/15'
-                          : 'border-border bg-card hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                        activeQuickAction === 'search'
-                          ? 'bg-primary/20'
-                          : 'bg-primary/10 group-hover:bg-primary/20'
-                      }`}>
-                        <Search className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground">内容搜索</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">搜索包含特定内容的截图</p>
-                      </div>
-                    </button>
                   </div>
                 </div>
               </div>
