@@ -322,6 +322,95 @@ export default function EventsPage() {
     }
   }, []);
 
+  // 加载所有事件（循环调用直到加载完所有）
+  const loadAllEvents = useCallback(async () => {
+    setLoading(true);
+    setEvents([]);
+    setOffset(0);
+
+    try {
+      let allEvents: Event[] = [];
+      let currentOffset = 0;
+      const batchSize = 200; // 后端最大limit
+      let totalCount = 0;
+      let hasMoreData = true;
+
+      // 如果有关键词，使用事件搜索接口
+      if (keyword.trim()) {
+        const searchParams: any = {
+          query: keyword.trim(),
+          limit: 500, // 搜索接口，尽量返回更多结果（搜索接口不支持分页）
+        };
+
+        // 添加日期过滤条件
+        if (startDate) searchParams.start_date = startDate + 'T00:00:00';
+        if (endDate) searchParams.end_date = endDate + 'T23:59:59';
+        if (appName) searchParams.app_name = appName;
+
+        const response = await api.eventSearch(searchParams);
+        const searchData = response.data || response;
+        allEvents = Array.isArray(searchData) ? searchData : [];
+        totalCount = allEvents.length;
+        hasMoreData = false; // 搜索接口不支持分页，只能返回limit数量的结果
+      } else {
+        // 没有关键词，使用普通的事件列表接口，循环加载
+        const baseParams: any = {};
+        if (startDate) baseParams.start_date = startDate + 'T00:00:00';
+        if (endDate) baseParams.end_date = endDate + 'T23:59:59';
+        if (appName) baseParams.app_name = appName;
+
+        // 先获取总数
+        const countResponse = await api.getEventCount(baseParams);
+        totalCount = countResponse.data?.count || 0;
+
+        // 循环加载所有事件
+        while (hasMoreData && allEvents.length < totalCount) {
+          const params = {
+            ...baseParams,
+            limit: batchSize,
+            offset: currentOffset,
+          };
+
+          const response = await api.getEvents(params);
+          const responseData = response.data || response;
+          const batchEvents = responseData.events || responseData || [];
+
+          if (batchEvents.length === 0) {
+            hasMoreData = false;
+            break;
+          }
+
+          // 去重合并
+          const existingIds = new Set(allEvents.map(e => e.id));
+          const newEvents = batchEvents.filter((e: Event) => !existingIds.has(e.id));
+          allEvents = [...allEvents, ...newEvents];
+
+          currentOffset += batchEvents.length;
+
+          // 如果返回的数量小于请求的数量，说明已经加载完了
+          if (batchEvents.length < batchSize) {
+            hasMoreData = false;
+          }
+        }
+      }
+
+      setEvents(allEvents);
+      setTotalCount(totalCount);
+      setOffset(allEvents.length);
+      setHasMore(false); // 已加载全部
+
+      // 为所有事件加载详情
+      allEvents.forEach((event: Event) => {
+        loadEventDetail(event.id);
+      });
+    } catch (error) {
+      console.error('加载所有事件失败:', error);
+      toast.error('加载所有事件失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [startDate, endDate, appName, keyword, loadEventDetail]);
+
   // 加载事件列表（现在包含总数）
   const loadEvents = useCallback(async (reset = false) => {
     if (reset) {
@@ -459,10 +548,10 @@ export default function EventsPage() {
     }));
   };
 
-  // 搜索事件
+  // 搜索事件 - 自动加载所有找到的事件
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    loadEvents(true);
+    loadAllEvents();
   };
 
   // 切换事件选中状态（最多10个）
@@ -713,8 +802,21 @@ export default function EventsPage() {
           <div className="flex items-center justify-between gap-4">
             <CardTitle className="text-lg">事件时间轴</CardTitle>
             {!loading && (
-              <div className="text-sm text-muted-foreground">
-                共找到 {totalCount} 个事件{events.length < totalCount && `（已加载 ${events.length} 个）`}
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-muted-foreground">
+                  共找到 {totalCount} 个事件{events.length < totalCount && `（已加载 ${events.length} 个）`}
+                </div>
+                {hasMore && events.length < totalCount && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadAllEvents}
+                    disabled={loading || loadingMore}
+                    className="h-8 text-xs"
+                  >
+                    加载全部
+                  </Button>
+                )}
               </div>
             )}
           </div>
