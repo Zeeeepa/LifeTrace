@@ -1,4 +1,3 @@
-
 ![LifeTrace Logo](.github/assets/lifetrace_logo.png)
 
 ![GitHub stars](https://img.shields.io/github/stars/FreeU-group/LifeTrace?style=social) ![GitHub forks](https://img.shields.io/github/forks/FreeU-group/LifeTrace?style=social) ![GitHub issues](https://img.shields.io/github/issues/FreeU-group/LifeTrace) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.13+-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
@@ -355,7 +354,7 @@ LifeTrace 社区的存在离不开像您这样的众多友善志愿者。我们�
   </tr>
   <tr>
     <td align="center">
-      <img src=".github/assets/wechat.jpg" alt="微信二维码" width="200"/>
+      <img src=".github/assets/wechat.png" alt="微信二维码" width="200"/>
       <br/>
       <em>扫码加入微信群</em>
     </td>

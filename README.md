@@ -69,20 +69,6 @@ source .venv/bin/activate
 
 > **Note**: On first run, the system will automatically create `config.yaml` from `default_config.yaml` if it doesn't exist. You can customize your settings by editing `lifetrace/config/config.yaml`.
 
-### Database Migration
-
-**Apply database migrations (first time skip this step):**
-
-```bash
-# Navigate to lifetrace directory
-cd lifetrace
-
-# Apply all migrations to the latest version
-alembic upgrade head
-```
-
-### Start the Backend Service
-
 **Start the server:**
 
 ```bash
@@ -356,7 +342,7 @@ Connect with us and other LifeTrace users! Scan the QR codes below to join our c
   </tr>
   <tr>
     <td align="center">
-      <img src=".github/assets/wechat.jpg" alt="WeChat QR Code" width="200"/>
+      <img src=".github/assets/wechat.png" alt="WeChat QR Code" width="200"/>
       <br/>
       <em>Scan to join WeChat group</em>
     </td>
