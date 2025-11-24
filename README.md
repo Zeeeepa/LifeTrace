@@ -69,7 +69,6 @@ source .venv/bin/activate
 
 > **Note**: On first run, the system will automatically create `config.yaml` from `default_config.yaml` if it doesn't exist. You can customize your settings by editing `lifetrace/config/config.yaml`.
 
-<<<<<<< HEAD
 ### Database Migration
 
 **Apply database migrations (first time skip this step):**
@@ -84,8 +83,6 @@ alembic upgrade head
 
 ### Start the Backend Service
 
-=======
->>>>>>> e605d4d (feat(doc): add contributing, frontend and backend guidelines.)
 **Start the server:**
 
 ```bash
