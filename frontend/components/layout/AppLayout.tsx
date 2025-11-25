@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Calendar, FolderKanban, Clock, PanelLeftClose, PanelLeft, Settings, DollarSign, BarChart3 } from 'lucide-react';
+import { Calendar, FolderKanban, Clock, PanelLeftClose, PanelLeft, Settings, DollarSign, BarChart3, FileEdit } from 'lucide-react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { SelectedEventsProvider } from '@/lib/context/SelectedEventsContext';
@@ -19,7 +19,7 @@ const EventsPage = dynamic(() => import('@/app/page'), { ssr: false });
 const ProjectManagementPage = dynamic(() => import('@/app/project-management/page'), { ssr: false });
 const TimeAllocationPage = dynamic(() => import('@/app/time-allocation/page'), { ssr: false });
 
-type MenuType = 'events' | 'project-management' | 'scheduler' | 'time-allocation' | 'cost-tracking';
+type MenuType = 'events' | 'project-management' | 'scheduler' | 'time-allocation' | 'workspace' | 'cost-tracking';
 
 // 定义基础菜单项（不含翻译）
 const baseMenuItems: (Omit<SidebarNavItem, 'label'> & { path: string; labelKey: string })[] = [
@@ -27,6 +27,7 @@ const baseMenuItems: (Omit<SidebarNavItem, 'label'> & { path: string; labelKey: 
   { id: 'events', labelKey: 'events', icon: Calendar, path: '/' },
   { id: 'time-allocation', labelKey: 'timeAllocation', icon: BarChart3, path: '/time-allocation' },
   { id: 'scheduler', labelKey: 'scheduler', icon: Clock, path: '/scheduler' },
+  { id: 'workspace', labelKey: 'workspace', icon: FileEdit, path: '/workspace' },
   { id: 'cost-tracking', labelKey: 'costTracking', icon: DollarSign, path: '/cost-tracking' },
 ];
 
@@ -198,14 +199,14 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
       <div className="flex w-full h-full">
         {/* 左侧栏 - 侧边栏菜单 */}
       <Sidebar
-        className={`flex-shrink-0 h-full transition-all duration-300 ${
+        className={`shrink-0 h-full transition-all duration-300 ${
           isSidebarCollapsed ? 'w-0 border-r-0 overflow-hidden' : 'w-64'
         }`}
       >
         {/* Logo 区域 */}
         <SidebarHeader className="h-[68px] flex items-center justify-center">
           <div className="flex items-center gap-3 w-full">
-            <div className="relative h-8 w-8 flex-shrink-0">
+            <div className="relative h-8 w-8 shrink-0">
               <Image
                 src="/logo.png"
                 alt="LifeTrace Logo"

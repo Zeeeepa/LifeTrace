@@ -58,6 +58,7 @@ export const zh = {
     events: '事件管理',
     timeAllocation: '时间分配',
     scheduler: '定时任务',
+    workspace: '工作台',
     costTracking: '费用统计',
   },
   settings: {
@@ -202,6 +203,35 @@ export const zh = {
     editButton: '编辑',
     deleteButton: '删除',
     dateFormat: 'YYYY年MM月DD日 HH:mm',
+  },
+  workspace: {
+    title: '工作台（预览）',
+    subtitle: '在同一空间中编辑文件、与机器人对话并规划自动化修改。',
+    notice: '当前原型仅在内存中保存草稿，接入后台 API 后再启用真实文件写入。',
+    filePanel: {
+      title: '文件画布',
+      description: '粘贴或编写希望机器人协助修改的文件内容。',
+      pathLabel: '目标文件',
+      placeholder: '在此输入或粘贴文件内容...'
+    },
+    chatPanel: {
+      title: 'Bot 对话',
+      description: '在执行自动化之前，先描述需求或提出问题。',
+      inputPlaceholder: '告诉机器人你想怎么改...',
+      send: '发送消息',
+      thinking: '正在思考：',
+      empty: '暂无聊天记录，先描述一个需求吧。'
+    },
+    actionsPanel: {
+      title: 'Bot 动作',
+      description: '未来用于展示机器人计划和审批流程。',
+      apply: '应用建议',
+      empty: '暂无机器人建议，可先在对话中提需求。'
+    },
+    controls: {
+      load: '加载文件快照',
+      save: '本地保存草稿'
+    }
   },
   task: {
     title: '任务',

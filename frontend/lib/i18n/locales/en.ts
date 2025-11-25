@@ -60,6 +60,7 @@ export const en: Translation = {
     events: 'Events',
     timeAllocation: 'Time Allocation',
     scheduler: 'Scheduler',
+    workspace: 'Workspace',
     costTracking: 'Cost Tracking',
   },
   settings: {
@@ -509,5 +510,34 @@ export const en: Translation = {
     contextAssociateFailed: 'Failed to associate context',
     contextUnassociated: 'Context unassociated',
     contextUnassociateFailed: 'Failed to unassociate context',
+  },
+  workspace: {
+    title: 'Workspace (Preview)',
+    subtitle: 'Edit files, chat with the bot, and prepare automated changes in one place.',
+    notice: 'This prototype keeps every change in memory only. Wire it to backend APIs before enabling real edits.',
+    filePanel: {
+      title: 'File Canvas',
+      description: 'Paste or draft the file you would like the bot to edit.',
+      pathLabel: 'Target file',
+      placeholder: 'Type or paste file contents here...'
+    },
+    chatPanel: {
+      title: 'Bot Chat',
+      description: 'Outline tasks or ask questions before running automated edits.',
+      inputPlaceholder: 'Describe what you want to change...',
+      send: 'Send Message',
+      thinking: 'Thinking through your request:',
+      empty: 'No messages yet. Share a request to start collaborating.'
+    },
+    actionsPanel: {
+      title: 'Bot Actions',
+      description: 'Future space for managing pending bot plans and approvals.',
+      apply: 'Apply Suggestion',
+      empty: 'No bot suggestions yet. Use the chat to request one.'
+    },
+    controls: {
+      load: 'Load File Snapshot',
+      save: 'Save Draft Locally'
+    }
   },
 };
