@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from lifetrace.jobs.scheduler import get_scheduler_manager
+from lifetrace.jobs.task_context_mapper import get_mapper_instance
 from lifetrace.util.config import config
 from lifetrace.util.logging_config import get_logger
 
@@ -116,6 +117,9 @@ async def pause_job(job_id: str):
         if success:
             # 同步更新配置文件中的 enabled 状态
             _sync_job_enabled_to_config(job_id, False)
+            if job_id == "task_context_mapper_job":
+                mapper = get_mapper_instance()
+                mapper.enabled = False
             return JobOperationResponse(success=True, message=f"任务 {job_id} 已暂停")
         else:
             raise HTTPException(status_code=400, detail="暂停任务失败")
@@ -136,6 +140,9 @@ async def resume_job(job_id: str):
         if success:
             # 同步更新配置文件中的 enabled 状态
             _sync_job_enabled_to_config(job_id, True)
+            if job_id == "task_context_mapper_job":
+                mapper = get_mapper_instance()
+                mapper.enabled = True
             return JobOperationResponse(success=True, message=f"任务 {job_id} 已恢复")
         else:
             raise HTTPException(status_code=400, detail="恢复任务失败")
@@ -147,7 +154,7 @@ async def resume_job(job_id: str):
 
 
 @router.put("/jobs/{job_id}/interval", response_model=JobOperationResponse)
-async def update_job_interval(job_id: str, request: JobIntervalUpdateRequest):
+async def update_job_interval(job_id: str, request: JobIntervalUpdateRequest):  # noqa: C901, PLR0912
     """更新任务执行间隔"""
     try:
         scheduler_manager = get_scheduler_manager()
@@ -164,6 +171,23 @@ async def update_job_interval(job_id: str, request: JobIntervalUpdateRequest):
         )
 
         if success:
+            # 同步更新配置文件中的间隔
+            _sync_job_enabled_to_config(job_id, request.seconds, request.minutes, request.hours)
+
+            # 同步任务上下文映射实例的检查间隔，防止实例继续使用旧值
+            if job_id == "task_context_mapper_job":
+                mapper = get_mapper_instance()
+                total_seconds = 0
+                if request.seconds:
+                    total_seconds += request.seconds
+                if request.minutes:
+                    total_seconds += request.minutes * 60
+                if request.hours:
+                    total_seconds += request.hours * 3600
+                # 如果全部为 None，保持原值；否则更新
+                if total_seconds > 0:
+                    mapper.check_interval = total_seconds
+
             interval_parts = []
             if request.hours:
                 interval_parts.append(f"{request.hours}小时")
@@ -234,6 +258,24 @@ async def pause_all_jobs():
         scheduler_manager = get_scheduler_manager()
         paused_count = scheduler_manager.pause_all_jobs()
 
+        # 获取所有任务列表
+        jobs = scheduler_manager.get_all_jobs()
+        paused_jobs = []
+
+        # 逐个暂停任务并同步配置
+        for job in jobs:
+            if job.next_run_time is not None:  # 只暂停未暂停的任务
+                try:
+                    scheduler_manager.pause_job(job.id)
+                    # 同步更新配置文件
+                    _sync_job_enabled_to_config(job.id, False)
+                    if job.id == "task_context_mapper_job":
+                        mapper = get_mapper_instance()
+                        mapper.enabled = False
+                    paused_jobs.append(job.id)
+                except Exception as e:
+                    logger.error(f"暂停任务 {job.id} 失败: {e}")
+
         return JobOperationResponse(
             success=True,
             message=f"已暂停 {paused_count} 个任务",
@@ -249,6 +291,24 @@ async def resume_all_jobs():
     try:
         scheduler_manager = get_scheduler_manager()
         resumed_count = scheduler_manager.resume_all_jobs()
+
+        # 获取所有任务列表
+        jobs = scheduler_manager.get_all_jobs()
+        resumed_jobs = []
+
+        # 逐个恢复任务并同步配置
+        for job in jobs:
+            if job.next_run_time is None:  # 只恢复已暂停的任务
+                try:
+                    scheduler_manager.resume_job(job.id)
+                    # 同步更新配置文件
+                    _sync_job_enabled_to_config(job.id, True)
+                    if job.id == "task_context_mapper_job":
+                        mapper = get_mapper_instance()
+                        mapper.enabled = True
+                    resumed_jobs.append(job.id)
+                except Exception as e:
+                    logger.error(f"恢复任务 {job.id} 失败: {e}")
 
         return JobOperationResponse(
             success=True,

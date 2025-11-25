@@ -264,11 +264,10 @@ class JobManager:
                 else:
                     # 任务不存在，需要创建
                     self._start_recorder_job()
-            else:
-                # 暂停任务（不移除）
-                if job:
-                    self.scheduler_manager.pause_job("recorder_job")
-                    logger.info("录制器服务已暂停")
+            # 暂停任务（不移除）
+            elif job:
+                self.scheduler_manager.pause_job("recorder_job")
+                logger.info("录制器服务已暂停")
 
         # 检查间隔配置变更（无论是否启用都允许修改）
         elif old_recorder.get("interval") != new_recorder.get("interval"):
@@ -304,11 +303,10 @@ class JobManager:
                 else:
                     # 任务不存在，需要创建
                     self._start_ocr_job()
-            else:
-                # 暂停任务（不移除）
-                if job:
-                    self.scheduler_manager.pause_job("ocr_job")
-                    logger.info("OCR服务已暂停")
+            # 暂停任务（不移除）
+            elif job:
+                self.scheduler_manager.pause_job("ocr_job")
+                logger.info("OCR服务已暂停")
 
         # 检查间隔配置变更（无论是否启用都允许修改）
         elif old_ocr.get("interval") != new_ocr.get("interval"):
@@ -332,9 +330,13 @@ class JobManager:
         # 检查是否启用状态变更
         old_enabled = old_mapper.get("enabled", False)
         new_enabled = new_mapper.get("enabled", False)
+        logger.info(f"new: {new_enabled}, old: {old_enabled}")
 
         if old_enabled != new_enabled:
             logger.info(f"任务上下文映射服务启用状态变更: {old_enabled} -> {new_enabled}")
+            # 同步全局实例的启用状态，避免启动时的旧值一直生效
+            mapper_instance = get_mapper_instance()
+            mapper_instance.enabled = new_enabled
             job = self.scheduler_manager.get_job("task_context_mapper_job")
             if new_enabled:
                 # 恢复任务
@@ -344,11 +346,10 @@ class JobManager:
                 else:
                     # 任务不存在，需要创建
                     self._start_task_context_mapper()
-            else:
-                # 暂停任务（不移除）
-                if job:
-                    self.scheduler_manager.pause_job("task_context_mapper_job")
-                    logger.info("任务上下文映射服务已暂停")
+            # 暂停任务（不移除）
+            elif job:
+                self.scheduler_manager.pause_job("task_context_mapper_job")
+                logger.info("任务上下文映射服务已暂停")
 
         # 检查间隔配置变更（无论是否启用都允许修改）
         elif old_mapper.get("interval") != new_mapper.get("interval"):
@@ -358,6 +359,9 @@ class JobManager:
                 self.scheduler_manager.modify_job_interval(
                     "task_context_mapper_job", seconds=new_interval
                 )
+            # 同步实例的检查间隔，防止实例仍然使用旧值
+            mapper_instance = get_mapper_instance()
+            mapper_instance.check_interval = new_interval
 
         # 检查其他配置参数（如阈值、批次大小等）
         if new_enabled:
@@ -402,11 +406,10 @@ class JobManager:
                 else:
                     # 任务不存在，需要创建
                     self._start_task_summary_service()
-            else:
-                # 暂停任务（不移除）
-                if job:
-                    self.scheduler_manager.pause_job("task_summary_job")
-                    logger.info("任务摘要服务已暂停")
+            # 暂停任务（不移除）
+            elif job:
+                self.scheduler_manager.pause_job("task_summary_job")
+                logger.info("任务摘要服务已暂停")
 
         # 检查间隔配置变更（无论是否启用都允许修改）
         elif old_summary.get("interval") != new_summary.get("interval"):
@@ -423,7 +426,7 @@ class JobManager:
                 logger.info(f"更新任务摘要最小上下文数: {min_contexts}")
                 summary_instance.min_new_contexts = min_contexts
 
-    def _handle_clean_data_config_change(self, old_jobs: dict, new_jobs: dict):
+    def _handle_clean_data_config_change(self, old_jobs: dict, new_jobs: dict):  # noqa: C901
         """处理数据清理配置变更
 
         Args:
@@ -448,11 +451,10 @@ class JobManager:
                 else:
                     # 任务不存在，需要创建
                     self._start_clean_data_job()
-            else:
-                # 暂停任务（不移除）
-                if job:
-                    self.scheduler_manager.pause_job("clean_data_job")
-                    logger.info("数据清理服务已暂停")
+            # 暂停任务（不移除）
+            elif job:
+                self.scheduler_manager.pause_job("clean_data_job")
+                logger.info("数据清理服务已暂停")
 
         # 检查间隔配置变更（无论是否启用都允许修改）
         elif old_clean_data.get("interval") != new_clean_data.get("interval"):
