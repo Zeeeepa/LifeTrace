@@ -5,6 +5,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const apiUrl = new URL(API_BASE_URL);
 
 const nextConfig: NextConfig = {
+  // 生成 standalone 产物，便于无 node_modules 运行
+  output: "standalone",
   async rewrites() {
     return [
       {

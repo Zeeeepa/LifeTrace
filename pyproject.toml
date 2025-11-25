@@ -111,5 +111,6 @@ index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 [dependency-groups]
 dev = [
     "pre-commit>=4.4.0",
+    "pyinstaller>=6.17.0",
     "ruff>=0.14.4",
 ]
