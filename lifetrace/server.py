@@ -157,7 +157,8 @@ if __name__ == "__main__":
     logger.info(f"启动服务器: http://{config.server_host}:{config.server_port}")
     logger.info(f"调试模式: {'开启' if config.server_debug else '关闭'}")
     uvicorn.run(
-        "lifetrace.server:app",
+        # "lifetrace.server:app",
+        app,
         host=config.server_host,
         port=config.server_port,
         reload=config.server_debug,
