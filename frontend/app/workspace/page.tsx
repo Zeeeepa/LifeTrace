@@ -105,14 +105,14 @@ export default function WorkspacePage() {
           : f
       ));
       
-      toast.success("保存成功");
+      toast.success(t.workspace.saveSuccess);
     } catch (error) {
       console.error("Save failed", error);
-      toast.error("保存失败");
+      toast.error(t.workspace.saveFailed);
     } finally {
       setIsSaving(false);
     }
-  }, [currentFile, isDirty, markdown, lockId]);
+  }, [currentFile, isDirty, markdown, lockId, t]);
 
   // Keyboard shortcut for save (Cmd/Ctrl + S)
   useEffect(() => {
@@ -131,7 +131,7 @@ export default function WorkspacePage() {
     if (file.path === currentFile?.path) return;
     
     if (isDirty) {
-      toast.warning("请先保存当前文件");
+      toast.warning(t.workspace.saveWarning);
       return;
     }
 
@@ -159,9 +159,9 @@ export default function WorkspacePage() {
       setIsDirty(false);
     } catch (error) {
       console.error("Failed to switch file", error);
-      toast.error("切换文件失败");
+      toast.error(t.workspace.switchFailed);
     }
-  }, [currentFile, isDirty, lockId, ownerId]);
+  }, [currentFile, isDirty, lockId, ownerId, t]);
 
   const handleAiEditRequest = useCallback(async (instruction: string) => {
     if (!currentFile || isAiEditing) return;
@@ -203,11 +203,11 @@ ${markdown}
       setInlineDiffMode(true);
     } catch (error) {
       console.error('AI edit failed:', error);
-      toast.error('AI编辑失败');
+      toast.error(t.workspace.aiEditFailed);
     } finally {
       setIsAiEditing(false);
     }
-  }, [currentFile, markdown, isAiEditing]);
+  }, [currentFile, markdown, isAiEditing, t]);
 
   const handleAcceptAiEdit = useCallback((mergedContent?: string) => {
     if (!aiSuggestion) return;
@@ -223,15 +223,15 @@ ${markdown}
       setIsDirty(true);
     }, 0);
     
-    toast.success('已应用AI建议');
-  }, [aiSuggestion]);
+    toast.success(t.workspace.aiSuggestionApplied);
+  }, [aiSuggestion, t]);
 
   const handleRejectAiEdit = useCallback(() => {
     setAiSuggestion(null);
     setShowAiDiff(false);
     setInlineDiffMode(false);
-    toast.info('已拒绝AI建议');
-  }, []);
+    toast.info(t.workspace.aiSuggestionRejected);
+  }, [t]);
 
   const renderDiff = useCallback((original: string, suggested: string) => {
     const changes: Change[] = diffWordsWithSpace(original, suggested);
@@ -320,13 +320,13 @@ ${markdown}
                 <DropdownMenuTrigger asChild disabled={isAiEditing}>
                   <Button variant="outline" className="gap-2" disabled={isAiEditing}>
                     <FileText className="h-4 w-4" />
-                    <span className="max-w-[200px] truncate">{currentFile?.name ?? "选择文件"}</span>
+                    <span className="max-w-[200px] truncate">{currentFile?.name ?? t.workspace.selectFile}</span>
                     <ChevronDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[280px]">
                   {files.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">无可用文件</div>
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">{t.workspace.noFiles}</div>
                   ) : (
                     files.map((file) => (
                       <DropdownMenuItem
@@ -349,7 +349,7 @@ ${markdown}
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-muted-foreground">{currentFile.path}</p>
                   {isDirty && (
-                    <span className="text-xs text-amber-600">● 未保存</span>
+                    <span className="text-xs text-amber-600">{t.workspace.unsaved}</span>
                   )}
                 </div>
               )}
@@ -361,7 +361,7 @@ ${markdown}
               className="gap-2"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              保存
+              {t.common.save}
             </Button>
           </div>
 
@@ -369,9 +369,9 @@ ${markdown}
             <div className="mb-4 rounded-lg border border-border/60 bg-muted/30 p-4">
               <div className="mb-3 flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium">AI建议预览</h3>
+                  <h3 className="font-medium">{t.workspace.aiPreview.title}</h3>
                   <p className="text-sm text-muted-foreground">
-                    指令: {aiSuggestion.instruction}
+                    {t.workspace.aiPreview.instruction} {aiSuggestion.instruction}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -380,14 +380,14 @@ ${markdown}
                     variant="outline"
                     size="sm"
                   >
-                    拒绝
+                    {t.workspace.aiPreview.reject}
                   </Button>
                   <Button
                     onClick={() => handleAcceptAiEdit()}
                     variant="default"
                     size="sm"
                   >
-                    接受
+                    {t.workspace.aiPreview.accept}
                   </Button>
                 </div>
               </div>
@@ -472,16 +472,16 @@ ${markdown}
               >
                 <X className="h-4 w-4" />
               </button>
-              <h2 className="text-lg font-semibold">Attach Files as Context</h2>
+              <h2 className="text-lg font-semibold">{t.workspace.attachFiles.title}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Select files to include as context for the AI assistant
+                {t.workspace.attachFiles.description}
               </p>
             </div>
             <div className="p-6 max-h-[400px] overflow-y-auto">
               <div className="space-y-1">
                 {files.length === 0 ? (
                   <div className="py-8 text-center text-sm text-muted-foreground">
-                    No files available
+                    {t.workspace.attachFiles.noFiles}
                   </div>
                 ) : (
                   files.map((file) => {
@@ -514,10 +514,12 @@ ${markdown}
             </div>
             <div className="flex justify-between items-center p-6 border-t">
               <div className="text-sm text-muted-foreground">
-                {attachedFiles.length} file{attachedFiles.length !== 1 ? 's' : ''} selected
+                {t.workspace.attachFiles.selected
+                  .replace('{count}', attachedFiles.length.toString())
+                  .replace('{plural}', attachedFiles.length !== 1 ? 's' : '')}
               </div>
               <Button onClick={() => setShowFileDialog(false)}>
-                Done
+                {t.workspace.attachFiles.done}
               </Button>
             </div>
           </div>

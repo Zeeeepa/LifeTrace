@@ -235,6 +235,29 @@ export const zh = {
     controls: {
       load: '加载文件快照',
       save: '本地保存草稿'
+    },
+    selectFile: '选择文件',
+    noFiles: '无可用文件',
+    unsaved: '● 未保存',
+    saveSuccess: '保存成功',
+    saveFailed: '保存失败',
+    saveWarning: '请先保存当前文件',
+    switchFailed: '切换文件失败',
+    aiEditFailed: 'AI编辑失败',
+    aiSuggestionApplied: '已应用AI建议',
+    aiSuggestionRejected: '已拒绝AI建议',
+    aiPreview: {
+      title: 'AI建议预览',
+      instruction: '指令:',
+      reject: '拒绝',
+      accept: '接受'
+    },
+    attachFiles: {
+      title: 'Attach Files as Context',
+      description: 'Select files to include as context for the AI assistant',
+      noFiles: 'No files available',
+      selected: '{count} file{plural} selected',
+      done: 'Done'
     }
   },
   task: {

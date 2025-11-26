@@ -542,6 +542,29 @@ export const en: Translation = {
     controls: {
       load: 'Load File Snapshot',
       save: 'Save Draft Locally'
+    },
+    selectFile: 'Select File',
+    noFiles: 'No files available',
+    unsaved: '● Unsaved',
+    saveSuccess: 'Saved successfully',
+    saveFailed: 'Save failed',
+    saveWarning: 'Please save current file first',
+    switchFailed: 'Failed to switch file',
+    aiEditFailed: 'AI editing failed',
+    aiSuggestionApplied: 'AI suggestion applied',
+    aiSuggestionRejected: 'AI suggestion rejected',
+    aiPreview: {
+      title: 'AI Suggestion Preview',
+      instruction: 'Instruction:',
+      reject: 'Reject',
+      accept: 'Accept'
+    },
+    attachFiles: {
+      title: 'Attach Files as Context',
+      description: 'Select files to include as context for the AI assistant',
+      noFiles: 'No files available',
+      selected: '{count} file{plural} selected',
+      done: 'Done'
     }
   },
 };
