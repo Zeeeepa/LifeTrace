@@ -139,8 +139,6 @@ export const en: Translation = {
     history: 'History',
     collapse: 'Collapse Chat',
     expand: 'Expand AI Assistant',
-    compact: 'Compact Width',
-    roomy: 'Roomy Width',
     inputPlaceholder: 'Type a message...',
     send: 'Send',
     thinking: 'Thinking',

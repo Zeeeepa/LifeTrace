@@ -58,7 +58,7 @@ export const zh = {
     events: '事件管理',
     timeAllocation: '时间分配',
     scheduler: '定时任务',
-    workspace: '工作台',
+    workspace: '工作空间',
     costTracking: '费用统计',
   },
   settings: {
@@ -136,10 +136,8 @@ export const zh = {
     newConversation: '新建对话',
     history: '历史记录',
     inputPlaceholder: '输入消息...',
-    collapse: '折叠',
-    expand: '展开',
-    compact: '紧凑宽度',
-    roomy: '宽松宽度',
+    collapse: '收起对话',
+    expand: '展开 AI 助手',
     send: '发送',
     thinking: '正在思考',
     welcome: '我可以帮您做什么？',
@@ -207,7 +205,7 @@ export const zh = {
     dateFormat: 'YYYY年MM月DD日 HH:mm',
   },
   workspace: {
-    title: '工作台（预览）',
+    title: '工作空间（预览）',
     subtitle: '在同一空间中编辑文件、与机器人对话并规划自动化修改。',
     notice: '当前原型仅在内存中保存草稿，接入后台 API 后再启用真实文件写入。',
     filePanel: {

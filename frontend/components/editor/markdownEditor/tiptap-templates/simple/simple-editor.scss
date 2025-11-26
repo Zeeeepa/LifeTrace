@@ -58,7 +58,27 @@ body,
   width: 100%;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  display: flex;
+}
+
+.simple-editor-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+}
+
+.simple-editor-scroll::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.simple-editor-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--tt-scrollbar-color);
 }
 
 .simple-editor-content {
