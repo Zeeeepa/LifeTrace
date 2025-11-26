@@ -44,6 +44,8 @@ mkdir -p desktop/resources/backend/lifetrace-api/config desktop/resources/backen
 cp lifetrace/config/*.yaml desktop/resources/backend/lifetrace-api/config/
 cp lifetrace/models/*.onnx desktop/resources/backend/lifetrace-api/models/
 ```
+注意：如果有类似config目录和models目录的插件机制的形式，那么这个目录也要同时copy
+
 完成后检查：`desktop/resources/backend/lifetrace-api/lifetrace-api` 存在且 `config/`、`models/` 也在。
 
 ## 前端打包（Next.js standalone）
