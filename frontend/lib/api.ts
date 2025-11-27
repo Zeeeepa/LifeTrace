@@ -332,4 +332,94 @@ export const api = {
 
   getCostConfig: () =>
     apiClient.get('/api/cost-tracking/config'),
+
+  // 工作区文件管理
+  getWorkspaceFiles: () =>
+    apiClient.get('/api/workspace/files'),
+
+  getWorkspaceFile: (fileId: string) =>
+    apiClient.get('/api/workspace/file', { params: { file_id: fileId } }),
+
+  // 上传工作区文件
+  uploadWorkspaceFile: (file: File, folder?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/api/workspace/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: folder ? { folder } : undefined,
+    });
+  },
+
+  // 创建工作区文件
+  createWorkspaceFile: (fileName: string, folder?: string, content?: string) =>
+    apiClient.post('/api/workspace/create', {
+      file_name: fileName,
+      folder: folder || '',
+      content: content || '',
+    }),
+
+  // 创建工作区文件夹
+  createWorkspaceFolder: (folderName: string, parentFolder?: string) =>
+    apiClient.post('/api/workspace/create-folder', {
+      folder_name: folderName,
+      parent_folder: parentFolder || '',
+    }),
+
+  // 重命名工作区文件
+  renameWorkspaceFile: (fileId: string, newName: string) =>
+    apiClient.post('/api/workspace/rename', { file_id: fileId, new_name: newName }),
+
+  // 保存工作区文件
+  saveWorkspaceFile: (fileId: string, content: string) =>
+    apiClient.post('/api/workspace/save', { file_id: fileId, content }),
+
+  // 删除工作区文件或文件夹
+  deleteWorkspaceFile: (fileId: string) =>
+    apiClient.post('/api/workspace/delete', { file_id: fileId }),
+
+  // 工作区文档 AI 操作
+  processDocumentAI: (params: {
+    action: 'summarize' | 'improve' | 'explain' | 'custom' | 'beautify' | 'expand' | 'condense' | 'correct' | 'translate';
+    document_content: string;
+    document_name?: string;
+    custom_prompt?: string;
+    conversation_id?: string;
+  }) => apiClient.post('/api/workspace/ai/process', params),
+
+  // 工作区文档 AI 操作（流式）
+  processDocumentAIStream: async (
+    params: {
+      action: 'summarize' | 'improve' | 'explain' | 'custom' | 'beautify' | 'expand' | 'condense' | 'correct' | 'translate';
+      document_content: string;
+      document_name?: string;
+      custom_prompt?: string;
+      conversation_id?: string;
+    },
+    onChunk: (chunk: string) => void
+  ): Promise<void> => {
+    const response = await fetch(`${API_BASE_URL}/api/workspace/ai/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      throw new Error('Request failed');
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        onChunk(chunk);
+      }
+    }
+  },
 };

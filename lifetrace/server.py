@@ -26,6 +26,7 @@ from lifetrace.routers import (
     task,
     time_allocation,
     vector,
+    workspace,
 )
 from lifetrace.routers import config as config_router
 from lifetrace.routers import dependencies as deps
@@ -150,6 +151,7 @@ app.include_router(rag.router)
 app.include_router(scheduler.router)
 app.include_router(cost_tracking.router)
 app.include_router(time_allocation.router)
+app.include_router(workspace.router)
 
 
 if __name__ == "__main__":

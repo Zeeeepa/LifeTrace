@@ -376,6 +376,14 @@ class LifeTraceConfig:
         """调度器时区"""
         return self.get("scheduler.timezone", "Asia/Shanghai")
 
+    @property
+    def workspace_dir(self) -> str:
+        """工作区目录路径"""
+        workspace_dir = self.get("workspace_dir", "workspace")
+        if not os.path.isabs(workspace_dir):
+            workspace_dir = os.path.join(self.base_dir, workspace_dir)
+        return workspace_dir
+
     def is_configured(self) -> bool:
         """检查LLM配置是否已完成
 

@@ -642,6 +642,9 @@ export default function EventsPage() {
       <div className={`flex flex-col overflow-hidden p-4 border-r transition-all duration-300 ${
         isChatCollapsed ? 'flex-1' : 'w-2/3'
       }`}>
+        {/* 页面标题 - 留出折叠按钮的空间 */}
+        <h1 className="text-2xl font-bold text-foreground mb-4 flex-shrink-0 pl-12">{t.menu.events}</h1>
+
         {/* 选中事件提示 */}
         {selectedEvents.size > 0 && (
           <div className={`mb-4 flex items-center justify-between rounded-lg px-4 py-3 border ${

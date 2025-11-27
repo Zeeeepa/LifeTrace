@@ -11,6 +11,8 @@ import type { SidebarNavItem } from '@/components/ui/sidebar-nav';
 import ThemeToggle from '@/components/common/ThemeToggle';
 import LanguageToggle from '@/components/common/LanguageToggle';
 import SettingsModal from '@/components/common/SettingsModal';
+import ModeSwitcher, { AppMode } from '@/components/common/ModeSwitcher';
+import WorkspacePage from '@/components/workspace/WorkspacePage';
 import { useLocaleStore } from '@/lib/store/locale';
 import { useTranslations } from '@/lib/i18n';
 
@@ -45,6 +47,21 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
   const [showProjectManagement, setShowProjectManagement] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [appMode, setAppMode] = useState<AppMode>('collector');
+
+  // 从 localStorage 读取应用模式
+  useEffect(() => {
+    const savedMode = localStorage.getItem('appMode');
+    if (savedMode === 'collector' || savedMode === 'workspace') {
+      setAppMode(savedMode);
+    }
+  }, []);
+
+  // 保存应用模式到 localStorage
+  const handleModeChange = (mode: AppMode) => {
+    setAppMode(mode);
+    localStorage.setItem('appMode', mode);
+  };
 
   // 从 localStorage 读取侧边栏折叠状态
   useEffect(() => {
@@ -192,19 +209,54 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
     }
   };
 
+  // 工作区模式的渲染
+  const renderWorkspaceMode = () => {
+    return (
+      <WorkspacePage
+        fileTreeTitle={t.workspace.fileTreeTitle}
+        uploadLabel={t.workspace.uploadFile}
+        newFileLabel={t.workspace.newFile}
+        newFolderLabel={t.workspace.newFolder}
+        emptyFilesLabel={t.workspace.emptyFiles}
+        deleteConfirmLabel={t.workspace.deleteConfirm}
+        saveLabel={t.workspace.save}
+        editLabel={t.workspace.edit}
+        previewLabel={t.workspace.preview}
+        noFileLabel={t.workspace.noFile}
+        selectFileHint={t.workspace.selectFileHint}
+        unsupportedFileLabel={t.workspace.unsupportedFile}
+        supportedFormatsLabel={t.workspace.supportedFormats}
+        editorPlaceholder={t.workspace.editorPlaceholder}
+        chatTitle={t.workspace.chatTitle}
+        chatInputPlaceholder={t.workspace.chatInputPlaceholder}
+        sendLabel={t.workspace.send}
+        newChatLabel={t.workspace.newChat}
+        welcomeLabel={t.workspace.welcome}
+        thinkingLabel={t.workspace.thinking}
+        sendFailedLabel={t.workspace.sendFailed}
+        llmNotConfiguredLabel={t.workspace.llmNotConfigured}
+        llmConfigHintLabel={t.workspace.llmConfigHint}
+        collapseSidebarLabel={t.workspace.collapseSidebar}
+        expandSidebarLabel={t.workspace.expandSidebar}
+        collapseChatLabel={t.workspace.collapseChat}
+        expandChatLabel={t.workspace.expandChat}
+        wordCountLabel={t.workspace.wordCount}
+        lastUpdatedLabel={t.workspace.lastUpdated}
+        quickActions={t.workspace.quickActions}
+        aiEditLabels={t.workspace.aiEdit}
+        aiMenuLabels={t.workspace.aiMenu}
+      />
+    );
+  };
+
   return (
     <>
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-      <div className="flex w-full h-full">
-        {/* 左侧栏 - 侧边栏菜单 */}
-      <Sidebar
-        className={`flex-shrink-0 h-full transition-all duration-300 ${
-          isSidebarCollapsed ? 'w-0 border-r-0 overflow-hidden' : 'w-64'
-        }`}
-      >
-        {/* Logo 区域 */}
-        <SidebarHeader className="h-[68px] flex items-center justify-center">
-          <div className="flex items-center gap-3 w-full">
+      <div className="flex flex-col w-full h-full">
+        {/* ===== Header 区域 ===== */}
+        <header className="flex items-center justify-between h-[68px] px-4 border-b bg-background flex-shrink-0">
+          {/* 左侧：Logo 和 Slogan */}
+          <div className="flex items-center gap-3">
             <div className="relative h-8 w-8 flex-shrink-0">
               <Image
                 src="/logo.png"
@@ -219,35 +271,16 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
               <p className="text-xs text-muted-foreground leading-tight truncate">{t.layout.appSubtitle}</p>
             </div>
           </div>
-        </SidebarHeader>
 
-        {/* 导航菜单 */}
-        <SidebarContent>
-          <SidebarNav
-            items={menuItems}
-            activeItem={activeMenu}
-            onItemClick={handleMenuClick}
-          />
-        </SidebarContent>
-      </Sidebar>
-
-      {/* 中间内容区 */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-        {/* 顶部工具栏 */}
-        <div className="flex items-center justify-between h-[68px] px-4 border-b bg-background">
-          {/* 左侧：折叠按钮 */}
-          <button
-            onClick={toggleSidebar}
-            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={isSidebarCollapsed ? t.layout.expandSidebar : t.layout.collapseSidebar}
-            title={isSidebarCollapsed ? t.layout.expandSidebar : t.layout.collapseSidebar}
-          >
-            {isSidebarCollapsed ? (
-              <PanelLeft className="h-5 w-5" />
-            ) : (
-              <PanelLeftClose className="h-5 w-5" />
-            )}
-          </button>
+          {/* 中间：模式切换器 */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
+            <ModeSwitcher
+              mode={appMode}
+              onModeChange={handleModeChange}
+              collectorLabel={t.modeSwitcher.collector}
+              workspaceLabel={t.modeSwitcher.workspace}
+            />
+          </div>
 
           {/* 右侧：主题切换、语言切换和设置 */}
           <div className="flex items-center gap-2">
@@ -263,13 +296,47 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
               <Settings className="h-5 w-5" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* 页面内容 */}
-        <div className="flex-1 overflow-y-auto">
-          {renderContent()}
+        {/* ===== Body 区域（左右布局：菜单 + 内容） ===== */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* 左侧：侧边栏导航菜单（仅在收集器模式下显示） */}
+          {appMode === 'collector' && (
+            <Sidebar
+              className={`flex-shrink-0 h-full transition-all duration-300 ${
+                isSidebarCollapsed ? 'w-0 border-r-0 overflow-hidden' : 'w-56'
+              }`}
+            >
+              <SidebarContent>
+                <SidebarNav
+                  items={menuItems}
+                  activeItem={activeMenu}
+                  onItemClick={handleMenuClick}
+                />
+              </SidebarContent>
+            </Sidebar>
+          )}
+
+          {/* 右侧：页面内容 */}
+          <div className="flex-1 overflow-y-auto relative bg-background">
+            {/* 收集器模式下的折叠按钮 - 放在内容区域左上角 */}
+            {appMode === 'collector' && (
+              <button
+                onClick={toggleSidebar}
+                className="absolute top-3 left-3 z-10 rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-background/80 backdrop-blur-sm border border-border/50"
+                aria-label={isSidebarCollapsed ? t.layout.expandSidebar : t.layout.collapseSidebar}
+                title={isSidebarCollapsed ? t.layout.expandSidebar : t.layout.collapseSidebar}
+              >
+                {isSidebarCollapsed ? (
+                  <PanelLeft className="h-5 w-5" />
+                ) : (
+                  <PanelLeftClose className="h-5 w-5" />
+                )}
+              </button>
+            )}
+            {appMode === 'collector' ? renderContent() : renderWorkspaceMode()}
+          </div>
         </div>
-      </div>
       </div>
     </>
   );

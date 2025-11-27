@@ -54,6 +54,8 @@ dependencies = [
     "pywin32>=306; sys_platform == 'win32'",
     "open-clip-torch>=3.2.0",
     "loguru>=0.7.3",
+    # Document parsing
+    "python-docx>=1.1.0",
 ]
 
 # Ruff 配置 - Python linter 和 formatter
