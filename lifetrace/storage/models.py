@@ -129,7 +129,7 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, nullable=False)  # 关联到项目ID
+    project_id = Column(Integer, nullable=True)  # 关联到项目ID（可选，任务可以独立存在）
     name = Column(String(200), nullable=False)  # 任务名称
     description = Column(Text)  # 任务描述
     status = Column(

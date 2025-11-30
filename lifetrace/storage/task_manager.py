@@ -20,19 +20,27 @@ class TaskManager:
 
     def create_task(
         self,
-        project_id: int,
         name: str,
         description: str = None,
         status: str = "pending",
+        project_id: int = None,
     ) -> int | None:
-        """创建新任务"""
+        """创建新任务
+
+        Args:
+            name: 任务名称
+            description: 任务描述
+            status: 任务状态
+            project_id: 关联的项目ID（可选）
+        """
         try:
             with self.db_base.get_session() as session:
-                # 验证项目是否存在
-                project = session.query(Project).filter_by(id=project_id).first()
-                if not project:
-                    logger.warning(f"项目不存在: {project_id}")
-                    return None
+                # 如果指定了项目ID，验证项目是否存在
+                if project_id is not None:
+                    project = session.query(Project).filter_by(id=project_id).first()
+                    if not project:
+                        logger.warning(f"项目不存在: {project_id}")
+                        return None
 
                 task = Task(
                     project_id=project_id,
@@ -42,7 +50,8 @@ class TaskManager:
                 )
                 session.add(task)
                 session.flush()
-                logger.info(f"创建任务: {task.id} - {name}")
+                project_info = f" (项目: {project_id})" if project_id else " (独立任务)"
+                logger.info(f"创建任务: {task.id} - {name}{project_info}")
                 return task.id
         except SQLAlchemyError as e:
             logger.error(f"创建任务失败: {e}")
@@ -70,20 +79,22 @@ class TaskManager:
 
     def list_tasks(
         self,
-        project_id: int,
+        project_id: int = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        """列出项目的所有任务
+        """列出任务
 
         Args:
-            project_id: 项目ID
+            project_id: 项目ID（可选，不传则返回所有任务）
             limit: 返回数量限制
             offset: 偏移量
         """
         try:
             with self.db_base.get_session() as session:
-                q = session.query(Task).filter(Task.project_id == project_id)
+                q = session.query(Task)
+                if project_id is not None:
+                    q = q.filter(Task.project_id == project_id)
                 tasks = q.order_by(Task.created_at.desc()).offset(offset).limit(limit).all()
 
                 return [
@@ -102,11 +113,17 @@ class TaskManager:
             logger.error(f"列出任务失败: {e}")
             return []
 
-    def count_tasks(self, project_id: int) -> int:
-        """统计项目的任务数量"""
+    def count_tasks(self, project_id: int = None) -> int:
+        """统计任务数量
+
+        Args:
+            project_id: 项目ID（可选，不传则统计所有任务）
+        """
         try:
             with self.db_base.get_session() as session:
-                q = session.query(Task).filter(Task.project_id == project_id)
+                q = session.query(Task)
+                if project_id is not None:
+                    q = q.filter(Task.project_id == project_id)
                 return q.count()
         except SQLAlchemyError as e:
             logger.error(f"统计任务数量失败: {e}")

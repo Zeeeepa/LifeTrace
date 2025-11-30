@@ -21,6 +21,7 @@ class TaskCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="任务名称")
     description: str | None = Field(None, description="任务描述")
     status: TaskStatus = Field(TaskStatus.PENDING, description="任务状态")
+    project_id: int | None = Field(None, description="关联的项目ID（可选）")
 
 
 class TaskUpdate(BaseModel):
@@ -35,7 +36,7 @@ class TaskResponse(BaseModel):
     """任务响应模型"""
 
     id: int = Field(..., description="任务ID")
-    project_id: int = Field(..., description="项目ID")
+    project_id: int | None = Field(None, description="项目ID（可选）")
     name: str = Field(..., description="任务名称")
     description: str | None = Field(None, description="任务描述")
     status: str = Field(..., description="任务状态")
