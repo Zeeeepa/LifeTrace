@@ -2,6 +2,7 @@
 node_modules
 .pnp
 .pnp.js
+.vite/
 
 # Testing
 coverage
@@ -35,4 +36,3 @@ lerna-debug.log*
 out
 release
 *.log
-
