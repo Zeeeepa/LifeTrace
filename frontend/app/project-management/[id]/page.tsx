@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock, LayoutGrid, List } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock, LayoutGrid, List, BarChart3 } from 'lucide-react';
 import Button from '@/components/common/Button';
 import Loading from '@/components/common/Loading';
 import Input from '@/components/common/Input';
-import { Card, CardContent } from '@/components/common/Card';
 import TaskBoard from '@/components/task/TaskBoard';
 import TaskListView from '@/components/task/TaskListView';
+import TaskDashboardView from '@/components/task/TaskDashboardView';
 import CreateTaskModal from '@/components/task/CreateTaskModal';
 import { Project, Task } from '@/lib/types';
 import { api } from '@/lib/api';
@@ -31,57 +31,6 @@ interface SessionSummary {
   created_at: string;
   last_active: string;
   message_count: number;
-}
-
-// 任务统计组件
-function TaskStats({ tasks }: { tasks: Task[] }) {
-  const locale = useLocaleStore((state) => state.locale);
-  const t = useTranslations(locale);
-
-  const stats = {
-    total: tasks.length,
-    pending: tasks.filter((t) => t.status === 'pending').length,
-    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
-    completed: tasks.filter((t) => t.status === 'completed').length,
-    cancelled: tasks.filter((t) => t.status === 'cancelled').length,
-  };
-
-  const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-          <p className="text-xs text-muted-foreground mt-1">{t.projectDetail.totalTasks}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-          <p className="text-xs text-muted-foreground mt-1">{t.projectDetail.pending}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-2xl font-bold text-blue-600">{stats.in_progress}</div>
-          <p className="text-xs text-muted-foreground mt-1">{t.projectDetail.inProgress}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-          <p className="text-xs text-muted-foreground mt-1">{t.projectDetail.completed}</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="pt-4">
-          <div className="text-2xl font-bold text-primary">{completionRate}%</div>
-          <p className="text-xs text-muted-foreground mt-1">{t.projectDetail.completionRate}</p>
-        </CardContent>
-      </Card>
-    </div>
-  );
 }
 
 // 空状态组件
@@ -125,7 +74,7 @@ export default function ProjectDetailPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [parentTaskId, setParentTaskId] = useState<number | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('list'); // 默认为列表视图
+  const [viewMode, setViewMode] = useState<'dashboard' | 'list' | 'board'>('dashboard'); // 默认为仪表盘视图
 
   // 聊天相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -509,7 +458,17 @@ export default function ProjectDetailPage() {
                     {/* 视图切换按钮 */}
                     <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                       <Button
-                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                        variant={viewMode === 'dashboard' ? 'primary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('dashboard')}
+                        className="gap-2 h-8 px-3"
+                        title={t.projectDetail?.dashboardView || '仪表盘视图'}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        {t.projectDetail?.dashboardView || '仪表盘'}
+                      </Button>
+                      <Button
+                        variant={viewMode === 'list' ? 'primary' : 'ghost'}
                         size="sm"
                         onClick={() => setViewMode('list')}
                         className="gap-2 h-8 px-3"
@@ -519,7 +478,7 @@ export default function ProjectDetailPage() {
                         {t.projectDetail?.listView || '列表'}
                       </Button>
                       <Button
-                        variant={viewMode === 'board' ? 'default' : 'ghost'}
+                        variant={viewMode === 'board' ? 'primary' : 'ghost'}
                         size="sm"
                         onClick={() => setViewMode('board')}
                         className="gap-2 h-8 px-3"
@@ -538,27 +497,30 @@ export default function ProjectDetailPage() {
               )}
             </div>
 
-            {/* 任务统计面板 */}
-            {!loading && tasks.length > 0 && (
-              <TaskStats tasks={tasks} />
-            )}
           </div>
         </div>
 
         {/* 可滚动的任务视图区域 */}
         <div className="flex-1 overflow-hidden min-h-0">
-          <div className={`h-full mx-auto max-w-7xl w-full ${viewMode === 'list' ? '' : 'overflow-y-auto p-6 pt-4'}`}>
-            {loading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loading />
-              </div>
-            ) : tasks.length === 0 ? (
-              // 创新的空状态设计
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loading />
+            </div>
+          ) : tasks.length === 0 ? (
+            // 创新的空状态设计
+            <div className="h-full overflow-y-auto mx-auto max-w-7xl w-full p-6 pt-4">
               <TaskEmptyState
                 onCreateTask={() => handleCreateTask()}
               />
-            ) : viewMode === 'list' ? (
-              // 任务列表视图
+            </div>
+          ) : viewMode === 'dashboard' ? (
+            // 仪表盘视图
+            <div className="h-full overflow-y-auto">
+              <TaskDashboardView tasks={tasks} />
+            </div>
+          ) : viewMode === 'list' ? (
+            // 任务列表视图
+            <div className="h-full mx-auto max-w-7xl w-full">
               <TaskListView
                 tasks={tasks}
                 onEdit={handleEditTask}
@@ -568,8 +530,10 @@ export default function ProjectDetailPage() {
                 selectedTaskIds={selectedTasks}
                 onToggleSelect={handleToggleTaskSelect}
               />
-            ) : (
-              // 任务看板
+            </div>
+          ) : (
+            // 任务看板视图
+            <div className="h-full overflow-y-auto mx-auto max-w-7xl w-full p-6 pt-4">
               <TaskBoard
                 tasks={tasks}
                 onEdit={handleEditTask}
@@ -580,8 +544,8 @@ export default function ProjectDetailPage() {
                 onToggleSelect={handleToggleTaskSelect}
                 onTaskCreated={loadTasks}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* 创建/编辑任务模态框 */}
