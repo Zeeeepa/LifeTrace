@@ -444,9 +444,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="flex h-full overflow-hidden relative">
       {/* 左侧任务管理区域 - 占2/3或更宽 */}
-      <div className={`flex flex-col overflow-hidden border-r transition-all duration-300 ${
-        isChatCollapsed ? 'flex-1' : 'w-2/3'
-      }`}>
+      <div className="flex-1 flex flex-col overflow-hidden border-r bg-background min-w-0">
         {/* 固定顶部区域 */}
         <div className="flex-shrink-0 p-6 pb-4 border-b">
           <div className="mx-auto max-w-7xl w-full">
@@ -548,14 +546,14 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* 右侧聊天区域 - 占1/3或窄列 */}
-      <div className={`bg-card flex flex-col flex-shrink-0 h-full overflow-hidden transition-all duration-300 ${
-        isChatCollapsed ? 'w-16' : 'w-1/3'
+      <div className={`bg-card flex flex-col flex-shrink-0 h-full border-l relative transition-all duration-300 ease-in-out ${
+        isChatCollapsed ? 'w-[60px]' : 'w-[33.3333%] min-w-[320px] max-w-[600px]'
       }`}>
-        {/* 折叠状态：显示展开按钮 */}
-        {isChatCollapsed && (
-          <div className="flex flex-col items-center h-full">
-            {/* 与展开状态工具栏同高度的区域 */}
-            <div className="flex items-center justify-center px-2 py-3 border-b border-border flex-shrink-0 w-full">
+        {/* 折叠状态：显示展开按钮 - 使用绝对定位防止布局挤压 */}
+        <div className={`flex flex-col items-center w-[60px] transition-opacity duration-200 absolute z-10 ${
+          isChatCollapsed ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'
+        }`}>
+          <div className="flex items-center justify-center px-2 py-3 border-b border-border flex-shrink-0 w-full h-[60px]">
               <Button
                 variant="ghost"
                 size="sm"
@@ -567,12 +565,13 @@ export default function ProjectDetailPage() {
               </Button>
             </div>
           </div>
-        )}
 
         {/* 展开状态：显示完整聊天界面 */}
-        <div className={`flex flex-1 flex-col h-full overflow-hidden ${isChatCollapsed ? 'hidden' : ''}`}>
+        <div className={`flex flex-1 flex-col h-full overflow-hidden transition-opacity duration-300 w-full min-w-[320px] ${
+           isChatCollapsed ? 'opacity-0 pointer-events-none invisible' : 'opacity-100'
+        }`}>
           {/* 顶部工具栏 */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0 h-[60px] whitespace-nowrap">
             <div className="flex items-center gap-2">
               <div className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center">
                 <Bot className="w-4 h-4" />
