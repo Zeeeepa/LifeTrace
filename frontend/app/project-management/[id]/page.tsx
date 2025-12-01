@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock, LayoutGrid, List, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock } from 'lucide-react';
 import Button from '@/components/common/Button';
 import Loading from '@/components/common/Loading';
 import Input from '@/components/common/Input';
@@ -10,6 +10,7 @@ import TaskBoard from '@/components/task/TaskBoard';
 import TaskListView from '@/components/task/TaskListView';
 import TaskDashboardView from '@/components/task/TaskDashboardView';
 import CreateTaskModal from '@/components/task/CreateTaskModal';
+import ViewModeSelect from '@/components/project/ViewModeSelect';
 import { Project, Task } from '@/lib/types';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -74,7 +75,7 @@ export default function ProjectDetailPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [parentTaskId, setParentTaskId] = useState<number | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<'dashboard' | 'list' | 'board'>('dashboard'); // 默认为仪表盘视图
+  const [viewMode, setViewMode] = useState<'list' | 'board' | 'dashboard'>('list'); // 默认为列表视图
 
   // 聊天相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -455,39 +456,8 @@ export default function ProjectDetailPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    {/* 视图切换按钮 */}
-                    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                      <Button
-                        variant={viewMode === 'dashboard' ? 'primary' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('dashboard')}
-                        className="gap-2 h-8 px-3"
-                        title={t.projectDetail?.dashboardView || '仪表盘视图'}
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        {t.projectDetail?.dashboardView || '仪表盘'}
-                      </Button>
-                      <Button
-                        variant={viewMode === 'list' ? 'primary' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('list')}
-                        className="gap-2 h-8 px-3"
-                        title={t.projectDetail?.listView || '列表视图'}
-                      >
-                        <List className="h-4 w-4" />
-                        {t.projectDetail?.listView || '列表'}
-                      </Button>
-                      <Button
-                        variant={viewMode === 'board' ? 'primary' : 'ghost'}
-                        size="sm"
-                        onClick={() => setViewMode('board')}
-                        className="gap-2 h-8 px-3"
-                        title={t.projectDetail?.boardView || '看板视图'}
-                      >
-                        <LayoutGrid className="h-4 w-4" />
-                        {t.projectDetail?.boardView || '看板'}
-                      </Button>
-                    </div>
+                    {/* 视图选择下拉框 */}
+                    <ViewModeSelect value={viewMode} onChange={setViewMode} />
                     <Button onClick={() => handleCreateTask()} className="gap-2">
                       <Plus className="h-5 w-5" />
                       {t.projectDetail.createTask}
