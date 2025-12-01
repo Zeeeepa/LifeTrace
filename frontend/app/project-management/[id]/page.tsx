@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, ChevronRight, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock, LayoutGrid, List } from 'lucide-react';
 import Button from '@/components/common/Button';
 import Loading from '@/components/common/Loading';
 import Input from '@/components/common/Input';
 import { Card, CardContent } from '@/components/common/Card';
 import TaskBoard from '@/components/task/TaskBoard';
+import TaskListView from '@/components/task/TaskListView';
 import CreateTaskModal from '@/components/task/CreateTaskModal';
 import { Project, Task } from '@/lib/types';
 import { api } from '@/lib/api';
@@ -124,6 +125,7 @@ export default function ProjectDetailPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [parentTaskId, setParentTaskId] = useState<number | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('list'); // 默认为列表视图
 
   // 聊天相关状态
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -503,10 +505,35 @@ export default function ProjectDetailPage() {
                       <p className="mt-2 text-muted-foreground">{project.goal}</p>
                     )}
                   </div>
-                  <Button onClick={() => handleCreateTask()} className="gap-2">
-                    <Plus className="h-5 w-5" />
-                    {t.projectDetail.createTask}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    {/* 视图切换按钮 */}
+                    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+                      <Button
+                        variant={viewMode === 'list' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('list')}
+                        className="gap-2 h-8 px-3"
+                        title={t.projectDetail?.listView || '列表视图'}
+                      >
+                        <List className="h-4 w-4" />
+                        {t.projectDetail?.listView || '列表'}
+                      </Button>
+                      <Button
+                        variant={viewMode === 'board' ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setViewMode('board')}
+                        className="gap-2 h-8 px-3"
+                        title={t.projectDetail?.boardView || '看板视图'}
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                        {t.projectDetail?.boardView || '看板'}
+                      </Button>
+                    </div>
+                    <Button onClick={() => handleCreateTask()} className="gap-2">
+                      <Plus className="h-5 w-5" />
+                      {t.projectDetail.createTask}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -518,9 +545,9 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
-        {/* 可滚动的任务看板区域 */}
+        {/* 可滚动的任务视图区域 */}
         <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto mx-auto max-w-7xl w-full p-6 pt-4">
+          <div className={`h-full mx-auto max-w-7xl w-full ${viewMode === 'list' ? '' : 'overflow-y-auto p-6 pt-4'}`}>
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <Loading />
@@ -529,6 +556,17 @@ export default function ProjectDetailPage() {
               // 创新的空状态设计
               <TaskEmptyState
                 onCreateTask={() => handleCreateTask()}
+              />
+            ) : viewMode === 'list' ? (
+              // 任务列表视图
+              <TaskListView
+                tasks={tasks}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onStatusChange={handleTaskStatusChange}
+                projectId={projectId}
+                selectedTaskIds={selectedTasks}
+                onToggleSelect={handleToggleTaskSelect}
               />
             ) : (
               // 任务看板
