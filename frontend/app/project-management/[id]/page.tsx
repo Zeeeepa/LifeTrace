@@ -545,10 +545,14 @@ export default function ProjectDetailPage() {
         />
       </div>
 
-      {/* 右侧聊天区域 - 占1/3或窄列 */}
-      <div className={`bg-card flex flex-col flex-shrink-0 h-full border-l relative transition-all duration-300 ease-in-out ${
-        isChatCollapsed ? 'w-[60px]' : 'w-[33.3333%] min-w-[320px] max-w-[600px]'
-      }`}>
+      {/* 右侧聊天区域 - 固定宽度，避免百分比导致的两段式动画 */}
+      <div
+        className="bg-card flex flex-col flex-shrink-0 h-full border-l relative overflow-hidden"
+        style={{
+          width: isChatCollapsed ? '60px' : '400px',
+          transition: 'width 300ms ease-in-out',
+        }}
+      >
         {/* 折叠状态：显示展开按钮 - 使用绝对定位防止布局挤压 */}
         <div className={`flex flex-col items-center w-[60px] transition-opacity duration-200 absolute z-10 ${
           isChatCollapsed ? 'opacity-100 delay-300' : 'opacity-0 pointer-events-none'
