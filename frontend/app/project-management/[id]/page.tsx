@@ -181,27 +181,38 @@ export default function ProjectDetailPage() {
 
   // 发送消息（支持流式响应）
   const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    // 避免重复触发：正在发送或流式响应中时直接返回
+    if (chatLoading || isStreaming) return;
+
+    const trimmedMessage = inputMessage.trim();
+    if (!trimmedMessage) return;
+
+    // 一旦进入发送流程，立即设置为 loading，保证按钮和输入框立刻变为不可用
+    setChatLoading(true);
 
     if (!llmHealthChecked) {
-      await checkLlmHealth();
+      const healthy = await checkLlmHealth();
+      if (!healthy) {
+        setChatLoading(false);
+        return;
+      }
     }
 
     if (!llmHealthy) {
       toast.error(t.toast.llmServiceError);
+      setChatLoading(false);
       return;
     }
 
     const userMessage: ChatMessage = {
       role: 'user',
-      content: inputMessage,
+      content: trimmedMessage,
       timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const currentInput = inputMessage;
+    const currentInput = trimmedMessage;
     setInputMessage('');
-    setChatLoading(true);
     setIsStreaming(true);
 
     const assistantMessage: ChatMessage = {
@@ -954,11 +965,11 @@ export default function ProjectDetailPage() {
               }}
               placeholder={t.eventsPage.inputPlaceholder}
               className="flex-1"
-              disabled={chatLoading}
+              disabled={chatLoading || isStreaming}
             />
             <Button
               onClick={sendMessage}
-              disabled={chatLoading || !inputMessage.trim()}
+              disabled={chatLoading || isStreaming || !inputMessage.trim()}
               size="sm"
               className="h-9 px-3"
             >
