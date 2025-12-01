@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { GripVertical, Upload, Plus, Folder, ArrowLeft, Sparkles } from 'lucide-react';
 import FileTree, { FileNode } from './FileTree';
 import RichTextEditor from './RichTextEditor';
+import RichTextEditorTiptap from './RichTextEditorTiptap';
 import WorkspaceChat from './WorkspaceChat';
 import WorkspaceProjectList from './WorkspaceProjectList';
 import ChapterGenerationModal from './ChapterGenerationModal';
@@ -1164,7 +1165,52 @@ export default function WorkspaceContainer({
 
       {/* 中间：富文本编辑器 */}
       <div className="flex-1 h-full overflow-hidden relative">
-        <RichTextEditor
+        {/* <RichTextEditor
+          content={fileContent}
+          onChange={handleContentChange}
+          onSave={() => handleSaveFile(true)}
+          placeholder={editorLabels.editorPlaceholder}
+          fileName={selectedFile?.type === 'file' ? (() => {
+            const supportedExtensions = ['.txt', '.md', '.doc', '.docx'];
+            const ext = selectedFile.name.toLowerCase().substring(selectedFile.name.lastIndexOf('.'));
+            return supportedExtensions.includes(ext) ? selectedFile.name : undefined;
+          })() : undefined}
+          unsupportedFileInfo={selectedFile?.type === 'file' ? (() => {
+            const supportedExtensions = ['.txt', '.md', '.doc', '.docx'];
+            const ext = selectedFile.name.toLowerCase().substring(selectedFile.name.lastIndexOf('.'));
+            if (!supportedExtensions.includes(ext)) {
+              return {
+                fileName: selectedFile.name,
+                message: editorLabels.unsupportedFileLabel,
+                supportedFormats: editorLabels.supportedFormatsLabel,
+              };
+            }
+            return undefined;
+          })() : undefined}
+          saveLabel={editorLabels.saveLabel}
+          editLabel={editorLabels.editLabel}
+          previewLabel={editorLabels.previewLabel}
+          noFileLabel={editorLabels.noFileLabel}
+          selectFileHint={editorLabels.selectFileHint}
+          isFileTreeCollapsed={isFileTreeCollapsed}
+          onToggleFileTree={() => setIsFileTreeCollapsed(!isFileTreeCollapsed)}
+          collapseSidebarLabel={editorLabels.collapseSidebarLabel}
+          expandSidebarLabel={editorLabels.expandSidebarLabel}
+          isChatCollapsed={isChatCollapsed}
+          onToggleChat={() => setIsChatCollapsed(!isChatCollapsed)}
+          collapseChatLabel={editorLabels.collapseChatLabel}
+          expandChatLabel={editorLabels.expandChatLabel}
+          wordCountLabel={editorLabels.wordCountLabel}
+          lastUpdatedLabel={isGeneratingOutline ? editorLabels.generatingOutlineLabel : editorLabels.lastUpdatedLabel}
+          lastUpdatedTime={isGeneratingOutline ? null : lastUpdatedTime}
+          onAIEdit={handleAIEdit}
+          aiEditState={aiEditState}
+          onAIEditConfirm={handleAIEditConfirm}
+          onAIEditCancel={handleAIEditCancel}
+          aiEditLabels={editorLabels.aiEditLabels}
+          aiMenuLabels={editorLabels.aiMenuLabels}
+        /> */}
+        <RichTextEditorTiptap
           content={fileContent}
           onChange={handleContentChange}
           onSave={() => handleSaveFile(true)}
