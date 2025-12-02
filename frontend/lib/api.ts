@@ -245,7 +245,12 @@ export const api = {
   llmHealthCheck: () => apiClient.get('/health/llm'),
 
   // 项目管理
-  createProject: (data: { name: string; goal?: string }) =>
+  createProject: (data: {
+    name: string;
+    description?: string;
+    definition_of_done?: string;
+    status?: 'active' | 'archived' | 'completed';
+  }) =>
     apiClient.post('/api/projects', data),
 
   getProjects: (params?: { limit?: number; offset?: number }) =>
@@ -254,7 +259,12 @@ export const api = {
   getProject: (id: number) =>
     apiClient.get(`/api/projects/${id}`),
 
-  updateProject: (id: number, data: { name?: string; goal?: string }) =>
+  updateProject: (id: number, data: {
+    name?: string;
+    description?: string;
+    definition_of_done?: string;
+    status?: 'active' | 'archived' | 'completed';
+  }) =>
     apiClient.put(`/api/projects/${id}`, data),
 
   deleteProject: (id: number) =>

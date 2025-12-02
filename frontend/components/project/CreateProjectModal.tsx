@@ -27,10 +27,11 @@ export default function CreateProjectModal({
   const t = useTranslations(locale);
   const [formData, setFormData] = useState<ProjectCreate>({
     name: '',
-    goal: '',
+    description: '',
+    definition_of_done: '',
   });
   const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; goal?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string }>({});
 
   const isEditMode = !!project;
 
@@ -40,12 +41,14 @@ export default function CreateProjectModal({
       if (project) {
         setFormData({
           name: project.name,
-          goal: project.goal || '',
+          description: project.description || '',
+          definition_of_done: project.definition_of_done || '',
         });
       } else {
         setFormData({
           name: '',
-          goal: '',
+          description: '',
+          definition_of_done: '',
         });
       }
       setErrors({});
@@ -53,7 +56,7 @@ export default function CreateProjectModal({
   }, [isOpen, project]);
 
   const validateForm = (): boolean => {
-    const newErrors: { name?: string; goal?: string } = {};
+    const newErrors: { name?: string } = {};
 
     if (!formData.name.trim()) {
       newErrors.name = t.project.nameRequired;
@@ -78,14 +81,16 @@ export default function CreateProjectModal({
         // 编辑模式
         await api.updateProject(project.id, {
           name: formData.name.trim(),
-          goal: formData.goal?.trim() || undefined,
+          description: formData.description?.trim() || undefined,
+          definition_of_done: formData.definition_of_done?.trim() || undefined,
         });
         toast.success(t.project.updateSuccess);
       } else {
         // 创建模式
         await api.createProject({
           name: formData.name.trim(),
-          goal: formData.goal?.trim() || undefined,
+          description: formData.description?.trim() || undefined,
+          definition_of_done: formData.definition_of_done?.trim() || undefined,
         });
         toast.success(t.project.createSuccess);
       }
@@ -154,14 +159,31 @@ export default function CreateProjectModal({
             )}
           </div>
 
+          {/* 项目描述 */}
           <div>
             <label className="mb-2 block text-sm font-medium text-foreground">
-              {t.project.goal}
+              {t.project.description} <span className="text-muted-foreground text-xs">({t.common.optional})</span>
             </label>
             <textarea
-              placeholder={t.project.goalPlaceholder}
-              value={formData.goal}
-              onChange={(e) => handleChange('goal', e.target.value)}
+              placeholder={t.project.descriptionPlaceholder}
+              value={formData.description || ''}
+              onChange={(e) => handleChange('description', e.target.value)}
+              disabled={saving}
+              rows={3}
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            />
+          </div>
+
+          {/* 最终交付物 / 完成标准 */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              {t.project.definitionOfDone}{' '}
+              <span className="text-muted-foreground text-xs">({t.common.optional})</span>
+            </label>
+            <textarea
+              placeholder={t.project.definitionOfDonePlaceholder}
+              value={formData.definition_of_done || ''}
+              onChange={(e) => handleChange('definition_of_done', e.target.value)}
               disabled={saving}
               rows={3}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
