@@ -553,8 +553,10 @@ export default function ProjectDetailPage() {
                           inputClassName="text-3xl font-bold"
                         />
                       </h1>
-                      {project.goal && (
-                        <p className="mt-2 text-muted-foreground">{project.goal}</p>
+                      {(project.description || project.definition_of_done) && (
+                        <p className="mt-2 text-muted-foreground">
+                          {project.description || project.definition_of_done}
+                        </p>
                       )}
                     </div>
                   </div>

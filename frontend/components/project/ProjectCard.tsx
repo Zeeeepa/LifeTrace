@@ -53,10 +53,10 @@ export default function ProjectCard({ project, onEdit, onDelete }: ProjectCardPr
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-xl">{project.name}</CardTitle>
-            {project.goal && (
+            {(project.description || project.definition_of_done) && (
               <CardDescription className="mt-2 flex items-start gap-2">
                 <Target className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>{project.goal}</span>
+                <span>{project.description || project.definition_of_done}</span>
               </CardDescription>
             )}
           </div>
