@@ -118,13 +118,10 @@ class Project(Base):
     definition_of_done = Column(Text, nullable=True)  # "完成"的标准
     status = Column(String(20), default="active")  # 项目状态：active, archived, completed
 
-    # 2. 里程碑上下文（以 JSON 字符串形式存储）
-    milestones_json = Column(Text, nullable=True)  # 例如：'[{"stage": "MVP", "status": "in_progress"}]'
-
-    # 3. 描述 / AI 与系统上下文
+    # 2. 描述 / AI 与系统上下文
     description = Column(Text, nullable=True)  # 项目描述或为 Advisor 提供的总结性上下文
 
-    # 4. 元数据（保留现有字段）
+    # 3. 元数据（保留现有字段）
     created_at = Column(DateTime, default=get_local_time, nullable=False)
     updated_at = Column(
         DateTime, default=get_local_time, onupdate=get_local_time, nullable=False

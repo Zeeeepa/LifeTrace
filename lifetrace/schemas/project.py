@@ -29,13 +29,7 @@ class ProjectCreate(BaseModel):
         description="项目状态：active, archived, completed",
     )
 
-    # 2. 里程碑上下文
-    milestones: list[dict[str, Any]] | None = Field(
-        None,
-        description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
-    )
-
-    # 3. 描述 / AI 与系统上下文
+    # 2. 描述 / AI 与系统上下文
     description: str | None = Field(
         None,
         description="项目描述或为 AI Advisor 提供的系统级上下文摘要",
@@ -61,13 +55,7 @@ class ProjectUpdate(BaseModel):
         description="项目状态：active, archived, completed",
     )
 
-    # 2. 里程碑上下文
-    milestones: list[dict[str, Any]] | None = Field(
-        None,
-        description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
-    )
-
-    # 3. 描述 / AI 与系统上下文
+    # 2. 描述 / AI 与系统上下文
     description: str | None = Field(
         None,
         description="项目描述或为 AI Advisor 提供的系统级上下文摘要",
@@ -87,13 +75,7 @@ class ProjectResponse(BaseModel):
     )
     status: str = Field(..., description="项目状态：active, archived, completed")
 
-    # 2. 里程碑上下文
-    milestones: list[dict[str, Any]] | None = Field(
-        None,
-        description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
-    )
-
-    # 3. 描述 / AI 与系统上下文
+    # 2. 描述 / AI 与系统上下文
     description: str | None = Field(
         None,
         description="项目描述或为 AI Advisor 提供的系统级上下文摘要",

@@ -1,7 +1,6 @@
 """项目管理器 - 负责项目相关的数据库操作"""
 
 from datetime import datetime
-import json
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,28 +10,6 @@ from lifetrace.storage.models import Project
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
-
-
-def _dump_json(value: Any) -> str | None:
-    """将 Python 对象序列化为 JSON 字符串（用于写入数据库）"""
-    if value is None:
-        return None
-    try:
-        return json.dumps(value, ensure_ascii=False)
-    except TypeError as e:
-        logger.warning(f"序列化项目 JSON 字段失败: {e}, value={value}")
-        return None
-
-
-def _load_json(value: str | None) -> Any:
-    """将数据库中的 JSON 字符串反序列化为 Python 对象"""
-    if not value:
-        return None
-    try:
-        return json.loads(value)
-    except json.JSONDecodeError as e:
-        logger.warning(f"反序列化项目 JSON 字段失败: {e}, value={value}")
-        return None
 
 
 class ProjectManager:
@@ -47,7 +24,6 @@ class ProjectManager:
         name: str,
         definition_of_done: str | None = None,
         status: str = "active",
-        milestones: list[dict[str, Any]] | None = None,
         description: str | None = None,
     ) -> int | None:
         """创建新项目"""
@@ -57,7 +33,6 @@ class ProjectManager:
                     name=name,
                     definition_of_done=definition_of_done,
                     status=status,
-                    milestones_json=_dump_json(milestones),
                     description=description,
                 )
                 session.add(project)
@@ -75,7 +50,6 @@ class ProjectManager:
             "name": project.name,
             "definition_of_done": project.definition_of_done,
             "status": project.status or "active",
-            "milestones": _load_json(project.milestones_json),
             "description": project.description,
             "created_at": project.created_at,
             "updated_at": project.updated_at,
@@ -116,7 +90,6 @@ class ProjectManager:
         name: str | None = None,
         definition_of_done: str | None = None,
         status: str | None = None,
-        milestones: list[dict[str, Any]] | None = None,
         description: str | None = None,
     ) -> bool:
         """更新项目"""
@@ -133,8 +106,6 @@ class ProjectManager:
                     project.definition_of_done = definition_of_done
                 if status is not None:
                     project.status = status
-                if milestones is not None:
-                    project.milestones_json = _dump_json(milestones)
                 if description is not None:
                     project.description = description
 

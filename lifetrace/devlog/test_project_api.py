@@ -40,10 +40,6 @@ def run_project_crud_flow():
         "name": "API 测试项目",
         "definition_of_done": "验证项目 CRUD 与 AI 上下文字段是否工作正常",
         "status": "active",
-        "milestones": [
-            {"stage": "Design", "status": "done"},
-            {"stage": "Backend API", "status": "in_progress"},
-        ],
         "description": "用于自动化测试项目管理 API 的示例项目。",
     }
 
@@ -62,11 +58,6 @@ def run_project_crud_flow():
     update_payload = {
         "name": "API 测试项目（已更新）",
         "status": "completed",
-        "milestones": [
-            {"stage": "Design", "status": "done"},
-            {"stage": "Backend API", "status": "done"},
-            {"stage": "E2E Test", "status": "done"},
-        ],
         "description": "该项目已完成，用于验证项目管理 API 的端到端行为。",
     }
     resp = requests.put(

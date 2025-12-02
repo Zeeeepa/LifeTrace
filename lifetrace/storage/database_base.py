@@ -150,13 +150,7 @@ class DatabaseBase:
                     "ALTER TABLE projects ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
                 )
 
-                # 2. 里程碑上下文
-                add_column_if_missing(
-                    "milestones_json",
-                    "ALTER TABLE projects ADD COLUMN milestones_json TEXT",
-                )
-
-                # 3. 描述字段：如果存在旧列 system_context_prompt，则重命名；否则补充 description 列
+                # 2. 描述字段：如果存在旧列 system_context_prompt，则重命名；否则补充 description 列
                 if "description" not in columns and "system_context_prompt" in columns:
                     try:
                         conn.execute(
@@ -180,7 +174,7 @@ class DatabaseBase:
                         "ALTER TABLE projects ADD COLUMN description TEXT",
                     )
 
-                # 4. 删除不再使用的语义指纹相关列（如果数据库中仍然存在）
+                # 3. 删除不再使用的列（如果数据库中仍然存在）
                 # 注意：ALTER TABLE ... DROP COLUMN 需要 SQLite 3.35+，旧版本可能不支持
                 def drop_column_if_exists(column_name: str):
                     if column_name in columns:
@@ -203,6 +197,7 @@ class DatabaseBase:
                     "whitelist_apps",
                     "keywords_json",
                     "whitelist_apps_json",
+                    "milestones_json",
                 ]:
                     drop_column_if_exists(col)
 

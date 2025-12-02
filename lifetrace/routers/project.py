@@ -33,7 +33,6 @@ async def create_project(project: ProjectCreate):
             name=project.name,
             definition_of_done=project.definition_of_done,
             status=str(project.status),
-            milestones=project.milestones,
             description=project.description,
         )
 
@@ -139,7 +138,6 @@ async def update_project(project_id: int, project: ProjectUpdate):
             name=project.name,
             definition_of_done=project.definition_of_done,
             status=str(project.status) if project.status is not None else None,
-            milestones=project.milestones,
             description=project.description,
         )
 
