@@ -29,26 +29,16 @@ class ProjectCreate(BaseModel):
         description="项目状态：active, archived, completed",
     )
 
-    # 2. 语义指纹
-    keywords: list[str] | None = Field(
-        None,
-        description="与项目相关的关键词列表，用于上下文检索",
-    )
-    whitelist_apps: list[str] | None = Field(
-        None,
-        description="与项目高度相关的应用白名单（如 VS Code、Chrome）",
-    )
-
-    # 3. 里程碑上下文
+    # 2. 里程碑上下文
     milestones: list[dict[str, Any]] | None = Field(
         None,
         description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
     )
 
-    # 4. AI 与系统上下文
-    system_context_prompt: str | None = Field(
+    # 3. 描述 / AI 与系统上下文
+    description: str | None = Field(
         None,
-        description="为 AI Advisor 提供的系统级上下文摘要",
+        description="项目描述或为 AI Advisor 提供的系统级上下文摘要",
     )
 
 
@@ -71,26 +61,16 @@ class ProjectUpdate(BaseModel):
         description="项目状态：active, archived, completed",
     )
 
-    # 2. 语义指纹
-    keywords: list[str] | None = Field(
-        None,
-        description="与项目相关的关键词列表，用于上下文检索",
-    )
-    whitelist_apps: list[str] | None = Field(
-        None,
-        description="与项目高度相关的应用白名单（如 VS Code、Chrome）",
-    )
-
-    # 3. 里程碑上下文
+    # 2. 里程碑上下文
     milestones: list[dict[str, Any]] | None = Field(
         None,
         description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
     )
 
-    # 4. AI 与系统上下文
-    system_context_prompt: str | None = Field(
+    # 3. 描述 / AI 与系统上下文
+    description: str | None = Field(
         None,
-        description="为 AI Advisor 提供的系统级上下文摘要",
+        description="项目描述或为 AI Advisor 提供的系统级上下文摘要",
     )
 
 
@@ -107,26 +87,16 @@ class ProjectResponse(BaseModel):
     )
     status: str = Field(..., description="项目状态：active, archived, completed")
 
-    # 2. 语义指纹
-    keywords: list[str] | None = Field(
-        None,
-        description="与项目相关的关键词列表，用于上下文检索",
-    )
-    whitelist_apps: list[str] | None = Field(
-        None,
-        description="与项目高度相关的应用白名单（如 VS Code、Chrome）",
-    )
-
-    # 3. 里程碑上下文
+    # 2. 里程碑上下文
     milestones: list[dict[str, Any]] | None = Field(
         None,
         description='项目里程碑（例如：[{"stage": "MVP", "status": "in_progress"}]）',
     )
 
-    # 4. AI 与系统上下文
-    system_context_prompt: str | None = Field(
+    # 3. 描述 / AI 与系统上下文
+    description: str | None = Field(
         None,
-        description="为 AI Advisor 提供的系统级上下文摘要",
+        description="项目描述或为 AI Advisor 提供的系统级上下文摘要",
     )
 
     # 5. 元数据

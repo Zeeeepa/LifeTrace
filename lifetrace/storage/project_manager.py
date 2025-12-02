@@ -47,10 +47,8 @@ class ProjectManager:
         name: str,
         definition_of_done: str | None = None,
         status: str = "active",
-        keywords: list[str] | None = None,
-        whitelist_apps: list[str] | None = None,
         milestones: list[dict[str, Any]] | None = None,
-        system_context_prompt: str | None = None,
+        description: str | None = None,
     ) -> int | None:
         """创建新项目"""
         try:
@@ -59,10 +57,8 @@ class ProjectManager:
                     name=name,
                     definition_of_done=definition_of_done,
                     status=status,
-                    keywords_json=_dump_json(keywords),
-                    whitelist_apps_json=_dump_json(whitelist_apps),
                     milestones_json=_dump_json(milestones),
-                    system_context_prompt=system_context_prompt,
+                    description=description,
                 )
                 session.add(project)
                 session.flush()
@@ -79,10 +75,8 @@ class ProjectManager:
             "name": project.name,
             "definition_of_done": project.definition_of_done,
             "status": project.status or "active",
-            "keywords": _load_json(project.keywords_json),
-            "whitelist_apps": _load_json(project.whitelist_apps_json),
             "milestones": _load_json(project.milestones_json),
-            "system_context_prompt": project.system_context_prompt,
+            "description": project.description,
             "created_at": project.created_at,
             "updated_at": project.updated_at,
         }
@@ -122,10 +116,8 @@ class ProjectManager:
         name: str | None = None,
         definition_of_done: str | None = None,
         status: str | None = None,
-        keywords: list[str] | None = None,
-        whitelist_apps: list[str] | None = None,
         milestones: list[dict[str, Any]] | None = None,
-        system_context_prompt: str | None = None,
+        description: str | None = None,
     ) -> bool:
         """更新项目"""
         try:
@@ -141,14 +133,10 @@ class ProjectManager:
                     project.definition_of_done = definition_of_done
                 if status is not None:
                     project.status = status
-                if keywords is not None:
-                    project.keywords_json = _dump_json(keywords)
-                if whitelist_apps is not None:
-                    project.whitelist_apps_json = _dump_json(whitelist_apps)
                 if milestones is not None:
                     project.milestones_json = _dump_json(milestones)
-                if system_context_prompt is not None:
-                    project.system_context_prompt = system_context_prompt
+                if description is not None:
+                    project.description = description
 
                 project.updated_at = datetime.now()
                 session.flush()

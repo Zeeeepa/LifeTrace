@@ -108,9 +108,10 @@ class DatabaseBase:
             raise
 
     def _migrate_projects_table(self):
-        """迁移 projects 表结构，添加用于 AI 上下文的字段（SQLite 兼容方式）
+        """迁移 projects 表结构，保持与最新 ORM 定义一致（SQLite 兼容方式）
 
-        - 不删除旧字段，保证向后兼容
+        - 将旧字段 system_context_prompt 重命名为 description
+        - 删除不再使用的 keywords / whitelist_apps 相关列（如存在）
         - 仅在目标列不存在时执行 ALTER TABLE
         """
         try:
@@ -128,17 +129,18 @@ class DatabaseBase:
                     return
 
                 # 获取现有列
-                columns = [
-                    row[1]
-                    for row in conn.execute(text("PRAGMA table_info('projects')")).fetchall()
-                ]
+                column_rows = conn.execute(
+                    text("PRAGMA table_info('projects')")
+                ).fetchall()
+                columns = [row[1] for row in column_rows]
 
                 def add_column_if_missing(column_name: str, ddl: str):
                     if column_name not in columns:
                         conn.execute(text(ddl))
                         logger.info(f"已为 projects 表添加列: {column_name}")
+                        columns.append(column_name)
 
-                # 1. 身份锚点
+                # 1. 身份锚点（兼容旧版本）
                 add_column_if_missing(
                     "definition_of_done",
                     "ALTER TABLE projects ADD COLUMN definition_of_done TEXT",
@@ -148,27 +150,61 @@ class DatabaseBase:
                     "ALTER TABLE projects ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
                 )
 
-                # 2. 语义指纹
-                add_column_if_missing(
-                    "keywords_json",
-                    "ALTER TABLE projects ADD COLUMN keywords_json TEXT",
-                )
-                add_column_if_missing(
-                    "whitelist_apps_json",
-                    "ALTER TABLE projects ADD COLUMN whitelist_apps_json TEXT",
-                )
-
-                # 3. 里程碑上下文
+                # 2. 里程碑上下文
                 add_column_if_missing(
                     "milestones_json",
                     "ALTER TABLE projects ADD COLUMN milestones_json TEXT",
                 )
 
-                # 4. AI 与系统上下文
-                add_column_if_missing(
-                    "system_context_prompt",
-                    "ALTER TABLE projects ADD COLUMN system_context_prompt TEXT",
-                )
+                # 3. 描述字段：如果存在旧列 system_context_prompt，则重命名；否则补充 description 列
+                if "description" not in columns and "system_context_prompt" in columns:
+                    try:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE projects RENAME COLUMN system_context_prompt TO description"
+                            )
+                        )
+                        logger.info(
+                            "已将 projects 表列 system_context_prompt 重命名为 description"
+                        )
+                        # 更新列缓存
+                        columns.remove("system_context_prompt")
+                        columns.append("description")
+                    except Exception as e:
+                        logger.error(
+                            f"重命名 projects.system_context_prompt 为 description 失败: {e}"
+                        )
+                elif "description" not in columns and "system_context_prompt" not in columns:
+                    add_column_if_missing(
+                        "description",
+                        "ALTER TABLE projects ADD COLUMN description TEXT",
+                    )
+
+                # 4. 删除不再使用的语义指纹相关列（如果数据库中仍然存在）
+                # 注意：ALTER TABLE ... DROP COLUMN 需要 SQLite 3.35+，旧版本可能不支持
+                def drop_column_if_exists(column_name: str):
+                    if column_name in columns:
+                        try:
+                            conn.execute(
+                                text(
+                                    f"ALTER TABLE projects DROP COLUMN {column_name}"
+                                )
+                            )
+                            logger.info(f"已从 projects 表删除废弃列: {column_name}")
+                            columns.remove(column_name)
+                        except Exception as e:
+                            logger.warning(
+                                f"尝试删除 projects 表列 {column_name} 失败，可能是 SQLite 版本不支持 DROP COLUMN: {e}"
+                            )
+
+                # 旧版本可能存在的列名
+                for col in [
+                    "keywords",
+                    "whitelist_apps",
+                    "keywords_json",
+                    "whitelist_apps_json",
+                ]:
+                    drop_column_if_exists(col)
 
                 conn.commit()
 

@@ -33,10 +33,8 @@ async def create_project(project: ProjectCreate):
             name=project.name,
             definition_of_done=project.definition_of_done,
             status=str(project.status),
-            keywords=project.keywords,
-            whitelist_apps=project.whitelist_apps,
             milestones=project.milestones,
-            system_context_prompt=project.system_context_prompt,
+            description=project.description,
         )
 
         if not project_id:
@@ -141,10 +139,8 @@ async def update_project(project_id: int, project: ProjectUpdate):
             name=project.name,
             definition_of_done=project.definition_of_done,
             status=str(project.status) if project.status is not None else None,
-            keywords=project.keywords,
-            whitelist_apps=project.whitelist_apps,
             milestones=project.milestones,
-            system_context_prompt=project.system_context_prompt,
+            description=project.description,
         )
 
         if not success:

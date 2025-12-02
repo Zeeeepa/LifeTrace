@@ -40,13 +40,11 @@ def run_project_crud_flow():
         "name": "API 测试项目",
         "definition_of_done": "验证项目 CRUD 与 AI 上下文字段是否工作正常",
         "status": "active",
-        "keywords": ["LifeTrace", "Project", "Test"],
-        "whitelist_apps": ["VS Code", "Chrome"],
         "milestones": [
             {"stage": "Design", "status": "done"},
             {"stage": "Backend API", "status": "in_progress"},
         ],
-        "system_context_prompt": "用于自动化测试项目管理 API 的示例项目。",
+        "description": "用于自动化测试项目管理 API 的示例项目。",
     }
 
     resp = requests.post(f"{BASE_URL}/api/projects", json=create_payload, timeout=10)
@@ -69,7 +67,7 @@ def run_project_crud_flow():
             {"stage": "Backend API", "status": "done"},
             {"stage": "E2E Test", "status": "done"},
         ],
-        "system_context_prompt": "该项目已完成，用于验证项目管理 API 的端到端行为。",
+        "description": "该项目已完成，用于验证项目管理 API 的端到端行为。",
     }
     resp = requests.put(
         f"{BASE_URL}/api/projects/{project_id}",
