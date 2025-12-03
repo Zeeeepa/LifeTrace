@@ -499,6 +499,12 @@ export const zh = {
     recentCreated: '最近创建',
     noRecentUpdates: '暂无最近更新',
     noRecentCreated: '暂无最近创建',
+    aiTaskDecomposition: 'AI 任务拆解',
+    aiTaskDecompositionDesc: '根据项目信息自动生成任务',
+    generating: '正在生成...',
+    generateTasksSuccess: '成功生成 {count} 个任务',
+    generateTasksFailed: 'AI任务拆解失败',
+    noProjectInfo: '请先填写项目描述或完成标准，以便AI生成任务',
   },
   screenshot: {
     title: '截图详情',

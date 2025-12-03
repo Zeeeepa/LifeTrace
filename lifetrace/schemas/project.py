@@ -94,3 +94,18 @@ class ProjectListResponse(BaseModel):
 
     total: int = Field(..., description="总数")
     projects: list[ProjectResponse] = Field(..., description="项目列表")
+
+
+class GeneratedTaskItem(BaseModel):
+    """AI生成的任务项"""
+
+    id: int = Field(..., description="任务ID")
+    name: str = Field(..., description="任务名称")
+    description: str | None = Field(None, description="任务描述")
+
+
+class GenerateTasksResponse(BaseModel):
+    """AI任务拆解响应模型"""
+
+    tasks: list[GeneratedTaskItem] = Field(..., description="生成的任务列表")
+    message: str = Field(..., description="操作结果消息")

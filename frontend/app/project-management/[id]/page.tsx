@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, FolderOpen, ChevronRight, ChevronDown, ChevronUp, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, FolderOpen, ChevronRight, ChevronDown, ChevronUp, History, Send, User, Bot, X, Activity, TrendingUp, Search, Clock, Sparkles } from 'lucide-react';
 import Button from '@/components/common/Button';
 import Loading from '@/components/common/Loading';
 import Input from '@/components/common/Input';
@@ -38,8 +38,14 @@ interface SessionSummary {
 // 空状态组件
 function TaskEmptyState({
   onCreateTask,
+  onAIGenerate,
+  isGenerating,
+  hasProjectInfo,
 }: {
   onCreateTask: () => void;
+  onAIGenerate: () => void;
+  isGenerating: boolean;
+  hasProjectInfo: boolean;
 }) {
   const locale = useLocaleStore((state) => state.locale);
   const t = useTranslations(locale);
@@ -57,6 +63,16 @@ function TaskEmptyState({
         <Button onClick={onCreateTask} className="gap-2">
           <Plus className="h-5 w-5" />
           {t.projectDetail.createTask}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onAIGenerate}
+          disabled={isGenerating || !hasProjectInfo}
+          className="gap-2"
+          title={!hasProjectInfo ? t.projectDetail.noProjectInfo : t.projectDetail.aiTaskDecompositionDesc}
+        >
+          <Sparkles className={`h-5 w-5 ${isGenerating ? 'animate-pulse' : ''}`} />
+          {isGenerating ? t.projectDetail.generating : t.projectDetail.aiTaskDecomposition}
         </Button>
       </div>
     </div>
@@ -100,6 +116,7 @@ export default function ProjectDetailPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const descriptionEditRef = useRef<HTMLTextAreaElement | null>(null);
@@ -434,6 +451,30 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // AI任务拆解
+  const handleAIGenerateTasks = async () => {
+    if (!project) return;
+
+    // 检查是否有足够的项目信息
+    if (!project.description && !project.definition_of_done) {
+      toast.error(t.projectDetail.noProjectInfo);
+      return;
+    }
+
+    setIsGeneratingTasks(true);
+    try {
+      const response = await api.generateProjectTasks(projectId);
+      const count = response.data.tasks?.length || 0;
+      toast.success(t.projectDetail.generateTasksSuccess.replace('{count}', String(count)));
+      loadTasks();
+    } catch (error) {
+      console.error('AI任务拆解失败:', error);
+      toast.error(t.projectDetail.generateTasksFailed);
+    } finally {
+      setIsGeneratingTasks(false);
+    }
+  };
+
   // 任务选择相关函数
   const selectedTasksData = tasks.filter((task) => selectedTasks.has(task.id));
 
@@ -759,6 +800,9 @@ export default function ProjectDetailPage() {
             <div className="h-full overflow-y-auto mx-auto max-w-7xl w-full p-6 pt-4">
               <TaskEmptyState
                 onCreateTask={() => handleCreateTask()}
+                onAIGenerate={handleAIGenerateTasks}
+                isGenerating={isGeneratingTasks}
+                hasProjectInfo={!!(project?.description || project?.definition_of_done)}
               />
             </div>
           ) : viewMode === 'dashboard' ? (

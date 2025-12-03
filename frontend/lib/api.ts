@@ -270,6 +270,10 @@ export const api = {
   deleteProject: (id: number) =>
     apiClient.delete(`/api/projects/${id}`),
 
+  // AI任务拆解
+  generateProjectTasks: (projectId: number) =>
+    apiClient.post(`/api/projects/${projectId}/generate-tasks`),
+
   // 任务管理
   createTask: (projectId: number, data: { name: string; description?: string; status?: string; parent_task_id?: number }) =>
     apiClient.post(`/api/projects/${projectId}/tasks`, data),

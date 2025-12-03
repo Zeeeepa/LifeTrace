@@ -501,6 +501,12 @@ export const en: Translation = {
     recentCreated: 'Recently Created',
     noRecentUpdates: 'No recent updates',
     noRecentCreated: 'No recently created tasks',
+    aiTaskDecomposition: 'AI Task Decomposition',
+    aiTaskDecompositionDesc: 'Auto-generate tasks based on project info',
+    generating: 'Generating...',
+    generateTasksSuccess: 'Successfully generated {count} tasks',
+    generateTasksFailed: 'AI task decomposition failed',
+    noProjectInfo: 'Please fill in project description or definition of done first',
   },
   screenshot: {
     title: 'Screenshot Details',
