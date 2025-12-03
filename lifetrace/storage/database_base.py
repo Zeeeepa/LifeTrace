@@ -111,101 +111,129 @@ class DatabaseBase:
         """迁移 projects 表结构，保持与最新 ORM 定义一致（SQLite 兼容方式）
 
         - 将旧字段 system_context_prompt 重命名为 description
-        - 删除不再使用的 keywords / whitelist_apps 相关列（如存在）
+        - 删除不再使用的 keywords / whitelist_apps / goal 等列（如存在）
         - 仅在目标列不存在时执行 ALTER TABLE
         """
         try:
             with self.engine.connect() as conn:
-                # 检查 projects 表是否存在
-                tables = [
-                    row[0]
-                    for row in conn.execute(
-                        text(
-                            "SELECT name FROM sqlite_master WHERE type='table' AND name='projects'"
-                        )
-                    ).fetchall()
-                ]
-                if "projects" not in tables:
+                if not self._projects_table_exists(conn):
                     return
 
-                # 获取现有列
-                column_rows = conn.execute(
-                    text("PRAGMA table_info('projects')")
-                ).fetchall()
-                columns = [row[1] for row in column_rows]
-
-                def add_column_if_missing(column_name: str, ddl: str):
-                    if column_name not in columns:
-                        conn.execute(text(ddl))
-                        logger.info(f"已为 projects 表添加列: {column_name}")
-                        columns.append(column_name)
-
-                # 1. 身份锚点（兼容旧版本）
-                add_column_if_missing(
-                    "definition_of_done",
-                    "ALTER TABLE projects ADD COLUMN definition_of_done TEXT",
-                )
-                add_column_if_missing(
-                    "status",
-                    "ALTER TABLE projects ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
-                )
-
-                # 2. 描述字段：如果存在旧列 system_context_prompt，则重命名；否则补充 description 列
-                if "description" not in columns and "system_context_prompt" in columns:
-                    try:
-                        conn.execute(
-                            text(
-                                "ALTER TABLE projects RENAME COLUMN system_context_prompt TO description"
-                            )
-                        )
-                        logger.info(
-                            "已将 projects 表列 system_context_prompt 重命名为 description"
-                        )
-                        # 更新列缓存
-                        columns.remove("system_context_prompt")
-                        columns.append("description")
-                    except Exception as e:
-                        logger.error(
-                            f"重命名 projects.system_context_prompt 为 description 失败: {e}"
-                        )
-                elif "description" not in columns and "system_context_prompt" not in columns:
-                    add_column_if_missing(
-                        "description",
-                        "ALTER TABLE projects ADD COLUMN description TEXT",
-                    )
-
-                # 3. 删除不再使用的列（如果数据库中仍然存在）
-                # 注意：ALTER TABLE ... DROP COLUMN 需要 SQLite 3.35+，旧版本可能不支持
-                def drop_column_if_exists(column_name: str):
-                    if column_name in columns:
-                        try:
-                            conn.execute(
-                                text(
-                                    f"ALTER TABLE projects DROP COLUMN {column_name}"
-                                )
-                            )
-                            logger.info(f"已从 projects 表删除废弃列: {column_name}")
-                            columns.remove(column_name)
-                        except Exception as e:
-                            logger.warning(
-                                f"尝试删除 projects 表列 {column_name} 失败，可能是 SQLite 版本不支持 DROP COLUMN: {e}"
-                            )
-
-                # 旧版本可能存在的列名
-                for col in [
-                    "keywords",
-                    "whitelist_apps",
-                    "keywords_json",
-                    "whitelist_apps_json",
-                    "milestones_json",
-                ]:
-                    drop_column_if_exists(col)
+                columns = self._get_project_columns(conn)
+                columns = self._ensure_project_identity_columns(conn, columns)
+                columns = self._rename_or_add_description_column(conn, columns)
+                self._drop_legacy_project_columns(conn, columns)
 
                 conn.commit()
 
         except Exception as e:
             # 迁移失败不应阻止服务启动，但需要记录错误
             logger.error(f"projects 表结构迁移失败: {e}")
+
+    def _projects_table_exists(self, conn) -> bool:
+        """检查 projects 表是否存在"""
+        tables = [
+            row[0]
+            for row in conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")
+            ).fetchall()
+        ]
+        return "projects" in tables
+
+    def _get_project_columns(self, conn) -> list[str]:
+        """获取 projects 表现有列名列表"""
+        column_rows = conn.execute(text("PRAGMA table_info('projects')")).fetchall()
+        return [row[1] for row in column_rows]
+
+    def _add_column_if_missing(
+        self,
+        conn,
+        columns: list[str],
+        column_name: str,
+        ddl: str,
+    ) -> list[str]:
+        """如果列不存在，则执行 ALTER TABLE 添加"""
+        if column_name not in columns:
+            conn.execute(text(ddl))
+            logger.info(f"已为 projects 表添加列: {column_name}")
+            columns.append(column_name)
+        return columns
+
+    def _ensure_project_identity_columns(
+        self,
+        conn,
+        columns: list[str],
+    ) -> list[str]:
+        """确保身份锚点相关列存在"""
+        columns = self._add_column_if_missing(
+            conn,
+            columns,
+            "definition_of_done",
+            "ALTER TABLE projects ADD COLUMN definition_of_done TEXT",
+        )
+        columns = self._add_column_if_missing(
+            conn,
+            columns,
+            "status",
+            "ALTER TABLE projects ADD COLUMN status VARCHAR(20) DEFAULT 'active'",
+        )
+        return columns
+
+    def _rename_or_add_description_column(
+        self,
+        conn,
+        columns: list[str],
+    ) -> list[str]:
+        """处理 description / system_context_prompt 列的兼容迁移"""
+        has_description = "description" in columns
+        has_system_context = "system_context_prompt" in columns
+
+        if not has_description and has_system_context:
+            try:
+                conn.execute(
+                    text("ALTER TABLE projects RENAME COLUMN system_context_prompt TO description")
+                )
+                logger.info("已将 projects 表列 system_context_prompt 重命名为 description")
+                columns.remove("system_context_prompt")
+                columns.append("description")
+            except Exception as e:
+                logger.error(f"重命名 projects.system_context_prompt 为 description 失败: {e}")
+        elif not has_description and not has_system_context:
+            columns = self._add_column_if_missing(
+                conn,
+                columns,
+                "description",
+                "ALTER TABLE projects ADD COLUMN description TEXT",
+            )
+
+        return columns
+
+    def _drop_legacy_project_columns(
+        self,
+        conn,
+        columns: list[str],
+    ) -> None:
+        """删除不再使用的旧列（如果数据库中仍然存在）"""
+        legacy_columns = [
+            "keywords",
+            "whitelist_apps",
+            "keywords_json",
+            "whitelist_apps_json",
+            "milestones_json",
+            "goal",
+        ]
+
+        for col in legacy_columns:
+            if col not in columns:
+                continue
+            try:
+                conn.execute(text(f"ALTER TABLE projects DROP COLUMN {col}"))
+                logger.info(f"已从 projects 表删除废弃列: {col}")
+                columns.remove(col)
+            except Exception as e:
+                logger.warning(
+                    f"尝试删除 projects 表列 {col} 失败，可能是 SQLite 版本不支持 DROP COLUMN: {e}"
+                )
 
     @contextmanager
     def get_session(self):
