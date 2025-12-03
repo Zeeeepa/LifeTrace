@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Wand2 } from 'lucide-react';
+import { X, Sparkles, Wand2, UploadCloud } from 'lucide-react';
 import Input from '@/components/common/Input';
 import Button from '@/components/common/Button';
 import { Project, ProjectCreate } from '@/lib/types';
@@ -38,6 +38,11 @@ export default function CreateProjectModal({
   const [aiFieldAction, setAiFieldAction] = useState<'description' | 'definition_of_done' | null>(null);
   const isAnyAiRunning = !!aiGlobalAction || !!aiFieldAction;
 
+  // 导入资料生成模式相关状态
+  const [importText, setImportText] = useState('');
+  const [isGeneratingFromImport, setIsGeneratingFromImport] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const definitionRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -60,6 +65,9 @@ export default function CreateProjectModal({
         });
       }
       setErrors({});
+      setImportText('');
+      setIsGeneratingFromImport(false);
+      setIsDragOver(false);
     }
   }, [isOpen, project]);
 
@@ -89,6 +97,90 @@ export default function CreateProjectModal({
       el.style.overflowY = 'auto';
     } else {
       el.style.overflowY = 'hidden';
+    }
+  };
+
+  // 基于导入资料，一次性生成项目名称 / 描述 / 完成标准
+  const handleGenerateFromImport = async () => {
+    if (!importText.trim()) {
+      toast.error(t.project.importEmptyError || t.common.unknownError);
+      return;
+    }
+
+    if (isAnyAiRunning || isGeneratingFromImport) return;
+
+    setIsGeneratingFromImport(true);
+    try {
+      const message =
+        `下面是一段关于某个项目的背景信息、进展记录或需求描述，请你帮我整理出「项目名称」「项目描述」「最终交付物 / 完成标准」。\n\n` +
+        `【重要要求】\n` +
+        `1. 请基于用户提供的资料，而不是凭空臆测。\n` +
+        `2. 如果资料中已经隐含或出现了项目名称，请在此基础上进行提炼和优化，而不是完全改名。\n` +
+        `3. 项目描述保持在不超过 120 字的简洁中文，聚焦项目目标和范围。\n` +
+        `4. 最终交付物 / 完成标准同样不超过 120 字，强调“什么情况下可以认为项目完成”。\n` +
+        `5. 严格按照 JSON 格式输出，键名固定为: name, description, definition_of_done。\n\n` +
+        `【用户提供的项目资料】\n` +
+        `${importText.trim()}\n\n` +
+        `【输出示例】\n` +
+        `{\n` +
+        `  "name": "FreeU 项目管理功能",\n` +
+        `  "description": "……",\n` +
+        `  "definition_of_done": "……"\n` +
+        `}\n\n` +
+        `只输出 JSON，本身不要添加解释性文字。`;
+
+      const res = await api.sendChatMessage({ message });
+      const raw = (res.data?.response as string | undefined)?.trim();
+
+      if (!raw) {
+        toast.error(t.common.unknownError);
+        return;
+      }
+
+      // 尝试从返回内容中提取 JSON
+      let jsonText = raw;
+      const firstBrace = raw.indexOf('{');
+      const lastBrace = raw.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = raw.slice(firstBrace, lastBrace + 1);
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (e) {
+        console.error('解析 AI 返回的 JSON 失败:', e, 'raw:', raw);
+        toast.error(t.project.importParseFailed || t.common.unknownError);
+        return;
+      }
+
+      const nextName = (parsed.name || '').toString().trim();
+      const nextDescription = (parsed.description || '').toString().trim();
+      const nextDefinition = (parsed.definition_of_done || '').toString().trim();
+
+      if (!nextName) {
+        toast.error(t.project.importNameMissing || t.common.unknownError);
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        name: nextName,
+        description: nextDescription || prev.description,
+        definition_of_done: nextDefinition || prev.definition_of_done,
+      }));
+
+      // 清除名称相关错误
+      if (errors.name) {
+        setErrors((prev) => ({ ...prev, name: undefined }));
+      }
+
+      toast.success(t.common.success);
+    } catch (error) {
+      console.error('基于导入资料生成项目信息失败:', error);
+      toast.error(t.common.error);
+    } finally {
+      setIsGeneratingFromImport(false);
     }
   };
 
@@ -332,6 +424,115 @@ export default function CreateProjectModal({
               <p className="mt-1 text-sm text-destructive">{errors.name}</p>
             )}
           </div>
+
+          {/* 导入资料 - 快速生成项目基础信息 */}
+          {!isEditMode && (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-3 sm:px-4 sm:py-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <UploadCloud className="h-4 w-4" />
+                    <span>{t.project.importSectionTitle}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    {t.project.importSectionDesc}
+                  </p>
+                </div>
+              </div>
+
+              <div
+                className={`mt-1 rounded-md border text-xs sm:text-sm transition-colors ${
+                  isDragOver
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-background'
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDragOver(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDragOver(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDragOver(false);
+
+                  const files = Array.from(e.dataTransfer.files || []);
+                  if (!files.length) return;
+
+                  const textFiles = files.filter((file) => {
+                    const lowerName = file.name.toLowerCase();
+                    return (
+                      file.type.startsWith('text/') ||
+                      lowerName.endsWith('.txt') ||
+                      lowerName.endsWith('.md') ||
+                      lowerName.endsWith('.markdown')
+                    );
+                  });
+
+                  if (!textFiles.length) {
+                    toast.error(t.project.importFileTypeError);
+                    return;
+                  }
+
+                  textFiles.forEach((file) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const content = (reader.result as string) || '';
+                      if (!content.trim()) return;
+                      setImportText((prev) =>
+                        prev
+                          ? `${prev.trim()}\n\n------ ${file.name} ------\n${content.trim()}`
+                          : `------ ${file.name} ------\n${content.trim()}`
+                      );
+                    };
+                    reader.onerror = () => {
+                      toast.error(t.project.importFileReadError);
+                    };
+                    reader.readAsText(file);
+                  });
+                }}
+              >
+                <div className="flex flex-col gap-2 px-3 py-2 sm:px-4 sm:py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t.project.importDropHint}
+                  </p>
+                  <textarea
+                    placeholder={t.project.importTextareaPlaceholder}
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    className="mt-1 min-h-[72px] max-h-[180px] w-full resize-y rounded-md border border-input bg-muted/40 px-2 py-1.5 text-xs leading-relaxed text-foreground shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    disabled={saving || isGeneratingFromImport}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  {t.project.importTip}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateFromImport}
+                  disabled={
+                    saving || isGeneratingFromImport || !importText.trim() || isAnyAiRunning
+                  }
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span>
+                    {isGeneratingFromImport
+                      ? t.project.importGeneratingLabel
+                      : t.project.importGenerateButton}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 项目描述 */}
           <div>
