@@ -3,6 +3,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: pretty-format-json
       - id: end-of-file-fixer
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
@@ -15,7 +18,7 @@ repos:
         # supported by your project here, or alternatively use
         # pre-commit's default_language_version, see
         # https://pre-commit.com/#top_level-default_language_version
-        language_version: python3.13  
+        language_version: python3.13
         files: ^lifetrace/
         types_or: [ python, pyi ]
         args: [ --fix ]
