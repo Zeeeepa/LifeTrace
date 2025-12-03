@@ -72,6 +72,36 @@ export default function ProjectManagementPage() {
     }
   };
 
+  // 处理归档项目
+  const handleArchiveProject = async (projectId: number) => {
+    if (!confirm(t.project.archiveConfirm)) {
+      return;
+    }
+
+    try {
+      await api.updateProject(projectId, { status: 'archived' });
+      toast.success(t.project.archiveSuccess);
+      // 刷新列表
+      loadProjects();
+    } catch (error) {
+      console.error('归档项目失败:', error);
+      toast.error(t.project.archiveFailed);
+    }
+  };
+
+  // 处理恢复项目
+  const handleRestoreProject = async (projectId: number) => {
+    try {
+      await api.updateProject(projectId, { status: 'active' });
+      toast.success(t.project.restoreSuccess);
+      // 刷新列表
+      loadProjects();
+    } catch (error) {
+      console.error('恢复项目失败:', error);
+      toast.error(t.project.restoreFailed);
+    }
+  };
+
   // 模态框成功回调
   const handleModalSuccess = () => {
     loadProjects();
@@ -129,6 +159,8 @@ export default function ProjectManagementPage() {
                 project={project}
                 onEdit={handleEditProject}
                 onDelete={handleDeleteProject}
+                onArchive={handleArchiveProject}
+                onRestore={handleRestoreProject}
               />
             ))}
           </div>

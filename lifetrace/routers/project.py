@@ -32,7 +32,7 @@ async def create_project(project: ProjectCreate):
         project_id = project_mgr.create_project(
             name=project.name,
             definition_of_done=project.definition_of_done,
-            status=str(project.status),
+            status=project.status.value,
             description=project.description,
         )
 
@@ -139,7 +139,7 @@ async def update_project(project_id: int, project: ProjectUpdate):
             project_id=project_id,
             name=project.name,
             definition_of_done=project.definition_of_done,
-            status=str(project.status) if project.status is not None else None,
+            status=project.status.value if project.status is not None else None,
             description=project.description,
         )
 
