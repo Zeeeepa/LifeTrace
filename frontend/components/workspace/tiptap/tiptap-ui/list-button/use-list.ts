@@ -139,81 +139,86 @@ export function isListActive(editor: Editor | null, type: ListType): boolean {
 }
 
 /**
- * Toggles list in the editor
+ * Toggles list in the editor, ensuring all selected paragraphs/lines become list items
  */
 export function toggleList(editor: Editor | null, type: ListType): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggleList(editor, type)) return false
 
   try {
-    const view = editor.view
-    let state = view.state
-    let tr = state.tr
+    const { state } = editor
+    const { from, to } = state.selection
 
-    // No selection, find the the cursor position
-    if (state.selection.empty || state.selection instanceof TextSelection) {
-      const pos = findNodePosition({
-        editor,
-        node: state.selection.$anchor.node(1),
-      })?.pos
-      if (!isValidPosition(pos)) return false
-
-      tr = tr.setSelection(NodeSelection.create(state.doc, pos))
-      view.dispatch(tr)
-      state = view.state
-    }
-
-    const selection = state.selection
-
-    let chain = editor.chain().focus()
-
-    // Handle NodeSelection
-    if (selection instanceof NodeSelection) {
-      const firstChild = selection.node.firstChild?.firstChild
-      const lastChild = selection.node.lastChild?.lastChild
-
-      const from = firstChild
-        ? selection.from + firstChild.nodeSize
-        : selection.from + 1
-
-      const to = lastChild
-        ? selection.to - lastChild.nodeSize
-        : selection.to - 1
-
-      const resolvedFrom = state.doc.resolve(from)
-      const resolvedTo = state.doc.resolve(to)
-
-      chain = chain
-        .setTextSelection(TextSelection.between(resolvedFrom, resolvedTo))
-        .clearNodes()
-    }
-
+    // Check if we're already in a list of this type
     if (editor.isActive(type)) {
-      // Unwrap list
-      chain
+      // Unwrap list - use built-in commands
+      editor
+        .chain()
+        .focus()
         .liftListItem("listItem")
         .lift("bulletList")
         .lift("orderedList")
         .lift("taskList")
         .run()
-    } else {
-      // Wrap in specific list type
-      const toggleMap: Record<ListType, () => typeof chain> = {
-        bulletList: () => chain.toggleBulletList(),
-        orderedList: () => chain.toggleOrderedList(),
-        taskList: () => chain.toggleList("taskList", "taskItem"),
-      }
-
-      const toggle = toggleMap[type]
-      if (!toggle) return false
-
-      toggle().run()
+      
+      editor.chain().focus().selectTextblockEnd().run()
+      return true
     }
 
-    editor.chain().focus().selectTextblockEnd().run()
+    // For wrapping in a list:
+    // Tiptap's toggle commands should handle multi-paragraph selections correctly,
+    // but we need to ensure the entire selection is properly processed
+    
+    // Get the selection range
+    const $from = state.doc.resolve(from)
+    const $to = state.doc.resolve(to)
+    const range = $from.blockRange($to)
+    
+    if (!range) {
+      // Fallback to simple toggle if no range
+      const toggleMap: Record<ListType, () => boolean> = {
+        bulletList: () => editor.chain().focus().toggleBulletList().run(),
+        orderedList: () => editor.chain().focus().toggleOrderedList().run(),
+        taskList: () => editor.chain().focus().toggleList("taskList", "taskItem").run(),
+      }
+      
+      const toggle = toggleMap[type]
+      if (!toggle) return false
+      
+      return toggle()
+    }
 
-    return true
-  } catch {
+    // Make sure we select the entire range of blocks
+    // This ensures all selected paragraphs are included in the list operation
+    const rangeFrom = range.start
+    const rangeTo = range.end
+    
+    // Create a proper text selection spanning all blocks
+    editor
+      .chain()
+      .focus()
+      .setTextSelection({ from: rangeFrom, to: rangeTo })
+      .run()
+    
+    // Now toggle the list type
+    const toggleMap: Record<ListType, () => boolean> = {
+      bulletList: () => editor.chain().toggleBulletList().run(),
+      orderedList: () => editor.chain().toggleOrderedList().run(),
+      taskList: () => editor.chain().toggleList("taskList", "taskItem").run(),
+    }
+
+    const toggle = toggleMap[type]
+    if (!toggle) return false
+
+    const success = toggle()
+    
+    if (success) {
+      editor.chain().focus().selectTextblockEnd().run()
+    }
+
+    return success
+  } catch (error) {
+    console.error('Error toggling list:', error)
     return false
   }
 }
