@@ -7,18 +7,17 @@ import {
 	DollarSign,
 	FolderKanban,
 	Settings,
+	User,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import LanguageToggle from "@/components/common/LanguageToggle";
 import SettingsModal from "@/components/common/SettingsModal";
-import ThemeToggle from "@/components/common/ThemeToggle";
 import type { SidebarNavItem } from "@/components/ui/sidebar-nav";
 import {
 	Sidebar,
 	SidebarContent,
+	SidebarFooter,
 	SidebarHeader,
 	SidebarNav,
 } from "@/components/ui/sidebar-nav";
@@ -247,17 +246,16 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
 			<div className="flex w-full h-full">
 				{/* 左侧栏 - 侧边栏菜单 */}
 				<Sidebar className="flex-shrink-0 h-full w-16">
-					{/* Logo 区域 */}
+					{/* 用户头像区域 */}
 					<SidebarHeader className="h-[68px] flex items-center justify-center">
-						<div className="relative h-8 w-8">
-							<Image
-								src="/logo.png"
-								alt="LifeTrace Logo"
-								fill
-								className="object-contain"
-								unoptimized
-							/>
-						</div>
+						<button
+							type="button"
+							className="group relative flex items-center justify-center rounded-md p-3 text-sm font-medium transition-all duration-150 text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							aria-label="User Profile"
+							title="User Profile"
+						>
+							<User className="h-5 w-5 shrink-0 transition-colors duration-150 text-muted-foreground group-hover:text-foreground" />
+						</button>
 					</SidebarHeader>
 
 					{/* 导航菜单 */}
@@ -268,29 +266,23 @@ function AppLayoutInner({ children }: AppLayoutInnerProps) {
 							onItemClick={handleMenuClick}
 						/>
 					</SidebarContent>
+
+					{/* 设置按钮 */}
+					<SidebarFooter className="px-3 py-2">
+						<button
+							type="button"
+							onClick={onSettingsClick}
+							className="group relative flex items-center justify-center rounded-md p-3 text-sm font-medium transition-all duration-150 text-muted-foreground hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							aria-label={t.layout.settings}
+							title={t.layout.settings}
+						>
+							<Settings className="h-5 w-5 shrink-0 transition-colors duration-150 text-muted-foreground group-hover:text-foreground" />
+						</button>
+					</SidebarFooter>
 				</Sidebar>
 
 				{/* 中间内容区 */}
 				<div className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-					{/* 顶部工具栏 */}
-					<div className="flex items-center justify-end h-[68px] px-4 border-b bg-background">
-						{/* 右侧：主题切换、语言切换和设置 */}
-						<div className="flex items-center gap-2">
-							<ThemeToggle />
-							<LanguageToggle />
-
-							<button
-								type="button"
-								onClick={onSettingsClick}
-								className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								aria-label={t.layout.settings}
-								title={t.layout.settings}
-							>
-								<Settings className="h-5 w-5" />
-							</button>
-						</div>
-					</div>
-
 					{/* 页面内容 */}
 					<div className="flex-1 overflow-y-auto">{renderContent()}</div>
 				</div>
