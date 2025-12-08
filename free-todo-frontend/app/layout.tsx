@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ThemeProvider } from "@/components/common/ThemeProvider"
 import "./globals.css"
 
 interface RootLayoutProps {
@@ -12,9 +13,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-950 text-slate-50 antialiased">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   )

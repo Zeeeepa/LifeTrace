@@ -2,6 +2,10 @@
 
 :root {
   color-scheme: light dark;
+  --page-bg: #020617;
+  --panel-bg: rgba(15, 23, 42, 0.7);
+  --panel-border: #0f172a;
+  --text-main: #e2e8f0;
 }
 
 html,
@@ -15,4 +19,26 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+body.theme-light {
+  --page-bg: #f8fafc;
+  --panel-bg: rgba(248, 250, 252, 0.8);
+  --panel-border: #cbd5e1;
+  --text-main: #0f172a;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.2), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(52, 211, 153, 0.16), transparent 45%),
+    var(--page-bg);
+  color: var(--text-main);
+}
+
+body.theme-dark {
+  --page-bg: #020617;
+  --panel-bg: rgba(15, 23, 42, 0.7);
+  --panel-border: #0f172a;
+  --text-main: #e2e8f0;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.15), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(52, 211, 153, 0.12), transparent 50%),
+    var(--page-bg);
+  color: var(--text-main);
 }

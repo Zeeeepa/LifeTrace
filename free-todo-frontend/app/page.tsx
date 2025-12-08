@@ -1,14 +1,22 @@
 "use client"
 
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import type { PointerEvent as ReactPointerEvent } from "react"
 
 import { BottomDock } from "@/components/layout/BottomDock"
 import { PanelContainer } from "@/components/layout/PanelContainer"
+import { LanguageToggle } from "@/components/common/LanguageToggle"
+import { ThemeToggle } from "@/components/common/ThemeToggle"
+import { UserAvatar } from "@/components/common/UserAvatar"
+import { useLocaleStore } from "@/lib/store/locale"
+import { useTranslations } from "@/lib/i18n"
 import { useUiStore } from "@/lib/store/ui-store"
 
 export default function HomePage() {
   const { isCalendarOpen, isBoardOpen, calendarWidth, setCalendarWidth } = useUiStore()
+  const [isDragging, setIsDragging] = useState(false)
+  const { locale } = useLocaleStore()
+  const t = useTranslations(locale)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -43,7 +51,6 @@ export default function HomePage() {
       }
     }
 
-    // 理论兜底：不允许两个都关，回退为仅日历
     return {
       showCalendar: true,
       showBoard: false,
@@ -72,6 +79,7 @@ export default function HomePage() {
     event.preventDefault()
     event.stopPropagation()
 
+    setIsDragging(true)
     handleDragAtClientX(event.clientX)
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -79,6 +87,7 @@ export default function HomePage() {
     }
 
     const handlePointerUp = () => {
+      setIsDragging(false)
       window.removeEventListener("pointermove", handlePointerMove)
       window.removeEventListener("pointerup", handlePointerUp)
     }
@@ -88,18 +97,22 @@ export default function HomePage() {
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <main className="relative flex min-h-screen flex-col bg-transparent">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.15),_transparent_60%),_radial-gradient(circle_at_bottom,_rgba(52,211,153,0.12),_transparent_55%)]" />
 
       <div className="relative z-10 flex flex-1 flex-col px-4 pb-20 pt-6 md:px-6 lg:px-10">
         <header className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-slate-50 md:text-xl">
-              Free Todo Canvas
+              {t.page.title}
             </h1>
-            <p className="mt-1 text-xs text-slate-400 md:text-sm">
-              日历视图与看板视图并列排布，可通过底部 Dock 快速切换与组合，并支持拖拽调整宽度。
-            </p>
+            <p className="mt-1 text-xs text-slate-400 md:text-sm">{t.page.subtitle}</p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <LanguageToggle />
+            <UserAvatar />
           </div>
         </header>
 
@@ -114,13 +127,15 @@ export default function HomePage() {
           >
             <div className="flex h-full flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-slate-100 md:text-base">Calendar View</h2>
+                <h2 className="text-sm font-medium text-slate-100 md:text-base">
+                  {t.page.calendarLabel}
+                </h2>
                 <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
-                  占位：在这里接入日历组件
+                  {t.page.calendarPlaceholder}
                 </span>
               </div>
               <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-700/80 bg-slate-900/60 text-xs text-slate-500 md:text-sm">
-                Calendar canvas area
+                {t.page.calendarPlaceholder}
               </div>
             </div>
           </PanelContainer>
@@ -130,9 +145,19 @@ export default function HomePage() {
               role="separator"
               aria-orientation="vertical"
               onPointerDown={handleResizePointerDown}
-              className="flex w-1 cursor-col-resize items-stretch justify-center px-0.5"
+              className={`flex items-stretch justify-center transition-all duration-200 ${
+                isDragging
+                  ? "w-2 cursor-col-resize px-1"
+                  : "w-1 cursor-col-resize px-0.5"
+              }`}
             >
-              <div className="h-full w-px rounded-full bg-slate-700/80" />
+              <div
+                className={`h-full rounded-full transition-all duration-200 ${
+                  isDragging
+                    ? "w-1 bg-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.6)]"
+                    : "w-px bg-slate-700/80"
+                }`}
+              />
             </div>
           ) : null}
 
@@ -143,13 +168,15 @@ export default function HomePage() {
           >
             <div className="flex h-full flex-col rounded-xl border border-slate-800 bg-slate-900/70 p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-slate-100 md:text-base">Kanban Board</h2>
+                <h2 className="text-sm font-medium text-slate-100 md:text-base">
+                  {t.page.boardLabel}
+                </h2>
                 <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400">
-                  占位：在这里接入 Todo 看板
+                  {t.page.boardPlaceholder}
                 </span>
               </div>
               <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-700/80 bg-slate-900/60 text-xs text-slate-500 md:text-sm">
-                Board canvas area
+                {t.page.boardPlaceholder}
               </div>
             </div>
           </PanelContainer>
