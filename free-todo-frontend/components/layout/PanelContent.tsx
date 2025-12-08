@@ -3,6 +3,7 @@
 import { CreateTodoForm } from "@/components/todo/CreateTodoForm";
 import { TodoList } from "@/components/todo/TodoList";
 import type { PanelPosition } from "@/lib/config/panel-config";
+import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -47,11 +48,15 @@ export function PanelContent({ position }: PanelContentProps) {
 		return placeholderMap[feat] || "";
 	};
 
+	// 获取对应的图标
+	const Icon = feature ? FEATURE_ICON_MAP[feature] : null;
+
 	// 如果是待办功能，显示待办组件
 	if (feature === "todos") {
 		return (
 			<div className="flex h-full flex-col">
-				<div className="flex h-10 shrink-0 items-center bg-muted/30 px-4">
+				<div className="flex h-10 shrink-0 items-center gap-2 bg-muted/30 px-4">
+					{Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
 					<h2 className="text-sm font-medium text-foreground">
 						{getFeatureLabel(position)}
 					</h2>
@@ -65,7 +70,8 @@ export function PanelContent({ position }: PanelContentProps) {
 	// 其他功能显示占位符
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex h-10 shrink-0 items-center bg-muted/30 px-4">
+			<div className="flex h-10 shrink-0 items-center gap-2 bg-muted/30 px-4">
+				{Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
 				<h2 className="text-sm font-medium text-foreground">
 					{getFeatureLabel(position)}
 				</h2>

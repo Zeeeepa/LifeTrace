@@ -4,6 +4,16 @@
  * 现在使用动态分配系统，功能可以动态分配到位置
  */
 
+import {
+	BookOpen,
+	CalendarDays,
+	FileText,
+	LayoutPanelLeft,
+	type LucideIcon,
+	MessageSquare,
+	Settings,
+} from "lucide-react";
+
 export type PanelPosition = "panelA" | "panelB" | "panelC";
 export type PanelFeature =
 	| "calendar"
@@ -24,3 +34,15 @@ export const ALL_PANEL_FEATURES: PanelFeature[] = [
 	"diary",
 	"settings",
 ];
+
+/**
+ * 功能到图标的映射配置
+ */
+export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
+	calendar: CalendarDays,
+	todos: LayoutPanelLeft,
+	chat: MessageSquare,
+	todoDetail: FileText,
+	diary: BookOpen,
+	settings: Settings,
+};

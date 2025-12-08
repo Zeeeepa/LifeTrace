@@ -1,16 +1,9 @@
 "use client";
 
-import {
-	BookOpen,
-	CalendarDays,
-	FileText,
-	LayoutPanelLeft,
-	type LucideIcon,
-	MessageSquare,
-	Settings,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
+import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -29,16 +22,6 @@ interface DockItem {
 	onClick: () => void;
 	group?: string;
 }
-
-// 功能到图标的映射配置
-const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
-	calendar: CalendarDays,
-	todos: LayoutPanelLeft,
-	chat: MessageSquare,
-	todoDetail: FileText,
-	diary: BookOpen,
-	settings: Settings,
-};
 
 // 功能到翻译键的映射配置
 function getFeatureLabelKey(
@@ -86,7 +69,7 @@ export function BottomDock({ className }: BottomDockProps) {
 			// 如果位置没有分配功能，返回一个占位 item
 			return {
 				id: position,
-				icon: LayoutPanelLeft,
+				icon: FEATURE_ICON_MAP.todos,
 				label: "未分配",
 				isActive: false,
 				onClick: () => {},
