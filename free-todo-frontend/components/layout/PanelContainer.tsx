@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 
 import { cn } from "@/lib/utils"
 
-export type PanelVariant = "calendar" | "board"
+export type PanelVariant = "calendar" | "todos"
 
 interface PanelContainerProps {
   variant: PanelVariant
@@ -29,7 +29,7 @@ export function PanelContainer({
 
   return (
     <motion.section
-      aria-label={variant === "calendar" ? "Calendar Panel" : "Board Panel"}
+      aria-label={variant === "calendar" ? "Calendar Panel" : "Todos Panel"}
       className={cn(
         "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
         "bg-white dark:bg-zinc-900",

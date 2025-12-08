@@ -8,7 +8,7 @@ interface RootLayoutProps {
 
 export const metadata: Metadata = {
   title: "Free Todo Canvas",
-  description: "Canvas-style layout for calendar and board panels"
+  description: "Canvas-style layout for calendar and todos panels"
 }
 
 export default function RootLayout({ children }: RootLayoutProps) {

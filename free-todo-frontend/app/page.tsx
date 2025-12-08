@@ -13,7 +13,7 @@ import { useTranslations } from "@/lib/i18n"
 import { useUiStore } from "@/lib/store/ui-store"
 
 export default function HomePage() {
-  const { isCalendarOpen, isBoardOpen, calendarWidth, setCalendarWidth } = useUiStore()
+  const { isCalendarOpen, isTodosOpen, calendarWidth, setCalendarWidth } = useUiStore()
   const [isDragging, setIsDragging] = useState(false)
   const { locale } = useLocaleStore()
   const t = useTranslations(locale)
@@ -21,44 +21,44 @@ export default function HomePage() {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const layoutState = useMemo(() => {
-    if (isCalendarOpen && isBoardOpen) {
+    if (isCalendarOpen && isTodosOpen) {
       return {
         showCalendar: true,
-        showBoard: true,
+        showTodos: true,
         calendarWidth,
-        boardWidth: 1 - calendarWidth,
+        todosWidth: 1 - calendarWidth,
         showResizeHandle: true
       }
     }
 
-    if (isCalendarOpen && !isBoardOpen) {
+    if (isCalendarOpen && !isTodosOpen) {
       return {
         showCalendar: true,
-        showBoard: false,
+        showTodos: false,
         calendarWidth: 1,
-        boardWidth: 0,
+        todosWidth: 0,
         showResizeHandle: false
       }
     }
 
-    if (!isCalendarOpen && isBoardOpen) {
+    if (!isCalendarOpen && isTodosOpen) {
       return {
         showCalendar: false,
-        showBoard: true,
+        showTodos: true,
         calendarWidth: 0,
-        boardWidth: 1,
+        todosWidth: 1,
         showResizeHandle: false
       }
     }
 
     return {
       showCalendar: true,
-      showBoard: false,
+      showTodos: false,
       calendarWidth: 1,
-      boardWidth: 0,
+      todosWidth: 0,
       showResizeHandle: false
     }
-  }, [isCalendarOpen, isBoardOpen, calendarWidth])
+  }, [isCalendarOpen, isTodosOpen, calendarWidth])
 
   const handleDragAtClientX = useCallback(
     (clientX: number) => {
@@ -156,18 +156,18 @@ export default function HomePage() {
           ) : null}
 
           <PanelContainer
-            variant="board"
-            isVisible={layoutState.showBoard}
-            width={layoutState.boardWidth}
+            variant="todos"
+            isVisible={layoutState.showTodos}
+            width={layoutState.todosWidth}
           >
             <div className="flex h-full flex-col">
               <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
                 <h2 className="text-sm font-medium text-foreground">
-                  {t.page.boardLabel}
+                  {t.page.todosLabel}
                 </h2>
               </div>
               <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                {t.page.boardPlaceholder}
+                {t.page.todosPlaceholder}
               </div>
             </div>
           </PanelContainer>

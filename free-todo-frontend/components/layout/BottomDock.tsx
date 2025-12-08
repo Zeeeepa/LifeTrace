@@ -20,7 +20,7 @@ interface DockItem {
 }
 
 export function BottomDock({ className }: BottomDockProps) {
-  const { isCalendarOpen, isBoardOpen, toggleCalendar, toggleBoard } = useUiStore()
+  const { isCalendarOpen, isTodosOpen, toggleCalendar, toggleTodos } = useUiStore()
   const { locale } = useLocaleStore()
   const t = useTranslations(locale)
 
@@ -34,11 +34,11 @@ export function BottomDock({ className }: BottomDockProps) {
       group: "views"
     },
     {
-      id: "board",
+      id: "todos",
       icon: LayoutPanelLeft,
-      label: t.bottomDock.board,
-      isActive: isBoardOpen,
-      onClick: toggleBoard,
+      label: t.bottomDock.todos,
+      isActive: isTodosOpen,
+      onClick: toggleTodos,
       group: "views"
     }
   ]

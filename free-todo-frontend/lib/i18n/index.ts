@@ -18,15 +18,15 @@ const translations = {
     },
     page: {
       title: "Free Todo Canvas",
-      subtitle: "日历视图与看板视图并列排布，可通过底部 Dock 快速切换与组合，并支持拖拽调整宽度。",
+      subtitle: "日历视图与待办视图并列排布，可通过底部 Dock 快速切换与组合，并支持拖拽调整宽度。",
       calendarLabel: "日历视图",
       calendarPlaceholder: "占位：在这里接入日历组件",
-      boardLabel: "看板视图",
-      boardPlaceholder: "占位：在这里接入 Todo 看板"
+      todosLabel: "待办视图",
+      todosPlaceholder: "占位：在这里接入 Todo 待办"
     },
     bottomDock: {
       calendar: "日历",
-      board: "看板"
+      todos: "待办"
     }
   },
   en: {
@@ -47,15 +47,15 @@ const translations = {
     page: {
       title: "Free Todo Canvas",
       subtitle:
-        "Calendar and Kanban view side by side. Toggle via bottom dock and resize panels by dragging the handle.",
+        "Calendar and Todos view side by side. Toggle via bottom dock and resize panels by dragging the handle.",
       calendarLabel: "Calendar View",
       calendarPlaceholder: "Placeholder: plug a calendar component here",
-      boardLabel: "Kanban Board",
-      boardPlaceholder: "Placeholder: plug a Todo board here"
+      todosLabel: "Todos View",
+      todosPlaceholder: "Placeholder: plug a Todo list here"
     },
     bottomDock: {
       calendar: "Calendar",
-      board: "Board"
+      todos: "Todos"
     }
   }
 }

@@ -2,10 +2,10 @@ import { create } from "zustand"
 
 interface UiStoreState {
   isCalendarOpen: boolean
-  isBoardOpen: boolean
+  isTodosOpen: boolean
   calendarWidth: number
   toggleCalendar: () => void
-  toggleBoard: () => void
+  toggleTodos: () => void
   setCalendarWidth: (width: number) => void
 }
 
@@ -21,59 +21,59 @@ function clampWidth(width: number): number {
 
 export const useUiStore = create<UiStoreState>((set) => ({
   isCalendarOpen: true,
-  isBoardOpen: true,
+  isTodosOpen: true,
   calendarWidth: 0.5,
   toggleCalendar: () =>
     set((state) => {
-      // 当前只有日历打开 => 打开看板，形成双面板
-      if (state.isCalendarOpen && !state.isBoardOpen) {
+      // 当前只有日历打开 => 打开待办，形成双面板
+      if (state.isCalendarOpen && !state.isTodosOpen) {
         return {
           isCalendarOpen: true,
-          isBoardOpen: true
+          isTodosOpen: true
         }
       }
 
-      // 当前只有看板打开 => 打开日历，形成双面板
-      if (!state.isCalendarOpen && state.isBoardOpen) {
+      // 当前只有待办打开 => 打开日历，形成双面板
+      if (!state.isCalendarOpen && state.isTodosOpen) {
         return {
           isCalendarOpen: true,
-          isBoardOpen: true
+          isTodosOpen: true
         }
       }
 
-      // 当前双面板 => 关闭日历，仅保留看板
+      // 当前双面板 => 关闭日历，仅保留待办
       return {
         isCalendarOpen: false,
-        isBoardOpen: true
+        isTodosOpen: true
       }
     }),
-  toggleBoard: () =>
+  toggleTodos: () =>
     set((state) => {
-      // 当前只有看板打开 => 打开日历，形成双面板
-      if (!state.isCalendarOpen && state.isBoardOpen) {
+      // 当前只有待办打开 => 打开日历，形成双面板
+      if (!state.isCalendarOpen && state.isTodosOpen) {
         return {
           isCalendarOpen: true,
-          isBoardOpen: true
+          isTodosOpen: true
         }
       }
 
-      // 当前只有日历打开 => 打开看板，形成双面板
-      if (state.isCalendarOpen && !state.isBoardOpen) {
+      // 当前只有日历打开 => 打开待办，形成双面板
+      if (state.isCalendarOpen && !state.isTodosOpen) {
         return {
           isCalendarOpen: true,
-          isBoardOpen: true
+          isTodosOpen: true
         }
       }
 
-      // 当前双面板 => 关闭看板，仅保留日历
+      // 当前双面板 => 关闭待办，仅保留日历
       return {
         isCalendarOpen: true,
-        isBoardOpen: false
+        isTodosOpen: false
       }
     }),
   setCalendarWidth: (width: number) =>
     set((state) => {
-      if (!state.isCalendarOpen || !state.isBoardOpen) {
+      if (!state.isCalendarOpen || !state.isTodosOpen) {
         return state
       }
 
