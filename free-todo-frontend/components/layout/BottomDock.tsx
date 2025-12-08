@@ -68,16 +68,17 @@ export function BottomDock({ className }: BottomDockProps) {
     >
       <div
         className={cn(
-          "flex items-center gap-1 rounded-xl",
+          "flex items-center gap-2",
           "bg-white/80 dark:bg-zinc-900/80",
           "backdrop-blur-md",
           "border border-zinc-200 dark:border-zinc-800",
           "shadow-lg",
-          "px-2 py-1.5"
+          "px-2 py-1.5",
+          "rounded-[var(--radius-panel)]"
         )}
       >
         {groups.map((groupItems, groupIndex) => (
-          <div key={groupIndex} className="flex items-center gap-1">
+          <div key={groupIndex} className="flex items-center gap-2">
             {groupIndex > 0 && hasMultipleGroups && (
               <div className="h-6 w-[1px] bg-zinc-300 dark:bg-zinc-700 mx-1" />
             )}
@@ -95,13 +96,13 @@ export function BottomDock({ className }: BottomDockProps) {
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
                     item.isActive
                       ? "bg-[#e9f2fe] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-md shadow-blue-400/10 hover:bg-[#d4e7fd] dark:hover:bg-blue-900/40"
-                      : "text-blue-600 dark:text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      : "text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   )}
                   aria-label={item.label}
                   aria-pressed={item.isActive}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-sm font-medium">{item.label}</span>
+                  <Icon className={cn("h-5 w-5", item.isActive ? "text-blue-600 dark:text-blue-400" : "text-black dark:text-white")} />
+                  <span className={cn("text-sm font-medium", item.isActive ? "text-blue-600 dark:text-blue-400" : "text-black dark:text-white")}>{item.label}</span>
                   {item.isActive && (
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-blue-600 dark:bg-blue-400" />
                   )}

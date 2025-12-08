@@ -99,7 +99,7 @@ export default function HomePage() {
   return (
     <main className="relative flex h-screen flex-col overflow-hidden bg-background">
       <div className="relative z-10 flex h-full flex-col">
-        <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4">
+        <header className="flex h-12 shrink-0 items-center justify-between gap-3 bg-background px-4">
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-semibold tracking-tight text-foreground">
               {t.page.title}
@@ -115,14 +115,14 @@ export default function HomePage() {
 
         <div
           ref={containerRef}
-          className="flex min-h-0 flex-1 gap-0 overflow-hidden"
+          className="flex min-h-0 flex-1 gap-1.5 overflow-hidden p-3"
         >
           <PanelContainer
             variant="calendar"
             isVisible={layoutState.showCalendar}
             width={layoutState.calendarWidth}
           >
-            <div className="flex h-full flex-col bg-background">
+            <div className="flex h-full flex-col">
               <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
                 <h2 className="text-sm font-medium text-foreground">
                   {t.page.calendarLabel}
@@ -160,7 +160,7 @@ export default function HomePage() {
             isVisible={layoutState.showBoard}
             width={layoutState.boardWidth}
           >
-            <div className="flex h-full flex-col bg-background">
+            <div className="flex h-full flex-col">
               <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
                 <h2 className="text-sm font-medium text-foreground">
                   {t.page.boardLabel}

@@ -31,7 +31,9 @@ export function PanelContainer({
     <motion.section
       aria-label={variant === "calendar" ? "Calendar Panel" : "Board Panel"}
       className={cn(
-        "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background",
+        "flex h-full min-h-0 flex-1 flex-col overflow-hidden",
+        "bg-white dark:bg-zinc-900",
+        "rounded-[var(--radius-panel)]",
         className
       )}
       style={{
