@@ -8,113 +8,115 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContainer } from "@/components/layout/PanelContainer";
+import type { PanelPosition } from "@/lib/config/panel-config";
+import { getFeatureByPosition } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
 
 export default function HomePage() {
 	const {
-		isCalendarOpen,
-		isTodosOpen,
-		isChatOpen,
-		calendarWidth,
-		chatWidth,
-		setCalendarWidth,
-		setChatWidth,
+		isPanelAOpen,
+		isPanelBOpen,
+		isPanelCOpen,
+		panelAWidth,
+		panelCWidth,
+		setPanelAWidth,
+		setPanelCWidth,
 	} = useUiStore();
-	const [isDraggingCalendar, setIsDraggingCalendar] = useState(false);
-	const [isDraggingChat, setIsDraggingChat] = useState(false);
+	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
+	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
 
 	const containerRef = useRef<HTMLDivElement | null>(null);
 
 	const layoutState = useMemo(() => {
-		// 计算基础宽度（不包括聊天面板）
-		const baseWidth = isChatOpen ? 1 - chatWidth : 1;
-		const actualChatWidth = isChatOpen ? chatWidth : 0;
+		// 计算基础宽度（不包括 panelC）
+		const baseWidth = isPanelCOpen ? 1 - panelCWidth : 1;
+		const actualPanelCWidth = isPanelCOpen ? panelCWidth : 0;
 
-		if (isCalendarOpen && isTodosOpen && isChatOpen) {
+		if (isPanelAOpen && isPanelBOpen && isPanelCOpen) {
 			// 三个面板都打开
 			return {
-				showCalendar: true,
-				showTodos: true,
-				showChat: true,
-				calendarWidth: calendarWidth * baseWidth,
-				todosWidth: (1 - calendarWidth) * baseWidth,
-				chatWidth: actualChatWidth,
-				showCalendarResizeHandle: true,
-				showChatResizeHandle: true,
+				showPanelA: true,
+				showPanelB: true,
+				showPanelC: true,
+				panelAWidth: panelAWidth * baseWidth,
+				panelBWidth: (1 - panelAWidth) * baseWidth,
+				panelCWidth: actualPanelCWidth,
+				showPanelAResizeHandle: true,
+				showPanelCResizeHandle: true,
 			};
 		}
 
-		if (isCalendarOpen && isTodosOpen) {
-			// 只有日历和待办打开
+		if (isPanelAOpen && isPanelBOpen) {
+			// 只有 panelA 和 panelB 打开
 			return {
-				showCalendar: true,
-				showTodos: true,
-				showChat: false,
-				calendarWidth: calendarWidth,
-				todosWidth: 1 - calendarWidth,
-				chatWidth: 0,
-				showCalendarResizeHandle: true,
-				showChatResizeHandle: false,
+				showPanelA: true,
+				showPanelB: true,
+				showPanelC: false,
+				panelAWidth: panelAWidth,
+				panelBWidth: 1 - panelAWidth,
+				panelCWidth: 0,
+				showPanelAResizeHandle: true,
+				showPanelCResizeHandle: false,
 			};
 		}
 
-		if (isTodosOpen && isChatOpen) {
-			// 只有待办和聊天打开
+		if (isPanelBOpen && isPanelCOpen) {
+			// 只有 panelB 和 panelC 打开
 			return {
-				showCalendar: false,
-				showTodos: true,
-				showChat: true,
-				calendarWidth: 0,
-				todosWidth: baseWidth,
-				chatWidth: actualChatWidth,
-				showCalendarResizeHandle: false,
-				showChatResizeHandle: true,
+				showPanelA: false,
+				showPanelB: true,
+				showPanelC: true,
+				panelAWidth: 0,
+				panelBWidth: baseWidth,
+				panelCWidth: actualPanelCWidth,
+				showPanelAResizeHandle: false,
+				showPanelCResizeHandle: true,
 			};
 		}
 
-		if (isCalendarOpen && !isTodosOpen) {
+		if (isPanelAOpen && !isPanelBOpen) {
 			return {
-				showCalendar: true,
-				showTodos: false,
-				showChat: isChatOpen,
-				calendarWidth: baseWidth,
-				todosWidth: 0,
-				chatWidth: actualChatWidth,
-				showCalendarResizeHandle: false,
-				showChatResizeHandle: false,
+				showPanelA: true,
+				showPanelB: false,
+				showPanelC: isPanelCOpen,
+				panelAWidth: baseWidth,
+				panelBWidth: 0,
+				panelCWidth: actualPanelCWidth,
+				showPanelAResizeHandle: false,
+				showPanelCResizeHandle: false,
 			};
 		}
 
-		if (!isCalendarOpen && isTodosOpen) {
+		if (!isPanelAOpen && isPanelBOpen) {
 			return {
-				showCalendar: false,
-				showTodos: true,
-				showChat: isChatOpen,
-				calendarWidth: 0,
-				todosWidth: baseWidth,
-				chatWidth: actualChatWidth,
-				showCalendarResizeHandle: false,
-				showChatResizeHandle: isChatOpen,
+				showPanelA: false,
+				showPanelB: true,
+				showPanelC: isPanelCOpen,
+				panelAWidth: 0,
+				panelBWidth: baseWidth,
+				panelCWidth: actualPanelCWidth,
+				showPanelAResizeHandle: false,
+				showPanelCResizeHandle: isPanelCOpen,
 			};
 		}
 
 		return {
-			showCalendar: true,
-			showTodos: false,
-			showChat: isChatOpen,
-			calendarWidth: baseWidth,
-			todosWidth: 0,
-			chatWidth: actualChatWidth,
-			showCalendarResizeHandle: false,
-			showChatResizeHandle: false,
+			showPanelA: true,
+			showPanelB: false,
+			showPanelC: isPanelCOpen,
+			panelAWidth: baseWidth,
+			panelBWidth: 0,
+			panelCWidth: actualPanelCWidth,
+			showPanelAResizeHandle: false,
+			showPanelCResizeHandle: false,
 		};
-	}, [isCalendarOpen, isTodosOpen, isChatOpen, calendarWidth, chatWidth]);
+	}, [isPanelAOpen, isPanelBOpen, isPanelCOpen, panelAWidth, panelCWidth]);
 
-	const handleCalendarDragAtClientX = useCallback(
+	const handlePanelADragAtClientX = useCallback(
 		(clientX: number) => {
 			const container = containerRef.current;
 			if (!container) return;
@@ -124,12 +126,12 @@ export default function HomePage() {
 
 			const relativeX = clientX - rect.left;
 			const ratio = relativeX / rect.width;
-			setCalendarWidth(ratio);
+			setPanelAWidth(ratio);
 		},
-		[setCalendarWidth],
+		[setPanelAWidth],
 	);
 
-	const handleChatDragAtClientX = useCallback(
+	const handlePanelCDragAtClientX = useCallback(
 		(clientX: number) => {
 			const container = containerRef.current;
 			if (!container) return;
@@ -139,27 +141,27 @@ export default function HomePage() {
 
 			const relativeX = clientX - rect.left;
 			const ratio = relativeX / rect.width;
-			// chatWidth 是从右侧开始计算的，所以是 1 - ratio
-			setChatWidth(1 - ratio);
+			// panelCWidth 是从右侧开始计算的，所以是 1 - ratio
+			setPanelCWidth(1 - ratio);
 		},
-		[setChatWidth],
+		[setPanelCWidth],
 	);
 
-	const handleCalendarResizePointerDown = (
+	const handlePanelAResizePointerDown = (
 		event: ReactPointerEvent<HTMLDivElement>,
 	) => {
 		event.preventDefault();
 		event.stopPropagation();
 
-		setIsDraggingCalendar(true);
-		handleCalendarDragAtClientX(event.clientX);
+		setIsDraggingPanelA(true);
+		handlePanelADragAtClientX(event.clientX);
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
-			handleCalendarDragAtClientX(moveEvent.clientX);
+			handlePanelADragAtClientX(moveEvent.clientX);
 		};
 
 		const handlePointerUp = () => {
-			setIsDraggingCalendar(false);
+			setIsDraggingPanelA(false);
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 		};
@@ -168,27 +170,48 @@ export default function HomePage() {
 		window.addEventListener("pointerup", handlePointerUp);
 	};
 
-	const handleChatResizePointerDown = (
+	const handlePanelCResizePointerDown = (
 		event: ReactPointerEvent<HTMLDivElement>,
 	) => {
 		event.preventDefault();
 		event.stopPropagation();
 
-		setIsDraggingChat(true);
-		handleChatDragAtClientX(event.clientX);
+		setIsDraggingPanelC(true);
+		handlePanelCDragAtClientX(event.clientX);
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
-			handleChatDragAtClientX(moveEvent.clientX);
+			handlePanelCDragAtClientX(moveEvent.clientX);
 		};
 
 		const handlePointerUp = () => {
-			setIsDraggingChat(false);
+			setIsDraggingPanelC(false);
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 		};
 
 		window.addEventListener("pointermove", handlePointerMove);
 		window.addEventListener("pointerup", handlePointerUp);
+	};
+
+	// 获取位置对应的功能，用于显示翻译文本
+	const getFeatureLabel = (position: PanelPosition): string => {
+		const feature = getFeatureByPosition(position);
+		const labelMap: Record<string, string> = {
+			calendar: t.page.calendarLabel,
+			todos: t.page.todosLabel,
+			chat: t.page.chatLabel,
+		};
+		return labelMap[feature] || "";
+	};
+
+	const getFeaturePlaceholder = (position: PanelPosition): string => {
+		const feature = getFeatureByPosition(position);
+		const placeholderMap: Record<string, string> = {
+			calendar: t.page.calendarPlaceholder,
+			todos: t.page.todosPlaceholder,
+			chat: t.page.chatPlaceholder,
+		};
+		return placeholderMap[feature] || "";
 	};
 
 	return (
@@ -213,20 +236,20 @@ export default function HomePage() {
 					className="relative flex min-h-0 flex-1 gap-1.5 overflow-hidden p-3"
 				>
 					<AnimatePresence mode="sync" initial={false}>
-						{layoutState.showCalendar && (
+						{layoutState.showPanelA && (
 							<PanelContainer
-								variant="calendar"
-								isVisible={layoutState.showCalendar}
-								width={layoutState.calendarWidth}
+								position="panelA"
+								isVisible={layoutState.showPanelA}
+								width={layoutState.panelAWidth}
 							>
 								<div className="flex h-full flex-col">
 									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
 										<h2 className="text-sm font-medium text-foreground">
-											{t.page.calendarLabel}
+											{getFeatureLabel("panelA")}
 										</h2>
 									</div>
 									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{t.page.calendarPlaceholder}
+										{getFeaturePlaceholder("panelA")}
 									</div>
 								</div>
 							</PanelContainer>
@@ -234,25 +257,25 @@ export default function HomePage() {
 					</AnimatePresence>
 
 					<AnimatePresence mode="sync" initial={false}>
-						{layoutState.showCalendarResizeHandle && (
+						{layoutState.showPanelAResizeHandle && (
 							<motion.div
-								key="calendar-resize-handle"
+								key="panelA-resize-handle"
 								role="separator"
 								aria-orientation="vertical"
-								onPointerDown={handleCalendarResizePointerDown}
+								onPointerDown={handlePanelAResizePointerDown}
 								initial={{ opacity: 0, scaleX: 0 }}
 								animate={{ opacity: 1, scaleX: 1 }}
 								exit={{ opacity: 0, scaleX: 0 }}
 								transition={{ type: "spring", stiffness: 300, damping: 30 }}
 								className={`flex items-stretch justify-center ${
-									isDraggingCalendar
+									isDraggingPanelA
 										? "w-2 cursor-col-resize px-1"
 										: "w-1 cursor-col-resize px-0.5"
 								}`}
 							>
 								<div
 									className={`h-full rounded-full transition-all duration-200 ${
-										isDraggingCalendar
+										isDraggingPanelA
 											? "w-1 bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
 											: "w-px bg-border"
 									}`}
@@ -262,20 +285,20 @@ export default function HomePage() {
 					</AnimatePresence>
 
 					<AnimatePresence mode="sync" initial={false}>
-						{layoutState.showTodos && (
+						{layoutState.showPanelB && (
 							<PanelContainer
-								variant="todos"
-								isVisible={layoutState.showTodos}
-								width={layoutState.todosWidth}
+								position="panelB"
+								isVisible={layoutState.showPanelB}
+								width={layoutState.panelBWidth}
 							>
 								<div className="flex h-full flex-col">
 									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
 										<h2 className="text-sm font-medium text-foreground">
-											{t.page.todosLabel}
+											{getFeatureLabel("panelB")}
 										</h2>
 									</div>
 									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{t.page.todosPlaceholder}
+										{getFeaturePlaceholder("panelB")}
 									</div>
 								</div>
 							</PanelContainer>
@@ -283,25 +306,25 @@ export default function HomePage() {
 					</AnimatePresence>
 
 					<AnimatePresence mode="sync" initial={false}>
-						{layoutState.showChatResizeHandle && (
+						{layoutState.showPanelCResizeHandle && (
 							<motion.div
-								key="chat-resize-handle"
+								key="panelC-resize-handle"
 								role="separator"
 								aria-orientation="vertical"
-								onPointerDown={handleChatResizePointerDown}
+								onPointerDown={handlePanelCResizePointerDown}
 								initial={{ opacity: 0, scaleX: 0 }}
 								animate={{ opacity: 1, scaleX: 1 }}
 								exit={{ opacity: 0, scaleX: 0 }}
 								transition={{ type: "spring", stiffness: 300, damping: 30 }}
 								className={`flex items-stretch justify-center ${
-									isDraggingChat
+									isDraggingPanelC
 										? "w-2 cursor-col-resize px-1"
 										: "w-1 cursor-col-resize px-0.5"
 								}`}
 							>
 								<div
 									className={`h-full rounded-full transition-all duration-200 ${
-										isDraggingChat
+										isDraggingPanelC
 											? "w-1 bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
 											: "w-px bg-border"
 									}`}
@@ -311,20 +334,20 @@ export default function HomePage() {
 					</AnimatePresence>
 
 					<AnimatePresence mode="sync" initial={false}>
-						{layoutState.showChat && (
+						{layoutState.showPanelC && (
 							<PanelContainer
-								variant="chat"
-								isVisible={layoutState.showChat}
-								width={layoutState.chatWidth}
+								position="panelC"
+								isVisible={layoutState.showPanelC}
+								width={layoutState.panelCWidth}
 							>
 								<div className="flex h-full flex-col">
 									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
 										<h2 className="text-sm font-medium text-foreground">
-											{t.page.chatLabel}
+											{getFeatureLabel("panelC")}
 										</h2>
 									</div>
 									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{t.page.chatPlaceholder}
+										{getFeaturePlaceholder("panelC")}
 									</div>
 								</div>
 							</PanelContainer>

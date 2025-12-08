@@ -1,16 +1,32 @@
 import { create } from "zustand";
+import type { PanelPosition } from "@/lib/config/panel-config";
 
 interface UiStoreState {
-	isCalendarOpen: boolean;
-	isTodosOpen: boolean;
-	isChatOpen: boolean;
-	calendarWidth: number;
-	chatWidth: number;
-	toggleCalendar: () => void;
-	toggleTodos: () => void;
-	toggleChat: () => void;
-	setCalendarWidth: (width: number) => void;
-	setChatWidth: (width: number) => void;
+	// 位置槽位状态
+	isPanelAOpen: boolean;
+	isPanelBOpen: boolean;
+	isPanelCOpen: boolean;
+	// 位置槽位宽度
+	panelAWidth: number;
+	panelCWidth: number;
+	// panelBWidth 是计算值，不需要单独存储
+	// 位置槽位 toggle 方法
+	togglePanelA: () => void;
+	togglePanelB: () => void;
+	togglePanelC: () => void;
+	// 位置槽位宽度设置方法
+	setPanelAWidth: (width: number) => void;
+	setPanelCWidth: (width: number) => void;
+	// panelBWidth 是计算值，不需要单独设置方法
+	// 兼容性方法：为了保持向后兼容，保留基于功能的访问方法
+	// 这些方法内部会通过配置映射到位置槽位
+	getIsFeatureOpen: (feature: "calendar" | "todos" | "chat") => boolean;
+	toggleFeature: (feature: "calendar" | "todos" | "chat") => void;
+	getFeatureWidth: (feature: "calendar" | "todos" | "chat") => number;
+	setFeatureWidth: (
+		feature: "calendar" | "todos" | "chat",
+		width: number,
+	) => void;
 }
 
 const MIN_PANEL_WIDTH = 0.2;
@@ -23,85 +39,161 @@ function clampWidth(width: number): number {
 	return width;
 }
 
-export const useUiStore = create<UiStoreState>((set) => ({
-	isCalendarOpen: true,
-	isTodosOpen: true,
-	isChatOpen: false,
-	calendarWidth: 0.5,
-	chatWidth: 0.3,
-	toggleCalendar: () =>
+// 功能到位置的映射（从配置导入）
+import { FEATURE_TO_POSITION } from "@/lib/config/panel-config";
+
+function getPositionByFeature(
+	feature: "calendar" | "todos" | "chat",
+): PanelPosition {
+	return FEATURE_TO_POSITION[feature];
+}
+
+export const useUiStore = create<UiStoreState>((set, get) => ({
+	// 位置槽位初始状态
+	isPanelAOpen: true,
+	isPanelBOpen: true,
+	isPanelCOpen: false,
+	panelAWidth: 0.5,
+	panelCWidth: 0.3,
+
+	// 位置槽位 toggle 方法
+	togglePanelA: () =>
 		set((state) => {
-			// 当前只有日历打开 => 打开待办，形成双面板
-			if (state.isCalendarOpen && !state.isTodosOpen) {
+			// 当前只有 panelA 打开 => 打开 panelB，形成双面板
+			if (state.isPanelAOpen && !state.isPanelBOpen) {
 				return {
-					isCalendarOpen: true,
-					isTodosOpen: true,
+					isPanelAOpen: true,
+					isPanelBOpen: true,
 				};
 			}
 
-			// 当前只有待办打开 => 打开日历，形成双面板
-			if (!state.isCalendarOpen && state.isTodosOpen) {
+			// 当前只有 panelB 打开 => 打开 panelA，形成双面板
+			if (!state.isPanelAOpen && state.isPanelBOpen) {
 				return {
-					isCalendarOpen: true,
-					isTodosOpen: true,
+					isPanelAOpen: true,
+					isPanelBOpen: true,
 				};
 			}
 
-			// 当前双面板 => 关闭日历，仅保留待办
+			// 当前双面板 => 关闭 panelA，仅保留 panelB
 			return {
-				isCalendarOpen: false,
-				isTodosOpen: true,
+				isPanelAOpen: false,
+				isPanelBOpen: true,
 			};
 		}),
-	toggleTodos: () =>
+
+	togglePanelB: () =>
 		set((state) => {
-			// 当前只有待办打开 => 打开日历，形成双面板
-			if (!state.isCalendarOpen && state.isTodosOpen) {
+			// 当前只有 panelB 打开 => 打开 panelA，形成双面板
+			if (!state.isPanelAOpen && state.isPanelBOpen) {
 				return {
-					isCalendarOpen: true,
-					isTodosOpen: true,
+					isPanelAOpen: true,
+					isPanelBOpen: true,
 				};
 			}
 
-			// 当前只有日历打开 => 打开待办，形成双面板
-			if (state.isCalendarOpen && !state.isTodosOpen) {
+			// 当前只有 panelA 打开 => 打开 panelB，形成双面板
+			if (state.isPanelAOpen && !state.isPanelBOpen) {
 				return {
-					isCalendarOpen: true,
-					isTodosOpen: true,
+					isPanelAOpen: true,
+					isPanelBOpen: true,
 				};
 			}
 
-			// 当前双面板 => 关闭待办，仅保留日历
+			// 当前双面板 => 关闭 panelB，仅保留 panelA
 			return {
-				isCalendarOpen: true,
-				isTodosOpen: false,
+				isPanelAOpen: true,
+				isPanelBOpen: false,
 			};
 		}),
-	toggleChat: () =>
+
+	togglePanelC: () =>
 		set((state) => ({
-			isChatOpen: !state.isChatOpen,
+			isPanelCOpen: !state.isPanelCOpen,
 		})),
-	setCalendarWidth: (width: number) =>
+
+	// 位置槽位宽度设置方法
+	setPanelAWidth: (width: number) =>
 		set((state) => {
-			if (!state.isCalendarOpen || !state.isTodosOpen) {
+			if (!state.isPanelAOpen || !state.isPanelBOpen) {
 				return state;
 			}
 
 			return {
-				calendarWidth: clampWidth(width),
+				panelAWidth: clampWidth(width),
 			};
 		}),
-	setChatWidth: (width: number) =>
+
+	setPanelCWidth: (width: number) =>
 		set((state) => {
-			if (!state.isTodosOpen || !state.isChatOpen) {
+			if (!state.isPanelBOpen || !state.isPanelCOpen) {
 				return state;
 			}
 
-			// chatWidth 是相对于总宽度的比例，需要转换为相对于剩余空间的比例
-			// 但为了简化，我们直接使用总宽度的比例，并确保在合理范围内
-			const clampedWidth = clampWidth(width);
 			return {
-				chatWidth: clampedWidth,
+				panelCWidth: clampWidth(width),
 			};
 		}),
+
+	// 兼容性方法：基于功能的访问
+	getIsFeatureOpen: (feature) => {
+		const position = getPositionByFeature(feature);
+		const state = get();
+		switch (position) {
+			case "panelA":
+				return state.isPanelAOpen;
+			case "panelB":
+				return state.isPanelBOpen;
+			case "panelC":
+				return state.isPanelCOpen;
+		}
+	},
+
+	toggleFeature: (feature) => {
+		const position = getPositionByFeature(feature);
+		const state = get();
+		switch (position) {
+			case "panelA":
+				state.togglePanelA();
+				break;
+			case "panelB":
+				state.togglePanelB();
+				break;
+			case "panelC":
+				state.togglePanelC();
+				break;
+		}
+	},
+
+	getFeatureWidth: (feature) => {
+		const position = getPositionByFeature(feature);
+		const state = get();
+		switch (position) {
+			case "panelA":
+				return state.panelAWidth;
+			case "panelB":
+				// panelB 的宽度是计算值：1 - panelAWidth
+				return 1 - state.panelAWidth;
+			case "panelC":
+				return state.panelCWidth;
+		}
+	},
+
+	setFeatureWidth: (feature, width) => {
+		const position = getPositionByFeature(feature);
+		const state = get();
+		switch (position) {
+			case "panelA":
+				state.setPanelAWidth(width);
+				break;
+			case "panelB":
+				// panelB 的宽度通过设置 panelA 的宽度来间接设置
+				// 如果设置 panelB 的宽度为 w，则 panelA 的宽度应该是 1 - w
+				state.setPanelAWidth(1 - width);
+				break;
+			case "panelC":
+				state.setPanelCWidth(width);
+				break;
+		}
+	},
 }));

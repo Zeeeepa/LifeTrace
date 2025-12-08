@@ -1,13 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-
+import type { PanelPosition } from "@/lib/config/panel-config";
+import { getFeatureByPosition } from "@/lib/config/panel-config";
 import { cn } from "@/lib/utils";
 
-export type PanelVariant = "calendar" | "todos" | "chat";
-
 interface PanelContainerProps {
-	variant: PanelVariant;
+	position: PanelPosition;
 	isVisible: boolean;
 	width: number;
 	children: React.ReactNode;
@@ -25,31 +24,34 @@ const ANIMATION_CONFIG = {
 };
 
 export function PanelContainer({
-	variant,
+	position,
 	isVisible,
 	width,
 	children,
 	className,
 }: PanelContainerProps) {
 	const flexBasis = `${Math.round(width * 1000) / 10}%`;
-	const isCalendar = variant === "calendar";
+	// panelA 从左侧滑入，panelB 和 panelC 从右侧滑入
+	const isLeftPanel = position === "panelA";
 
 	// 计算滑动方向
-	// 日历面板：从左侧滑入（x: -100%）/ 向左侧滑出（x: -100%）
-	// 待办面板和聊天面板：从右侧滑入（x: 100%）/ 向右侧滑出（x: 100%）
-	const getInitialX = () => (isCalendar ? "-100%" : "100%");
-	const getExitX = () => (isCalendar ? "-100%" : "100%");
+	// panelA：从左侧滑入（x: -100%）/ 向左侧滑出（x: -100%）
+	// panelB 和 panelC：从右侧滑入（x: 100%）/ 向右侧滑出（x: 100%）
+	const getInitialX = () => (isLeftPanel ? "-100%" : "100%");
+	const getExitX = () => (isLeftPanel ? "-100%" : "100%");
+
+	// 获取位置对应的功能，用于 aria-label
+	const feature = getFeatureByPosition(position);
+	const ariaLabelMap: Record<string, string> = {
+		calendar: "Calendar Panel",
+		todos: "Todos Panel",
+		chat: "Chat Panel",
+	};
 
 	return (
 		<motion.section
-			key={variant}
-			aria-label={
-				variant === "calendar"
-					? "Calendar Panel"
-					: variant === "chat"
-						? "Chat Panel"
-						: "Todos Panel"
-			}
+			key={position}
+			aria-label={ariaLabelMap[feature] || "Panel"}
 			className={cn(
 				"relative flex h-full min-h-0 flex-1 flex-col",
 				"bg-white dark:bg-zinc-900",

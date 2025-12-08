@@ -6,6 +6,8 @@ import {
 	type LucideIcon,
 	MessageSquare,
 } from "lucide-react";
+import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
+import { getFeatureByPosition } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -24,44 +26,67 @@ interface DockItem {
 	group?: string;
 }
 
+// 功能到图标的映射配置
+const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
+	calendar: CalendarDays,
+	todos: LayoutPanelLeft,
+	chat: MessageSquare,
+};
+
+// 功能到翻译键的映射配置
+function getFeatureLabelKey(
+	feature: PanelFeature,
+): "calendar" | "todos" | "chat" {
+	return feature;
+}
+
 export function BottomDock({ className }: BottomDockProps) {
 	const {
-		isCalendarOpen,
-		isTodosOpen,
-		isChatOpen,
-		toggleCalendar,
-		toggleTodos,
-		toggleChat,
+		isPanelAOpen,
+		isPanelBOpen,
+		isPanelCOpen,
+		togglePanelA,
+		togglePanelB,
+		togglePanelC,
 	} = useUiStore();
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
 
-	const DOCK_ITEMS: DockItem[] = [
-		{
-			id: "calendar",
-			icon: CalendarDays,
-			label: t.bottomDock.calendar,
-			isActive: isCalendarOpen,
-			onClick: toggleCalendar,
+	// 基于配置生成 dock items，每个位置槽位对应一个 item
+	const DOCK_ITEMS: DockItem[] = (
+		["panelA", "panelB", "panelC"] as PanelPosition[]
+	).map((position) => {
+		const feature = getFeatureByPosition(position);
+		const Icon = FEATURE_ICON_MAP[feature];
+		const labelKey = getFeatureLabelKey(feature);
+
+		// 获取位置对应的状态和 toggle 方法
+		let isActive: boolean;
+		let onClick: () => void;
+		switch (position) {
+			case "panelA":
+				isActive = isPanelAOpen;
+				onClick = togglePanelA;
+				break;
+			case "panelB":
+				isActive = isPanelBOpen;
+				onClick = togglePanelB;
+				break;
+			case "panelC":
+				isActive = isPanelCOpen;
+				onClick = togglePanelC;
+				break;
+		}
+
+		return {
+			id: position,
+			icon: Icon,
+			label: t.bottomDock[labelKey],
+			isActive,
+			onClick,
 			group: "views",
-		},
-		{
-			id: "todos",
-			icon: LayoutPanelLeft,
-			label: t.bottomDock.todos,
-			isActive: isTodosOpen,
-			onClick: toggleTodos,
-			group: "views",
-		},
-		{
-			id: "chat",
-			icon: MessageSquare,
-			label: t.bottomDock.chat,
-			isActive: isChatOpen,
-			onClick: toggleChat,
-			group: "views",
-		},
-	];
+		};
+	});
 
 	// 按组分组，用于添加分隔符
 	const groupedItems = DOCK_ITEMS.reduce(
