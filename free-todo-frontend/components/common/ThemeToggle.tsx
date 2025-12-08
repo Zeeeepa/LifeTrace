@@ -27,9 +27,14 @@ export function ThemeToggle() {
     { value: "system" as const, icon: Monitor, label: t.theme.system }
   ]
 
-  const currentTheme = theme || "system"
+  const validThemes = themes.map((t) => t.value)
+  const currentTheme = (theme && validThemes.includes(theme as typeof validThemes[number]))
+    ? (theme as typeof validThemes[number])
+    : "system"
   const currentIndex = themes.findIndex((themeItem) => themeItem.value === currentTheme)
   const currentThemeLabel = themes.find((themeItem) => themeItem.value === currentTheme)?.label || ""
+
+  const CurrentIcon = themes.find((themeItem) => themeItem.value === currentTheme)?.icon || Monitor
 
   return (
     <button
@@ -43,9 +48,7 @@ export function ThemeToggle() {
       title={`${t.layout.currentTheme}: ${currentThemeLabel}`}
       aria-label={`${t.layout.currentTheme}: ${currentThemeLabel}`}
     >
-      {currentTheme === "light" && <Sun className="h-5 w-5" />}
-      {currentTheme === "dark" && <Moon className="h-5 w-5" />}
-      {currentTheme === "system" && <Monitor className="h-5 w-5" />}
+      <CurrentIcon className="h-5 w-5" />
     </button>
   )
 }
