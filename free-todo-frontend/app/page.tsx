@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 
 import { BottomDock } from "@/components/layout/BottomDock"
 import { PanelContainer } from "@/components/layout/PanelContainer"
@@ -115,62 +116,77 @@ export default function HomePage() {
 
         <div
           ref={containerRef}
-          className="flex min-h-0 flex-1 gap-1.5 overflow-hidden p-3"
+          className="relative flex min-h-0 flex-1 gap-1.5 overflow-hidden p-3"
         >
-          <PanelContainer
-            variant="calendar"
-            isVisible={layoutState.showCalendar}
-            width={layoutState.calendarWidth}
-          >
-            <div className="flex h-full flex-col">
-              <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
-                <h2 className="text-sm font-medium text-foreground">
-                  {t.page.calendarLabel}
-                </h2>
-              </div>
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                {t.page.calendarPlaceholder}
-              </div>
-            </div>
-          </PanelContainer>
+          <AnimatePresence mode="sync" initial={false}>
+            {layoutState.showCalendar && (
+              <PanelContainer
+                variant="calendar"
+                isVisible={layoutState.showCalendar}
+                width={layoutState.calendarWidth}
+              >
+                <div className="flex h-full flex-col">
+                  <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
+                    <h2 className="text-sm font-medium text-foreground">
+                      {t.page.calendarLabel}
+                    </h2>
+                  </div>
+                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                    {t.page.calendarPlaceholder}
+                  </div>
+                </div>
+              </PanelContainer>
+            )}
+          </AnimatePresence>
 
-          {layoutState.showResizeHandle ? (
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              onPointerDown={handleResizePointerDown}
-              className={`flex items-stretch justify-center transition-all duration-200 ${
-                isDragging
-                  ? "w-2 cursor-col-resize px-1"
-                  : "w-1 cursor-col-resize px-0.5"
-              }`}
-            >
-              <div
-                className={`h-full rounded-full transition-all duration-200 ${
+          <AnimatePresence mode="sync" initial={false}>
+            {layoutState.showResizeHandle && (
+              <motion.div
+                key="resize-handle"
+                role="separator"
+                aria-orientation="vertical"
+                onPointerDown={handleResizePointerDown}
+                initial={{ opacity: 0, scaleX: 0 }}
+                animate={{ opacity: 1, scaleX: 1 }}
+                exit={{ opacity: 0, scaleX: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className={`flex items-stretch justify-center ${
                   isDragging
-                    ? "w-1 bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
-                    : "w-px bg-border"
+                    ? "w-2 cursor-col-resize px-1"
+                    : "w-1 cursor-col-resize px-0.5"
                 }`}
-              />
-            </div>
-          ) : null}
+              >
+                <div
+                  className={`h-full rounded-full transition-all duration-200 ${
+                    isDragging
+                      ? "w-1 bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
+                      : "w-px bg-border"
+                  }`}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <PanelContainer
-            variant="todos"
-            isVisible={layoutState.showTodos}
-            width={layoutState.todosWidth}
-          >
-            <div className="flex h-full flex-col">
-              <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
-                <h2 className="text-sm font-medium text-foreground">
-                  {t.page.todosLabel}
-                </h2>
-              </div>
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                {t.page.todosPlaceholder}
-              </div>
-            </div>
-          </PanelContainer>
+          <AnimatePresence mode="sync" initial={false}>
+            {layoutState.showTodos && (
+              <PanelContainer
+                variant="todos"
+                isVisible={layoutState.showTodos}
+                width={layoutState.todosWidth}
+              >
+                <div className="flex h-full flex-col">
+                  <div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
+                    <h2 className="text-sm font-medium text-foreground">
+                      {t.page.todosLabel}
+                    </h2>
+                  </div>
+                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                    {t.page.todosPlaceholder}
+                  </div>
+                </div>
+              </PanelContainer>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
