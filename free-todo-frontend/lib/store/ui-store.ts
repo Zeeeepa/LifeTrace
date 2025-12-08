@@ -68,8 +68,8 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 	panelCWidth: 0.3,
 	// 动态功能分配初始状态：默认分配
 	panelFeatureMap: {
-		panelA: "calendar",
-		panelB: "todos",
+		panelA: "todos",
+		panelB: "todoDetail",
 		panelC: "chat",
 	},
 
