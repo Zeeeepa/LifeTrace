@@ -11,7 +11,6 @@ import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContainer } from "@/components/layout/PanelContainer";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import type { PanelPosition } from "@/lib/config/panel-config";
-import { getFeatureByPosition } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -25,6 +24,7 @@ export default function HomePage() {
 		panelCWidth,
 		setPanelAWidth,
 		setPanelCWidth,
+		getFeatureByPosition,
 	} = useUiStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
@@ -243,20 +243,24 @@ export default function HomePage() {
 	// 获取位置对应的功能，用于显示翻译文本
 	const getFeatureLabel = (position: PanelPosition): string => {
 		const feature = getFeatureByPosition(position);
+		if (!feature) return "";
 		const labelMap: Record<string, string> = {
 			calendar: t.page.calendarLabel,
 			todos: t.page.todosLabel,
 			chat: t.page.chatLabel,
+			todoDetail: t.page.todoDetailLabel,
 		};
 		return labelMap[feature] || "";
 	};
 
 	const getFeaturePlaceholder = (position: PanelPosition): string => {
 		const feature = getFeatureByPosition(position);
+		if (!feature) return "";
 		const placeholderMap: Record<string, string> = {
 			calendar: t.page.calendarPlaceholder,
 			todos: t.page.todosPlaceholder,
 			chat: t.page.chatPlaceholder,
+			todoDetail: t.page.todoDetailPlaceholder,
 		};
 		return placeholderMap[feature] || "";
 	};

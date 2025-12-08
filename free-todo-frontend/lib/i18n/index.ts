@@ -26,11 +26,14 @@ const translations = {
 			todosPlaceholder: "占位：在这里接入 Todo 待办",
 			chatLabel: "AI 聊天",
 			chatPlaceholder: "占位：在这里接入 AI 聊天组件",
+			todoDetailLabel: "待办详情",
+			todoDetailPlaceholder: "占位：在这里接入待办详情组件",
 		},
 		bottomDock: {
 			calendar: "日历",
 			todos: "待办",
 			chat: "聊天",
+			todoDetail: "待办详情",
 		},
 	},
 	en: {
@@ -58,11 +61,14 @@ const translations = {
 			todosPlaceholder: "Placeholder: plug a Todo list here",
 			chatLabel: "AI Chat",
 			chatPlaceholder: "Placeholder: plug an AI chat component here",
+			todoDetailLabel: "Todo Detail",
+			todoDetailPlaceholder: "Placeholder: plug a todo detail component here",
 		},
 		bottomDock: {
 			calendar: "Calendar",
 			todos: "Todos",
 			chat: "Chat",
+			todoDetail: "Todo Detail",
 		},
 	},
 };

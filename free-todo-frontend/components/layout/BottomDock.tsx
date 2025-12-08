@@ -2,16 +2,18 @@
 
 import {
 	CalendarDays,
+	FileText,
 	LayoutPanelLeft,
 	type LucideIcon,
 	MessageSquare,
 } from "lucide-react";
+import { useRef, useState } from "react";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
-import { getFeatureByPosition } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
+import { PanelSelectorMenu } from "./PanelSelectorMenu";
 
 interface BottomDockProps {
 	className?: string;
@@ -31,12 +33,13 @@ const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
 	calendar: CalendarDays,
 	todos: LayoutPanelLeft,
 	chat: MessageSquare,
+	todoDetail: FileText,
 };
 
 // 功能到翻译键的映射配置
 function getFeatureLabelKey(
 	feature: PanelFeature,
-): "calendar" | "todos" | "chat" {
+): "calendar" | "todos" | "chat" | "todoDetail" {
 	return feature;
 }
 
@@ -48,15 +51,44 @@ export function BottomDock({ className }: BottomDockProps) {
 		togglePanelA,
 		togglePanelB,
 		togglePanelC,
+		getFeatureByPosition,
+		setPanelFeature,
 	} = useUiStore();
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
+
+	const [menuState, setMenuState] = useState<{
+		isOpen: boolean;
+		position: PanelPosition | null;
+		anchorElement: HTMLElement | null;
+	}>({
+		isOpen: false,
+		position: null,
+		anchorElement: null,
+	});
+
+	const itemRefs = useRef<Record<PanelPosition, HTMLButtonElement | null>>({
+		panelA: null,
+		panelB: null,
+		panelC: null,
+	});
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	const DOCK_ITEMS: DockItem[] = (
 		["panelA", "panelB", "panelC"] as PanelPosition[]
 	).map((position) => {
 		const feature = getFeatureByPosition(position);
+		if (!feature) {
+			// 如果位置没有分配功能，返回一个占位 item
+			return {
+				id: position,
+				icon: LayoutPanelLeft,
+				label: "未分配",
+				isActive: false,
+				onClick: () => {},
+				group: "views",
+			};
+		}
 		const Icon = FEATURE_ICON_MAP[feature];
 		const labelKey = getFeatureLabelKey(feature);
 
@@ -129,11 +161,23 @@ export function BottomDock({ className }: BottomDockProps) {
 						)}
 						{groupItems.map((item) => {
 							const Icon = item.icon;
+							const position = item.id as PanelPosition;
 							return (
 								<button
 									key={item.id}
+									ref={(el) => {
+										itemRefs.current[position] = el;
+									}}
 									type="button"
 									onClick={item.onClick}
+									onContextMenu={(e) => {
+										e.preventDefault();
+										setMenuState({
+											isOpen: true,
+											position,
+											anchorElement: e.currentTarget,
+										});
+									}}
 									className={cn(
 										"relative flex items-center gap-2",
 										"px-3 py-2 rounded-lg",
@@ -173,6 +217,25 @@ export function BottomDock({ className }: BottomDockProps) {
 					</div>
 				))}
 			</div>
+			{menuState.position && (
+				<PanelSelectorMenu
+					position={menuState.position}
+					isOpen={menuState.isOpen}
+					onClose={() =>
+						setMenuState({
+							isOpen: false,
+							position: null,
+							anchorElement: null,
+						})
+					}
+					onSelect={(feature) => {
+						if (menuState.position) {
+							setPanelFeature(menuState.position, feature);
+						}
+					}}
+					anchorElement={menuState.anchorElement}
+				/>
+			)}
 		</div>
 	);
 }

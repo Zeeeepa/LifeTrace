@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import type { PanelPosition } from "@/lib/config/panel-config";
+import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
+import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
 
 interface UiStoreState {
 	// 位置槽位状态
@@ -10,6 +11,8 @@ interface UiStoreState {
 	panelAWidth: number;
 	panelCWidth: number;
 	// panelBWidth 是计算值，不需要单独存储
+	// 动态功能分配映射：每个位置当前显示的功能
+	panelFeatureMap: Record<PanelPosition, PanelFeature | null>;
 	// 位置槽位 toggle 方法
 	togglePanelA: () => void;
 	togglePanelB: () => void;
@@ -18,15 +21,16 @@ interface UiStoreState {
 	setPanelAWidth: (width: number) => void;
 	setPanelCWidth: (width: number) => void;
 	// panelBWidth 是计算值，不需要单独设置方法
+	// 动态功能分配方法
+	setPanelFeature: (position: PanelPosition, feature: PanelFeature) => void;
+	getFeatureByPosition: (position: PanelPosition) => PanelFeature | null;
+	getAvailableFeatures: () => PanelFeature[];
 	// 兼容性方法：为了保持向后兼容，保留基于功能的访问方法
-	// 这些方法内部会通过配置映射到位置槽位
-	getIsFeatureOpen: (feature: "calendar" | "todos" | "chat") => boolean;
-	toggleFeature: (feature: "calendar" | "todos" | "chat") => void;
-	getFeatureWidth: (feature: "calendar" | "todos" | "chat") => number;
-	setFeatureWidth: (
-		feature: "calendar" | "todos" | "chat",
-		width: number,
-	) => void;
+	// 这些方法内部会通过动态映射查找位置
+	getIsFeatureOpen: (feature: PanelFeature) => boolean;
+	toggleFeature: (feature: PanelFeature) => void;
+	getFeatureWidth: (feature: PanelFeature) => number;
+	setFeatureWidth: (feature: PanelFeature, width: number) => void;
 }
 
 const MIN_PANEL_WIDTH = 0.2;
@@ -39,13 +43,20 @@ function clampWidth(width: number): number {
 	return width;
 }
 
-// 功能到位置的映射（从配置导入）
-import { FEATURE_TO_POSITION } from "@/lib/config/panel-config";
-
+// 根据功能查找其所在的位置
 function getPositionByFeature(
-	feature: "calendar" | "todos" | "chat",
-): PanelPosition {
-	return FEATURE_TO_POSITION[feature];
+	feature: PanelFeature,
+	panelFeatureMap: Record<PanelPosition, PanelFeature | null>,
+): PanelPosition | null {
+	for (const [position, assignedFeature] of Object.entries(panelFeatureMap) as [
+		PanelPosition,
+		PanelFeature | null,
+	][]) {
+		if (assignedFeature === feature) {
+			return position;
+		}
+	}
+	return null;
 }
 
 export const useUiStore = create<UiStoreState>((set, get) => ({
@@ -55,6 +66,12 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 	isPanelCOpen: false,
 	panelAWidth: 0.5,
 	panelCWidth: 0.3,
+	// 动态功能分配初始状态：默认分配
+	panelFeatureMap: {
+		panelA: "calendar",
+		panelB: "todos",
+		panelC: "chat",
+	},
 
 	// 位置槽位 toggle 方法
 	togglePanelA: () =>
@@ -95,9 +112,43 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 			};
 		}),
 
+	// 动态功能分配方法
+	setPanelFeature: (position, feature) =>
+		set((state) => {
+			// 如果该功能已经在其他位置，先清除那个位置的分配
+			const currentMap = { ...state.panelFeatureMap };
+			for (const [pos, assignedFeature] of Object.entries(currentMap) as [
+				PanelPosition,
+				PanelFeature | null,
+			][]) {
+				if (assignedFeature === feature && pos !== position) {
+					currentMap[pos] = null;
+				}
+			}
+			// 设置新位置的功能
+			currentMap[position] = feature;
+			return { panelFeatureMap: currentMap };
+		}),
+
+	getFeatureByPosition: (position) => {
+		const state = get();
+		return state.panelFeatureMap[position];
+	},
+
+	getAvailableFeatures: () => {
+		const state = get();
+		const assignedFeatures = Object.values(state.panelFeatureMap).filter(
+			(f): f is PanelFeature => f !== null,
+		);
+		return ALL_PANEL_FEATURES.filter(
+			(feature) => !assignedFeatures.includes(feature),
+		);
+	},
+
 	// 兼容性方法：基于功能的访问
 	getIsFeatureOpen: (feature) => {
-		const position = getPositionByFeature(feature);
+		const position = getPositionByFeature(feature, get().panelFeatureMap);
+		if (!position) return false;
 		const state = get();
 		switch (position) {
 			case "panelA":
@@ -110,7 +161,8 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 	},
 
 	toggleFeature: (feature) => {
-		const position = getPositionByFeature(feature);
+		const position = getPositionByFeature(feature, get().panelFeatureMap);
+		if (!position) return;
 		const state = get();
 		switch (position) {
 			case "panelA":
@@ -126,7 +178,8 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 	},
 
 	getFeatureWidth: (feature) => {
-		const position = getPositionByFeature(feature);
+		const position = getPositionByFeature(feature, get().panelFeatureMap);
+		if (!position) return 0;
 		const state = get();
 		switch (position) {
 			case "panelA":
@@ -140,7 +193,8 @@ export const useUiStore = create<UiStoreState>((set, get) => ({
 	},
 
 	setFeatureWidth: (feature, width) => {
-		const position = getPositionByFeature(feature);
+		const position = getPositionByFeature(feature, get().panelFeatureMap);
+		if (!position) return;
 		const state = get();
 		switch (position) {
 			case "panelA":
