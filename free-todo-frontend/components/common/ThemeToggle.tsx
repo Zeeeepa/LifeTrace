@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { Sun, Moon, Monitor } from "lucide-react"
-import { useThemeStore } from "@/lib/store/theme"
+import { useTheme } from "next-themes"
 import { useLocaleStore } from "@/lib/store/locale"
 import { useTranslations } from "@/lib/i18n"
 
 export function ThemeToggle() {
-  const theme = useThemeStore((state) => state.theme)
-  const setTheme = useThemeStore((state) => state.setTheme)
+  const { theme, setTheme } = useTheme()
   const { locale } = useLocaleStore()
   const [mounted, setMounted] = useState(false)
 
@@ -28,21 +27,25 @@ export function ThemeToggle() {
     { value: "system" as const, icon: Monitor, label: t.theme.system }
   ]
 
+  const currentTheme = theme || "system"
+  const currentIndex = themes.findIndex((themeItem) => themeItem.value === currentTheme)
+  const currentThemeLabel = themes.find((themeItem) => themeItem.value === currentTheme)?.label || ""
+
   return (
     <button
       type="button"
       onClick={() => {
-        const currentIndex = themes.findIndex((themeItem) => themeItem.value === theme)
         const nextIndex = (currentIndex + 1) % themes.length
-        setTheme(themes[nextIndex].value)
+        const newTheme = themes[nextIndex].value
+        setTheme(newTheme)
       }}
       className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      title={`${t.layout.currentTheme}: ${themes.find((themeItem) => themeItem.value === theme)?.label}`}
-      aria-label={`${t.layout.currentTheme}: ${themes.find((themeItem) => themeItem.value === theme)?.label}`}
+      title={`${t.layout.currentTheme}: ${currentThemeLabel}`}
+      aria-label={`${t.layout.currentTheme}: ${currentThemeLabel}`}
     >
-      {theme === "light" && <Sun className="h-5 w-5" />}
-      {theme === "dark" && <Moon className="h-5 w-5" />}
-      {theme === "system" && <Monitor className="h-5 w-5" />}
+      {currentTheme === "light" && <Sun className="h-5 w-5" />}
+      {currentTheme === "dark" && <Moon className="h-5 w-5" />}
+      {currentTheme === "system" && <Monitor className="h-5 w-5" />}
     </button>
   )
 }
