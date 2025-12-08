@@ -8,12 +8,16 @@ interface LocaleState {
   setLocale: (locale: Locale) => void
 }
 
+const isValidLocale = (value: string | null): value is Locale => {
+  return value === "zh" || value === "en"
+}
+
 const localeStorage = {
   getItem: () => {
     if (typeof window === "undefined") return null
 
     const language = localStorage.getItem("language")
-    const locale = (language as Locale) || "zh"
+    const locale: Locale = isValidLocale(language) ? language : "zh"
     return JSON.stringify({ state: { locale } })
   },
   setItem: (_name: string, value: string) => {
@@ -21,7 +25,8 @@ const localeStorage = {
 
     try {
       const data = JSON.parse(value)
-      const locale = data.state?.locale || data.locale || "zh"
+      const rawLocale = data.state?.locale || data.locale || "zh"
+      const locale: Locale = isValidLocale(rawLocale) ? rawLocale : "zh"
       localStorage.setItem("language", locale)
     } catch (e) {
       console.error("Error saving locale:", e)

@@ -13,7 +13,8 @@ const translations = {
     },
     layout: {
       currentLanguage: "当前语言",
-      currentTheme: "当前主题"
+      currentTheme: "当前主题",
+      userSettings: "用户设置"
     },
     page: {
       title: "Free Todo Canvas",
@@ -40,7 +41,8 @@ const translations = {
     },
     layout: {
       currentLanguage: "Current Language",
-      currentTheme: "Current Theme"
+      currentTheme: "Current Theme",
+      userSettings: "User Settings"
     },
     page: {
       title: "Free Todo Canvas",
@@ -59,5 +61,6 @@ const translations = {
 }
 
 export function useTranslations(locale: Locale) {
-  return translations[locale]
+  const validLocale: Locale = locale === "zh" || locale === "en" ? locale : "zh"
+  return translations[validLocale]
 }

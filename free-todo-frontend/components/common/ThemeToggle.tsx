@@ -39,7 +39,7 @@ export function ThemeToggle() {
         const newTheme = themes[nextIndex].value
         setTheme(newTheme)
       }}
-      className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="rounded-md p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground hover:shadow-md active:scale-95 active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       title={`${t.layout.currentTheme}: ${currentThemeLabel}`}
       aria-label={`${t.layout.currentTheme}: ${currentThemeLabel}`}
     >
