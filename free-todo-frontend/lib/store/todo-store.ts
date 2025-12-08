@@ -1,0 +1,91 @@
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import type { CreateTodoInput, Todo, UpdateTodoInput } from "@/lib/types/todo";
+
+interface TodoStoreState {
+	todos: Todo[];
+	addTodo: (input: CreateTodoInput) => void;
+	updateTodo: (id: string, input: UpdateTodoInput) => void;
+	deleteTodo: (id: string) => void;
+	toggleTodoStatus: (id: string) => void;
+	toggleSubtask: (todoId: string, subtaskId: string) => void;
+}
+
+const generateId = () => {
+	return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
+export const useTodoStore = create<TodoStoreState>()(
+	persist(
+		(set) => ({
+			todos: [],
+			addTodo: (input) =>
+				set((state) => {
+					const now = new Date().toISOString();
+					const newTodo: Todo = {
+						id: generateId(),
+						title: input.title,
+						status: "pending",
+						dueDate: input.dueDate,
+						subtasks: input.subtasks?.map((st) => ({
+							...st,
+							id: generateId(),
+						})),
+						createdAt: now,
+						updatedAt: now,
+					};
+					return {
+						todos: [...state.todos, newTodo],
+					};
+				}),
+			updateTodo: (id, input) =>
+				set((state) => ({
+					todos: state.todos.map((todo) =>
+						todo.id === id
+							? {
+									...todo,
+									...input,
+									updatedAt: new Date().toISOString(),
+								}
+							: todo,
+					),
+				})),
+			deleteTodo: (id) =>
+				set((state) => ({
+					todos: state.todos.filter((todo) => todo.id !== id),
+				})),
+			toggleTodoStatus: (id) =>
+				set((state) => ({
+					todos: state.todos.map((todo) =>
+						todo.id === id
+							? {
+									...todo,
+									status: todo.status === "completed" ? "pending" : "completed",
+									updatedAt: new Date().toISOString(),
+								}
+							: todo,
+					),
+				})),
+			toggleSubtask: (todoId, subtaskId) =>
+				set((state) => ({
+					todos: state.todos.map((todo) =>
+						todo.id === todoId && todo.subtasks
+							? {
+									...todo,
+									subtasks: todo.subtasks.map((st) =>
+										st.id === subtaskId
+											? { ...st, completed: !st.completed }
+											: st,
+									),
+									updatedAt: new Date().toISOString(),
+								}
+							: todo,
+					),
+				})),
+		}),
+		{
+			name: "todo-storage",
+			storage: createJSONStorage(() => localStorage),
+		},
+	),
+);

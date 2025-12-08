@@ -9,10 +9,8 @@ import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContainer } from "@/components/layout/PanelContainer";
+import { PanelContent } from "@/components/layout/PanelContent";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
-import type { PanelPosition } from "@/lib/config/panel-config";
-import { useTranslations } from "@/lib/i18n";
-import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
 
 export default function HomePage() {
@@ -24,12 +22,9 @@ export default function HomePage() {
 		panelCWidth,
 		setPanelAWidth,
 		setPanelCWidth,
-		getFeatureByPosition,
 	} = useUiStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
-	const { locale } = useLocaleStore();
-	const t = useTranslations(locale);
 
 	const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -240,35 +235,6 @@ export default function HomePage() {
 		window.addEventListener("pointerup", handlePointerUp);
 	};
 
-	// 获取位置对应的功能，用于显示翻译文本
-	const getFeatureLabel = (position: PanelPosition): string => {
-		const feature = getFeatureByPosition(position);
-		if (!feature) return "";
-		const labelMap: Record<string, string> = {
-			calendar: t.page.calendarLabel,
-			todos: t.page.todosLabel,
-			chat: t.page.chatLabel,
-			todoDetail: t.page.todoDetailLabel,
-			diary: t.page.diaryLabel,
-			settings: t.page.settingsLabel,
-		};
-		return labelMap[feature] || "";
-	};
-
-	const getFeaturePlaceholder = (position: PanelPosition): string => {
-		const feature = getFeatureByPosition(position);
-		if (!feature) return "";
-		const placeholderMap: Record<string, string> = {
-			calendar: t.page.calendarPlaceholder,
-			todos: t.page.todosPlaceholder,
-			chat: t.page.chatPlaceholder,
-			todoDetail: t.page.todoDetailPlaceholder,
-			diary: t.page.diaryPlaceholder,
-			settings: t.page.settingsPlaceholder,
-		};
-		return placeholderMap[feature] || "";
-	};
-
 	return (
 		<main className="relative flex h-screen flex-col overflow-hidden bg-background">
 			<div className="relative z-10 flex h-full flex-col">
@@ -305,16 +271,7 @@ export default function HomePage() {
 								width={layoutState.panelAWidth}
 								isDragging={isDraggingPanelA || isDraggingPanelC}
 							>
-								<div className="flex h-full flex-col">
-									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
-										<h2 className="text-sm font-medium text-foreground">
-											{getFeatureLabel("panelA")}
-										</h2>
-									</div>
-									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{getFeaturePlaceholder("panelA")}
-									</div>
-								</div>
+								<PanelContent position="panelA" />
 							</PanelContainer>
 						)}
 					</AnimatePresence>
@@ -337,16 +294,7 @@ export default function HomePage() {
 								width={layoutState.panelBWidth}
 								isDragging={isDraggingPanelA || isDraggingPanelC}
 							>
-								<div className="flex h-full flex-col">
-									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
-										<h2 className="text-sm font-medium text-foreground">
-											{getFeatureLabel("panelB")}
-										</h2>
-									</div>
-									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{getFeaturePlaceholder("panelB")}
-									</div>
-								</div>
+								<PanelContent position="panelB" />
 							</PanelContainer>
 						)}
 					</AnimatePresence>
@@ -369,16 +317,7 @@ export default function HomePage() {
 								width={layoutState.panelCWidth}
 								isDragging={isDraggingPanelA || isDraggingPanelC}
 							>
-								<div className="flex h-full flex-col">
-									<div className="flex h-10 shrink-0 items-center border-b border-border bg-muted/30 px-4">
-										<h2 className="text-sm font-medium text-foreground">
-											{getFeatureLabel("panelC")}
-										</h2>
-									</div>
-									<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-										{getFeaturePlaceholder("panelC")}
-									</div>
-								</div>
+								<PanelContent position="panelC" />
 							</PanelContainer>
 						)}
 					</AnimatePresence>
