@@ -37,6 +37,11 @@ import { cn } from "@/lib/utils";
 
 type FilterStatus = "all" | TodoStatus;
 
+type OrderedTodo = {
+	todo: Todo;
+	depth: number;
+};
+
 interface TodoCardProps {
 	todo: Todo;
 	isDragging?: boolean;
@@ -45,13 +50,21 @@ interface TodoCardProps {
 }
 
 function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
-	const { toggleTodoStatus, deleteTodo, setSelectedTodoId, updateTodo } =
-		useTodoStore();
+	const {
+		toggleTodoStatus,
+		deleteTodo,
+		setSelectedTodoId,
+		updateTodo,
+		addTodo,
+	} = useTodoStore();
 	const [contextMenu, setContextMenu] = useState({
 		open: false,
 		x: 0,
 		y: 0,
 	});
+	const [isAddingChild, setIsAddingChild] = useState(false);
+	const [childName, setChildName] = useState("");
+	const childInputRef = useRef<HTMLInputElement | null>(null);
 	const menuRef = useRef<HTMLDivElement | null>(null);
 	const sortable = useSortable({ id: todo.id, disabled: isOverlay });
 	const attributes = isOverlay ? {} : sortable.attributes;
@@ -140,13 +153,19 @@ function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
 		};
 	}, [contextMenu.open]);
 
+	useEffect(() => {
+		if (isAddingChild) {
+			childInputRef.current?.focus();
+		}
+	}, [isAddingChild]);
+
 	const openContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
 		setSelectedTodoId(todo.id);
 
 		const menuWidth = 180;
-		const menuHeight = 56;
+		const menuHeight = 90;
 		const viewportWidth =
 			typeof window !== "undefined" ? window.innerWidth : menuWidth;
 		const viewportHeight =
@@ -160,6 +179,16 @@ function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
 			x,
 			y,
 		});
+	};
+
+	const handleCreateChild = (e?: React.FormEvent) => {
+		if (e) e.preventDefault();
+		const name = childName.trim();
+		if (!name) return;
+
+		addTodo({ name, parentTodoId: todo.id });
+		setChildName("");
+		setIsAddingChild(false);
 	};
 
 	return (
@@ -286,6 +315,54 @@ function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
 						</div>
 					</div>
 				</div>
+
+				{isAddingChild && (
+					<form
+						onSubmit={handleCreateChild}
+						onMouseDown={(e) => e.stopPropagation()}
+						className="mt-3 space-y-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3"
+					>
+						<input
+							ref={childInputRef}
+							type="text"
+							value={childName}
+							onChange={(e) => setChildName(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.stopPropagation();
+									handleCreateChild();
+									return;
+								}
+								if (e.key === "Escape") {
+									e.stopPropagation();
+									setIsAddingChild(false);
+									setChildName("");
+								}
+							}}
+							placeholder="输入子待办名称..."
+							className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+						/>
+						<div className="flex items-center justify-end gap-2">
+							<button
+								type="button"
+								onClick={() => {
+									setIsAddingChild(false);
+									setChildName("");
+								}}
+								className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+							>
+								取消
+							</button>
+							<button
+								type="submit"
+								className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+							>
+								<Plus className="h-4 w-4" />
+								添加
+							</button>
+						</div>
+					</form>
+				)}
 			</div>
 
 			{contextMenu.open &&
@@ -304,6 +381,19 @@ function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
 							<button
 								type="button"
 								className="flex w-full items-center gap-2 px-3 py-2 text-sm text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors first:rounded-t-md"
+								onClick={() => {
+									setContextMenu((state) =>
+										state.open ? { ...state, open: false } : state,
+									);
+									setIsAddingChild(true);
+								}}
+							>
+								<Plus className="h-4 w-4" />
+								<span>添加子待办</span>
+							</button>
+							<button
+								type="button"
+								className="flex w-full items-center gap-2 px-3 py-2 text-sm text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
 								onClick={() => {
 									updateTodo(todo.id, { status: "canceled" });
 									setContextMenu((state) =>
@@ -377,10 +467,51 @@ export function TodoList() {
 		return result;
 	}, [todos, filterStatus, searchQuery]);
 
+	// 构建树形顺序，包含子任务
+	const orderedTodos = useMemo<OrderedTodo[]>(() => {
+		const orderMap = new Map(
+			filteredTodos.map((todo, index) => [todo.id, index]),
+		);
+		const visibleIds = new Set(filteredTodos.map((todo) => todo.id));
+		const childrenMap = new Map<string, Todo[]>();
+		const roots: Todo[] = [];
+
+		filteredTodos.forEach((todo) => {
+			const parentId = todo.parentTodoId;
+			if (parentId && visibleIds.has(parentId)) {
+				const list = childrenMap.get(parentId) ?? [];
+				list.push(todo);
+				childrenMap.set(parentId, list);
+			} else {
+				roots.push(todo);
+			}
+		});
+
+		const sortByOriginalOrder = (list: Todo[]) =>
+			[...list].sort(
+				(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
+			);
+
+		const ordered: OrderedTodo[] = [];
+		const traverse = (items: Todo[], depth: number) => {
+			sortByOriginalOrder(items).forEach((item) => {
+				ordered.push({ todo: item, depth });
+				const children = childrenMap.get(item.id);
+				if (children?.length) {
+					traverse(children, depth + 1);
+				}
+			});
+		};
+
+		traverse(sortByOriginalOrder(roots), 0);
+		return ordered;
+	}, [filteredTodos]);
+
 	// 获取拖拽中的任务
-	const activeTodo = activeId
-		? filteredTodos.find((todo) => todo.id === activeId)
+	const activeTodoEntry = activeId
+		? orderedTodos.find(({ todo }) => todo.id === activeId)
 		: null;
+	const activeTodo = activeTodoEntry?.todo ?? null;
 
 	const handleDragStart = (event: DragStartEvent) => {
 		setActiveId(event.active.id as string);
@@ -390,11 +521,15 @@ export function TodoList() {
 		const { active, over } = event;
 
 		if (over && active.id !== over.id) {
-			const oldIndex = filteredTodos.findIndex((todo) => todo.id === active.id);
-			const newIndex = filteredTodos.findIndex((todo) => todo.id === over.id);
+			const oldIndex = orderedTodos.findIndex(
+				({ todo }) => todo.id === active.id,
+			);
+			const newIndex = orderedTodos.findIndex(
+				({ todo }) => todo.id === over.id,
+			);
 
-			const newOrder = arrayMove(filteredTodos, oldIndex, newIndex).map(
-				(todo) => todo.id,
+			const newOrder = arrayMove(orderedTodos, oldIndex, newIndex).map(
+				({ todo }) => todo.id,
 			);
 			reorderTodos(newOrder);
 		}
@@ -528,24 +663,32 @@ export function TodoList() {
 						onDragCancel={handleDragCancel}
 					>
 						<SortableContext
-							items={filteredTodos.map((todo) => todo.id)}
+							items={orderedTodos.map(({ todo }) => todo.id)}
 							strategy={verticalListSortingStrategy}
 						>
 							<div className={cn("px-4 pb-6 flex flex-col gap-0")}>
-								{filteredTodos.map((todo) => (
-									<TodoCard
+								{orderedTodos.map(({ todo, depth }) => (
+									<div
 										key={todo.id}
-										todo={todo}
-										isDragging={activeId === todo.id}
-										selected={selectedTodoId === todo.id}
-									/>
+										style={{ marginLeft: depth * 16 }}
+										className={depth > 0 ? "relative" : undefined}
+									>
+										<TodoCard
+											todo={todo}
+											isDragging={activeId === todo.id}
+											selected={selectedTodoId === todo.id}
+										/>
+									</div>
 								))}
 							</div>
 						</SortableContext>
 
 						<DragOverlay>
 							{activeTodo ? (
-								<div className="opacity-50">
+								<div
+									className="opacity-50"
+									style={{ marginLeft: (activeTodoEntry?.depth ?? 0) * 16 }}
+								>
 									<TodoCard
 										todo={activeTodo}
 										isDragging
