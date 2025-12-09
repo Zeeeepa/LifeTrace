@@ -248,7 +248,7 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 										{todo.tags.slice(0, 3).map((tag) => (
 											<span
 												key={tag}
-												className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
+												className="px-0 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
 											>
 												{tag}
 											</span>
