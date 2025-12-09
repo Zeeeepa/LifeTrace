@@ -7,7 +7,7 @@ import {
 	Tag as TagIcon,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +22,44 @@ export function TodoDetail() {
 	} = useTodoStore();
 
 	const [showDescription, setShowDescription] = useState(false);
+	const notesRef = useRef<HTMLTextAreaElement | null>(null);
+
+	const adjustNotesHeight = useCallback(() => {
+		const el = notesRef.current;
+		if (!el) return;
+
+		el.style.height = "auto";
+
+		// 预留底部 dock 的高度和一点空隙，避免遮挡
+		const BOTTOM_DOCK_ESTIMATED_HEIGHT = 84;
+		const SAFE_GAP = 16;
+		const MIN_HEIGHT = 120;
+
+		const availableHeight =
+			typeof window !== "undefined"
+				? Math.max(
+						MIN_HEIGHT,
+						window.innerHeight -
+							el.getBoundingClientRect().top -
+							(BOTTOM_DOCK_ESTIMATED_HEIGHT + SAFE_GAP),
+					)
+				: el.scrollHeight;
+
+		const nextHeight = Math.min(el.scrollHeight, availableHeight);
+		el.style.height = `${nextHeight}px`;
+	}, []);
 
 	const todo = selectedTodoId
 		? todos.find((t) => t.id === selectedTodoId)
 		: null;
+
+	useEffect(() => {
+		if (!todo) return;
+		adjustNotesHeight();
+		const handleResize = () => adjustNotesHeight();
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, [adjustNotesHeight, todo]);
 
 	if (!todo) {
 		return (
@@ -37,6 +71,7 @@ export function TodoDetail() {
 
 	const handleNotesChange = (userNotes: string) => {
 		updateTodo(todo.id, { userNotes });
+		requestAnimationFrame(adjustNotesHeight);
 	};
 
 	return (
@@ -155,10 +190,11 @@ export function TodoDetail() {
 
 				{/* Notes 主面板 */}
 				<textarea
+					ref={notesRef}
 					value={todo.userNotes || ""}
 					onChange={(e) => handleNotesChange(e.target.value)}
 					placeholder="Insert your notes here"
-					className="mb-8 w-full min-h-[120px] rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+					className="mb-8 w-full min-h-[120px] resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 				/>
 			</div>
 		</div>

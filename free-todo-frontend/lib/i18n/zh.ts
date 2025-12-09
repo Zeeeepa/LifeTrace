@@ -33,7 +33,7 @@ export const zh: Translation = {
 			"结合日历规划一周安排",
 			"总结项目任务并给出下一步",
 		],
-		chatInputPlaceholder: "我正在处理",
+		chatInputPlaceholder: "在此输入你的想法",
 		chatSendButton: "发送",
 		chatHistory: "历史记录",
 		newChat: "新建对话",

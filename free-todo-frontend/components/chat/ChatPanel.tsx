@@ -8,7 +8,7 @@ import {
 	Send,
 	Sparkles,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatHistoryItem, ChatSessionSummary } from "@/lib/api";
 import { getChatHistory, sendChatMessageStream } from "@/lib/api";
 import { useTranslations } from "@/lib/i18n";
@@ -55,6 +55,11 @@ export function ChatPanel() {
 	const [historyError, setHistoryError] = useState<string | null>(null);
 
 	const messageListRef = useRef<HTMLDivElement>(null);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const topBarRef = useRef<HTMLDivElement>(null);
+	const suggestionsRef = useRef<HTMLDivElement>(null);
+	const [inputMaxHeight, setInputMaxHeight] = useState<number | null>(null);
 
 	// 根据当前语言生成提示文本
 	const typingText = useMemo(
@@ -69,6 +74,39 @@ export function ChatPanel() {
 		[locale],
 	);
 
+	// 计算输入框最大高度：不超出顶部栏下方，留出少量间距
+	const computeInputMaxHeight = useCallback(() => {
+		const container = containerRef.current;
+		const topBar = topBarRef.current;
+		if (!container || !topBar) return;
+
+		const containerHeight = container.clientHeight;
+		const topBarHeight = topBar.offsetHeight;
+		const suggestionsHeight = suggestionsRef.current?.offsetHeight ?? 0;
+		const gap = 16; // 预留一点间距
+
+		const available = containerHeight - topBarHeight - suggestionsHeight - gap;
+		if (available > 0) {
+			setInputMaxHeight(available);
+		}
+	}, []);
+
+	useEffect(() => {
+		computeInputMaxHeight();
+		const handleResize = () => computeInputMaxHeight();
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, [computeInputMaxHeight]);
+
+	useEffect(() => {
+		// 历史列表展开/收起会改变可用高度，触发重新计算
+		if (showHistory) {
+			computeInputMaxHeight();
+		} else {
+			computeInputMaxHeight();
+		}
+	}, [computeInputMaxHeight, showHistory]);
+
 	// 新消息出现时自动滚动到底部
 	useEffect(() => {
 		if (messages.length === 0) return;
@@ -77,6 +115,27 @@ export function ChatPanel() {
 			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
 		}
 	}, [messages]);
+
+	const resizeInput = useCallback(
+		(value: string) => {
+			const el = inputRef.current;
+			if (!el) return;
+			const maxHeight = inputMaxHeight ?? 200;
+			if (el.value !== value) {
+				el.value = value;
+			}
+			el.style.height = "auto";
+			const nextHeight = Math.min(el.scrollHeight, maxHeight);
+			el.style.height = `${nextHeight}px`;
+			el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+		},
+		[inputMaxHeight],
+	);
+
+	// 输入框随内容自适应高度，并受最大高度限制
+	useEffect(() => {
+		resizeInput(inputValue);
+	}, [inputValue, resizeInput]);
 
 	const handleSend = async () => {
 		const text = inputValue.trim();
@@ -229,8 +288,11 @@ export function ChatPanel() {
 	};
 
 	return (
-		<div className="flex h-full flex-col bg-background">
-			<div className="flex flex-col gap-2 border-b border-border p-4">
+		<div ref={containerRef} className="flex h-full flex-col bg-background">
+			<div
+				ref={topBarRef}
+				className="flex flex-col gap-2 border-b border-border p-4"
+			>
 				<div className="flex items-center justify-between gap-3">
 					<div className="flex items-center gap-2">
 						<Sparkles className="h-5 w-5 text-blue-500" />
@@ -405,36 +467,43 @@ export function ChatPanel() {
 			</div>
 
 			<div className="bg-background p-4">
-				<div className="mb-3 flex flex-wrap gap-2">
-					{t.page.chatSuggestions.map((suggestion) => (
-						<button
-							key={suggestion}
-							type="button"
-							onClick={() => handleSuggestionClick(suggestion)}
-							className={cn(
-								"px-3 py-2 text-sm",
-								"rounded-full border border-foreground/10",
-								"text-foreground transition-colors",
-								"hover:bg-foreground/5",
-								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-							)}
-						>
-							{suggestion}
-						</button>
-					))}
-				</div>
+				{!inputValue.trim() && (
+					<div ref={suggestionsRef} className="mb-3 flex flex-wrap gap-2">
+						{t.page.chatSuggestions.map((suggestion) => (
+							<button
+								key={suggestion}
+								type="button"
+								onClick={() => handleSuggestionClick(suggestion)}
+								className={cn(
+									"px-3 py-2 text-sm",
+									"rounded-full border border-foreground/10",
+									"text-foreground transition-colors",
+									"hover:bg-foreground/5",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+								)}
+							>
+								{suggestion}
+							</button>
+						))}
+					</div>
+				)}
 
 				<div className="flex items-end gap-2">
 					<textarea
+						ref={inputRef}
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyDown={handleKeyDown}
 						placeholder={t.page.chatInputPlaceholder}
 						rows={2}
+						style={{
+							maxHeight: inputMaxHeight ?? undefined,
+						}}
 						className={cn(
 							"flex-1 resize-none rounded-2xl border border-border bg-muted/60 px-4 py-3",
 							"text-foreground placeholder:text-muted-foreground",
 							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+							"overflow-y-auto",
 						)}
 					/>
 					<button
