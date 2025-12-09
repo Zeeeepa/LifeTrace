@@ -13,6 +13,7 @@ import {
 } from "@dnd-kit/core";
 import {
 	arrayMove,
+	rectSortingStrategy,
 	SortableContext,
 	sortableKeyboardCoordinates,
 	useSortable,
@@ -38,12 +39,17 @@ import { useTodoStore } from "@/lib/store/todo-store";
 import type { CreateTodoInput, Todo, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
-interface TodoItemProps {
+type ViewMode = "list" | "grid";
+type FilterStatus = "all" | TodoStatus;
+
+interface TodoCardProps {
 	todo: Todo;
 	isDragging?: boolean;
+	viewMode: ViewMode;
+	selected?: boolean;
 }
 
-function TodoItem({ todo, isDragging }: TodoItemProps) {
+function TodoCard({ todo, isDragging, viewMode, selected }: TodoCardProps) {
 	const { toggleTodoStatus, deleteTodo, setSelectedTodoId, updateTodo } =
 		useTodoStore();
 	const [contextMenu, setContextMenu] = useState({
@@ -81,6 +87,19 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 				return "bg-gray-500/20 text-gray-600 dark:text-gray-400 border-gray-500/30";
 			default:
 				return "";
+		}
+	};
+
+	const getStatusAccent = (status: TodoStatus) => {
+		switch (status) {
+			case "active":
+				return "from-blue-500/80 to-blue-500/40";
+			case "completed":
+				return "from-green-500/80 to-green-500/40";
+			case "canceled":
+				return "from-zinc-500/70 to-zinc-500/30";
+			default:
+				return "from-primary/70 to-primary/30";
 		}
 	};
 
@@ -176,112 +195,130 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 					}
 				}}
 				className={cn(
-					"group relative flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer",
-					isDragging && "opacity-50",
+					"group relative flex h-full flex-col gap-3 rounded-xl bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5 hover:shadow-md hover:ring-1 hover:ring-primary/25 cursor-pointer",
+					selected && "bg-primary/8 ring-2 ring-primary/40 shadow-md",
+					isDragging && "shadow-lg ring-2 ring-primary/30",
 				)}
 			>
-				{/* 拖拽手柄 */}
-				<div
-					{...attributes}
-					{...listeners}
-					className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity self-center"
-				>
-					<GripVertical className="h-4 w-4" />
-				</div>
-
-				{/* 状态切换 */}
-				<button
-					type="button"
-					onClick={(e) => {
-						e.stopPropagation();
-						toggleTodoStatus(todo.id);
-					}}
-					className="shrink-0"
-				>
-					{todo.status === "completed" ? (
-						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-green-500 dark:bg-green-400 border border-green-600 dark:border-green-500">
-							<span className="text-[10px] text-white font-semibold">✓</span>
-						</div>
-					) : (
-						<div className="h-5 w-5 rounded-md border-2 border-muted-foreground/40 hover:border-foreground transition-colors" />
+				<span
+					className={cn(
+						"pointer-events-none absolute left-0 top-0 h-full w-[3px] rounded-l-xl bg-gradient-to-b",
+						getStatusAccent(todo.status),
 					)}
-				</button>
+				/>
 
-				{/* 内容区域 */}
-				<div className="flex-1 min-w-0">
-					<div className="flex items-start justify-between gap-2">
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2">
+				<div className="flex items-start gap-3">
+					{/* 拖拽手柄 */}
+					<div
+						{...attributes}
+						{...listeners}
+						className={cn(
+							"mt-1 shrink-0 cursor-grab text-muted-foreground transition-opacity duration-150 hover:text-foreground",
+							viewMode === "grid"
+								? "opacity-100"
+								: "opacity-60 group-hover:opacity-100",
+						)}
+					>
+						<GripVertical className="h-4 w-4" />
+					</div>
+
+					{/* 状态切换 */}
+					<button
+						type="button"
+						onClick={(e) => {
+							e.stopPropagation();
+							toggleTodoStatus(todo.id);
+						}}
+						className="mt-1 shrink-0"
+					>
+						{todo.status === "completed" ? (
+							<div className="flex h-5 w-5 items-center justify-center rounded-md bg-green-500 dark:bg-green-400 border border-green-600 dark:border-green-500 shadow-inner">
+								<span className="text-[10px] text-white font-semibold">✓</span>
+							</div>
+						) : (
+							<div className="h-5 w-5 rounded-md border-2 border-muted-foreground/40 hover:border-foreground transition-colors" />
+						)}
+					</button>
+
+					{/* 内容区域 */}
+					<div className="flex-1 min-w-0 space-y-3">
+						<div className="flex items-start justify-between gap-2">
+							<div className="min-w-0 space-y-1">
 								<h3
 									className={cn(
-										"text-sm font-medium text-foreground",
+										"text-sm font-semibold text-foreground",
 										todo.status === "completed" &&
 											"line-through text-muted-foreground",
 									)}
 								>
 									{todo.name}
 								</h3>
+								{todo.description && (
+									<p className="text-xs text-muted-foreground line-clamp-2">
+										{todo.description}
+									</p>
+								)}
 							</div>
 
-							{/* 日期、附件、标签 */}
-							<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-								{/* 截止日期 */}
-								{todo.deadline && (
-									<div className="flex items-center gap-1">
-										<Calendar className="h-3 w-3" />
-										<span>{formatDate(todo.deadline)}</span>
-									</div>
-								)}
-
-								{/* 附件数量 */}
-								{todo.attachments && todo.attachments.length > 0 && (
-									<div className="flex items-center gap-1">
-										<Paperclip className="h-3 w-3" />
-										<span>{todo.attachments.length}</span>
-									</div>
-								)}
-
-								{/* 标签 */}
-								{todo.tags && todo.tags.length > 0 && (
-									<div className="flex flex-wrap items-center gap-1">
-										<Tag className="h-3 w-3" />
-										{todo.tags.slice(0, 3).map((tag) => (
-											<span
-												key={tag}
-												className="px-0 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
-											>
-												{tag}
-											</span>
-										))}
-										{todo.tags.length > 3 && (
-											<span className="text-[11px] text-muted-foreground">
-												+{todo.tags.length - 3}
-											</span>
+							{/* 状态和附件提示 */}
+							<div className="flex items-center gap-2 shrink-0">
+								{/* 状态标签 */}
+								{todo.status && (
+									<span
+										className={cn(
+											"px-2 py-0.5 rounded-full text-xs font-medium border shadow-sm",
+											getStatusColor(todo.status),
 										)}
-									</div>
+									>
+										{getStatusLabel(todo.status)}
+									</span>
+								)}
+								{/* 附件提示 */}
+								{todo.attachments && todo.attachments.length > 0 && (
+									<span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground bg-muted/50">
+										<Paperclip className="h-3 w-3" />
+										{todo.attachments.length}
+									</span>
 								)}
 							</div>
 						</div>
 
-						{/* 状态和附件提示 */}
-						<div className="flex items-center gap-2 shrink-0">
-							{/* 状态标签 */}
-							{todo.status && (
-								<span
-									className={cn(
-										"px-2 py-0.5 rounded-full text-xs font-medium border",
-										getStatusColor(todo.status),
-									)}
-								>
-									{getStatusLabel(todo.status)}
-								</span>
+						{/* 日期、附件、标签 */}
+						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+							{/* 截止日期 */}
+							{todo.deadline && (
+								<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
+									<Calendar className="h-3 w-3" />
+									<span>{formatDate(todo.deadline)}</span>
+								</div>
 							)}
-							{/* 附件提示 */}
+
+							{/* 附件数量 */}
 							{todo.attachments && todo.attachments.length > 0 && (
-								<span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
+								<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
 									<Paperclip className="h-3 w-3" />
-									{todo.attachments.length}
-								</span>
+									<span>{todo.attachments.length}</span>
+								</div>
+							)}
+
+							{/* 标签 */}
+							{todo.tags && todo.tags.length > 0 && (
+								<div className="flex flex-wrap items-center gap-1">
+									<Tag className="h-3 w-3" />
+									{todo.tags.slice(0, 3).map((tag) => (
+										<span
+											key={tag}
+											className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
+										>
+											{tag}
+										</span>
+									))}
+									{todo.tags.length > 3 && (
+										<span className="text-[11px] text-muted-foreground">
+											+{todo.tags.length - 3}
+										</span>
+									)}
+								</div>
 							)}
 						</div>
 					</div>
@@ -335,11 +372,8 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 	);
 }
 
-type FilterStatus = "all" | TodoStatus;
-type ViewMode = "list" | "grid";
-
 export function TodoList() {
-	const { todos, reorderTodos, addTodo } = useTodoStore();
+	const { todos, reorderTodos, addTodo, selectedTodoId } = useTodoStore();
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -528,14 +562,27 @@ export function TodoList() {
 					>
 						<SortableContext
 							items={filteredTodos.map((todo) => todo.id)}
-							strategy={verticalListSortingStrategy}
+							strategy={
+								viewMode === "grid"
+									? rectSortingStrategy
+									: verticalListSortingStrategy
+							}
 						>
-							<div>
+							<div
+								className={cn(
+									"px-4 pb-6",
+									viewMode === "grid"
+										? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+										: "flex flex-col gap-3",
+								)}
+							>
 								{filteredTodos.map((todo) => (
-									<TodoItem
+									<TodoCard
 										key={todo.id}
 										todo={todo}
 										isDragging={activeId === todo.id}
+										viewMode={viewMode}
+										selected={selectedTodoId === todo.id}
 									/>
 								))}
 							</div>
@@ -544,7 +591,12 @@ export function TodoList() {
 						<DragOverlay>
 							{activeTodo ? (
 								<div className="opacity-50">
-									<TodoItem todo={activeTodo} isDragging />
+									<TodoCard
+										todo={activeTodo}
+										isDragging
+										viewMode={viewMode}
+										selected={selectedTodoId === activeTodo.id}
+									/>
 								</div>
 							) : null}
 						</DragOverlay>
