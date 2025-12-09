@@ -40,9 +40,7 @@ export const useTodoStore = create<TodoStoreState>()(
 						createdAt: now,
 						updatedAt: now,
 					};
-					return {
-						todos: [...state.todos, newTodo],
-					};
+					return { todos: [newTodo, ...state.todos] };
 				}),
 			updateTodo: (id, input) =>
 				set((state) => ({

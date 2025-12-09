@@ -28,6 +28,14 @@ export type Translation = {
 		chatSuggestions: string[];
 		chatInputPlaceholder: string;
 		chatSendButton: string;
+		chatHistory: string;
+		newChat: string;
+		recentSessions: string;
+		noHistory: string;
+		messagesCount: string;
+		loadHistoryFailed: string;
+		loadSessionFailed: string;
+		sessionLoaded: string;
 		todoDetailLabel: string;
 		todoDetailPlaceholder: string;
 		diaryLabel: string;

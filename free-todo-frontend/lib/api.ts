@@ -6,6 +6,25 @@ export interface SendChatParams {
 	use_rag?: boolean;
 }
 
+export type ChatSessionSummary = {
+	session_id: string;
+	title?: string;
+	last_active?: string;
+	message_count?: number;
+	chat_type?: string;
+};
+
+export type ChatHistoryItem = {
+	role: "user" | "assistant";
+	content: string;
+	timestamp?: string;
+};
+
+export type ChatHistoryResponse = {
+	sessions?: ChatSessionSummary[];
+	history?: ChatHistoryItem[];
+};
+
 /**
  * 发送聊天消息并以流式方式接收回复
  */
@@ -50,6 +69,31 @@ export async function sendChatMessageStream(
 			}
 		}
 	}
+}
+
+/**
+ * 获取聊天历史（不传 sessionId 时返回会话列表，传入时返回该会话的消息）
+ */
+export async function getChatHistory(
+	sessionId?: string,
+	limit = 20,
+	chatType?: string,
+): Promise<ChatHistoryResponse> {
+	const params = new URLSearchParams();
+	if (sessionId) params.append("session_id", sessionId);
+	if (limit) params.append("limit", String(limit));
+	if (chatType) params.append("chat_type", chatType);
+
+	const query = params.toString();
+	const response = await fetch(
+		`${API_BASE_URL}/api/chat/history${query ? `?${query}` : ""}`,
+	);
+
+	if (!response.ok) {
+		throw new Error(`Request failed with status ${response.status}`);
+	}
+
+	return response.json();
 }
 
 export { API_BASE_URL };
