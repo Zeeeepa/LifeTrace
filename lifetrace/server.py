@@ -83,6 +83,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Session-Id"],  # 允许前端读取会话ID，支持多轮对话
 )
 
 # 初始化OCR处理器
