@@ -1,6 +1,5 @@
 "use client";
 
-import { CreateTodoForm } from "@/components/todo/CreateTodoForm";
 import { TodoList } from "@/components/todo/TodoList";
 import type { PanelPosition } from "@/lib/config/panel-config";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
@@ -53,18 +52,7 @@ export function PanelContent({ position }: PanelContentProps) {
 
 	// 如果是待办功能，显示待办组件
 	if (feature === "todos") {
-		return (
-			<div className="flex h-full flex-col">
-				<div className="flex h-10 shrink-0 items-center gap-2 bg-muted/30 px-4">
-					{Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
-					<h2 className="text-sm font-medium text-foreground">
-						{getFeatureLabel(position)}
-					</h2>
-				</div>
-				<CreateTodoForm />
-				<TodoList />
-			</div>
-		);
+		return <TodoList />;
 	}
 
 	// 其他功能显示占位符

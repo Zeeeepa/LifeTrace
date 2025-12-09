@@ -1,4 +1,11 @@
-export type TodoStatus = "pending" | "completed";
+export type TodoStatus = "pending" | "in-progress" | "completed";
+export type TodoPriority = "low" | "medium" | "high";
+
+export interface AssignedUser {
+	id: string;
+	name: string;
+	avatar?: string;
+}
 
 export interface Todo {
 	id: string;
@@ -6,6 +13,9 @@ export interface Todo {
 	status: TodoStatus;
 	dueDate?: string; // ISO date string
 	subtasks?: Subtask[];
+	starred?: boolean;
+	assignedTo?: AssignedUser[];
+	priority?: TodoPriority;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -20,6 +30,10 @@ export interface CreateTodoInput {
 	title: string;
 	dueDate?: string;
 	subtasks?: Omit<Subtask, "id">[];
+	starred?: boolean;
+	assignedTo?: AssignedUser[];
+	priority?: TodoPriority;
+	status?: TodoStatus;
 }
 
 export interface UpdateTodoInput {
@@ -27,4 +41,7 @@ export interface UpdateTodoInput {
 	status?: TodoStatus;
 	dueDate?: string;
 	subtasks?: Subtask[];
+	starred?: boolean;
+	assignedTo?: AssignedUser[];
+	priority?: TodoPriority;
 }

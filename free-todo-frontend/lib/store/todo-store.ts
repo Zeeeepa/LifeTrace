@@ -9,6 +9,8 @@ interface TodoStoreState {
 	deleteTodo: (id: string) => void;
 	toggleTodoStatus: (id: string) => void;
 	toggleSubtask: (todoId: string, subtaskId: string) => void;
+	toggleStarred: (id: string) => void;
+	reorderTodos: (newOrder: string[]) => void;
 }
 
 const generateId = () => {
@@ -25,12 +27,15 @@ export const useTodoStore = create<TodoStoreState>()(
 					const newTodo: Todo = {
 						id: generateId(),
 						title: input.title,
-						status: "pending",
+						status: input.status || "pending",
 						dueDate: input.dueDate,
 						subtasks: input.subtasks?.map((st) => ({
 							...st,
 							id: generateId(),
 						})),
+						starred: input.starred || false,
+						assignedTo: input.assignedTo,
+						priority: input.priority,
 						createdAt: now,
 						updatedAt: now,
 					};
@@ -82,6 +87,33 @@ export const useTodoStore = create<TodoStoreState>()(
 							: todo,
 					),
 				})),
+			toggleStarred: (id) =>
+				set((state) => ({
+					todos: state.todos.map((todo) =>
+						todo.id === id
+							? {
+									...todo,
+									starred: !todo.starred,
+									updatedAt: new Date().toISOString(),
+								}
+							: todo,
+					),
+				})),
+			reorderTodos: (newOrder) =>
+				set((state) => {
+					const todoMap = new Map(state.todos.map((todo) => [todo.id, todo]));
+					const reorderedTodos = newOrder
+						.map((id) => todoMap.get(id))
+						.filter((todo): todo is Todo => todo !== undefined);
+					// 保留不在newOrder中的todos（如果有的话）
+					const remainingIds = new Set(newOrder);
+					const remainingTodos = state.todos.filter(
+						(todo) => !remainingIds.has(todo.id),
+					);
+					return {
+						todos: [...reorderedTodos, ...remainingTodos],
+					};
+				}),
 		}),
 		{
 			name: "todo-storage",
