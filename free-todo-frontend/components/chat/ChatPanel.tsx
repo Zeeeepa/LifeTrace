@@ -1,11 +1,20 @@
 "use client";
 
-import { History, Loader2, PlusCircle, Send, Sparkles } from "lucide-react";
+import {
+	ChevronDown,
+	History,
+	Loader2,
+	PlusCircle,
+	Send,
+	Sparkles,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatSessionSummary } from "@/lib/api";
 import { getChatHistory, sendChatMessageStream } from "@/lib/api";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
+import { useTodoStore } from "@/lib/store/todo-store";
+import type { CreateTodoInput } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
 type ChatMessage = {
@@ -13,6 +22,12 @@ type ChatMessage = {
 	role: "user" | "assistant";
 	content: string;
 };
+
+type ChatMode = "ask" | "plan";
+type ParsedTodo = Pick<
+	CreateTodoInput,
+	"name" | "description" | "tags" | "deadline"
+>;
 
 const createId = () => {
 	if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -24,6 +39,7 @@ const createId = () => {
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
+	const { addTodo } = useTodoStore();
 	const buildInitialAssistantMessage = useCallback(
 		() => ({
 			id: createId(),
@@ -38,6 +54,8 @@ export function ChatPanel() {
 	const [messages, setMessages] = useState<ChatMessage[]>(() => [
 		buildInitialAssistantMessage(),
 	]);
+	const [chatMode, setChatMode] = useState<ChatMode>("ask");
+	const [modeMenuOpen, setModeMenuOpen] = useState(false);
 	const [inputValue, setInputValue] = useState("");
 	const [conversationId, setConversationId] = useState<string | null>(null);
 	const [isStreaming, setIsStreaming] = useState(false);
@@ -48,6 +66,7 @@ export function ChatPanel() {
 	const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
 
 	const messageListRef = useRef<HTMLDivElement>(null);
+	const modeMenuRef = useRef<HTMLDivElement | null>(null);
 
 	// 根据当前语言生成提示文本
 	const typingText = useMemo(
@@ -56,11 +75,21 @@ export function ChatPanel() {
 	);
 	const helperText = useMemo(
 		() =>
-			locale === "zh"
-				? "试着描述你的任务、日程或想了解的任何内容。"
-				: "Describe your tasks, schedule, or anything you want to explore.",
-		[locale],
+			chatMode === "plan"
+				? locale === "zh"
+					? "Plan 模式：描述目标，AI 会拆解并生成待办。"
+					: "Plan mode: describe your goal and I will create todos."
+				: locale === "zh"
+					? "Ask 模式：直接聊天或询问任务相关问题。"
+					: "Ask mode: chat or ask about your tasks.",
+		[chatMode, locale],
 	);
+	const inputPlaceholder =
+		chatMode === "plan"
+			? locale === "zh"
+				? "例如：帮我规划周末搬家需要做的事"
+				: "e.g. Help me plan the tasks for moving this weekend"
+			: t.page.chatInputPlaceholder;
 
 	const formatMessageCount = useCallback(
 		(count?: number) =>
@@ -69,6 +98,131 @@ export function ChatPanel() {
 				String(count ?? 0),
 			),
 		[t.page.messagesCount],
+	);
+
+	useEffect(() => {
+		if (!modeMenuOpen) return;
+		const handleClickOutside = (event: MouseEvent) => {
+			const target = event.target as Node;
+			if (modeMenuRef.current?.contains(target)) return;
+			setModeMenuOpen(false);
+		};
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, [modeMenuOpen]);
+
+	const planSystemPrompt = useMemo(
+		() =>
+			locale === "zh"
+				? [
+						"你是任务规划助手，请先用简洁自然语言给出说明，然后输出一个 JSON，字段为 todos (数组)。",
+						"JSON 每个待办包含：name(必填)、description(可选)、tags(可选字符串数组)、deadline(可选 ISO 日期字符串)。",
+						"如果无法生成待办，返回空数组，但仍给出解释。",
+						"只输出一个 JSON，对可读内容可放在 JSON 之外或上方。JSON 可用 ```json ``` 包裹。",
+					].join("\n")
+				: [
+						"You are a planning assistant. Give a short natural language explanation, then output ONE JSON object with key `todos` (array).",
+						"Each todo: name (required), description (optional), tags (optional string array), deadline (optional ISO date string).",
+						"If no tasks, return an empty array but still explain.",
+						"Only one JSON. It can be wrapped in ```json ```.",
+					].join("\n"),
+		[locale],
+	);
+
+	const parsePlanTodos = useCallback(
+		(
+			content: string,
+		): {
+			todos: ParsedTodo[];
+			error: string | null;
+		} => {
+			const findJson = () => {
+				const fencedJson = content.match(/```json\s*([\s\S]*?)```/i);
+				if (fencedJson?.[1]) return fencedJson[1];
+
+				const fenced = content.match(/```\s*([\s\S]*?)```/);
+				if (fenced?.[1]) return fenced[1];
+
+				const inline = content.match(/\{[\s\S]*"todos"[\s\S]*\}/);
+				if (inline?.[0]) return inline[0];
+				return null;
+			};
+
+			const jsonText = findJson();
+			if (!jsonText) {
+				return {
+					todos: [],
+					error:
+						locale === "zh"
+							? "未找到计划 JSON，未创建待办。"
+							: "No todo JSON found; no tasks created.",
+				};
+			}
+
+			try {
+				const parsed = JSON.parse(jsonText);
+				const rawTodos = Array.isArray(parsed?.todos) ? parsed.todos : [];
+				const todos: ParsedTodo[] = [];
+
+				rawTodos.forEach((item: unknown) => {
+					if (!item || typeof (item as { name?: unknown }).name !== "string") {
+						return;
+					}
+					const rawName = (item as { name: string }).name.trim();
+					if (!rawName) return;
+
+					const rawDescription = (item as { description?: unknown })
+						.description;
+					const description =
+						typeof rawDescription === "string" && rawDescription.trim()
+							? rawDescription.trim()
+							: undefined;
+
+					const rawTags = (item as { tags?: unknown }).tags;
+					const tags = Array.isArray(rawTags)
+						? rawTags
+								.filter((tag): tag is string => typeof tag === "string")
+								.map((tag) => tag.trim())
+								.filter(Boolean)
+						: undefined;
+
+					const rawDeadline = (item as { deadline?: unknown }).deadline;
+					const deadline =
+						typeof rawDeadline === "string" && rawDeadline.trim()
+							? rawDeadline.trim()
+							: undefined;
+
+					todos.push({
+						name: rawName,
+						description,
+						tags,
+						deadline,
+					});
+				});
+
+				if (!todos.length) {
+					return {
+						todos: [],
+						error:
+							locale === "zh"
+								? "解析完成，但没有有效的待办项。"
+								: "Parsed but no valid todos found.",
+					};
+				}
+
+				return { todos, error: null };
+			} catch (err) {
+				console.error(err);
+				return {
+					todos: [],
+					error:
+						locale === "zh"
+							? "解析计划 JSON 失败，未创建待办。"
+							: "Failed to parse plan JSON; no tasks created.",
+				};
+			}
+		},
+		[locale],
 	);
 
 	const fetchSessions = useCallback(async () => {
@@ -118,6 +272,8 @@ export function ChatPanel() {
 		setInputValue("");
 		setError(null);
 
+		const payloadMessage =
+			chatMode === "plan" ? `${planSystemPrompt}\n\n用户输入: ${text}` : text;
 		const userMessage: ChatMessage = {
 			id: createId(),
 			role: "user",
@@ -137,7 +293,7 @@ export function ChatPanel() {
 		try {
 			await sendChatMessageStream(
 				{
-					message: text,
+					message: payloadMessage,
 					conversation_id: conversationId || undefined,
 				},
 				(chunk) => {
@@ -165,6 +321,33 @@ export function ChatPanel() {
 						msg.id === assistantMessageId ? { ...msg, content: fallback } : msg,
 					),
 				);
+			} else if (chatMode === "plan") {
+				const { todos, error: parseError } = parsePlanTodos(assistantContent);
+				if (parseError) {
+					setMessages((prev) =>
+						prev.map((msg) =>
+							msg.id === assistantMessageId
+								? { ...msg, content: `${assistantContent}\n\n${parseError}` }
+								: msg,
+						),
+					);
+					setError(parseError);
+				} else {
+					for (const todo of todos) {
+						addTodo(todo);
+					}
+					const addedText =
+						locale === "zh"
+							? `已添加 ${todos.length} 条待办到列表。`
+							: `Added ${todos.length} todos to the list.`;
+					setMessages((prev) =>
+						prev.map((msg) =>
+							msg.id === assistantMessageId
+								? { ...msg, content: `${assistantContent}\n\n${addedText}` }
+								: msg,
+						),
+					);
+				}
 			}
 		} catch (err) {
 			console.error(err);
@@ -369,31 +552,105 @@ export function ChatPanel() {
 			</div>
 
 			<div className="bg-background p-4">
-				<div className="mb-3 flex flex-wrap gap-2">
-					{t.page.chatSuggestions.map((suggestion) => (
-						<button
-							key={suggestion}
-							type="button"
-							onClick={() => handleSuggestionClick(suggestion)}
-							className={cn(
-								"px-3 py-2 text-sm",
-								"rounded-[var(--radius-panel)] border border-foreground/10",
-								"text-foreground transition-colors",
-								"hover:bg-foreground/5",
-								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-							)}
-						>
-							{suggestion}
-						</button>
-					))}
-				</div>
+				{!modeMenuOpen && (
+					<div className="mb-3 flex flex-wrap gap-2">
+						{t.page.chatSuggestions.map((suggestion) => (
+							<button
+								key={suggestion}
+								type="button"
+								onClick={() => handleSuggestionClick(suggestion)}
+								className={cn(
+									"px-3 py-2 text-sm",
+									"rounded-[var(--radius-panel)] border border-foreground/10",
+									"text-foreground transition-colors",
+									"hover:bg-foreground/5",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+								)}
+							>
+								{suggestion}
+							</button>
+						))}
+					</div>
+				)}
 
 				<div className="flex items-end gap-2">
+					<div className="relative" ref={modeMenuRef}>
+						<label className="sr-only" htmlFor="chat-mode">
+							{locale === "zh" ? "对话模式" : "Chat mode"}
+						</label>
+						<button
+							type="button"
+							id="chat-mode"
+							onClick={() => setModeMenuOpen((prev) => !prev)}
+							className={cn(
+								"flex h-11 items-center gap-2 rounded-[var(--radius-panel)] border border-border bg-muted/60 px-3 text-sm text-foreground",
+								"hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+							)}
+							aria-label={
+								locale === "zh" ? "切换 Ask/Plan 模式" : "Toggle Ask/Plan mode"
+							}
+						>
+							<span>
+								{chatMode === "plan"
+									? locale === "zh"
+										? "Plan 模式"
+										: "Plan"
+									: locale === "zh"
+										? "Ask 模式"
+										: "Ask"}
+							</span>
+							<ChevronDown className="h-4 w-4 text-muted-foreground" />
+						</button>
+						{modeMenuOpen && (
+							<div className="absolute z-20 mb-2 w-32 overflow-hidden rounded-lg border border-border bg-background shadow-lg bottom-full">
+								{(["ask", "plan"] as const).map((mode) => (
+									<button
+										key={mode}
+										type="button"
+										onClick={() => {
+											setChatMode(mode);
+											setModeMenuOpen(false);
+										}}
+										className={cn(
+											"flex w-full items-center justify-between px-3 py-2 text-sm transition-colors",
+											mode === chatMode
+												? "bg-foreground/5 text-foreground"
+												: "text-foreground hover:bg-foreground/5",
+										)}
+									>
+										<span>
+											{mode === "ask"
+												? locale === "zh"
+													? "Ask 模式"
+													: "Ask"
+												: locale === "zh"
+													? "Plan 模式"
+													: "Plan"}
+										</span>
+										{mode === chatMode && (
+											<span className="text-xs text-blue-500">
+												{locale === "zh" ? "当前" : "Active"}
+											</span>
+										)}
+									</button>
+								))}
+							</div>
+						)}
+						<p className="mt-1 text-[11px] text-muted-foreground">
+							{chatMode === "plan"
+								? locale === "zh"
+									? "拆解需求并生成待办"
+									: "Break down and add todos"
+								: locale === "zh"
+									? "直接聊天或提问"
+									: "Chat freely"}
+						</p>
+					</div>
 					<textarea
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyDown={handleKeyDown}
-						placeholder={t.page.chatInputPlaceholder}
+						placeholder={inputPlaceholder}
 						rows={2}
 						className={cn(
 							"flex-1 resize-none rounded-2xl border border-border bg-muted/60 px-4 py-3",

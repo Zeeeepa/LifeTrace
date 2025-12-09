@@ -340,11 +340,8 @@ export function TodoList() {
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [isCreatingInline, setIsCreatingInline] = useState(false);
 	const [newTodoName, setNewTodoName] = useState("");
-	const [newTodoDeadline, setNewTodoDeadline] = useState("");
-	const [newTodoDescription, setNewTodoDescription] = useState("");
-	const [newTodoTags, setNewTodoTags] = useState<string>("");
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -409,27 +406,17 @@ export function TodoList() {
 		setActiveId(null);
 	};
 
-	const handleCreateTodo = (e: React.FormEvent) => {
-		e.preventDefault();
+	const handleCreateTodo = (e?: React.FormEvent) => {
+		if (e) e.preventDefault();
 		if (!newTodoName.trim()) return;
 
 		const input: CreateTodoInput = {
 			name: newTodoName.trim(),
-			description: newTodoDescription.trim() || undefined,
-			deadline: newTodoDeadline || undefined,
-			tags:
-				newTodoTags
-					.split(",")
-					.map((t) => t.trim())
-					.filter(Boolean) || [],
 		};
 
 		addTodo(input);
 		setNewTodoName("");
-		setNewTodoDeadline("");
-		setNewTodoDescription("");
-		setNewTodoTags("");
-		setIsCreateModalOpen(false);
+		setIsCreatingInline(false);
 	};
 
 	return (
@@ -482,8 +469,54 @@ export function TodoList() {
 
 			{/* 任务列表 */}
 			<div className="flex-1 overflow-y-auto">
+				<div className="px-4 pb-4">
+					{isCreatingInline ? (
+						<form
+							onSubmit={handleCreateTodo}
+							className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-4 sm:flex-row sm:items-center sm:gap-3"
+						>
+							<input
+								type="text"
+								value={newTodoName}
+								onChange={(e) => setNewTodoName(e.target.value)}
+								placeholder="输入待办名称..."
+								className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								required
+							/>
+							<div className="flex items-center gap-2 sm:justify-end">
+								<button
+									type="button"
+									onClick={() => {
+										setIsCreatingInline(false);
+										setNewTodoName("");
+									}}
+									className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+								>
+									取消
+								</button>
+								<button
+									type="submit"
+									className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+								>
+									<Plus className="h-4 w-4" />
+									创建
+								</button>
+							</div>
+						</form>
+					) : (
+						<button
+							type="button"
+							onClick={() => setIsCreatingInline(true)}
+							className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/10"
+						>
+							<Plus className="h-4 w-4" />
+							创建待办
+						</button>
+					)}
+				</div>
+
 				{filteredTodos.length === 0 ? (
-					<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+					<div className="flex h-[200px] items-center justify-center px-4 text-sm text-muted-foreground">
 						暂无待办事项
 					</div>
 				) : (
@@ -524,135 +557,6 @@ export function TodoList() {
 					</DndContext>
 				)}
 			</div>
-
-			{/* 浮动操作按钮 */}
-			<button
-				type="button"
-				onClick={() => setIsCreateModalOpen(true)}
-				className="absolute bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all hover:scale-110 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-			>
-				<Plus className="h-6 w-6" />
-			</button>
-
-			{/* 创建任务模态框 */}
-			{isCreateModalOpen && (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-					onClick={() => setIsCreateModalOpen(false)}
-					onKeyDown={(e) => {
-						if (e.key === "Escape") {
-							setIsCreateModalOpen(false);
-						}
-					}}
-					role="button"
-					tabIndex={0}
-				>
-					<div
-						role="dialog"
-						className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl"
-						onClick={(e) => e.stopPropagation()}
-						onKeyDown={(e) => e.stopPropagation()}
-					>
-						<div className="mb-4 flex items-center justify-between">
-							<h3 className="text-lg font-semibold text-foreground">
-								创建新任务
-							</h3>
-							<button
-								type="button"
-								onClick={() => setIsCreateModalOpen(false)}
-								className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
-							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-
-						<form onSubmit={handleCreateTodo} className="space-y-4">
-							<div>
-								<label
-									htmlFor="todo-name"
-									className="mb-1 block text-sm font-medium text-foreground"
-								>
-									待办名称
-								</label>
-								<input
-									id="todo-name"
-									type="text"
-									value={newTodoName}
-									onChange={(e) => setNewTodoName(e.target.value)}
-									placeholder="输入待办名称..."
-									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									required
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="todo-deadline"
-									className="mb-1 block text-sm font-medium text-foreground"
-								>
-									截止日期
-								</label>
-								<input
-									id="todo-deadline"
-									type="date"
-									value={newTodoDeadline}
-									onChange={(e) => setNewTodoDeadline(e.target.value)}
-									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="todo-description"
-									className="mb-1 block text-sm font-medium text-foreground"
-								>
-									描述
-								</label>
-								<textarea
-									id="todo-description"
-									value={newTodoDescription}
-									onChange={(e) => setNewTodoDescription(e.target.value)}
-									placeholder="描述该待办的详情..."
-									className="w-full min-h-[80px] rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-
-							<div>
-								<label
-									htmlFor="todo-tags"
-									className="mb-1 block text-sm font-medium text-foreground"
-								>
-									标签（逗号分隔）
-								</label>
-								<input
-									id="todo-tags"
-									type="text"
-									value={newTodoTags}
-									onChange={(e) => setNewTodoTags(e.target.value)}
-									placeholder="例如：工作, 报告"
-									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-
-							<div className="flex items-center justify-end gap-2 pt-4">
-								<button
-									type="button"
-									onClick={() => setIsCreateModalOpen(false)}
-									className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-								>
-									取消
-								</button>
-								<button
-									type="submit"
-									className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-								>
-									创建
-								</button>
-							</div>
-						</form>
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }
