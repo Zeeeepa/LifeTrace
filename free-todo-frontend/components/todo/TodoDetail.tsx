@@ -24,6 +24,10 @@ export function TodoDetail() {
 
 	const [showDescription, setShowDescription] = useState(false);
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+	const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+	const [deadlineInput, setDeadlineInput] = useState("");
+	const [isEditingTags, setIsEditingTags] = useState(false);
+	const [tagsInput, setTagsInput] = useState("");
 	const notesRef = useRef<HTMLTextAreaElement | null>(null);
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -110,6 +114,33 @@ export function TodoDetail() {
 		setIsStatusMenuOpen(false);
 	}, [todo?.id]);
 
+	const formatDeadlineForInput = useCallback((value?: string) => {
+		if (!value) return "";
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return "";
+		const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+		const local = new Date(date.getTime() - offsetMs);
+		return local.toISOString().slice(0, 16);
+	}, []);
+
+	const parseInputToIso = (value: string) => {
+		if (!value) return undefined;
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return undefined;
+		return date.toISOString();
+	};
+
+	const syncInlineEditors = useCallback(() => {
+		setIsEditingDeadline(false);
+		setIsEditingTags(false);
+		setDeadlineInput(formatDeadlineForInput(todo?.deadline));
+		setTagsInput(todo?.tags?.join(", ") ?? "");
+	}, [formatDeadlineForInput, todo?.deadline, todo?.tags]);
+
+	useEffect(() => {
+		syncInlineEditors();
+	}, [syncInlineEditors]);
+
 	if (!todo) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -128,6 +159,35 @@ export function TodoDetail() {
 			updateTodo(todo.id, { status });
 		}
 		setIsStatusMenuOpen(false);
+	};
+
+	const handleDeadlineSave = () => {
+		const nextDeadline = parseInputToIso(deadlineInput);
+		updateTodo(todo.id, {
+			deadline: deadlineInput.trim() === "" ? undefined : nextDeadline,
+		});
+		setIsEditingDeadline(false);
+	};
+
+	const handleDeadlineClear = () => {
+		updateTodo(todo.id, { deadline: undefined });
+		setDeadlineInput("");
+		setIsEditingDeadline(false);
+	};
+
+	const handleTagsSave = () => {
+		const parsedTags = tagsInput
+			.split(",")
+			.map((t) => t.trim())
+			.filter(Boolean);
+		updateTodo(todo.id, { tags: parsedTags });
+		setIsEditingTags(false);
+	};
+
+	const handleTagsClear = () => {
+		updateTodo(todo.id, { tags: [] });
+		setTagsInput("");
+		setIsEditingTags(false);
 	};
 
 	return (
@@ -179,60 +239,147 @@ export function TodoDetail() {
 				</div>
 
 				{/* 元信息 */}
-				<div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-					<div className="relative" ref={statusMenuRef}>
+				<div className="mb-6 text-sm text-muted-foreground">
+					<div className="flex flex-wrap items-center gap-3">
+						<div className="relative" ref={statusMenuRef}>
+							<button
+								type="button"
+								onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+								className={cn(
+									getStatusClassNames(todo.status),
+									"transition-colors hover:bg-muted/40",
+								)}
+								aria-expanded={isStatusMenuOpen}
+								aria-haspopup="listbox"
+							>
+								{todo.status}
+							</button>
+							{isStatusMenuOpen && (
+								<div className="absolute z-[120] mt-2 min-w-[170px] rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg pointer-events-auto">
+									<div className="py-1" role="listbox">
+										{statusOptions.map((status) => (
+											<button
+												key={status}
+												type="button"
+												onClick={() => handleStatusChange(status)}
+												className={cn(
+													"flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors",
+													status === todo.status
+														? "bg-muted/60 text-foreground"
+														: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+												)}
+												role="option"
+												aria-selected={status === todo.status}
+											>
+												<span className={getStatusClassNames(status)}>
+													{status}
+												</span>
+												{status === todo.status && (
+													<span className="text-[11px] text-primary">当前</span>
+												)}
+											</button>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
+
 						<button
 							type="button"
-							onClick={() => setIsStatusMenuOpen((prev) => !prev)}
-							className={cn(
-								getStatusClassNames(todo.status),
-								"transition-colors hover:bg-muted/40",
-							)}
-							aria-expanded={isStatusMenuOpen}
-							aria-haspopup="listbox"
+							onClick={() => {
+								setDeadlineInput(formatDeadlineForInput(todo.deadline));
+								setIsEditingDeadline(true);
+							}}
+							className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:border-border hover:bg-muted/40"
 						>
-							{todo.status}
-						</button>
-						{isStatusMenuOpen && (
-							<div className="absolute z-[120] mt-2 min-w-[170px] rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg pointer-events-auto">
-								<div className="py-1" role="listbox">
-									{statusOptions.map((status) => (
-										<button
-											key={status}
-											type="button"
-											onClick={() => handleStatusChange(status)}
-											className={cn(
-												"flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors",
-												status === todo.status
-													? "bg-muted/60 text-foreground"
-													: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-											)}
-											role="option"
-											aria-selected={status === todo.status}
-										>
-											<span className={getStatusClassNames(status)}>
-												{status}
-											</span>
-											{status === todo.status && (
-												<span className="text-[11px] text-primary">当前</span>
-											)}
-										</button>
-									))}
-								</div>
-							</div>
-						)}
-					</div>
-					{todo.deadline && (
-						<span className="flex items-center gap-1">
 							<Calendar className="h-4 w-4" />
-							{new Date(todo.deadline).toLocaleString()}
-						</span>
-					)}
-					{todo.tags && todo.tags.length > 0 && (
-						<span className="flex items-center gap-1">
+							<span className="truncate">
+								{todo.deadline
+									? new Date(todo.deadline).toLocaleString()
+									: "添加截止时间"}
+							</span>
+						</button>
+
+						<button
+							type="button"
+							onClick={() => {
+								setTagsInput(todo.tags?.join(", ") ?? "");
+								setIsEditingTags(true);
+							}}
+							className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:border-border hover:bg-muted/40"
+						>
 							<TagIcon className="h-4 w-4" />
-							{todo.tags.join(", ")}
-						</span>
+							<span className="truncate">
+								{todo.tags && todo.tags.length > 0
+									? todo.tags.join(", ")
+									: "添加标签"}
+							</span>
+						</button>
+					</div>
+
+					{isEditingDeadline && (
+						<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground">
+							<input
+								type="datetime-local"
+								value={deadlineInput}
+								onChange={(e) => setDeadlineInput(e.target.value)}
+								className="min-w-[240px] rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+							/>
+							<button
+								type="button"
+								onClick={handleDeadlineSave}
+								className="rounded-md bg-primary px-2 py-1 text-white transition-colors hover:bg-primary/90"
+							>
+								保存
+							</button>
+							<button
+								type="button"
+								onClick={syncInlineEditors}
+								className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={handleDeadlineClear}
+								className="rounded-md border border-destructive/40 px-2 py-1 text-destructive transition-colors hover:bg-destructive/10"
+							>
+								清空
+							</button>
+						</div>
+					)}
+
+					{isEditingTags && (
+						<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground">
+							<input
+								type="text"
+								value={tagsInput}
+								onChange={(e) => setTagsInput(e.target.value)}
+								placeholder="使用逗号分隔多个标签"
+								className="min-w-[240px] rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+							/>
+							<button
+								type="button"
+								onClick={handleTagsSave}
+								className="rounded-md bg-primary px-2 py-1 text-white transition-colors hover:bg-primary/90"
+							>
+								保存
+							</button>
+							<button
+								type="button"
+								onClick={syncInlineEditors}
+								className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={handleTagsClear}
+								className="rounded-md border border-destructive/40 px-2 py-1 text-destructive transition-colors hover:bg-destructive/10"
+							>
+								清空
+							</button>
+						</div>
 					)}
 				</div>
 
