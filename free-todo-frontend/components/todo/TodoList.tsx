@@ -529,15 +529,16 @@ export function TodoList() {
 
 			{/* 创建任务模态框 */}
 			{isCreateModalOpen && (
-				<button
-					type="button"
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 border-0 cursor-default"
+				<div
+					className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
 					onClick={() => setIsCreateModalOpen(false)}
 					onKeyDown={(e) => {
 						if (e.key === "Escape") {
 							setIsCreateModalOpen(false);
 						}
 					}}
+					role="button"
+					tabIndex={0}
 				>
 					<div
 						role="dialog"
@@ -650,7 +651,7 @@ export function TodoList() {
 							</div>
 						</form>
 					</div>
-				</button>
+				</div>
 			)}
 		</div>
 	);
