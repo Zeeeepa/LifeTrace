@@ -1,8 +1,9 @@
 "use client";
 
-import { Loader2, Send, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { sendChatMessageStream } from "@/lib/api";
+import { History, Loader2, PlusCircle, Send, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChatSessionSummary } from "@/lib/api";
+import { getChatHistory, sendChatMessageStream } from "@/lib/api";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
@@ -23,20 +24,28 @@ const createId = () => {
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
-	const [messages, setMessages] = useState<ChatMessage[]>(() => [
-		{
+	const buildInitialAssistantMessage = useCallback(
+		() => ({
 			id: createId(),
-			role: "assistant",
+			role: "assistant" as const,
 			content:
 				locale === "zh"
 					? "你好，我是你的待办助手，可以帮你拆解任务、制定计划，也能聊聊生活。"
 					: "Hi! I'm your task assistant. I can break down work, plan the day, or just chat.",
-		},
+		}),
+		[locale],
+	);
+	const [messages, setMessages] = useState<ChatMessage[]>(() => [
+		buildInitialAssistantMessage(),
 	]);
 	const [inputValue, setInputValue] = useState("");
 	const [conversationId, setConversationId] = useState<string | null>(null);
 	const [isStreaming, setIsStreaming] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [historyOpen, setHistoryOpen] = useState(false);
+	const [historyLoading, setHistoryLoading] = useState(false);
+	const [historyError, setHistoryError] = useState<string | null>(null);
+	const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
 
 	const messageListRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +62,37 @@ export function ChatPanel() {
 		[locale],
 	);
 
+	const formatMessageCount = useCallback(
+		(count?: number) =>
+			(t.page.messagesCount || "{count}").replace(
+				"{count}",
+				String(count ?? 0),
+			),
+		[t.page.messagesCount],
+	);
+
+	const fetchSessions = useCallback(async () => {
+		setHistoryLoading(true);
+		setHistoryError(null);
+		try {
+			const res = await getChatHistory(undefined, 30);
+			setSessions(res.sessions || []);
+		} catch (err) {
+			console.error(err);
+			setHistoryError(
+				locale === "zh" ? "加载历史记录失败" : "Failed to load history",
+			);
+		} finally {
+			setHistoryLoading(false);
+		}
+	}, [locale]);
+
+	useEffect(() => {
+		if (historyOpen) {
+			void fetchSessions();
+		}
+	}, [fetchSessions, historyOpen]);
+
 	// 新消息出现时自动滚动到底部
 	useEffect(() => {
 		if (messages.length === 0) return;
@@ -61,6 +101,15 @@ export function ChatPanel() {
 			el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
 		}
 	}, [messages]);
+
+	const handleNewChat = () => {
+		setIsStreaming(false);
+		setConversationId(null);
+		setMessages([buildInitialAssistantMessage()]);
+		setInputValue("");
+		setError(null);
+		setHistoryOpen(false);
+	};
 
 	const handleSend = async () => {
 		const text = inputValue.trim();
@@ -134,6 +183,30 @@ export function ChatPanel() {
 		}
 	};
 
+	const handleLoadSession = async (sessionId: string) => {
+		setHistoryLoading(true);
+		setHistoryError(null);
+		try {
+			const res = await getChatHistory(sessionId, 100);
+			const history = res.history || [];
+			const mapped = history.map((item) => ({
+				id: createId(),
+				role: item.role,
+				content: item.content,
+			}));
+			setMessages(mapped.length ? mapped : [buildInitialAssistantMessage()]);
+			setConversationId(sessionId);
+			setHistoryOpen(false);
+		} catch (err) {
+			console.error(err);
+			setHistoryError(
+				locale === "zh" ? "加载会话失败" : "Failed to load session",
+			);
+		} finally {
+			setHistoryLoading(false);
+		}
+	};
+
 	const handleSuggestionClick = (suggestion: string) => {
 		setInputValue(suggestion);
 	};
@@ -148,15 +221,107 @@ export function ChatPanel() {
 	return (
 		<div className="flex h-full flex-col bg-background">
 			<div className="flex flex-col gap-2 border-b border-border p-4">
-				<div className="flex items-center gap-2">
-					<Sparkles className="h-5 w-5 text-blue-500" />
-					<h1 className="text-lg font-semibold text-foreground">
-						{t.page.chatTitle}
-					</h1>
+				<div className="flex items-center justify-between gap-2">
+					<div className="flex items-center gap-2">
+						<Sparkles className="h-5 w-5 text-blue-500" />
+						<h1 className="text-lg font-semibold text-foreground">
+							{t.page.chatTitle}
+						</h1>
+					</div>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={() => setHistoryOpen((prev) => !prev)}
+							className={cn(
+								"flex h-9 w-9 items-center justify-center rounded-[var(--radius-panel)]",
+								"border border-border text-muted-foreground transition-colors",
+								"hover:bg-foreground/5 hover:text-foreground",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+							)}
+							aria-label={t.page.chatHistory}
+						>
+							<History className="h-4 w-4" />
+						</button>
+						<button
+							type="button"
+							onClick={handleNewChat}
+							className={cn(
+								"flex h-9 w-9 items-center justify-center rounded-[var(--radius-panel)]",
+								"bg-blue-500 text-white transition-colors",
+								"hover:bg-blue-600",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+							)}
+							aria-label={t.page.newChat}
+						>
+							<PlusCircle className="h-4 w-4" />
+						</button>
+					</div>
 				</div>
 				<p className="text-sm text-muted-foreground">{t.page.chatSubtitle}</p>
 				<p className="text-xs text-muted-foreground">{helperText}</p>
 			</div>
+
+			{historyOpen && (
+				<div className="border-b border-border bg-muted/40 px-4 py-3">
+					<div className="mb-2 flex items-center justify-between">
+						<p className="text-sm font-medium text-foreground">
+							{t.page.recentSessions}
+						</p>
+						{historyLoading && (
+							<span className="flex items-center gap-2 text-xs text-muted-foreground">
+								<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								{locale === "zh" ? "加载中" : "Loading"}
+							</span>
+						)}
+					</div>
+					{historyError && (
+						<p className="text-xs text-red-500">{historyError}</p>
+					)}
+					{!historyError && (
+						<div className="space-y-2">
+							{!historyLoading && sessions.length === 0 ? (
+								<p className="text-xs text-muted-foreground">
+									{t.page.noHistory}
+								</p>
+							) : (
+								sessions.map((session) => (
+									<button
+										key={session.session_id}
+										type="button"
+										onClick={() => handleLoadSession(session.session_id)}
+										disabled={historyLoading}
+										className={cn(
+											"w-full rounded-[var(--radius-panel)] border border-border bg-background px-3 py-2 text-left text-sm",
+											"transition-colors hover:bg-foreground/5",
+											"disabled:cursor-not-allowed disabled:opacity-60",
+											session.session_id === conversationId
+												? "ring-2 ring-blue-500"
+												: "",
+										)}
+									>
+										<div className="flex items-center justify-between gap-2">
+											<span className="font-medium text-foreground">
+												{session.title || t.page.chatHistory}
+											</span>
+											<span className="text-[11px] text-muted-foreground">
+												{formatMessageCount(session.message_count)}
+											</span>
+										</div>
+										<div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+											<span className="truncate">
+												{session.last_active || session.session_id}
+											</span>
+											<span className="uppercase tracking-wide">
+												{session.chat_type || "default"}
+											</span>
+										</div>
+									</button>
+								))
+							)}
+						</div>
+					)}
+				</div>
+			)}
 
 			<div
 				className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
@@ -212,7 +377,7 @@ export function ChatPanel() {
 							onClick={() => handleSuggestionClick(suggestion)}
 							className={cn(
 								"px-3 py-2 text-sm",
-								"rounded-full border border-foreground/10",
+								"rounded-[var(--radius-panel)] border border-foreground/10",
 								"text-foreground transition-colors",
 								"hover:bg-foreground/5",
 								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
@@ -241,7 +406,7 @@ export function ChatPanel() {
 						onClick={handleSend}
 						disabled={!inputValue.trim() || isStreaming}
 						className={cn(
-							"flex h-11 w-11 items-center justify-center rounded-full",
+							"flex h-11 w-11 items-center justify-center rounded-[var(--radius-panel)]",
 							"bg-blue-500 text-white transition-colors",
 							"hover:bg-blue-600",
 							"disabled:cursor-not-allowed disabled:opacity-50",

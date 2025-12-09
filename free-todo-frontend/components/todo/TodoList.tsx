@@ -13,7 +13,6 @@ import {
 } from "@dnd-kit/core";
 import {
 	arrayMove,
-	rectSortingStrategy,
 	SortableContext,
 	sortableKeyboardCoordinates,
 	useSortable,
@@ -22,8 +21,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
 	Calendar,
-	Grid,
-	List,
 	Paperclip,
 	Plus,
 	Search,
@@ -38,16 +35,16 @@ import { useTodoStore } from "@/lib/store/todo-store";
 import type { CreateTodoInput, Todo, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
-type ViewMode = "list" | "grid";
 type FilterStatus = "all" | TodoStatus;
 
 interface TodoCardProps {
 	todo: Todo;
 	isDragging?: boolean;
 	selected?: boolean;
+	isOverlay?: boolean;
 }
 
-function TodoCard({ todo, isDragging, selected }: TodoCardProps) {
+function TodoCard({ todo, isDragging, selected, isOverlay }: TodoCardProps) {
 	const { toggleTodoStatus, deleteTodo, setSelectedTodoId, updateTodo } =
 		useTodoStore();
 	const [contextMenu, setContextMenu] = useState({
@@ -56,14 +53,13 @@ function TodoCard({ todo, isDragging, selected }: TodoCardProps) {
 		y: 0,
 	});
 	const menuRef = useRef<HTMLDivElement | null>(null);
-	const {
-		attributes,
-		listeners,
-		setNodeRef,
-		transform,
-		transition,
-		isDragging: isSortableDragging,
-	} = useSortable({ id: todo.id });
+	const sortable = useSortable({ id: todo.id, disabled: isOverlay });
+	const attributes = isOverlay ? {} : sortable.attributes;
+	const listeners = isOverlay ? {} : sortable.listeners;
+	const setNodeRef = sortable.setNodeRef;
+	const transform = sortable.transform;
+	const transition = sortable.transition;
+	const isSortableDragging = sortable.isDragging;
 
 	const formatDate = (dateString?: string) => {
 		if (!dateString) return null;
@@ -101,11 +97,13 @@ function TodoCard({ todo, isDragging, selected }: TodoCardProps) {
 		}
 	};
 
-	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition: isSortableDragging ? "none" : transition, // 拖拽时禁用过渡动画，避免位置偏移
-		opacity: isSortableDragging ? 0.5 : 1,
-	};
+	const style = !isOverlay
+		? {
+				transform: CSS.Transform.toString(transform),
+				transition: isSortableDragging ? "none" : transition, // 拖拽时禁用过渡动画，避免位置偏移
+				opacity: isSortableDragging ? 0.5 : 1,
+			}
+		: undefined;
 
 	// 右键菜单：点击外部、滚动或按下 ESC 时关闭
 	useEffect(() => {
@@ -167,8 +165,7 @@ function TodoCard({ todo, isDragging, selected }: TodoCardProps) {
 	return (
 		<>
 			<div
-				{...attributes}
-				{...listeners}
+				{...(!isOverlay ? { ...attributes, ...listeners } : {})}
 				ref={setNodeRef}
 				style={style}
 				role="button"
@@ -342,7 +339,6 @@ export function TodoList() {
 	const { todos, reorderTodos, addTodo, selectedTodoId } = useTodoStore();
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 	const [searchQuery, setSearchQuery] = useState("");
-	const [viewMode, setViewMode] = useState<ViewMode>("list");
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [newTodoName, setNewTodoName] = useState("");
@@ -444,7 +440,7 @@ export function TodoList() {
 				<div className="flex items-center justify-between px-4 py-3">
 					<h2 className="text-lg font-semibold text-foreground">Todo List</h2>
 
-					{/* 搜索和视图切换 */}
+					{/* 搜索 */}
 					<div className="flex items-center gap-2">
 						{/* 搜索栏 */}
 						<div className="relative">
@@ -456,34 +452,6 @@ export function TodoList() {
 								placeholder="Search tasks..."
 								className="w-48 rounded-md border border-border bg-background px-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 							/>
-						</div>
-
-						{/* 视图切换按钮 */}
-						<div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-1">
-							<button
-								type="button"
-								onClick={() => setViewMode("list")}
-								className={cn(
-									"rounded px-2 py-1 transition-colors",
-									viewMode === "list"
-										? "bg-background text-foreground"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								<List className="h-4 w-4" />
-							</button>
-							<button
-								type="button"
-								onClick={() => setViewMode("grid")}
-								className={cn(
-									"rounded px-2 py-1 transition-colors",
-									viewMode === "grid"
-										? "bg-background text-foreground"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								<Grid className="h-4 w-4" />
-							</button>
 						</div>
 					</div>
 				</div>
@@ -528,20 +496,9 @@ export function TodoList() {
 					>
 						<SortableContext
 							items={filteredTodos.map((todo) => todo.id)}
-							strategy={
-								viewMode === "grid"
-									? rectSortingStrategy
-									: verticalListSortingStrategy
-							}
+							strategy={verticalListSortingStrategy}
 						>
-							<div
-								className={cn(
-									"px-4 pb-6",
-									viewMode === "grid"
-										? "grid grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-3"
-										: "flex flex-col gap-0",
-								)}
-							>
+							<div className={cn("px-4 pb-6 flex flex-col gap-0")}>
 								{filteredTodos.map((todo) => (
 									<TodoCard
 										key={todo.id}
