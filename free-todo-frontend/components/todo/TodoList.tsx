@@ -90,19 +90,6 @@ function TodoCard({ todo, isDragging, viewMode, selected }: TodoCardProps) {
 		}
 	};
 
-	const getStatusAccent = (status: TodoStatus) => {
-		switch (status) {
-			case "active":
-				return "from-blue-500/80 to-blue-500/40";
-			case "completed":
-				return "from-green-500/80 to-green-500/40";
-			case "canceled":
-				return "from-zinc-500/70 to-zinc-500/30";
-			default:
-				return "from-primary/70 to-primary/30";
-		}
-	};
-
 	const getStatusLabel = (status: TodoStatus) => {
 		switch (status) {
 			case "active":
@@ -195,18 +182,11 @@ function TodoCard({ todo, isDragging, viewMode, selected }: TodoCardProps) {
 					}
 				}}
 				className={cn(
-					"group relative flex h-full flex-col gap-3 rounded-xl bg-card p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5 hover:shadow-md hover:ring-1 hover:ring-primary/25 cursor-pointer",
-					selected && "bg-primary/8 ring-2 ring-primary/40 shadow-md",
-					isDragging && "shadow-lg ring-2 ring-primary/30",
+					"group relative flex h-full flex-col gap-3 rounded-xl bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5 hover:ring-1 hover:ring-primary/25 cursor-pointer",
+					selected && "bg-primary/8 ring-2 ring-primary/40",
+					isDragging && "ring-2 ring-primary/30",
 				)}
 			>
-				<span
-					className={cn(
-						"pointer-events-none absolute left-0 top-0 h-full w-[3px] rounded-l-xl bg-gradient-to-b",
-						getStatusAccent(todo.status),
-					)}
-				/>
-
 				<div className="flex items-start gap-3">
 					{/* 拖拽手柄 */}
 					<div
@@ -572,8 +552,8 @@ export function TodoList() {
 								className={cn(
 									"px-4 pb-6",
 									viewMode === "grid"
-										? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-										: "flex flex-col gap-3",
+										? "grid grid-cols-1 gap-0 sm:grid-cols-2 xl:grid-cols-3"
+										: "flex flex-col gap-0",
 								)}
 							>
 								{filteredTodos.map((todo) => (
