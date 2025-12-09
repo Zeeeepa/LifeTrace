@@ -123,9 +123,7 @@ class Project(Base):
 
     # 3. 元数据（保留现有字段）
     created_at = Column(DateTime, default=get_local_time, nullable=False)
-    updated_at = Column(
-        DateTime, default=get_local_time, onupdate=get_local_time, nullable=False
-    )
+    updated_at = Column(DateTime, default=get_local_time, onupdate=get_local_time, nullable=False)
     deleted_at = Column(DateTime)
 
     def __repr__(self):
@@ -168,6 +166,90 @@ class TaskProgress(Base):
 
     def __repr__(self):
         return f"<TaskProgress(id={self.id}, task_id={self.task_id}, generated_at={self.generated_at})>"
+
+
+class Todo(Base):
+    """待办事项模型"""
+
+    __tablename__ = "todos"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False)  # 待办名称
+    description = Column(Text)  # 描述
+    user_notes = Column(Text)  # 用户笔记
+    parent_todo_id = Column(Integer)  # 父级待办ID（自关联）
+    deadline = Column(DateTime)  # 截止时间
+    status = Column(String(20), default="active", nullable=False)  # active/completed/canceled
+    related_activities = Column(Text)  # 关联活动ID的JSON数组
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    updated_at = Column(DateTime, default=get_local_time, onupdate=get_local_time, nullable=False)
+    deleted_at = Column(DateTime)
+
+    def __repr__(self):
+        return f"<Todo(id={self.id}, name={self.name}, status={self.status})>"
+
+
+class Attachment(Base):
+    """附件信息模型（可复用）"""
+
+    __tablename__ = "attachments"
+
+    id = Column(Integer, primary_key=True)
+    file_path = Column(String(500), nullable=False)  # 本地持久化路径
+    file_name = Column(String(200), nullable=False)  # 文件名
+    file_size = Column(Integer)  # 文件大小（字节）
+    mime_type = Column(String(100))  # MIME类型
+    file_hash = Column(String(64))  # 去重hash
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    updated_at = Column(DateTime, default=get_local_time, onupdate=get_local_time, nullable=False)
+    deleted_at = Column(DateTime)
+
+    def __repr__(self):
+        return f"<Attachment(id={self.id}, file_name={self.file_name})>"
+
+
+class TodoAttachmentRelation(Base):
+    """待办与附件的多对多关联关系"""
+
+    __tablename__ = "todo_attachment_relations"
+
+    id = Column(Integer, primary_key=True)
+    todo_id = Column(Integer, nullable=False)  # 关联的待办ID
+    attachment_id = Column(Integer, nullable=False)  # 关联的附件ID
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    deleted_at = Column(DateTime)
+
+    def __repr__(self):
+        return f"<TodoAttachmentRelation(id={self.id}, todo_id={self.todo_id}, attachment_id={self.attachment_id})>"
+
+
+class Tag(Base):
+    """标签模型（可复用）"""
+
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True)
+    tag_name = Column(String(50), nullable=False, unique=True)  # 标签名称
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    deleted_at = Column(DateTime)
+
+    def __repr__(self):
+        return f"<Tag(id={self.id}, name={self.tag_name})>"
+
+
+class TodoTagRelation(Base):
+    """待办与标签的多对多关联关系"""
+
+    __tablename__ = "todo_tag_relations"
+
+    id = Column(Integer, primary_key=True)
+    todo_id = Column(Integer, nullable=False)  # 关联的待办ID
+    tag_id = Column(Integer, nullable=False)  # 关联的标签ID
+    created_at = Column(DateTime, default=get_local_time, nullable=False)
+    deleted_at = Column(DateTime)
+
+    def __repr__(self):
+        return f"<TodoTagRelation(id={self.id}, todo_id={self.todo_id}, tag_id={self.tag_id})>"
 
 
 class Chat(Base):

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
+import type { Translation } from "@/lib/i18n/types";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -26,14 +27,7 @@ interface DockItem {
 // 功能到翻译键的映射配置
 function getFeatureLabelKey(
 	feature: PanelFeature,
-):
-	| "calendar"
-	| "todos"
-	| "chat"
-	| "todoDetail"
-	| "diary"
-	| "settings"
-	| "achievements" {
+): keyof Translation["bottomDock"] {
 	return feature;
 }
 

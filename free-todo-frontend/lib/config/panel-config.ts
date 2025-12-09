@@ -8,6 +8,7 @@ import {
 	Award,
 	BookOpen,
 	CalendarDays,
+	Camera,
 	FileText,
 	LayoutPanelLeft,
 	type LucideIcon,
@@ -15,8 +16,10 @@ import {
 	Settings,
 } from "lucide-react";
 
+const IS_DEV_ENV = process.env.NODE_ENV === "development";
+
 export type PanelPosition = "panelA" | "panelB" | "panelC";
-export type PanelFeature =
+export type CorePanelFeature =
 	| "calendar"
 	| "todos"
 	| "chat"
@@ -24,11 +27,10 @@ export type PanelFeature =
 	| "diary"
 	| "settings"
 	| "achievements";
+export type DevPanelFeature = "debugShots";
+export type PanelFeature = CorePanelFeature | DevPanelFeature;
 
-/**
- * 所有可用的功能列表
- */
-export const ALL_PANEL_FEATURES: PanelFeature[] = [
+const CORE_PANEL_FEATURES: CorePanelFeature[] = [
 	"calendar",
 	"todos",
 	"chat",
@@ -37,11 +39,23 @@ export const ALL_PANEL_FEATURES: PanelFeature[] = [
 	"settings",
 	"achievements",
 ];
+const DEV_PANEL_FEATURES: DevPanelFeature[] = IS_DEV_ENV ? ["debugShots"] : [];
+
+/**
+ * 所有可用的功能列表
+ */
+export const ALL_PANEL_FEATURES: PanelFeature[] = [
+	...CORE_PANEL_FEATURES,
+	...DEV_PANEL_FEATURES,
+];
+
+export const DEV_FEATURES = DEV_PANEL_FEATURES;
+export const IS_DEV_FEATURE_ENABLED = IS_DEV_ENV;
 
 /**
  * 功能到图标的映射配置
  */
-export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
+const CORE_FEATURE_ICON_MAP: Record<CorePanelFeature, LucideIcon> = {
 	calendar: CalendarDays,
 	todos: LayoutPanelLeft,
 	chat: MessageSquare,
@@ -50,3 +64,10 @@ export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
 	settings: Settings,
 	achievements: Award,
 };
+
+export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = IS_DEV_ENV
+	? {
+			...CORE_FEATURE_ICON_MAP,
+			debugShots: Camera,
+		}
+	: (CORE_FEATURE_ICON_MAP as Record<PanelFeature, LucideIcon>);

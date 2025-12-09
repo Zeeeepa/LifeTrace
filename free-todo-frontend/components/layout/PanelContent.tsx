@@ -5,10 +5,17 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { TodoDetail } from "@/components/todo/TodoDetail";
 import { TodoList } from "@/components/todo/TodoList";
 import type { PanelPosition } from "@/lib/config/panel-config";
-import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
+import {
+	FEATURE_ICON_MAP,
+	IS_DEV_FEATURE_ENABLED,
+} from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
+
+const DebugCapturePanel = IS_DEV_FEATURE_ENABLED
+	? require("@/components/debug/DebugCapturePanel").DebugCapturePanel
+	: null;
 
 interface PanelContentProps {
 	position: PanelPosition;
@@ -33,6 +40,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			diary: t.page.diaryLabel,
 			settings: t.page.settingsLabel,
 			achievements: t.page.achievementsLabel,
+			debugShots: t.page.debugShotsLabel,
 		};
 		return labelMap[feat] || "";
 	};
@@ -48,6 +56,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			diary: t.page.diaryPlaceholder,
 			settings: t.page.settingsPlaceholder,
 			achievements: t.page.achievementsPlaceholder,
+			debugShots: t.page.debugShotsPlaceholder,
 		};
 		return placeholderMap[feat] || "";
 	};
@@ -73,6 +82,12 @@ export function PanelContent({ position }: PanelContentProps) {
 	// 如果是聊天功能，显示聊天组件
 	if (feature === "chat") {
 		return <ChatPanel />;
+	}
+
+	// 如果是开发调试截图面板（仅开发环境可见）
+	if (feature === "debugShots" && IS_DEV_FEATURE_ENABLED && DebugCapturePanel) {
+		const Panel = DebugCapturePanel;
+		return <Panel />;
 	}
 
 	// 其他功能显示占位符

@@ -9,8 +9,6 @@ interface TodoStoreState {
 	updateTodo: (id: string, input: UpdateTodoInput) => void;
 	deleteTodo: (id: string) => void;
 	toggleTodoStatus: (id: string) => void;
-	toggleSubtask: (todoId: string, subtaskId: string) => void;
-	toggleStarred: (id: string) => void;
 	reorderTodos: (newOrder: string[]) => void;
 	setSelectedTodoId: (id: string | null) => void;
 }
@@ -30,16 +28,15 @@ export const useTodoStore = create<TodoStoreState>()(
 					const now = new Date().toISOString();
 					const newTodo: Todo = {
 						id: generateId(),
-						title: input.title,
-						status: input.status || "pending",
-						dueDate: input.dueDate,
-						subtasks: input.subtasks?.map((st) => ({
-							...st,
-							id: generateId(),
-						})),
-						starred: input.starred || false,
-						assignedTo: input.assignedTo,
-						priority: input.priority,
+						name: input.name,
+						description: input.description,
+						userNotes: input.userNotes,
+						status: input.status || "active",
+						deadline: input.deadline,
+						tags: input.tags || [],
+						attachments: input.attachments || [],
+						parentTodoId: input.parentTodoId ?? null,
+						relatedActivities: input.relatedActivities || [],
 						createdAt: now,
 						updatedAt: now,
 					};
@@ -69,35 +66,12 @@ export const useTodoStore = create<TodoStoreState>()(
 						todo.id === id
 							? {
 									...todo,
-									status: todo.status === "completed" ? "pending" : "completed",
-									updatedAt: new Date().toISOString(),
-								}
-							: todo,
-					),
-				})),
-			toggleSubtask: (todoId, subtaskId) =>
-				set((state) => ({
-					todos: state.todos.map((todo) =>
-						todo.id === todoId && todo.subtasks
-							? {
-									...todo,
-									subtasks: todo.subtasks.map((st) =>
-										st.id === subtaskId
-											? { ...st, completed: !st.completed }
-											: st,
-									),
-									updatedAt: new Date().toISOString(),
-								}
-							: todo,
-					),
-				})),
-			toggleStarred: (id) =>
-				set((state) => ({
-					todos: state.todos.map((todo) =>
-						todo.id === id
-							? {
-									...todo,
-									starred: !todo.starred,
+									status:
+										todo.status === "completed"
+											? "active"
+											: todo.status === "canceled"
+												? "canceled"
+												: "completed",
 									updatedAt: new Date().toISOString(),
 								}
 							: todo,

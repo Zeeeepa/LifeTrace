@@ -1,49 +1,49 @@
-export type TodoStatus = "pending" | "in-progress" | "completed";
-export type TodoPriority = "low" | "medium" | "high";
+export type TodoStatus = "active" | "completed" | "canceled";
 
-export interface AssignedUser {
+export interface TodoAttachment {
 	id: string;
-	name: string;
-	avatar?: string;
+	fileName: string;
+	filePath: string;
+	fileSize?: number;
+	mimeType?: string;
 }
 
 export interface Todo {
 	id: string;
-	title: string;
+	name: string;
+	description?: string;
+	userNotes?: string;
 	status: TodoStatus;
-	dueDate?: string; // ISO date string
-	subtasks?: Subtask[];
-	starred?: boolean;
-	assignedTo?: AssignedUser[];
-	priority?: TodoPriority;
-	notes?: string;
+	deadline?: string; // ISO date string
+	tags?: string[];
+	attachments?: TodoAttachment[];
+	parentTodoId?: string | null;
+	relatedActivities?: string[];
+	childTodoIds?: string[];
 	createdAt: string;
 	updatedAt: string;
 }
 
-export interface Subtask {
-	id: string;
-	title: string;
-	completed: boolean;
-}
-
 export interface CreateTodoInput {
-	title: string;
-	dueDate?: string;
-	subtasks?: Omit<Subtask, "id">[];
-	starred?: boolean;
-	assignedTo?: AssignedUser[];
-	priority?: TodoPriority;
+	name: string;
+	description?: string;
+	userNotes?: string;
+	deadline?: string;
+	tags?: string[];
+	attachments?: TodoAttachment[];
+	parentTodoId?: string | null;
+	relatedActivities?: string[];
 	status?: TodoStatus;
 }
 
 export interface UpdateTodoInput {
-	title?: string;
+	name?: string;
+	description?: string;
+	userNotes?: string;
 	status?: TodoStatus;
-	dueDate?: string;
-	subtasks?: Subtask[];
-	starred?: boolean;
-	assignedTo?: AssignedUser[];
-	priority?: TodoPriority;
-	notes?: string;
+	deadline?: string;
+	tags?: string[];
+	attachments?: TodoAttachment[];
+	parentTodoId?: string | null;
+	relatedActivities?: string[];
 }

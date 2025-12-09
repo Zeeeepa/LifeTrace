@@ -1,20 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import {
-	Award,
-	BookOpen,
-	CalendarDays,
-	FileText,
-	LayoutPanelLeft,
-	type LucideIcon,
-	MessageSquare,
-	Settings,
-} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
+import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
+import type { Translation } from "@/lib/i18n/types";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -27,28 +19,10 @@ interface PanelSelectorMenuProps {
 	anchorElement: HTMLElement | null;
 }
 
-// 功能到图标的映射
-const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
-	calendar: CalendarDays,
-	todos: LayoutPanelLeft,
-	chat: MessageSquare,
-	todoDetail: FileText,
-	diary: BookOpen,
-	settings: Settings,
-	achievements: Award,
-};
-
 // 功能到翻译键的映射
 function getFeatureLabelKey(
 	feature: PanelFeature,
-):
-	| "calendar"
-	| "todos"
-	| "chat"
-	| "todoDetail"
-	| "diary"
-	| "settings"
-	| "achievements" {
+): keyof Translation["bottomDock"] {
 	return feature;
 }
 

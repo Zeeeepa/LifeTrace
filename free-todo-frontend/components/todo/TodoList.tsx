@@ -21,24 +21,19 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
 	Calendar,
-	Check,
 	Grid,
 	GripVertical,
 	List,
 	Paperclip,
 	Plus,
 	Search,
-	Star,
+	Tag,
+	Trash2,
 	X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type {
-	CreateTodoInput,
-	Todo,
-	TodoPriority,
-	TodoStatus,
-} from "@/lib/types/todo";
+import type { CreateTodoInput, Todo, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
 interface TodoItemProps {
@@ -47,7 +42,7 @@ interface TodoItemProps {
 }
 
 function TodoItem({ todo, isDragging }: TodoItemProps) {
-	const { toggleTodoStatus, toggleStarred, setSelectedTodoId } = useTodoStore();
+	const { toggleTodoStatus, deleteTodo, setSelectedTodoId } = useTodoStore();
 	const {
 		attributes,
 		listeners,
@@ -56,11 +51,6 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 		transition,
 		isDragging: isSortableDragging,
 	} = useSortable({ id: todo.id });
-
-	const completedSubtasks =
-		todo.subtasks?.filter((st) => st.completed).length ?? 0;
-	const totalSubtasks = todo.subtasks?.length ?? 0;
-	const hasSubtasks = totalSubtasks > 0;
 
 	const formatDate = (dateString?: string) => {
 		if (!dateString) return null;
@@ -74,24 +64,11 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 
 	const getStatusColor = (status: TodoStatus) => {
 		switch (status) {
-			case "pending":
+			case "active":
 				return "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30";
-			case "in-progress":
-				return "bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30";
 			case "completed":
 				return "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30";
-			default:
-				return "";
-		}
-	};
-
-	const getPriorityColor = (priority?: TodoPriority) => {
-		switch (priority) {
-			case "high":
-				return "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30";
-			case "medium":
-				return "bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30";
-			case "low":
+			case "canceled":
 				return "bg-gray-500/20 text-gray-600 dark:text-gray-400 border-gray-500/30";
 			default:
 				return "";
@@ -100,27 +77,14 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 
 	const getStatusLabel = (status: TodoStatus) => {
 		switch (status) {
-			case "pending":
-				return "Pending";
-			case "in-progress":
-				return "In Progress";
+			case "active":
+				return "Active";
 			case "completed":
 				return "Completed";
+			case "canceled":
+				return "Canceled";
 			default:
 				return status;
-		}
-	};
-
-	const getPriorityLabel = (priority?: TodoPriority) => {
-		switch (priority) {
-			case "high":
-				return "High";
-			case "medium":
-				return "Medium";
-			case "low":
-				return "Low";
-			default:
-				return "";
 		}
 	};
 
@@ -131,7 +95,6 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 	};
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: 需要使用 div 以避免嵌套 button（内部有复选框和星标按钮）
 		<div
 			ref={setNodeRef}
 			style={style}
@@ -158,7 +121,7 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 				<GripVertical className="h-4 w-4" />
 			</div>
 
-			{/* 复选框 */}
+			{/* 状态切换 */}
 			<button
 				type="button"
 				onClick={(e) => {
@@ -169,7 +132,7 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 			>
 				{todo.status === "completed" ? (
 					<div className="flex h-5 w-5 items-center justify-center rounded-md bg-green-500 dark:bg-green-400 border border-green-600 dark:border-green-500">
-						<Check className="h-3.5 w-3.5 text-white" />
+						<span className="text-[10px] text-white font-semibold">✓</span>
 					</div>
 				) : (
 					<div className="h-5 w-5 rounded-md border-2 border-muted-foreground/40 hover:border-foreground transition-colors" />
@@ -188,60 +151,46 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 										"line-through text-muted-foreground",
 								)}
 							>
-								{todo.title}
+								{todo.name}
 							</h3>
-							{/* 星标 */}
-							<button
-								type="button"
-								onClick={(e) => {
-									e.stopPropagation();
-									toggleStarred(todo.id);
-								}}
-								className="shrink-0"
-							>
-								<Star
-									className={cn(
-										"h-4 w-4 transition-colors",
-										todo.starred
-											? "fill-yellow-400 text-yellow-400"
-											: "text-muted-foreground hover:text-yellow-400",
-									)}
-								/>
-							</button>
 						</div>
 
-						{/* 分配人员、日期、附件、子任务 */}
+						{/* 日期、附件、标签 */}
 						<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-							{/* 分配人员 */}
-							{todo.assignedTo && todo.assignedTo.length > 0 && (
-								<div className="flex items-center gap-1.5">
-									{todo.assignedTo.map((user) => (
-										<span
-											key={user.id}
-											className="px-2 py-0.5 rounded-full bg-muted text-xs font-medium"
-										>
-											{user.name}
-										</span>
-									))}
-								</div>
-							)}
-
 							{/* 截止日期 */}
-							{todo.dueDate && (
+							{todo.deadline && (
 								<div className="flex items-center gap-1">
 									<Calendar className="h-3 w-3" />
-									<span>{formatDate(todo.dueDate)}</span>
+									<span>{formatDate(todo.deadline)}</span>
 								</div>
 							)}
 
-							{/* 附件图标（占位） */}
-							{todo.dueDate && <Paperclip className="h-3 w-3" />}
+							{/* 附件数量 */}
+							{todo.attachments && todo.attachments.length > 0 && (
+								<div className="flex items-center gap-1">
+									<Paperclip className="h-3 w-3" />
+									<span>{todo.attachments.length}</span>
+								</div>
+							)}
 
-							{/* 子任务进度 */}
-							{hasSubtasks && (
-								<span>
-									{completedSubtasks}/{totalSubtasks}
-								</span>
+							{/* 标签 */}
+							{todo.tags && todo.tags.length > 0 && (
+								<div className="flex flex-wrap items-center gap-1">
+									<Tag className="h-3 w-3" />
+									{todo.tags.slice(0, 3).map((tag) => (
+										<span
+											key={tag}
+											className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
+										>
+											{tag}
+										</span>
+									))}
+									{todo.tags.length > 3 && (
+										<span className="text-[11px] text-muted-foreground">
+											+{todo.tags.length - 3}
+										</span>
+									)}
+								</div>
 							)}
 						</div>
 					</div>
@@ -259,18 +208,24 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 								{getStatusLabel(todo.status)}
 							</span>
 						)}
-
-						{/* 优先级标签 */}
-						{todo.priority && (
-							<span
-								className={cn(
-									"px-2 py-0.5 rounded-full text-xs font-medium border",
-									getPriorityColor(todo.priority),
-								)}
-							>
-								{getPriorityLabel(todo.priority)}
+						{/* 附件提示 */}
+						{todo.attachments && todo.attachments.length > 0 && (
+							<span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">
+								<Paperclip className="h-3 w-3" />
+								{todo.attachments.length}
 							</span>
 						)}
+						{/* 删除 */}
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								deleteTodo(todo.id);
+							}}
+							className="rounded-full p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+						>
+							<Trash2 className="h-4 w-4" />
+						</button>
 					</div>
 				</div>
 			</div>
@@ -288,11 +243,10 @@ export function TodoList() {
 	const [viewMode, setViewMode] = useState<ViewMode>("list");
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-	const [newTodoTitle, setNewTodoTitle] = useState("");
-	const [newTodoDueDate, setNewTodoDueDate] = useState("");
-	const [newTodoSubtasks, setNewTodoSubtasks] = useState<
-		Array<{ id: string; title: string }>
-	>([]);
+	const [newTodoName, setNewTodoName] = useState("");
+	const [newTodoDeadline, setNewTodoDeadline] = useState("");
+	const [newTodoDescription, setNewTodoDescription] = useState("");
+	const [newTodoTags, setNewTodoTags] = useState<string>("");
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -319,10 +273,9 @@ export function TodoList() {
 			const query = searchQuery.toLowerCase();
 			result = result.filter(
 				(todo) =>
-					todo.title.toLowerCase().includes(query) ||
-					todo.assignedTo?.some((user) =>
-						user.name.toLowerCase().includes(query),
-					),
+					todo.name.toLowerCase().includes(query) ||
+					todo.description?.toLowerCase().includes(query) ||
+					todo.tags?.some((tag) => tag.toLowerCase().includes(query)),
 			);
 		}
 
@@ -360,44 +313,25 @@ export function TodoList() {
 
 	const handleCreateTodo = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!newTodoTitle.trim()) return;
+		if (!newTodoName.trim()) return;
 
 		const input: CreateTodoInput = {
-			title: newTodoTitle.trim(),
-			dueDate: newTodoDueDate || undefined,
-			subtasks:
-				newTodoSubtasks.length > 0
-					? newTodoSubtasks
-							.filter((st) => st.title.trim())
-							.map((st) => ({
-								title: st.title.trim(),
-								completed: false,
-							}))
-					: undefined,
+			name: newTodoName.trim(),
+			description: newTodoDescription.trim() || undefined,
+			deadline: newTodoDeadline || undefined,
+			tags:
+				newTodoTags
+					.split(",")
+					.map((t) => t.trim())
+					.filter(Boolean) || [],
 		};
 
 		addTodo(input);
-		setNewTodoTitle("");
-		setNewTodoDueDate("");
-		setNewTodoSubtasks([]);
+		setNewTodoName("");
+		setNewTodoDeadline("");
+		setNewTodoDescription("");
+		setNewTodoTags("");
 		setIsCreateModalOpen(false);
-	};
-
-	const addSubtask = () => {
-		setNewTodoSubtasks([
-			...newTodoSubtasks,
-			{ id: crypto.randomUUID(), title: "" },
-		]);
-	};
-
-	const removeSubtask = (id: string) => {
-		setNewTodoSubtasks(newTodoSubtasks.filter((st) => st.id !== id));
-	};
-
-	const updateSubtask = (id: string, title: string) => {
-		setNewTodoSubtasks(
-			newTodoSubtasks.map((st) => (st.id === id ? { ...st, title } : st)),
-		);
 	};
 
 	return (
@@ -454,7 +388,7 @@ export function TodoList() {
 
 				{/* 过滤按钮 */}
 				<div className="flex items-center gap-2 px-4 pb-3">
-					{(["all", "pending", "in-progress", "completed"] as const).map(
+					{(["all", "active", "completed", "canceled"] as const).map(
 						(status) => (
 							<button
 								key={status}
@@ -469,9 +403,7 @@ export function TodoList() {
 							>
 								{status === "all"
 									? "All"
-									: status === "in-progress"
-										? "In Progress"
-										: status.charAt(0).toUpperCase() + status.slice(1)}
+									: status.charAt(0).toUpperCase() + status.slice(1)}
 							</button>
 						),
 					)}
@@ -562,17 +494,17 @@ export function TodoList() {
 						<form onSubmit={handleCreateTodo} className="space-y-4">
 							<div>
 								<label
-									htmlFor="todo-title"
+									htmlFor="todo-name"
 									className="mb-1 block text-sm font-medium text-foreground"
 								>
-									任务标题
+									待办名称
 								</label>
 								<input
-									id="todo-title"
+									id="todo-name"
 									type="text"
-									value={newTodoTitle}
-									onChange={(e) => setNewTodoTitle(e.target.value)}
-									placeholder="输入任务标题..."
+									value={newTodoName}
+									onChange={(e) => setNewTodoName(e.target.value)}
+									placeholder="输入待办名称..."
 									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 									required
 								/>
@@ -580,58 +512,51 @@ export function TodoList() {
 
 							<div>
 								<label
-									htmlFor="todo-due-date"
+									htmlFor="todo-deadline"
 									className="mb-1 block text-sm font-medium text-foreground"
 								>
 									截止日期
 								</label>
 								<input
-									id="todo-due-date"
+									id="todo-deadline"
 									type="date"
-									value={newTodoDueDate}
-									onChange={(e) => setNewTodoDueDate(e.target.value)}
+									value={newTodoDeadline}
+									onChange={(e) => setNewTodoDeadline(e.target.value)}
 									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 								/>
 							</div>
 
 							<div>
-								<div className="mb-2 flex items-center justify-between">
-									<div className="text-sm font-medium text-foreground">
-										子任务
-									</div>
-									<button
-										type="button"
-										onClick={addSubtask}
-										className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-									>
-										<Plus className="h-3 w-3" />
-										添加子任务
-									</button>
-								</div>
-								{newTodoSubtasks.length > 0 && (
-									<div className="space-y-2">
-										{newTodoSubtasks.map((subtask) => (
-											<div key={subtask.id} className="flex items-center gap-2">
-												<input
-													type="text"
-													value={subtask.title}
-													onChange={(e) =>
-														updateSubtask(subtask.id, e.target.value)
-													}
-													placeholder="子任务标题..."
-													className="flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-												/>
-												<button
-													type="button"
-													onClick={() => removeSubtask(subtask.id)}
-													className="rounded-md p-1 text-muted-foreground hover:bg-muted transition-colors"
-												>
-													<X className="h-4 w-4" />
-												</button>
-											</div>
-										))}
-									</div>
-								)}
+								<label
+									htmlFor="todo-description"
+									className="mb-1 block text-sm font-medium text-foreground"
+								>
+									描述
+								</label>
+								<textarea
+									id="todo-description"
+									value={newTodoDescription}
+									onChange={(e) => setNewTodoDescription(e.target.value)}
+									placeholder="描述该待办的详情..."
+									className="w-full min-h-[80px] rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+
+							<div>
+								<label
+									htmlFor="todo-tags"
+									className="mb-1 block text-sm font-medium text-foreground"
+								>
+									标签（逗号分隔）
+								</label>
+								<input
+									id="todo-tags"
+									type="text"
+									value={newTodoTags}
+									onChange={(e) => setNewTodoTags(e.target.value)}
+									placeholder="例如：工作, 报告"
+									className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
 							</div>
 
 							<div className="flex items-center justify-end gap-2 pt-4">

@@ -39,6 +39,9 @@ export const zh: Translation = {
 		settingsPlaceholder: "占位：在这里接入设置组件",
 		achievementsLabel: "成就",
 		achievementsPlaceholder: "占位：在这里接入成就组件",
+		debugShotsLabel: "截图管理（调试）",
+		debugShotsPlaceholder:
+			"占位：用于截图采集/管理的调试面板（仅开发模式可见）",
 	},
 	bottomDock: {
 		calendar: "日历",
@@ -48,5 +51,6 @@ export const zh: Translation = {
 		diary: "日记",
 		settings: "设置",
 		achievements: "成就",
+		debugShots: "截图调试",
 	},
 };

@@ -87,6 +87,50 @@ class DatabaseBase:
                         "idx_screenshots_event_id",
                         "CREATE INDEX IF NOT EXISTS idx_screenshots_event_id ON screenshots(event_id)",
                     ),
+                    (
+                        "idx_todos_parent_todo_id",
+                        "CREATE INDEX IF NOT EXISTS idx_todos_parent_todo_id ON todos(parent_todo_id)",
+                    ),
+                    (
+                        "idx_todos_status",
+                        "CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status)",
+                    ),
+                    (
+                        "idx_todos_deleted_at",
+                        "CREATE INDEX IF NOT EXISTS idx_todos_deleted_at ON todos(deleted_at)",
+                    ),
+                    (
+                        "idx_attachments_file_hash",
+                        "CREATE INDEX IF NOT EXISTS idx_attachments_file_hash ON attachments(file_hash)",
+                    ),
+                    (
+                        "idx_attachments_deleted_at",
+                        "CREATE INDEX IF NOT EXISTS idx_attachments_deleted_at ON attachments(deleted_at)",
+                    ),
+                    (
+                        "idx_todo_attachment_relations_todo_id",
+                        "CREATE INDEX IF NOT EXISTS idx_todo_attachment_relations_todo_id ON todo_attachment_relations(todo_id)",
+                    ),
+                    (
+                        "idx_todo_attachment_relations_attachment_id",
+                        "CREATE INDEX IF NOT EXISTS idx_todo_attachment_relations_attachment_id ON todo_attachment_relations(attachment_id)",
+                    ),
+                    (
+                        "idx_tags_tag_name_unique",
+                        "CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_tag_name_unique ON tags(tag_name)",
+                    ),
+                    (
+                        "idx_tags_deleted_at",
+                        "CREATE INDEX IF NOT EXISTS idx_tags_deleted_at ON tags(deleted_at)",
+                    ),
+                    (
+                        "idx_todo_tag_relations_todo_id",
+                        "CREATE INDEX IF NOT EXISTS idx_todo_tag_relations_todo_id ON todo_tag_relations(todo_id)",
+                    ),
+                    (
+                        "idx_todo_tag_relations_tag_id",
+                        "CREATE INDEX IF NOT EXISTS idx_todo_tag_relations_tag_id ON todo_tag_relations(tag_id)",
+                    ),
                 ]
 
                 # 创建索引

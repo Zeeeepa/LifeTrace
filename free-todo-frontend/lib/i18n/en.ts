@@ -40,6 +40,9 @@ export const en: Translation = {
 		settingsPlaceholder: "Placeholder: plug a settings component here",
 		achievementsLabel: "Achievements",
 		achievementsPlaceholder: "Placeholder: plug an achievements component here",
+		debugShotsLabel: "Debug Shots",
+		debugShotsPlaceholder:
+			"Placeholder: manage debugging screenshots (dev mode only)",
 	},
 	bottomDock: {
 		calendar: "Calendar",
@@ -49,5 +52,6 @@ export const en: Translation = {
 		diary: "Diary",
 		settings: "Settings",
 		achievements: "Achievements",
+		debugShots: "Debug Shots",
 	},
 };
