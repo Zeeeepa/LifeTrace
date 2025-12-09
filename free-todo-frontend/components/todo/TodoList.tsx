@@ -131,25 +131,32 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 	};
 
 	return (
-		<button
-			type="button"
+		// biome-ignore lint/a11y/useSemanticElements: 需要使用 div 以避免嵌套 button（内部有复选框和星标按钮）
+		<div
 			ref={setNodeRef}
 			style={style}
+			role="button"
+			tabIndex={0}
 			onClick={() => setSelectedTodoId(todo.id)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					setSelectedTodoId(todo.id);
+				}
+			}}
 			className={cn(
-				"group relative flex w-full items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer text-left bg-transparent border-0",
+				"group relative flex items-start gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer",
 				isDragging && "opacity-50",
 			)}
 		>
 			{/* 拖拽手柄 */}
-			<button
-				type="button"
+			<div
 				{...attributes}
 				{...listeners}
 				className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity self-center"
 			>
 				<GripVertical className="h-4 w-4" />
-			</button>
+			</div>
 
 			{/* 复选框 */}
 			<button
@@ -267,7 +274,7 @@ function TodoItem({ todo, isDragging }: TodoItemProps) {
 					</div>
 				</div>
 			</div>
-		</button>
+		</div>
 	);
 }
 
