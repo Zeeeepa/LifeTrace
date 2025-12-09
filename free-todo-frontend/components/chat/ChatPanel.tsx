@@ -220,7 +220,7 @@ export function ChatPanel() {
 
 	return (
 		<div className="flex h-full flex-col bg-background">
-			<div className="flex flex-col gap-2 border-b border-border p-4">
+			<div className="flex flex-col gap-2 p-4">
 				<div className="flex items-center justify-between gap-2">
 					<div className="flex items-center gap-2">
 						<Sparkles className="h-5 w-5 text-blue-500" />
@@ -368,7 +368,7 @@ export function ChatPanel() {
 				)}
 			</div>
 
-			<div className="border-t border-border bg-background p-4">
+			<div className="bg-background p-4">
 				<div className="mb-3 flex flex-wrap gap-2">
 					{t.page.chatSuggestions.map((suggestion) => (
 						<button
