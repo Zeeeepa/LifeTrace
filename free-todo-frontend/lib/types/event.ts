@@ -23,5 +23,6 @@ export interface Event {
 	screenshot_count: number;
 	first_screenshot_id?: number;
 	screenshots?: Screenshot[];
+	ai_title?: string;
 	ai_summary?: string;
 }

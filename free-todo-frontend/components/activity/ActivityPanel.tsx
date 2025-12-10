@@ -80,17 +80,28 @@ export function ActivityPanel() {
 					ids.map(async (id) => {
 						try {
 							const evRes = await getEvent(id);
-							const screenshots = evRes.data?.screenshots;
-							// adapt to existing Event shape (minimal)
+							const eventData = evRes.data;
+							if (!eventData) return;
+
+							const screenshots = eventData.screenshots || [];
+							const screenshotCount =
+								eventData.screenshot_count ?? screenshots.length ?? 0;
+							const firstScreenshotId =
+								eventData.first_screenshot_id ?? screenshots[0]?.id;
+
+							// align to Event shape for detail display
 							detailList.push({
-								id,
-								app_name: "",
-								window_title: "",
-								start_time: "",
-								screenshot_count: screenshots?.length ?? 0,
-								first_screenshot_id: screenshots?.[0]?.id,
-								ai_summary: "",
-							} as Event);
+								id: eventData.id,
+								app_name: eventData.app_name || "",
+								window_title: eventData.window_title || "",
+								start_time: eventData.start_time,
+								end_time: eventData.end_time ?? undefined,
+								screenshot_count: screenshotCount,
+								first_screenshot_id: firstScreenshotId ?? undefined,
+								ai_title: eventData.ai_title ?? undefined,
+								ai_summary: eventData.ai_summary ?? undefined,
+								screenshots,
+							});
 						} catch (error) {
 							console.error("Failed to load event", id, error);
 						}

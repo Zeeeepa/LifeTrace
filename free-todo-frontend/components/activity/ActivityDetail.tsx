@@ -1,4 +1,6 @@
 import { AppWindow, Clock3, ListChecks } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ActivitySummary } from "@/components/activity/ActivitySummary";
 import {
 	formatRelativeTime,
@@ -104,9 +106,51 @@ export function ActivityDetail({
 								<p className="mt-1 text-[13px] font-semibold text-foreground line-clamp-1">
 									{ev.ai_title || ev.window_title || "Untitled Event"}
 								</p>
-								<p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-									{ev.ai_summary || "No summary"}
-								</p>
+								<div className="mt-1 text-xs text-muted-foreground prose prose-sm max-w-none line-clamp-3">
+									<ReactMarkdown
+										remarkPlugins={[remarkGfm]}
+										components={{
+											p: ({ node, ...props }) => (
+												<p
+													className="text-xs text-muted-foreground leading-snug my-1"
+													{...props}
+												/>
+											),
+											ul: ({ node, ...props }) => (
+												<ul
+													className="list-disc list-inside text-xs text-muted-foreground my-1 space-y-0.5"
+													{...props}
+												/>
+											),
+											ol: ({ node, ...props }) => (
+												<ol
+													className="list-decimal list-inside text-xs text-muted-foreground my-1 space-y-0.5"
+													{...props}
+												/>
+											),
+											li: ({ node, ...props }) => (
+												<li
+													className="text-xs text-muted-foreground"
+													{...props}
+												/>
+											),
+											strong: ({ node, ...props }) => (
+												<strong
+													className="font-semibold text-foreground"
+													{...props}
+												/>
+											),
+											em: ({ node, ...props }) => (
+												<em
+													className="italic text-muted-foreground"
+													{...props}
+												/>
+											),
+										}}
+									>
+										{ev.ai_summary || "No summary"}
+									</ReactMarkdown>
+								</div>
 							</div>
 						))}
 					</div>

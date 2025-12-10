@@ -242,6 +242,11 @@ export async function getEvents(params?: {
 
 export async function getEvent(id: number): Promise<{
 	data?: {
+		id: number;
+		app_name: string | null;
+		window_title: string | null;
+		start_time: string;
+		end_time?: string | null;
 		screenshots?: Array<{
 			id: number;
 			file_path: string;
@@ -254,6 +259,10 @@ export async function getEvent(id: number): Promise<{
 				text_content: string;
 			};
 		}>;
+		screenshot_count?: number;
+		first_screenshot_id?: number | null;
+		ai_title?: string | null;
+		ai_summary?: string | null;
 	};
 }> {
 	const baseUrl =
@@ -272,12 +281,17 @@ export async function getEvent(id: number): Promise<{
 
 	const data = await response.json();
 
-	// 后端直接返回 EventDetailResponse，没有 data 包装
-	// 但前端期望 { data: { screenshots: ... } } 格式
-	// 所以需要适配
+	// 后端直接返回 EventDetailResponse，需要在前端补全计数等衍生字段
+	const screenshots = data.screenshots || [];
+	const screenshotCount = screenshots.length;
+	const firstScreenshotId = screenshots[0]?.id ?? null;
+
 	return {
 		data: {
-			screenshots: data.screenshots || [],
+			...data,
+			screenshots,
+			screenshot_count: screenshotCount,
+			first_screenshot_id: firstScreenshotId,
 		},
 	};
 }
