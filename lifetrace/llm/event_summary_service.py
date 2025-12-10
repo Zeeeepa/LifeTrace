@@ -6,6 +6,7 @@
 import json
 import threading
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from lifetrace.llm.llm_client import LLMClient
@@ -77,6 +78,74 @@ class EventSummaryService:
             logger.warning(f"dependencies模块中没有vector_service属性: {e}")
             return None
 
+    def _get_debug_data_dir(self) -> Path:
+        """获取调试数据目录路径"""
+        # 获取项目根目录下的data目录
+        current_file = Path(__file__)
+        data_dir = current_file.parent.parent.parent / "data" / "event_summary_debug"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir
+
+    def _save_debug_data(
+        self,
+        event_id: int,
+        event_info: dict[str, Any],
+        ocr_texts: list[str],
+        clustering_info: dict[str, Any] | None,
+        llm_info: dict[str, Any] | None,
+        result: dict[str, str] | None,
+    ):
+        """保存调试数据到文件
+
+        Args:
+            event_id: 事件ID
+            event_info: 事件基本信息
+            ocr_texts: 原始OCR文本列表
+            clustering_info: 聚类信息（如果进行了聚类）
+            llm_info: LLM输入输出信息（如果调用了LLM）
+            result: 最终结果
+        """
+        try:
+            debug_dir = self._get_debug_data_dir()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"event_{event_id}_{timestamp}.json"
+            filepath = debug_dir / filename
+
+            debug_data = {
+                "event_id": event_id,
+                "timestamp": datetime.now().isoformat(),
+                "event_info": {
+                    "id": event_info.get("id"),
+                    "app_name": event_info.get("app_name"),
+                    "window_title": event_info.get("window_title"),
+                    "start_time": (
+                        event_info.get("start_time").isoformat()
+                        if event_info.get("start_time")
+                        else None
+                    ),
+                    "end_time": (
+                        event_info.get("end_time").isoformat()
+                        if event_info.get("end_time")
+                        else None
+                    ),
+                },
+                "input": {
+                    "ocr_texts_count": len(ocr_texts),
+                    "ocr_texts": ocr_texts,
+                    "combined_ocr_length": len("".join(ocr_texts)) if ocr_texts else 0,
+                },
+                "clustering": clustering_info,
+                "llm": llm_info,
+                "result": result,
+            }
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(debug_data, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"调试数据已保存到: {filepath}")
+        except Exception as e:
+            logger.error(f"保存调试数据失败: {e}", exc_info=True)
+
     def generate_event_summary(self, event_id: int) -> bool:
         """
         为单个事件生成摘要
@@ -87,6 +156,12 @@ class EventSummaryService:
         Returns:
             生成是否成功
         """
+        # 用于收集调试数据
+        ocr_texts = []
+        clustering_info = None
+        llm_info = None
+        event_info = None
+
         try:
             # 获取事件信息
             event_info = self._get_event_info(event_id)
@@ -105,6 +180,15 @@ class EventSummaryService:
                     app_name=event_info["app_name"],
                     window_title=event_info["window_title"],
                 )
+                # 保存调试数据
+                self._save_debug_data(
+                    event_id=event_id,
+                    event_info=event_info,
+                    ocr_texts=ocr_texts,
+                    clustering_info=None,
+                    llm_info=None,
+                    result=result,
+                )
             else:
                 # 获取事件下所有截图的OCR结果
                 ocr_texts = self._get_event_ocr_texts(event_id)
@@ -112,26 +196,41 @@ class EventSummaryService:
                 # 对于长事件（>=指定数量截图），使用向量化聚类处理OCR文本
                 combined_ocr_length = len("".join(ocr_texts).strip()) if ocr_texts else 0
                 if ocr_texts and combined_ocr_length > MIN_OCR_TEXT_LENGTH:
-                    # 使用HDBSCAN聚类处理OCR文本
-                    clustered_texts = self._cluster_ocr_texts_with_hdbscan(ocr_texts)
+                    # 使用HDBSCAN聚类处理OCR文本（带调试信息）
+                    clustering_result = self._cluster_ocr_texts_with_hdbscan_debug(ocr_texts)
+                    clustered_texts = clustering_result["representative_texts"]
+                    clustering_info = clustering_result["info"]
+
                     if not clustered_texts:
                         # 如果聚类失败，回退到原始文本
                         clustered_texts = ocr_texts
 
-                    # 使用LLM生成摘要
-                    result = self._generate_summary_with_llm(
+                    # 使用LLM生成摘要（带调试信息）
+                    llm_result = self._generate_summary_with_llm_debug(
                         ocr_texts=clustered_texts,
                         app_name=event_info["app_name"],
                         window_title=event_info["window_title"],
                         start_time=event_info["start_time"],
                         end_time=event_info["end_time"],
                     )
+                    result = llm_result["result"]
+                    llm_info = llm_result["info"]
                 else:
                     # 无OCR数据或数据太少，使用后备方案
                     result = self._generate_fallback_summary(
                         app_name=event_info["app_name"],
                         window_title=event_info["window_title"],
                     )
+
+                # 保存调试数据
+                self._save_debug_data(
+                    event_id=event_id,
+                    event_info=event_info,
+                    ocr_texts=ocr_texts,
+                    clustering_info=clustering_info,
+                    llm_info=llm_info,
+                    result=result,
+                )
 
             if result:
                 # 更新事件表
@@ -153,6 +252,18 @@ class EventSummaryService:
 
         except Exception as e:
             logger.error(f"生成事件 {event_id} 摘要时出错: {e}", exc_info=True)
+            # 即使出错也保存调试数据
+            try:
+                self._save_debug_data(
+                    event_id=event_id,
+                    event_info=event_info if event_info else {},
+                    ocr_texts=ocr_texts,
+                    clustering_info=clustering_info,
+                    llm_info=llm_info,
+                    result=None,
+                )
+            except Exception:
+                pass
             return False
 
     def _get_event_info(self, event_id: int) -> dict[str, Any] | None:
@@ -257,29 +368,59 @@ class EventSummaryService:
             logger.error(f"解析LLM响应JSON失败: {e}\n原始响应: {ocr_preview[:200]}")
             return None
 
-    def _generate_summary_with_llm(
+    def _generate_summary_with_llm_debug(
         self,
         ocr_texts: list[str],
         app_name: str,
         window_title: str,
         start_time: datetime,
         end_time: datetime | None,
-    ) -> dict[str, str] | None:
+    ) -> dict[str, Any]:
         """
-        使用LLM生成标题和摘要
+        使用LLM生成标题和摘要，返回结果和调试信息
 
         Returns:
-            {'title': str, 'summary': str} 或 None
+            {
+                "result": dict[str, str] | None,  # 解析后的结果
+                "info": dict  # LLM调用详细信息
+            }
         """
+        info = {
+            "enabled": False,
+            "llm_available": self.llm_client.is_available(),
+            "model": self.llm_client.model if hasattr(self.llm_client, "model") else None,
+            "input_texts_count": len(ocr_texts),
+            "input_texts": ocr_texts,
+            "combined_text_length": 0,
+            "combined_text_truncated": False,
+            "system_prompt": None,
+            "user_prompt": None,
+            "temperature": 0.3,
+            "max_tokens": 200,
+            "response": None,
+            "response_raw": None,
+            "response_extracted": None,
+            "token_usage": None,
+            "error": None,
+        }
+
         # 前置检查：如果LLM不可用或文本不足，直接返回fallback
         if not self.llm_client.is_available():
             logger.warning("LLM客户端不可用，使用后备方案")
-            return self._generate_fallback_summary(app_name, window_title)
+            info["error"] = "LLM客户端不可用"
+            result = self._generate_fallback_summary(app_name, window_title)
+            return {"result": result, "info": info}
 
         combined_text = self._prepare_ocr_text(ocr_texts)
         if not combined_text:
             logger.warning("OCR文本内容太少，使用后备方案")
-            return self._generate_fallback_summary(app_name, window_title)
+            info["error"] = "OCR文本内容太少"
+            result = self._generate_fallback_summary(app_name, window_title)
+            return {"result": result, "info": info}
+
+        info["combined_text_length"] = len(combined_text)
+        original_combined = "\n".join(ocr_texts)
+        info["combined_text_truncated"] = len(original_combined) > MAX_COMBINED_TEXT_LENGTH
 
         # 尝试使用LLM生成，失败则返回fallback
         result = None
@@ -299,6 +440,8 @@ class EventSummaryService:
                 end_time=end_str,
                 ocr_text=combined_text,
             )
+            info["system_prompt"] = system_prompt
+            info["user_prompt"] = user_prompt
 
             # 调用LLM
             response = self.llm_client.client.chat.completions.create(
@@ -312,8 +455,16 @@ class EventSummaryService:
             )
 
             # 记录token使用量
+            token_usage = None
             if hasattr(response, "usage") and response.usage:
                 from lifetrace.util.token_usage_logger import log_token_usage
+
+                token_usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+                info["token_usage"] = token_usage
 
                 log_token_usage(
                     model=self.llm_client.model,
@@ -326,20 +477,50 @@ class EventSummaryService:
 
             # 解析响应
             content = response.choices[0].message.content.strip()
+            info["response_raw"] = content
             if content:
                 extracted_content, original_content = self._extract_json_from_response(content)
+                info["response_extracted"] = extracted_content
                 if extracted_content:
                     result = self._parse_llm_response(extracted_content, original_content)
+                    info["response"] = result
                 else:
                     logger.warning(f"提取JSON后内容为空，原始响应: {original_content[:200]}")
+                    info["error"] = "提取JSON后内容为空"
             else:
                 logger.warning("LLM返回空内容，使用后备方案")
+                info["error"] = "LLM返回空内容"
+
+            info["enabled"] = True
 
         except Exception as e:
             logger.error(f"LLM生成摘要失败: {e}", exc_info=True)
+            info["error"] = str(e)
 
         # 如果LLM生成成功，返回结果；否则返回fallback
-        return result if result else self._generate_fallback_summary(app_name, window_title)
+        if not result:
+            result = self._generate_fallback_summary(app_name, window_title)
+        return {"result": result, "info": info}
+
+    def _generate_summary_with_llm(
+        self,
+        ocr_texts: list[str],
+        app_name: str,
+        window_title: str,
+        start_time: datetime,
+        end_time: datetime | None,
+    ) -> dict[str, str] | None:
+        """
+        使用LLM生成标题和摘要
+        保留此方法以保持向后兼容性
+
+        Returns:
+            {'title': str, 'summary': str} 或 None
+        """
+        result = self._generate_summary_with_llm_debug(
+            ocr_texts, app_name, window_title, start_time, end_time
+        )
+        return result["result"]
 
     def _check_clustering_prerequisites(self, ocr_texts: list[str]) -> tuple[bool, str]:
         """检查聚类前置条件
@@ -423,37 +604,57 @@ class EventSummaryService:
 
         return representative_texts
 
-    def _cluster_ocr_texts_with_hdbscan(self, ocr_texts: list[str]) -> list[str]:
+    def _cluster_ocr_texts_with_hdbscan_debug(self, ocr_texts: list[str]) -> dict[str, Any]:
         """
-        使用HDBSCAN对向量化的OCR文本进行聚类，返回代表性文本
+        使用HDBSCAN对向量化的OCR文本进行聚类，返回代表性文本和调试信息
 
         Args:
             ocr_texts: OCR文本列表
 
         Returns:
-            聚类后的代表性文本列表
+            {
+                "representative_texts": list[str],  # 代表性文本列表
+                "info": dict  # 聚类详细信息
+            }
         """
+        info = {
+            "enabled": False,
+            "error": None,
+            "original_text_count": len(ocr_texts),
+            "valid_text_count": 0,
+            "min_cluster_size": None,
+            "cluster_labels": None,
+            "cluster_count": 0,
+            "noise_count": 0,
+            "clusters_detail": [],
+            "representative_texts_count": 0,
+        }
+
         # 检查前置条件
         can_cluster, error_msg = self._check_clustering_prerequisites(ocr_texts)
         if not can_cluster:
             if error_msg and error_msg != "文本数量不足":
                 logger.warning(error_msg)
-            return ocr_texts
+            info["error"] = error_msg
+            return {"representative_texts": ocr_texts, "info": info}
 
         try:
             vector_service = self._get_vector_service()
             # 向量化文本
             embeddings, valid_texts = self._vectorize_texts(ocr_texts, vector_service)
+            info["valid_text_count"] = len(valid_texts)
 
             if len(embeddings) < MIN_TEXT_COUNT_FOR_CLUSTERING:
                 logger.debug("有效文本数量不足，无法进行聚类")
-                return valid_texts
+                info["error"] = "有效文本数量不足"
+                return {"representative_texts": valid_texts, "info": info}
 
             # 转换为numpy数组
             embeddings_array = np.array(embeddings)
 
             # 计算聚类参数
             min_cluster_size = self._calculate_cluster_params(len(valid_texts))
+            info["min_cluster_size"] = min_cluster_size
             logger.info(
                 f"使用HDBSCAN聚类: {len(valid_texts)} 个文本, min_cluster_size={min_cluster_size}"
             )
@@ -465,20 +666,65 @@ class EventSummaryService:
                 metric="cosine",
             )
             cluster_labels = clusterer.fit_predict(embeddings_array)
+            info["cluster_labels"] = cluster_labels.tolist()
+
+            # 统计聚类信息
+            unique_labels = set(cluster_labels)
+            info["cluster_count"] = len([label for label in unique_labels if label >= 0])
+            info["noise_count"] = len([label for label in cluster_labels if label == -1])
+
+            # 记录每个聚类的详细信息
+            clusters_detail = []
+            for label in sorted(unique_labels):
+                if label == -1:
+                    continue  # 跳过噪声点
+                indices = [
+                    idx
+                    for idx, cluster_label in enumerate(cluster_labels)
+                    if cluster_label == label
+                ]
+                cluster_texts = [valid_texts[i] for i in indices]
+                longest_text = max(cluster_texts, key=len)
+                clusters_detail.append(
+                    {
+                        "cluster_id": int(label),
+                        "size": len(indices),
+                        "texts": cluster_texts,
+                        "representative_text": longest_text,
+                    }
+                )
+            info["clusters_detail"] = clusters_detail
 
             # 选择代表性文本
             representative_texts = self._select_representative_texts(cluster_labels, valid_texts)
+            info["representative_texts_count"] = len(representative_texts)
+            info["enabled"] = True
 
             logger.info(
                 f"HDBSCAN聚类完成: {len(valid_texts)} 个文本 -> "
                 f"{len(set(cluster_labels))} 个聚类/噪声点 -> {len(representative_texts)} 个代表性文本"
             )
 
-            return representative_texts
+            return {"representative_texts": representative_texts, "info": info}
 
         except Exception as e:
             logger.error(f"HDBSCAN聚类失败: {e}", exc_info=True)
-            return ocr_texts
+            info["error"] = str(e)
+            return {"representative_texts": ocr_texts, "info": info}
+
+    def _cluster_ocr_texts_with_hdbscan(self, ocr_texts: list[str]) -> list[str]:
+        """
+        使用HDBSCAN对向量化的OCR文本进行聚类，返回代表性文本
+        保留此方法以保持向后兼容性
+
+        Args:
+            ocr_texts: OCR文本列表
+
+        Returns:
+            聚类后的代表性文本列表
+        """
+        result = self._cluster_ocr_texts_with_hdbscan_debug(ocr_texts)
+        return result["representative_texts"]
 
     def _generate_fallback_summary(
         self, app_name: str | None, window_title: str | None
