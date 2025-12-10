@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,13 @@ MIN_OCR_TEXT_LENGTH = 10  # OCR文本的最小长度阈值
 MAX_COMBINED_TEXT_LENGTH = 3000  # 合并OCR文本的最大长度
 MIN_CLUSTER_SIZE = 2  # HDBSCAN聚类的最小聚类大小
 MIN_TEXT_COUNT_FOR_CLUSTERING = 2  # 进行聚类的最小文本数量
-MAX_TITLE_LENGTH = 10  # 标题最大长度
+MIN_OCR_LINE_LENGTH = 3  # OCR文本行的最小长度阈值（用于过滤噪声行）
+MIN_OCR_CONFIDENCE = 0.6  # OCR结果最低置信度，低于此阈值的块跳过
+UI_REPEAT_THRESHOLD = 3  # 将文本标记为UI候选的跨截图重复次数阈值
+UI_CANDIDATE_MAX_LENGTH = 25  # UI候选的最大长度（字符）
+UI_REPRESENTATIVE_LIMIT = 2  # 保留的代表性UI文本数量上限
+MAX_TITLE_LENGTH = 10  # 标题最大长度（字符数）
+MAX_SUMMARY_LENGTH = 30  # 摘要最大长度（字符数，对应提示词要求）
 OCR_PREVIEW_LENGTH = 100  # OCR预览文本长度
 RESPONSE_PREVIEW_LENGTH = 500  # 响应预览文本长度
 
@@ -96,19 +103,20 @@ class EventSummaryService:
         event_id: int,
         event_info: dict[str, Any],
         ocr_texts: list[str],
-        clustering_info: dict[str, Any] | None,
-        llm_info: dict[str, Any] | None,
-        result: dict[str, str] | None,
+        debug_data: dict[str, Any] | None = None,
     ):
         """保存调试数据到文件
 
         Args:
             event_id: 事件ID
             event_info: 事件基本信息
-            ocr_texts: 原始OCR文本列表
-            clustering_info: 聚类信息（如果进行了聚类）
-            llm_info: LLM输入输出信息（如果调用了LLM）
-            result: 最终结果
+            ocr_texts: 原始OCR文本块列表
+            debug_data: 调试数据字典，包含以下可选键：
+                - ocr_lines: OCR文本行列表
+                - ocr_debug_info: OCR调试信息
+                - clustering_info: 聚类信息
+                - llm_info: LLM输入输出信息
+                - result: 最终结果
         """
         try:
             debug_dir = self._get_debug_data_dir()
@@ -116,7 +124,14 @@ class EventSummaryService:
             filename = f"event_{event_id}_{timestamp}.json"
             filepath = debug_dir / filename
 
-            debug_data = {
+            debug_data_dict = debug_data or {}
+            ocr_lines = debug_data_dict.get("ocr_lines")
+            ocr_debug_info = debug_data_dict.get("ocr_debug_info")
+            clustering_info = debug_data_dict.get("clustering_info")
+            llm_info = debug_data_dict.get("llm_info")
+            result = debug_data_dict.get("result")
+
+            full_debug_data = {
                 "event_id": event_id,
                 "timestamp": datetime.now().isoformat(),
                 "event_info": {
@@ -138,6 +153,9 @@ class EventSummaryService:
                     "ocr_texts_count": len(ocr_texts),
                     "ocr_texts": ocr_texts,
                     "combined_ocr_length": len("".join(ocr_texts)) if ocr_texts else 0,
+                    "ocr_lines": ocr_lines if ocr_lines is not None else [],
+                    "ocr_lines_count": len(ocr_lines) if ocr_lines is not None else 0,
+                    "ocr_debug_info": ocr_debug_info if ocr_debug_info else {},
                 },
                 "clustering": clustering_info,
                 "llm": llm_info,
@@ -145,11 +163,110 @@ class EventSummaryService:
             }
 
             with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(debug_data, f, ensure_ascii=False, indent=2)
+                json.dump(full_debug_data, f, ensure_ascii=False, indent=2)
 
             logger.info(f"调试数据已保存到: {filepath}")
         except Exception as e:
             logger.error(f"保存调试数据失败: {e}", exc_info=True)
+
+    def _process_event_with_few_screenshots(
+        self, event_id: int, event_info: dict[str, Any], screenshot_count: int
+    ) -> dict[str, Any]:
+        """处理截图数量较少的事件
+
+        Returns:
+            包含result和调试信息的字典
+        """
+        logger.info(f"事件 {event_id} 只有 {screenshot_count} 张截图，使用fallback summary")
+        ocr_lines, ocr_debug_info = self._get_event_ocr_texts(event_id)
+        result = self._generate_fallback_summary(
+            app_name=event_info["app_name"],
+            window_title=event_info["window_title"],
+        )
+        return {
+            "result": result,
+            "ocr_lines": ocr_lines,
+            "ocr_debug_info": ocr_debug_info,
+            "clustering_info": None,
+            "llm_info": None,
+        }
+
+    def _process_event_with_sufficient_screenshots(
+        self, event_id: int, event_info: dict[str, Any]
+    ) -> dict[str, Any]:
+        """处理有足够截图的事件
+
+        Returns:
+            包含result和调试信息的字典
+        """
+        ocr_lines, ocr_debug_info = self._get_event_ocr_texts(event_id)
+        body_lines, ui_info = self._separate_ui_candidates(
+            ocr_debug_info.get("lines_with_meta", [])
+        )
+        ocr_debug_info["ui_info"] = ui_info
+        effective_lines = body_lines if body_lines else ocr_lines
+        combined_ocr_length = len("".join(effective_lines).strip()) if effective_lines else 0
+
+        clustering_info = None
+        llm_info = None
+
+        if effective_lines and combined_ocr_length > MIN_OCR_TEXT_LENGTH:
+            clustering_result = self._cluster_ocr_texts_with_hdbscan_debug(effective_lines)
+            clustered_texts = clustering_result["representative_texts"]
+            clustering_info = clustering_result["info"]
+            if clustering_info:
+                clustering_info.update(ocr_debug_info)
+
+            if not clustered_texts:
+                clustered_texts = effective_lines
+
+            ui_kept = ui_info.get("ui_kept", []) if ui_info else []
+            llm_input_texts = clustered_texts + ui_kept if ui_kept else clustered_texts
+
+            llm_result = self._generate_summary_with_llm_debug(
+                ocr_texts=llm_input_texts,
+                app_name=event_info["app_name"],
+                window_title=event_info["window_title"],
+                start_time=event_info["start_time"],
+                end_time=event_info["end_time"],
+            )
+            result = llm_result["result"]
+            llm_info = llm_result["info"]
+        else:
+            result = self._generate_fallback_summary(
+                app_name=event_info["app_name"],
+                window_title=event_info["window_title"],
+            )
+
+        return {
+            "result": result,
+            "ocr_lines": ocr_lines,
+            "ocr_debug_info": ocr_debug_info,
+            "clustering_info": clustering_info,
+            "llm_info": llm_info,
+        }
+
+    def _update_event_summary_in_db(self, event_id: int, result: dict[str, str] | None) -> bool:
+        """更新数据库中的事件摘要
+
+        Returns:
+            更新是否成功
+        """
+        if not result:
+            logger.error(f"事件 {event_id} 摘要生成失败")
+            return False
+
+        success = event_mgr.update_event_summary(
+            event_id=event_id,
+            ai_title=result["title"],
+            ai_summary=result["summary"],
+        )
+
+        if success:
+            logger.info(f"事件 {event_id} 摘要生成成功: {result['title']}")
+            return True
+        logger.error(f"事件 {event_id} 摘要更新失败")
+        return False
 
     def generate_event_summary(self, event_id: int) -> bool:
         """
@@ -161,111 +278,68 @@ class EventSummaryService:
         Returns:
             生成是否成功
         """
-        # 用于收集调试数据
         ocr_texts = []
+        ocr_lines = []
+        ocr_debug_info = {}
         clustering_info = None
         llm_info = None
         event_info = None
 
         try:
-            # 获取事件信息
             event_info = self._get_event_info(event_id)
             if not event_info:
                 logger.warning(f"事件 {event_id} 不存在")
                 return False
 
-            # 获取事件的截图数量
             screenshots = event_mgr.get_event_screenshots(event_id)
             screenshot_count = len(screenshots)
 
-            # 如果截图少于指定数量，直接使用fallback summary，不调用LLM
             if screenshot_count < MIN_SCREENSHOTS_FOR_LLM:
-                logger.info(f"事件 {event_id} 只有 {screenshot_count} 张截图，使用fallback summary")
-                result = self._generate_fallback_summary(
-                    app_name=event_info["app_name"],
-                    window_title=event_info["window_title"],
+                process_result = self._process_event_with_few_screenshots(
+                    event_id, event_info, screenshot_count
                 )
-                # 保存调试数据
-                self._save_debug_data(
-                    event_id=event_id,
-                    event_info=event_info,
-                    ocr_texts=ocr_texts,
-                    clustering_info=None,
-                    llm_info=None,
-                    result=result,
-                )
+                ocr_lines = process_result["ocr_lines"]
+                ocr_debug_info = process_result["ocr_debug_info"]
+                result = process_result["result"]
             else:
-                # 获取事件下所有截图的OCR结果
-                ocr_texts = self._get_event_ocr_texts(event_id)
-
-                # 对于长事件（>=指定数量截图），使用向量化聚类处理OCR文本
-                combined_ocr_length = len("".join(ocr_texts).strip()) if ocr_texts else 0
-                if ocr_texts and combined_ocr_length > MIN_OCR_TEXT_LENGTH:
-                    # 使用HDBSCAN聚类处理OCR文本（带调试信息）
-                    clustering_result = self._cluster_ocr_texts_with_hdbscan_debug(ocr_texts)
-                    clustered_texts = clustering_result["representative_texts"]
-                    clustering_info = clustering_result["info"]
-
-                    if not clustered_texts:
-                        # 如果聚类失败，回退到原始文本
-                        clustered_texts = ocr_texts
-
-                    # 使用LLM生成摘要（带调试信息）
-                    llm_result = self._generate_summary_with_llm_debug(
-                        ocr_texts=clustered_texts,
-                        app_name=event_info["app_name"],
-                        window_title=event_info["window_title"],
-                        start_time=event_info["start_time"],
-                        end_time=event_info["end_time"],
-                    )
-                    result = llm_result["result"]
-                    llm_info = llm_result["info"]
-                else:
-                    # 无OCR数据或数据太少，使用后备方案
-                    result = self._generate_fallback_summary(
-                        app_name=event_info["app_name"],
-                        window_title=event_info["window_title"],
-                    )
-
-                # 保存调试数据
-                self._save_debug_data(
-                    event_id=event_id,
-                    event_info=event_info,
-                    ocr_texts=ocr_texts,
-                    clustering_info=clustering_info,
-                    llm_info=llm_info,
-                    result=result,
+                process_result = self._process_event_with_sufficient_screenshots(
+                    event_id, event_info
                 )
+                ocr_lines = process_result["ocr_lines"]
+                ocr_debug_info = process_result["ocr_debug_info"]
+                clustering_info = process_result["clustering_info"]
+                llm_info = process_result["llm_info"]
+                result = process_result["result"]
 
-            if result:
-                # 更新事件表
-                success = event_mgr.update_event_summary(
-                    event_id=event_id,
-                    ai_title=result["title"],
-                    ai_summary=result["summary"],
-                )
+            self._save_debug_data(
+                event_id=event_id,
+                event_info=event_info,
+                ocr_texts=ocr_debug_info.get("original_ocr_blocks", []),
+                debug_data={
+                    "ocr_lines": ocr_lines,
+                    "ocr_debug_info": ocr_debug_info,
+                    "clustering_info": clustering_info,
+                    "llm_info": llm_info,
+                    "result": result,
+                },
+            )
 
-                if success:
-                    logger.info(f"事件 {event_id} 摘要生成成功: {result['title']}")
-                    return True
-                else:
-                    logger.error(f"事件 {event_id} 摘要更新失败")
-                    return False
-            else:
-                logger.error(f"事件 {event_id} 摘要生成失败")
-                return False
+            return self._update_event_summary_in_db(event_id, result)
 
         except Exception as e:
             logger.error(f"生成事件 {event_id} 摘要时出错: {e}", exc_info=True)
-            # 即使出错也保存调试数据
             try:
                 self._save_debug_data(
                     event_id=event_id,
                     event_info=event_info if event_info else {},
-                    ocr_texts=ocr_texts,
-                    clustering_info=clustering_info,
-                    llm_info=llm_info,
-                    result=None,
+                    ocr_texts=ocr_texts if ocr_texts else [],
+                    debug_data={
+                        "ocr_lines": ocr_lines if ocr_lines else [],
+                        "ocr_debug_info": ocr_debug_info if ocr_debug_info else {},
+                        "clustering_info": clustering_info,
+                        "llm_info": llm_info,
+                        "result": None,
+                    },
                 )
             except Exception:
                 pass
@@ -290,18 +364,88 @@ class EventSummaryService:
             logger.error(f"获取事件信息失败: {e}")
             return None
 
-    def _get_event_ocr_texts(self, event_id: int) -> list[str]:
-        """获取事件下所有截图的OCR文本"""
-        ocr_texts = []
+    def _should_filter_line(self, line: str, debug_info: dict[str, Any]) -> bool:
+        """判断是否应该过滤掉某行文本
+
+        Returns:
+            True表示应该过滤，False表示保留
+        """
+        if not line:
+            return True
+
+        debug_info["raw_lines_count"] += 1
+
+        if len(line) < MIN_OCR_LINE_LENGTH:
+            debug_info["filtered_short_count"] += 1
+            return True
+
+        if line.isdigit() or re.fullmatch(r"[^\w\s]+", line):
+            debug_info["filtered_symbol_or_digit_count"] += 1
+            return True
+
+        return False
+
+    def _process_ocr_block(
+        self,
+        ocr_block: str,
+        screenshot_id: int,
+        ocr_lines: list[str],
+        lines_with_meta: list[dict[str, Any]],
+        debug_info: dict[str, Any],
+    ) -> None:
+        """处理单个OCR块，提取并过滤文本行"""
+        lines = ocr_block.split("\n")
+        for line in lines:
+            line = line.strip()
+            if self._should_filter_line(line, debug_info):
+                continue
+
+            ocr_lines.append(line)
+            lines_with_meta.append({"text": line, "screenshot_id": screenshot_id})
+
+    def _get_event_ocr_texts(self, event_id: int) -> tuple[list[str], dict[str, Any]]:
+        """获取事件下所有截图的OCR文本行
+
+        将OCR文本按换行符分割成行（同一水平分组的bounding boxes合并后的文本），
+        然后对每行进行聚类。
+
+        Args:
+            event_id: 事件ID
+
+        Returns:
+            (文本行列表, 调试信息字典)
+            调试信息包含：
+            - original_ocr_blocks: 原始OCR块列表
+            - original_ocr_blocks_count: 原始OCR块数量
+            - ocr_lines_count: 文本行数量
+            - lines_per_block_avg: 平均每个块的行数
+            - raw_lines_count: 分割后的总行数（过滤前）
+            - filtered_short_count: 过滤掉的过短行数
+            - filtered_symbol_or_digit_count: 过滤掉的纯符号/纯数字行数
+            - filtered_low_confidence_blocks: 因低置信度跳过的OCR块数量
+            - lines_with_meta: 行级元数据（文本 + screenshot_id）
+        """
+        ocr_lines = []
+        original_ocr_blocks = []
+        lines_with_meta: list[dict[str, Any]] = []
+        debug_info = {
+            "original_ocr_blocks": [],
+            "original_ocr_blocks_count": 0,
+            "ocr_lines_count": 0,
+            "lines_per_block_avg": 0.0,
+            "raw_lines_count": 0,
+            "filtered_short_count": 0,
+            "filtered_symbol_or_digit_count": 0,
+            "filtered_low_confidence_blocks": 0,
+            "lines_with_meta": [],
+        }
 
         try:
             with get_session() as session:
-                # 查询事件下的所有截图
                 screenshots = (
                     session.query(Screenshot).filter(Screenshot.event_id == event_id).all()
                 )
 
-                # 获取每个截图的OCR结果
                 for screenshot in screenshots:
                     ocr_results = (
                         session.query(OCRResult)
@@ -310,14 +454,126 @@ class EventSummaryService:
                     )
 
                     for ocr in ocr_results:
-                        if ocr.text_content and ocr.text_content.strip():
-                            ocr_texts.append(ocr.text_content.strip())
+                        if not ocr.text_content or not ocr.text_content.strip():
+                            continue
 
-            return ocr_texts
+                        ocr_block = ocr.text_content.strip()
+                        original_ocr_blocks.append(ocr_block)
+
+                        if ocr.confidence is not None and ocr.confidence < MIN_OCR_CONFIDENCE:
+                            debug_info["filtered_low_confidence_blocks"] += 1
+                            continue
+
+                        self._process_ocr_block(
+                            ocr_block, screenshot.id, ocr_lines, lines_with_meta, debug_info
+                        )
+
+            debug_info["original_ocr_blocks"] = original_ocr_blocks
+            debug_info["original_ocr_blocks_count"] = len(original_ocr_blocks)
+            debug_info["ocr_lines_count"] = len(ocr_lines)
+            debug_info["lines_with_meta"] = lines_with_meta
+            if len(original_ocr_blocks) > 0:
+                debug_info["lines_per_block_avg"] = len(ocr_lines) / len(original_ocr_blocks)
+
+            return ocr_lines, debug_info
 
         except Exception as e:
             logger.error(f"获取事件OCR文本失败: {e}")
-            return []
+            return [], debug_info
+
+    def _build_text_to_screenshots_map(
+        self, lines_with_meta: list[dict[str, Any]]
+    ) -> dict[str, set[int]]:
+        """构建文本到截图ID集合的映射"""
+        text_to_screenshots: dict[str, set[int]] = {}
+        for item in lines_with_meta:
+            text = item.get("text")
+            screenshot_id = item.get("screenshot_id")
+            if not text:
+                continue
+            if text not in text_to_screenshots:
+                text_to_screenshots[text] = set()
+            screenshot_id = screenshot_id if screenshot_id is not None else -1
+            text_to_screenshots[text].add(screenshot_id)
+        return text_to_screenshots
+
+    def _identify_ui_candidates(self, text_to_screenshots: dict[str, set[int]]) -> set[str]:
+        """识别UI候选文本"""
+        return {
+            text
+            for text, screenshots in text_to_screenshots.items()
+            if len(screenshots) >= UI_REPEAT_THRESHOLD and len(text) <= UI_CANDIDATE_MAX_LENGTH
+        }
+
+    def _separate_ui_and_body_lines(
+        self, lines_with_meta: list[dict[str, Any]], ui_candidates: set[str]
+    ) -> tuple[list[str], list[str]]:
+        """将行分为UI行和正文行"""
+        ui_lines: list[str] = []
+        body_lines: list[str] = []
+        for item in lines_with_meta:
+            text = item.get("text")
+            if not text:
+                continue
+            if text in ui_candidates:
+                ui_lines.append(text)
+            else:
+                body_lines.append(text)
+        return ui_lines, body_lines
+
+    def _select_representative_ui_texts(self, ui_lines: list[str]) -> list[str]:
+        """选择代表性UI文本（去重）"""
+        seen_ui: set[str] = set()
+        ui_kept: list[str] = []
+        for line in ui_lines:
+            if line in seen_ui:
+                continue
+            ui_kept.append(line)
+            seen_ui.add(line)
+            if len(ui_kept) >= UI_REPRESENTATIVE_LIMIT:
+                break
+        return ui_kept
+
+    def _separate_ui_candidates(
+        self, lines_with_meta: list[dict[str, Any]]
+    ) -> tuple[list[str], dict[str, Any]]:
+        """识别跨截图重复的UI候选文本，并返回正文行
+
+        Args:
+            lines_with_meta: 包含文本及其来源截图ID的行级元数据
+
+        Returns:
+            (正文行列表, ui调试信息)
+        """
+        ui_info = {
+            "ui_candidates": [],
+            "ui_candidates_count": 0,
+            "ui_lines_total": 0,
+            "ui_kept": [],
+            "body_lines_count": 0,
+            "repeat_threshold": UI_REPEAT_THRESHOLD,
+            "length_cutoff": UI_CANDIDATE_MAX_LENGTH,
+        }
+
+        if not lines_with_meta:
+            return [], ui_info
+
+        text_to_screenshots = self._build_text_to_screenshots_map(lines_with_meta)
+        ui_candidates = self._identify_ui_candidates(text_to_screenshots)
+        ui_lines, body_lines = self._separate_ui_and_body_lines(lines_with_meta, ui_candidates)
+        ui_kept = self._select_representative_ui_texts(ui_lines)
+
+        ui_info.update(
+            {
+                "ui_candidates": list(ui_candidates),
+                "ui_candidates_count": len(ui_candidates),
+                "ui_lines_total": len(ui_lines),
+                "ui_kept": ui_kept,
+                "body_lines_count": len(body_lines),
+            }
+        )
+
+        return body_lines, ui_info
 
     def _prepare_ocr_text(self, ocr_texts: list[str]) -> str | None:
         """准备OCR文本，合并并限制长度
@@ -359,8 +615,8 @@ class EventSummaryService:
         try:
             result = json.loads(content)
             if "title" in result and "summary" in result:
-                title = result["title"][:20]
-                summary = result["summary"][:60]
+                title = result["title"][:MAX_TITLE_LENGTH]
+                summary = result["summary"][:MAX_SUMMARY_LENGTH]
                 return {"title": title, "summary": summary}
             logger.warning(f"LLM返回格式不正确: {result}")
             return None
@@ -434,11 +690,11 @@ class EventSummaryService:
             start_str = start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "未知"
             end_str = end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "进行中"
 
-            # 从配置文件加载提示词
-            system_prompt = get_prompt("event_summary", "activity_assistant")
+            # 从配置文件加载提示词（使用专用的事件摘要提示词）
+            system_prompt = get_prompt("event_summary", "system_assistant")
             user_prompt = get_prompt(
                 "event_summary",
-                "activity_summary",
+                "user_prompt",
                 app_name=app_name or "未知应用",
                 window_title=window_title or "未知窗口",
                 start_time=start_str,
@@ -577,11 +833,18 @@ class EventSummaryService:
     def _calculate_cluster_params(self, text_count: int) -> int:
         """计算HDBSCAN聚类参数
 
+        适应行级别的文本数量（通常远大于截图数量），使用更保守的参数。
+
+        Args:
+            text_count: 文本数量（对于行级别聚类，通常是文本行数量）
+
         Returns:
             min_cluster_size
         """
-        min_cluster_size = max(MIN_CLUSTER_SIZE, text_count // 10)
-        max_cluster_size = max(MIN_CLUSTER_SIZE, text_count // 2)
+        # 对于行级别的聚类，文本数量通常很大，使用更小的比例
+        # 但保持最小聚类大小不变，确保聚类有意义
+        min_cluster_size = max(MIN_CLUSTER_SIZE, text_count // 20)  # 从 //10 改为 //20，适应更多行
+        max_cluster_size = max(MIN_CLUSTER_SIZE, text_count // 3)  # 从 //2 改为 //3，适应更多行
         min_cluster_size = min(min_cluster_size, max_cluster_size)
         return max(MIN_CLUSTER_SIZE, min_cluster_size)
 

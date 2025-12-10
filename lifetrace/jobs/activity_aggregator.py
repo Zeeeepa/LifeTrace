@@ -81,10 +81,11 @@ def create_activity_for_long_event(event: Event) -> bool:
             logger.debug(f"事件 {event.id} 已存在重叠的活动，跳过")
             return False
 
-        # 准备事件数据
+        # 准备事件数据（包含时间信息以支持时间线呈现）
         event_data = {
             "ai_title": event.ai_title or "",
             "ai_summary": event.ai_summary or "",
+            "start_time": event.start_time,  # 添加时间信息
         }
 
         # 生成活动摘要
@@ -136,13 +137,14 @@ def create_activity_for_window(window_start: datetime, window_events: list[Event
             logger.debug(f"窗口 {window_start} 已存在活动记录，跳过")
             return False
 
-        # 准备事件数据
+        # 准备事件数据（包含时间信息以支持时间线呈现）
         events_data = []
         for event in window_events:
             events_data.append(
                 {
                     "ai_title": event.ai_title or "",
                     "ai_summary": event.ai_summary or "",
+                    "start_time": event.start_time,  # 添加时间信息
                 }
             )
 
