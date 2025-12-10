@@ -53,17 +53,26 @@ class ActivitySummaryService:
                 logger.warning("LLM客户端不可用，使用后备方案")
                 return self._generate_fallback_summary(events, start_time, end_time)
 
-            # 准备输入数据
+            # 准备输入数据，支持时间信息
             event_summaries = []
             for event in events:
                 title = event.get("ai_title", "")
                 summary = event.get("ai_summary", "")
+                # 支持 start_time 或 time 字段
+                event_time = event.get("start_time") or event.get("time")
                 if title or summary:
-                    event_summaries.append({"title": title, "summary": summary})
+                    event_data = {"title": title, "summary": summary}
+                    if event_time:
+                        event_data["time"] = event_time
+                    event_summaries.append(event_data)
 
             if not event_summaries:
                 logger.warning("所有事件都没有AI总结，使用后备方案")
                 return self._generate_fallback_summary(events, start_time, end_time)
+
+            # 如果有时间信息，按时间排序
+            if any("time" in e for e in event_summaries):
+                event_summaries.sort(key=lambda x: x.get("time") or datetime.min)
 
             # 使用LLM生成总结
             result = self._generate_summary_with_llm(
@@ -103,12 +112,25 @@ class ActivitySummaryService:
             start_str = start_time.strftime("%Y-%m-%d %H:%M:%S") if start_time else "未知"
             end_str = end_time.strftime("%Y-%m-%d %H:%M:%S") if end_time else "进行中"
 
-            # 构建事件摘要文本
+            # 构建事件摘要文本（按时间线格式）
             events_text = ""
+            has_time_info = any("time" in e for e in event_summaries)
+
             for i, event in enumerate(event_summaries, 1):
                 title = event.get("title", "无标题")
                 summary = event.get("summary", "无摘要")
-                events_text += f"{i}. 标题：{title}\n   摘要：{summary}\n\n"
+
+                if has_time_info and "time" in event:
+                    # 如果有时间信息，按时间线格式呈现
+                    event_time = event.get("time")
+                    if isinstance(event_time, datetime):
+                        time_str = event_time.strftime("%H:%M:%S")
+                    else:
+                        time_str = str(event_time)
+                    events_text += f"{i}. [{time_str}] {title}\n   {summary}\n\n"
+                else:
+                    # 无时间信息，使用原有格式
+                    events_text += f"{i}. 标题：{title}\n   摘要：{summary}\n\n"
 
             # 从配置文件加载提示词
             system_prompt = get_prompt("activity_summary", "system_assistant")
@@ -121,7 +143,7 @@ class ActivitySummaryService:
                 event_count=len(event_summaries),
             )
 
-            # 调用LLM
+            # 调用LLM（增加max_tokens以支持结构化摘要）
             response = self.llm_client.client.chat.completions.create(
                 model=self.llm_client.model,
                 messages=[
@@ -129,7 +151,7 @@ class ActivitySummaryService:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.3,
-                max_tokens=300,
+                max_tokens=1000,  # 增加token限制以支持结构化摘要（500字中文约需1000 tokens）
             )
 
             # 记录token使用量
@@ -190,7 +212,7 @@ class ActivitySummaryService:
             result = json.loads(content)
             if "title" in result and "summary" in result:
                 title = result["title"][:MAX_TITLE_LENGTH]
-                summary = result["summary"][:500]  # 摘要限制在500字
+                summary = result["summary"][:1500]  # 摘要限制在1500字符（约500-750中文字）
                 return {"title": title, "summary": summary}
             logger.warning(f"LLM返回格式不正确: {result}")
             return None

@@ -114,6 +114,24 @@ class ActivityManager:
             logger.error(f"查询活动列表失败: {e}")
             return []
 
+    def count_activities(
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> int:
+        """统计活动总数"""
+        try:
+            with self.db_base.get_session() as session:
+                q = session.query(Activity).filter(Activity.deleted_at.is_(None))
+                if start_date:
+                    q = q.filter(Activity.start_time >= start_date)
+                if end_date:
+                    q = q.filter(Activity.start_time <= end_date)
+                return q.count()
+        except SQLAlchemyError as e:
+            logger.error(f"统计活动数量失败: {e}")
+            return 0
+
     def get_activity_events(self, activity_id: int) -> list[int]:
         """获取活动关联的事件ID列表
 
@@ -176,6 +194,19 @@ class ActivityManager:
                         .first()
                     )
                     if not relation:
+                        # 在session关闭前访问所有需要的属性，确保它们被加载
+                        # 这样可以避免在session外访问时触发refresh操作
+                        _ = (
+                            event.id,
+                            event.start_time,
+                            event.end_time,
+                            event.ai_title,
+                            event.ai_summary,
+                            event.app_name,
+                            event.window_title,
+                        )
+                        # 将对象从session中分离，使其可以在session外使用
+                        session.expunge(event)
                         unprocessed_events.append(event)
 
                 return unprocessed_events
