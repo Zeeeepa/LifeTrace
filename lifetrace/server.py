@@ -14,6 +14,7 @@ from lifetrace.routers import (
     cost_tracking,
     event,
     health,
+    journal,
     logs,
     ocr,
     project,
@@ -83,6 +84,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Session-Id"],  # 允许前端读取会话ID，支持多轮对话
 )
 
 # 初始化OCR处理器
@@ -125,6 +127,7 @@ app.include_router(system.router)
 app.include_router(logs.router)
 app.include_router(project.router)
 app.include_router(task.router)
+app.include_router(journal.router)
 app.include_router(context.router)
 app.include_router(rag.router)
 app.include_router(scheduler.router)

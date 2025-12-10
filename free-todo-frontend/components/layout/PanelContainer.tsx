@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { PanelPosition } from "@/lib/config/panel-config";
-import { getFeatureByPosition } from "@/lib/config/panel-config";
+import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
 
 interface PanelContainerProps {
@@ -32,6 +32,7 @@ export function PanelContainer({
 	className,
 	isDragging = false,
 }: PanelContainerProps) {
+	const { getFeatureByPosition } = useUiStore();
 	const flexBasis = `${Math.round(width * 1000) / 10}%`;
 	// panelA 从左侧滑入，panelB 和 panelC 从右侧滑入
 	const isLeftPanel = position === "panelA";
@@ -48,6 +49,9 @@ export function PanelContainer({
 		calendar: "Calendar Panel",
 		todos: "Todos Panel",
 		chat: "Chat Panel",
+		todoDetail: "Todo Detail Panel",
+		diary: "Diary Panel",
+		settings: "Settings Panel",
 	};
 
 	// 拖动时使用即时更新，禁用动画
@@ -56,7 +60,7 @@ export function PanelContainer({
 	return (
 		<motion.section
 			key={position}
-			aria-label={ariaLabelMap[feature] || "Panel"}
+			aria-label={feature ? ariaLabelMap[feature] || "Panel" : "Panel"}
 			className={cn(
 				"relative flex h-full min-h-0 flex-1 flex-col",
 				"bg-white dark:bg-zinc-900",

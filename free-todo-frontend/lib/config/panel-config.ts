@@ -1,46 +1,73 @@
 /**
  * Panel 配置层
  * 定义功能到位置的映射关系
+ * 现在使用动态分配系统，功能可以动态分配到位置
  */
+
+import {
+	Award,
+	BookOpen,
+	CalendarDays,
+	Camera,
+	FileText,
+	LayoutPanelLeft,
+	type LucideIcon,
+	MessageSquare,
+	Settings,
+} from "lucide-react";
+
+const IS_DEV_ENV = process.env.NODE_ENV === "development";
 
 export type PanelPosition = "panelA" | "panelB" | "panelC";
-export type PanelFeature = "calendar" | "todos" | "chat";
+export type CorePanelFeature =
+	| "calendar"
+	| "todos"
+	| "chat"
+	| "todoDetail"
+	| "diary"
+	| "settings"
+	| "achievements";
+export type DevPanelFeature = "debugShots";
+export type PanelFeature = CorePanelFeature | DevPanelFeature;
+
+const CORE_PANEL_FEATURES: CorePanelFeature[] = [
+	"calendar",
+	"todos",
+	"chat",
+	"todoDetail",
+	"diary",
+	"settings",
+	"achievements",
+];
+const DEV_PANEL_FEATURES: DevPanelFeature[] = IS_DEV_ENV ? ["debugShots"] : [];
 
 /**
- * 功能到位置的映射配置
- * 未来可以通过修改这个配置来改变功能占据的位置
+ * 所有可用的功能列表
  */
-export const PANEL_CONFIG: Record<PanelPosition, PanelFeature> = {
-	panelA: "calendar",
-	panelB: "todos",
-	panelC: "chat",
+export const ALL_PANEL_FEATURES: PanelFeature[] = [
+	...CORE_PANEL_FEATURES,
+	...DEV_PANEL_FEATURES,
+];
+
+export const DEV_FEATURES = DEV_PANEL_FEATURES;
+export const IS_DEV_FEATURE_ENABLED = IS_DEV_ENV;
+
+/**
+ * 功能到图标的映射配置
+ */
+const CORE_FEATURE_ICON_MAP: Record<CorePanelFeature, LucideIcon> = {
+	calendar: CalendarDays,
+	todos: LayoutPanelLeft,
+	chat: MessageSquare,
+	todoDetail: FileText,
+	diary: BookOpen,
+	settings: Settings,
+	achievements: Award,
 };
 
-/**
- * 位置到功能的映射（反向查找）
- */
-export const POSITION_TO_FEATURE: Record<PanelPosition, PanelFeature> =
-	PANEL_CONFIG;
-
-/**
- * 功能到位置的映射（反向查找）
- */
-export const FEATURE_TO_POSITION: Record<PanelFeature, PanelPosition> = {
-	calendar: "panelA",
-	todos: "panelB",
-	chat: "panelC",
-};
-
-/**
- * 获取指定位置对应的功能
- */
-export function getFeatureByPosition(position: PanelPosition): PanelFeature {
-	return PANEL_CONFIG[position];
-}
-
-/**
- * 获取指定功能对应的位置
- */
-export function getPositionByFeature(feature: PanelFeature): PanelPosition {
-	return FEATURE_TO_POSITION[feature];
-}
+export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = IS_DEV_ENV
+	? {
+			...CORE_FEATURE_ICON_MAP,
+			debugShots: Camera,
+		}
+	: (CORE_FEATURE_ICON_MAP as Record<PanelFeature, LucideIcon>);

@@ -1,0 +1,168 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
+import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
+import { useTranslations } from "@/lib/i18n";
+import type { Translation } from "@/lib/i18n/types";
+import { useLocaleStore } from "@/lib/store/locale";
+import { useUiStore } from "@/lib/store/ui-store";
+import { cn } from "@/lib/utils";
+
+interface PanelSelectorMenuProps {
+	position: PanelPosition;
+	isOpen: boolean;
+	onClose: () => void;
+	onSelect: (feature: PanelFeature) => void;
+	anchorElement: HTMLElement | null;
+}
+
+// 功能到翻译键的映射
+function getFeatureLabelKey(
+	feature: PanelFeature,
+): keyof Translation["bottomDock"] {
+	return feature;
+}
+
+export function PanelSelectorMenu({
+	position: _position,
+	isOpen,
+	onClose,
+	onSelect,
+	anchorElement,
+}: PanelSelectorMenuProps) {
+	const menuRef = useRef<HTMLDivElement>(null);
+	const { getAvailableFeatures } = useUiStore();
+	const { locale } = useLocaleStore();
+	const t = useTranslations(locale);
+
+	const availableFeatures = getAvailableFeatures();
+
+	// 点击外部关闭菜单
+	useEffect(() => {
+		if (!isOpen) return;
+
+		const handleClickOutside = (event: MouseEvent) => {
+			if (
+				menuRef.current &&
+				!menuRef.current.contains(event.target as Node) &&
+				anchorElement &&
+				!anchorElement.contains(event.target as Node)
+			) {
+				onClose();
+			}
+		};
+
+		const handleEscape = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				onClose();
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		document.addEventListener("keydown", handleEscape);
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("keydown", handleEscape);
+		};
+	}, [isOpen, onClose, anchorElement]);
+
+	// 计算菜单位置
+	const getMenuPosition = () => {
+		if (!anchorElement) {
+			return { top: 0, left: 0 };
+		}
+
+		const rect = anchorElement.getBoundingClientRect();
+		const itemHeight = 40; // 每个菜单项的高度（包括padding）
+		const menuHeight = availableFeatures.length * itemHeight;
+		const spacing = 8; // 菜单与按钮之间的间距
+
+		return {
+			top: rect.top - menuHeight - spacing, // 向上展开
+			left: rect.left,
+		};
+	};
+
+	if (availableFeatures.length === 0) {
+		return null;
+	}
+
+	const menuPosition = getMenuPosition();
+
+	// 使用 Portal 将菜单渲染到 body，避免被父元素样式影响
+	const menuContent = (
+		<AnimatePresence>
+			{isOpen && (
+				<>
+					{/* 背景遮罩 */}
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						className="fixed inset-0 z-[100]"
+						onClick={onClose}
+					/>
+					{/* 菜单 */}
+					<motion.div
+						ref={menuRef}
+						initial={{ opacity: 0, y: 10, scale: 0.95 }}
+						animate={{ opacity: 1, y: 0, scale: 1 }}
+						exit={{ opacity: 0, y: 10, scale: 0.95 }}
+						transition={{ duration: 0.15 }}
+						className={cn(
+							"fixed z-[101]",
+							"bg-white dark:bg-zinc-900",
+							"border border-zinc-200 dark:border-zinc-800",
+							"rounded-lg",
+							"shadow-lg",
+							"py-1",
+							"min-w-[110px]",
+						)}
+						style={{
+							top: `${menuPosition.top}px`,
+							left: `${menuPosition.left}px`,
+						}}
+					>
+						{availableFeatures.map((feature) => {
+							const Icon = FEATURE_ICON_MAP[feature];
+							const labelKey = getFeatureLabelKey(feature);
+							return (
+								<button
+									key={feature}
+									type="button"
+									onClick={() => {
+										onSelect(feature);
+										onClose();
+									}}
+									className={cn(
+										"w-full flex items-center gap-2",
+										"px-3 py-2",
+										"text-sm font-medium",
+										"text-black dark:text-white",
+										"hover:bg-zinc-100 dark:hover:bg-zinc-800",
+										"transition-colors",
+										"first:rounded-t-lg last:rounded-b-lg",
+									)}
+								>
+									<Icon className="h-4 w-4 shrink-0" />
+									<span>{t.bottomDock[labelKey]}</span>
+								</button>
+							);
+						})}
+					</motion.div>
+				</>
+			)}
+		</AnimatePresence>
+	);
+
+	// 在客户端渲染时使用 Portal
+	if (typeof window !== "undefined") {
+		return createPortal(menuContent, document.body);
+	}
+
+	return null;
+}
