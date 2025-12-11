@@ -26,7 +26,7 @@
 - 响应式设计
 - 国际化支持（如需要）
 
-请在 `web/components/` 目录下创建组件，并遵循项目的代码规范。
+请在 `free-todo-frontend/components/` 目录下创建组件，并遵循项目的代码规范。
 
 ### 创建 Shadcn UI 组件
 
@@ -59,7 +59,7 @@
 
 ### 实现 API 路由
 
-在 `web/app/api/` 目录下创建 API 路由：
+在 `free-todo-frontend/app/api/` 目录下创建 API 路由：
 - 使用 Next.js Route Handlers
 - 实现请求验证
 - 添加错误处理
