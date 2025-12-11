@@ -2,6 +2,7 @@
 
 import {
 	Calendar,
+	Flag,
 	Info,
 	Paperclip,
 	Plus,
@@ -16,7 +17,7 @@ import {
 	useState,
 } from "react";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { TodoStatus } from "@/lib/types/todo";
+import type { TodoPriority, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
 export function TodoDetail() {
@@ -32,6 +33,7 @@ export function TodoDetail() {
 
 	const [showDescription, setShowDescription] = useState(true);
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+	const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
 	const [isEditingDeadline, setIsEditingDeadline] = useState(false);
 	const [deadlineInput, setDeadlineInput] = useState("");
 	const [isEditingTags, setIsEditingTags] = useState(false);
@@ -41,8 +43,10 @@ export function TodoDetail() {
 	// 子待办仅需要名称，保持交互简洁
 	const notesRef = useRef<HTMLTextAreaElement | null>(null);
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
+	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
 
 	const statusOptions: TodoStatus[] = ["active", "completed", "canceled"];
+	const priorityOptions: TodoPriority[] = ["high", "medium", "low", "none"];
 
 	const getStatusClassNames = (status: TodoStatus) =>
 		cn(
@@ -53,6 +57,44 @@ export function TodoDetail() {
 					? "border-gray-500/50 text-gray-500"
 					: "border-blue-500/50 text-blue-600",
 		);
+
+	const getPriorityClassNames = (priority: TodoPriority) =>
+		cn(
+			"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+			priority === "high"
+				? "border-red-500/50 text-red-600"
+				: priority === "medium"
+					? "border-amber-500/50 text-amber-600"
+					: priority === "low"
+						? "border-emerald-500/50 text-emerald-600"
+						: "border-muted-foreground/40 text-muted-foreground",
+		);
+
+	const getPriorityIconColor = (priority: TodoPriority) => {
+		switch (priority) {
+			case "high":
+				return "text-red-500";
+			case "medium":
+				return "text-amber-500";
+			case "low":
+				return "text-emerald-500";
+			default:
+				return "text-muted-foreground";
+		}
+	};
+
+	const getPriorityLabel = (priority: TodoPriority) => {
+		switch (priority) {
+			case "high":
+				return "高";
+			case "medium":
+				return "中";
+			case "low":
+				return "低";
+			default:
+				return "无";
+		}
+	};
 
 	const adjustNotesHeight = useCallback(() => {
 		const el = notesRef.current;
@@ -95,20 +137,25 @@ export function TodoDetail() {
 		return () => window.removeEventListener("resize", handleResize);
 	}, [adjustNotesHeight, todo]);
 
-	// 点击其他区域或按下 ESC 时关闭状态下拉
+	// 点击其他区域或按下 ESC 时关闭状态/优先级下拉
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				statusMenuRef.current &&
-				!statusMenuRef.current.contains(event.target as Node)
-			) {
+			const target = event.target as Node;
+			if (statusMenuRef.current && !statusMenuRef.current.contains(target)) {
 				setIsStatusMenuOpen(false);
+			}
+			if (
+				priorityMenuRef.current &&
+				!priorityMenuRef.current.contains(target)
+			) {
+				setIsPriorityMenuOpen(false);
 			}
 		};
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") {
 				setIsStatusMenuOpen(false);
+				setIsPriorityMenuOpen(false);
 			}
 		};
 
@@ -127,6 +174,7 @@ export function TodoDetail() {
 			return;
 		}
 		setIsStatusMenuOpen(false);
+		setIsPriorityMenuOpen(false);
 	}, [todo?.id]);
 
 	const formatDeadlineForInput = useCallback((value?: string) => {
@@ -192,6 +240,13 @@ export function TodoDetail() {
 			updateTodo(todo.id, { status });
 		}
 		setIsStatusMenuOpen(false);
+	};
+
+	const handlePriorityChange = (priority: TodoPriority) => {
+		if (priority !== (todo.priority ?? "none")) {
+			updateTodo(todo.id, { priority });
+		}
+		setIsPriorityMenuOpen(false);
 	};
 
 	const handleDeadlineSave = () => {
@@ -324,6 +379,55 @@ export function TodoDetail() {
 													{status}
 												</span>
 												{status === todo.status && (
+													<span className="text-[11px] text-primary">当前</span>
+												)}
+											</button>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
+
+						<div className="relative" ref={priorityMenuRef}>
+							<button
+								type="button"
+								onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+								className={cn(
+									getPriorityClassNames(todo.priority ?? "none"),
+									"transition-colors hover:bg-muted/40",
+								)}
+								aria-expanded={isPriorityMenuOpen}
+								aria-haspopup="listbox"
+							>
+								<Flag className="h-4 w-4" fill="currentColor" aria-hidden />
+								{getPriorityLabel(todo.priority ?? "none")}
+							</button>
+							{isPriorityMenuOpen && (
+								<div className="absolute z-120 mt-2 min-w-[170px] rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg pointer-events-auto">
+									<div className="py-1" role="listbox">
+										{priorityOptions.map((priority) => (
+											<button
+												key={priority}
+												type="button"
+												onClick={() => handlePriorityChange(priority)}
+												className={cn(
+													"flex w-full items-center justify-between px-3 py-2 text-left text-xs transition-colors",
+													priority === (todo.priority ?? "none")
+														? "bg-muted/60 text-foreground"
+														: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+												)}
+												role="option"
+												aria-selected={priority === (todo.priority ?? "none")}
+											>
+												<span className={getPriorityClassNames(priority)}>
+													<Flag
+														className="h-3.5 w-3.5"
+														fill="currentColor"
+														aria-hidden
+													/>
+													{getPriorityLabel(priority)}
+												</span>
+												{priority === (todo.priority ?? "none") && (
 													<span className="text-[11px] text-primary">当前</span>
 												)}
 											</button>
@@ -509,6 +613,14 @@ export function TodoDetail() {
 									<div className="flex flex-col gap-1">
 										<div className="flex items-center gap-2">
 											<span className="inline-flex h-4 w-4 items-center justify-center rounded-md border-2 border-muted-foreground/60" />
+											<Flag
+												className={cn(
+													"h-3.5 w-3.5",
+													getPriorityIconColor(child.priority ?? "none"),
+												)}
+												fill="currentColor"
+												title={`优先级：${getPriorityLabel(child.priority ?? "none")}`}
+											/>
 											<span className="text-sm font-semibold text-foreground">
 												{child.name}
 											</span>

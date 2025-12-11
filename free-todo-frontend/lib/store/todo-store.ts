@@ -1,7 +1,12 @@
 import type { StateCreator } from "zustand";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { CreateTodoInput, Todo, UpdateTodoInput } from "@/lib/types/todo";
+import type {
+	CreateTodoInput,
+	Todo,
+	TodoPriority,
+	UpdateTodoInput,
+} from "@/lib/types/todo";
 
 interface TodoStoreState {
 	todos: Todo[];
@@ -21,6 +26,28 @@ interface TodoStoreState {
 const generateId = () => {
 	return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+const normalizePriority = (priority: unknown): TodoPriority => {
+	if (
+		priority === "high" ||
+		priority === "medium" ||
+		priority === "low" ||
+		priority === "none"
+	) {
+		return priority;
+	}
+	return "none";
+};
+
+type PersistedStorage = {
+	state?: Partial<TodoStoreState> & {
+		todos?: Array<Omit<Todo, "priority"> & { priority?: unknown }>;
+	};
+	version?: number;
+};
+
+const isPersistedStorage = (value: unknown): value is PersistedStorage =>
+	typeof value === "object" && value !== null && "state" in value;
 
 const todoStoreCreator: StateCreator<TodoStoreState> = persist<TodoStoreState>(
 	(set) => ({
@@ -58,6 +85,7 @@ const todoStoreCreator: StateCreator<TodoStoreState> = persist<TodoStoreState>(
 				description: input.description,
 				userNotes: input.userNotes,
 				status: input.status || "active",
+				priority: normalizePriority(input.priority),
 				deadline: input.deadline,
 				tags: input.tags || [],
 				attachments: input.attachments || [],
@@ -98,6 +126,9 @@ const todoStoreCreator: StateCreator<TodoStoreState> = persist<TodoStoreState>(
 						? {
 								...todo,
 								...input,
+								priority: normalizePriority(
+									input.priority ?? todo.priority ?? "none",
+								),
 								updatedAt: new Date().toISOString(),
 							}
 						: todo,
@@ -143,6 +174,22 @@ const todoStoreCreator: StateCreator<TodoStoreState> = persist<TodoStoreState>(
 	{
 		name: "todo-storage",
 		storage: createJSONStorage(() => localStorage),
+		version: 1,
+		migrate: (state: unknown, _version: number): TodoStoreState => {
+			// 兼容旧数据：补齐 priority 字段
+			if (isPersistedStorage(state) && state.state) {
+				const todos = state.state.todos ?? [];
+				const migratedTodos = todos.map((todo) => ({
+					...todo,
+					priority: normalizePriority(todo.priority),
+				}));
+				return {
+					...state.state,
+					todos: migratedTodos,
+				} as TodoStoreState;
+			}
+			return state as TodoStoreState;
+		},
 	},
 ) as unknown as StateCreator<TodoStoreState>;
 

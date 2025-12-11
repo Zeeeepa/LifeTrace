@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { CreateTodoInput } from "@/lib/types/todo";
+import type { CreateTodoInput, TodoPriority } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
 interface CreateTodoFormProps {
@@ -16,6 +16,7 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 	const [deadline, setDeadline] = useState("");
 	const [tags, setTags] = useState("");
 	const [userNotes, setUserNotes] = useState("");
+	const [priority, setPriority] = useState<TodoPriority>("none");
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
@@ -26,6 +27,7 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 			description: description.trim() || undefined,
 			deadline: deadline || undefined,
 			userNotes: userNotes.trim() || undefined,
+			priority,
 			tags:
 				tags
 					.split(",")
@@ -39,6 +41,7 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 		setDeadline("");
 		setTags("");
 		setUserNotes("");
+		setPriority("none");
 		setIsExpanded(false);
 		onSuccess?.();
 	};
@@ -117,6 +120,26 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 								placeholder="如：工作, 报告"
 								className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 							/>
+						</div>
+
+						<div>
+							<label
+								htmlFor="priority-select"
+								className="mb-1 block text-xs font-medium text-muted-foreground"
+							>
+								优先级
+							</label>
+							<select
+								id="priority-select"
+								value={priority}
+								onChange={(e) => setPriority(e.target.value as TodoPriority)}
+								className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<option value="high">高</option>
+								<option value="medium">中</option>
+								<option value="low">低</option>
+								<option value="none">无</option>
+							</select>
 						</div>
 
 						<div>

@@ -2,12 +2,12 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Calendar, Paperclip, Plus, Tag, Trash2, X } from "lucide-react";
+import { Calendar, Flag, Paperclip, Plus, Tag, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 
 export interface TodoCardProps {
@@ -81,6 +81,32 @@ export function TodoCard({
 				return "Canceled";
 			default:
 				return status;
+		}
+	};
+
+	const getPriorityColor = (priority: TodoPriority) => {
+		switch (priority) {
+			case "high":
+				return "text-red-500";
+			case "medium":
+				return "text-amber-500";
+			case "low":
+				return "text-emerald-500";
+			default:
+				return "text-muted-foreground";
+		}
+	};
+
+	const getPriorityLabel = (priority: TodoPriority) => {
+		switch (priority) {
+			case "high":
+				return "高";
+			case "medium":
+				return "中";
+			case "low":
+				return "低";
+			default:
+				return "无";
 		}
 	};
 
@@ -225,6 +251,19 @@ export function TodoCard({
 							</div>
 
 							<div className="flex items-center gap-2 shrink-0">
+								<div
+									className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground"
+									title={`优先级：${getPriorityLabel(todo.priority ?? "none")}`}
+								>
+									<Flag
+										className={cn(
+											"h-3.5 w-3.5",
+											getPriorityColor(todo.priority ?? "none"),
+										)}
+										fill="currentColor"
+									/>
+									<span>{getPriorityLabel(todo.priority ?? "none")}</span>
+								</div>
 								{todo.status && (
 									<span
 										className={cn(

@@ -48,6 +48,9 @@ class DatabaseBase:
             # 进行 activities 表结构迁移（确保新表存在）
             self._migrate_activities_table()
 
+            # 进行 todos 表结构迁移（确保新列存在）
+            self._migrate_todos_table()
+
             # 只在数据库不存在时（新创建）打印日志
             if not db_exists:
                 logger.info(f"数据库初始化完成: {config.database_path}")
@@ -101,6 +104,10 @@ class DatabaseBase:
                     (
                         "idx_todos_deleted_at",
                         "CREATE INDEX IF NOT EXISTS idx_todos_deleted_at ON todos(deleted_at)",
+                    ),
+                    (
+                        "idx_todos_priority",
+                        "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                     ),
                     (
                         "idx_attachments_file_hash",
@@ -381,6 +388,33 @@ class DatabaseBase:
         except Exception as e:
             # 迁移失败不应阻止服务启动，但需要记录错误
             logger.error(f"activities 表结构迁移失败: {e}")
+
+    def _migrate_todos_table(self):
+        """迁移 todos 表结构，补充缺失列"""
+        try:
+            with self.engine.connect() as conn:
+                tables = [
+                    row[0]
+                    for row in conn.execute(
+                        text("SELECT name FROM sqlite_master WHERE type='table' AND name='todos'")
+                    ).fetchall()
+                ]
+                if "todos" not in tables:
+                    return
+
+                columns = [
+                    row[1] for row in conn.execute(text("PRAGMA table_info('todos')")).fetchall()
+                ]
+
+                if "priority" not in columns:
+                    conn.execute(
+                        text("ALTER TABLE todos ADD COLUMN priority VARCHAR(20) DEFAULT 'none'")
+                    )
+                    logger.info("已为 todos 表添加列: priority")
+
+                conn.commit()
+        except Exception as e:
+            logger.error(f"todos 表结构迁移失败: {e}")
 
     @contextmanager
     def get_session(self):
