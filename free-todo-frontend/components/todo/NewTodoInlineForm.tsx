@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import type React from "react";
+import { useEffect, useRef } from "react";
 
 interface NewTodoInlineFormProps {
 	value: string;
@@ -16,35 +17,47 @@ export function NewTodoInlineForm({
 	onSubmit,
 	onCancel,
 }: NewTodoInlineFormProps) {
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		inputRef.current?.focus();
+	}, []);
+
+	useEffect(() => {
+		if (value === "") {
+			inputRef.current?.focus();
+		}
+	}, [value]);
+
 	return (
 		<form
 			onSubmit={onSubmit}
-			className="flex flex-col gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-4 sm:flex-row sm:items-center sm:gap-3"
+			onReset={onCancel}
+			className="group flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 transition-colors focus-within:border-primary focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/40"
+			onClick={() => inputRef.current?.focus()}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					inputRef.current?.focus();
+				}
+			}}
 		>
+			<Plus className="h-4 w-4 text-muted-foreground group-focus-within:text-primary" />
 			<input
+				ref={inputRef}
 				type="text"
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				placeholder="输入待办名称..."
-				className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+				placeholder="添加任务"
+				className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
 				required
 			/>
-			<div className="flex items-center gap-2 sm:justify-end">
-				<button
-					type="button"
-					onClick={onCancel}
-					className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-				>
-					取消
-				</button>
-				<button
-					type="submit"
-					className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-				>
-					<Plus className="h-4 w-4" />
-					创建
-				</button>
-			</div>
+			<button type="submit" className="sr-only">
+				提交
+			</button>
+			<button type="reset" className="sr-only">
+				重置
+			</button>
 		</form>
 	);
 }

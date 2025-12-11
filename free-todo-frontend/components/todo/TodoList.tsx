@@ -33,7 +33,6 @@ export function TodoList() {
 	const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
-	const [isCreatingInline, setIsCreatingInline] = useState(false);
 	const [newTodoName, setNewTodoName] = useState("");
 
 	const sensors = useSensors(
@@ -103,7 +102,6 @@ export function TodoList() {
 
 		addTodo(input);
 		setNewTodoName("");
-		setIsCreatingInline(false);
 	};
 
 	return (
@@ -117,25 +115,12 @@ export function TodoList() {
 
 			<div className="flex-1 overflow-y-auto">
 				<div className="px-4 pb-4">
-					{isCreatingInline ? (
-						<NewTodoInlineForm
-							value={newTodoName}
-							onChange={setNewTodoName}
-							onSubmit={handleCreateTodo}
-							onCancel={() => {
-								setIsCreatingInline(false);
-								setNewTodoName("");
-							}}
-						/>
-					) : (
-						<button
-							type="button"
-							onClick={() => setIsCreatingInline(true)}
-							className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:bg-primary/10"
-						>
-							创建待办
-						</button>
-					)}
+					<NewTodoInlineForm
+						value={newTodoName}
+						onChange={setNewTodoName}
+						onSubmit={handleCreateTodo}
+						onCancel={() => setNewTodoName("")}
+					/>
 				</div>
 
 				{filteredTodos.length === 0 ? (
@@ -147,7 +132,7 @@ export function TodoList() {
 						orderedTodos={orderedTodos}
 						activeId={activeId}
 						selectedTodoIds={selectedTodoIds}
-						sensors={sensors as any}
+						sensors={sensors}
 						onDragStart={handleDragStart}
 						onDragEnd={handleDragEnd}
 						onDragCancel={handleDragCancel}

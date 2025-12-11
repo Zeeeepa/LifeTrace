@@ -3,11 +3,10 @@
 import {
 	closestCenter,
 	DndContext,
+	type DndContextProps,
 	type DragEndEvent,
 	DragOverlay,
 	type DragStartEvent,
-	type SensorDescriptor,
-	type SensorInstance,
 	type UniqueIdentifier,
 } from "@dnd-kit/core";
 import {
@@ -22,7 +21,7 @@ interface TodoTreeListProps {
 	orderedTodos: OrderedTodo[];
 	activeId: UniqueIdentifier | null;
 	selectedTodoIds: string[];
-	sensors: SensorDescriptor<SensorInstance>[];
+	sensors: DndContextProps["sensors"];
 	onDragStart: (event: DragStartEvent) => void;
 	onDragEnd: (event: DragEndEvent) => void;
 	onDragCancel: () => void;
