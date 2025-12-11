@@ -33,9 +33,9 @@ export function ResizeHandle({ onPointerDown, isDragging }: ResizeHandleProps) {
 				className={cn(
 					"pointer-events-none h-full w-[3px] rounded-full transition-all duration-150",
 					isDragging
-						? "bg-primary shadow-[0_0_0_1px_hsl(var(--primary))]"
+						? "bg-primary shadow-[0_0_0_1px_oklch(var(--primary))]"
 						: isHovered
-							? "bg-muted-foreground/60 shadow-[0_0_0_1px_hsla(0,0%,0%,0.06)]"
+							? "bg-muted-foreground/60 shadow-[0_0_0_1px_oklch(var(--border))]"
 							: "bg-border",
 				)}
 			/>

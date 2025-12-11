@@ -63,9 +63,9 @@ export function PanelContainer({
 			aria-label={feature ? ariaLabelMap[feature] || "Panel" : "Panel"}
 			className={cn(
 				"relative flex h-full min-h-0 flex-1 flex-col",
-				"bg-white dark:bg-zinc-900",
-				"border border-[rgb(208,210,210)] dark:border-[rgb(70,71,75)]",
-				"rounded-[var(--radius-panel)]",
+				"bg-[oklch(var(--card))]",
+				"border border-[oklch(var(--border))]",
+				"rounded-(--radius-panel)",
 				"overflow-hidden",
 				className,
 			)}

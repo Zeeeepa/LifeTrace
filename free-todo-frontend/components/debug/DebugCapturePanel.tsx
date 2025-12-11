@@ -920,8 +920,8 @@ export function DebugCapturePanel() {
 																										{isLast &&
 																											screenshots.length >
 																												10 && (
-																												<div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-																													<span className="text-white font-semibold text-xs">
+																												<div className="absolute inset-0 bg-[oklch(var(--overlay))] flex items-center justify-center">
+																													<span className="text-[oklch(var(--foreground))] font-semibold text-xs">
 																														+
 																														{screenshots.length -
 																															10}
@@ -933,7 +933,7 @@ export function DebugCapturePanel() {
 																							);
 																						},
 																					)}
-																				<div className="absolute bottom-0 right-0 rounded-md bg-black/70 px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-white z-[60] pointer-events-none">
+																				<div className="absolute bottom-0 right-0 rounded-md bg-[oklch(var(--overlay))] px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-[oklch(var(--foreground))] z-[60] pointer-events-none">
 																					{screenshots.length} 张
 																				</div>
 																			</div>

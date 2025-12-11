@@ -48,7 +48,7 @@ export function LinkedTodos({
 						<button
 							type="button"
 							onClick={onClearSelection}
-							className="text-[11px] text-blue-600 transition-colors hover:text-blue-700"
+							className="text-[11px] text-[oklch(var(--primary))] transition-colors hover:text-[oklch(var(--primary-border))]"
 						>
 							{locale === "zh" ? "清空选择" : "Clear selection"}
 						</button>

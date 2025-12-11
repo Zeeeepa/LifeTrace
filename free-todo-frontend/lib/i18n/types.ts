@@ -51,6 +51,7 @@ export type Translation = {
 	};
 	bottomDock: {
 		calendar: string;
+		activity: string;
 		todos: string;
 		chat: string;
 		todoDetail: string;

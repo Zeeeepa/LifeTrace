@@ -102,7 +102,7 @@ export function TodoList() {
 	};
 
 	return (
-		<div className="relative flex h-full flex-col overflow-hidden bg-[rgb(220,234,254)] dark:bg-[rgb(24,46,79)]">
+		<div className="relative flex h-full flex-col overflow-hidden bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))]">
 			<TodoToolbar
 				filterStatus={filterStatus}
 				onFilterChange={setFilterStatus}
