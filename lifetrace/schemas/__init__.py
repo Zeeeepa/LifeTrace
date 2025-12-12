@@ -20,6 +20,7 @@ from lifetrace.schemas.vector import (
     SemanticSearchResult,
     VectorStatsResponse,
 )
+from lifetrace.schemas.vision import VisionChatRequest, VisionChatResponse
 
 __all__ = [
     # Chat
@@ -45,4 +46,7 @@ __all__ = [
     "SemanticSearchRequest",
     "SemanticSearchResult",
     "VectorStatsResponse",
+    # Vision
+    "VisionChatRequest",
+    "VisionChatResponse",
 ]

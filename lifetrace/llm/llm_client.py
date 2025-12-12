@@ -584,3 +584,123 @@ class LLMClient:
             "- 建议进一步细化查询条件以获得更精确的结果",
         ]
         return "\n".join(summary_parts)
+
+    def vision_chat(
+        self,
+        screenshot_ids: list[int],
+        prompt: str,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """
+        视觉多模态聊天：使用通义千问视觉模型分析多张图片
+
+        Args:
+            screenshot_ids: 截图ID列表
+            prompt: 文本提示词
+            model: 视觉模型名称，如果不提供则使用配置中的默认模型
+            temperature: 温度参数，如果不提供则使用配置中的默认值
+            max_tokens: 最大生成token数，如果不提供则使用配置中的默认值
+
+        Returns:
+            包含响应和元信息的字典：
+            - response: 模型生成的响应文本
+            - usage_info: Token使用信息
+            - model: 实际使用的模型名称
+            - screenshot_count: 实际处理的截图数量
+        """
+        if not self.is_available():
+            raise RuntimeError("LLM客户端不可用，无法进行视觉多模态分析")
+
+        try:
+            from lifetrace.util.image_utils import get_screenshots_base64
+
+            # 获取截图的base64编码
+            screenshot_data = get_screenshots_base64(screenshot_ids)
+            valid_screenshots = [item for item in screenshot_data if "base64_data" in item]
+
+            if not valid_screenshots:
+                raise ValueError("没有可用的截图，请检查截图ID是否正确")
+
+            # 构建多模态消息内容
+            content = []
+
+            # 添加所有图片
+            for item in valid_screenshots:
+                content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": item["base64_data"]},
+                    }
+                )
+
+            # 添加文本提示
+            content.append({"type": "text", "text": prompt})
+
+            # 构建消息
+            messages = [{"role": "user", "content": content}]
+
+            # 获取模型名称（优先使用传入的，否则使用配置中的视觉模型，最后使用默认模型）
+            from lifetrace.util.config import config
+
+            vision_model = model or config.get("llm.vision_model") or self.model
+
+            # 获取温度参数
+            vision_temperature = (
+                temperature if temperature is not None else config.get("llm.temperature", 0.7)
+            )
+
+            # 获取max_tokens
+            vision_max_tokens = (
+                max_tokens if max_tokens is not None else config.get("llm.max_tokens", 2048)
+            )
+
+            logger.info(f"调用视觉模型 {vision_model}，处理 {len(valid_screenshots)} 张截图")
+
+            # 调用API
+            response = self.client.chat.completions.create(
+                model=vision_model,
+                messages=messages,
+                temperature=vision_temperature,
+                max_tokens=vision_max_tokens,
+            )
+
+            # 提取响应
+            result_text = response.choices[0].message.content.strip()
+
+            # 记录token使用量
+            usage_info = None
+            if hasattr(response, "usage") and response.usage:
+                usage_info = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
+                log_token_usage(
+                    model=vision_model,
+                    input_tokens=response.usage.prompt_tokens,
+                    output_tokens=response.usage.completion_tokens,
+                    endpoint="vision_chat",
+                    user_query=prompt,
+                    response_type="vision_analysis",
+                    feature_type="vision_assistant",
+                    additional_info={
+                        "screenshot_count": len(valid_screenshots),
+                        "screenshot_ids": screenshot_ids,
+                    },
+                )
+
+            logger.info(f"视觉模型分析完成，响应长度: {len(result_text)}")
+
+            return {
+                "response": result_text,
+                "usage_info": usage_info,
+                "model": vision_model,
+                "screenshot_count": len(valid_screenshots),
+            }
+
+        except Exception as e:
+            logger.error(f"视觉多模态分析失败: {e}", exc_info=True)
+            raise
