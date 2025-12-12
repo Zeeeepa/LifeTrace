@@ -22,6 +22,8 @@ TODO_EXTRACTION_WHITELIST_APPS = ["微信", "WeChat", "飞书", "Feishu", "Lark"
 DEFAULT_SCREENSHOT_SAMPLE_RATIO = 3
 MIN_SCREENSHOTS = 1
 MAX_SCREENSHOTS = 10
+# 少于这个数量的截图不进行抽样，直接使用全部
+NO_SAMPLE_THRESHOLD = 5
 
 
 class TodoExtractionService:
@@ -66,8 +68,11 @@ class TodoExtractionService:
 
         total_count = len(screenshots)
 
-        # 如果截图数量较少，全部使用
-        if total_count <= MIN_SCREENSHOTS:
+        # 如果截图数量少于阈值，全部使用，不进行抽样
+        if total_count < NO_SAMPLE_THRESHOLD:
+            logger.info(
+                f"截图数量 {total_count} 少于{NO_SAMPLE_THRESHOLD}张，使用全部截图，不进行抽样"
+            )
             return screenshots
 
         # 计算采样后的数量
@@ -238,7 +243,19 @@ class TodoExtractionService:
             return todos
 
         except Exception as e:
-            logger.error(f"调用视觉模型提取待办失败: {e}", exc_info=True)
+            error_msg = str(e)
+            # 检查是否是超时错误
+            is_timeout = "timeout" in error_msg.lower() or "timed out" in error_msg.lower()
+
+            if is_timeout:
+                logger.error(
+                    f"调用视觉模型提取待办超时: {error_msg}。"
+                    f"处理 {len(screenshot_ids)} 张截图可能需要更长时间，"
+                    "建议减少截图数量或检查网络连接",
+                    exc_info=True,
+                )
+            else:
+                logger.error(f"调用视觉模型提取待办失败: {error_msg}", exc_info=True)
             return []
 
     def _parse_llm_response(self, response_text: str) -> list[dict[str, Any]]:

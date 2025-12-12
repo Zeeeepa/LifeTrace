@@ -658,12 +658,17 @@ class LLMClient:
 
             logger.info(f"调用视觉模型 {vision_model}，处理 {len(valid_screenshots)} 张截图")
 
+            # 视觉模型处理多张图片需要更长时间，设置较长的超时时间
+            # 根据截图数量动态调整超时时间：每张截图约30秒，最少60秒，最多300秒（5分钟）
+            timeout_seconds = min(300, max(60, len(valid_screenshots) * 30))
+
             # 调用API
             response = self.client.chat.completions.create(
                 model=vision_model,
                 messages=messages,
                 temperature=vision_temperature,
                 max_tokens=vision_max_tokens,
+                timeout=timeout_seconds,
             )
 
             # 提取响应
