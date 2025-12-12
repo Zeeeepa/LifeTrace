@@ -1043,12 +1043,12 @@ export function DebugCapturePanel() {
 																		}}
 																		disabled={extractingTodos.has(event.id)}
 																		className={cn(
-																			"absolute right-2 top-2 z-10",
+																			"absolute right-2 top-2 z-50",
 																			"flex items-center gap-1.5",
 																			"rounded-md px-2 py-1.5",
 																			"text-xs font-medium",
-																			"bg-primary/10 text-primary border border-primary/20",
-																			"hover:bg-primary/20 hover:border-primary/30",
+																			"bg-background/95 backdrop-blur-sm text-primary border border-primary/30 shadow-lg",
+																			"hover:bg-background hover:border-primary/50",
 																			"transition-all",
 																			"opacity-0 group-hover:opacity-100",
 																			"disabled:opacity-50 disabled:cursor-not-allowed",
