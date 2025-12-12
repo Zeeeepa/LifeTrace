@@ -25,13 +25,13 @@ export function ResizeHandle({ onPointerDown, isDragging }: ResizeHandleProps) {
 			exit={{ opacity: 0, scaleX: 0 }}
 			transition={{ type: "spring", stiffness: 300, damping: 30 }}
 			className={cn(
-				"relative flex h-full w-3 items-stretch justify-center cursor-col-resize select-none touch-none",
+				"relative flex h-full w-1 items-center justify-center cursor-col-resize select-none touch-none",
 				isDragging || isHovered ? "bg-foreground/5" : "bg-transparent",
 			)}
 		>
 			<div
 				className={cn(
-					"pointer-events-none h-full w-[3px] rounded-full transition-all duration-150",
+					"pointer-events-none h-7 w-[2px] rounded-full transition-all duration-150",
 					isDragging
 						? "bg-primary shadow-[0_0_0_1px_oklch(var(--primary))]"
 						: isHovered
