@@ -14,10 +14,10 @@ export function TodoToolbar({ searchQuery, onSearch }: TodoToolbarProps) {
 	const t = useTranslations(locale);
 
 	return (
-		<div className="shrink-0 bg-background">
-			<div className="flex items-center justify-between px-4 py-3">
+		<div className="shrink-0 bg-primary/15">
+			<div className="flex items-center justify-between px-4 py-2.5">
 				<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-					<ListTodo className="h-5 w-5" />
+					<ListTodo className="h-5 w-5 text-primary" />
 					{t.page.todoListTitle}
 				</h2>
 
@@ -29,7 +29,7 @@ export function TodoToolbar({ searchQuery, onSearch }: TodoToolbarProps) {
 							value={searchQuery}
 							onChange={(e) => onSearch(e.target.value)}
 							placeholder="Search tasks..."
-							className="w-48 rounded-md border border-border bg-background px-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+							className="w-48 rounded-md border border-primary/20 px-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 						/>
 					</div>
 				</div>

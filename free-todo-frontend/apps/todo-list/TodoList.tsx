@@ -102,7 +102,7 @@ export function TodoList() {
 	};
 
 	return (
-		<div className="relative flex h-full flex-col overflow-hidden bg-accent/10 dark:bg-accent/15">
+		<div className="relative flex h-full flex-col overflow-hidden bg-primary-foreground dark:bg-primary-foreground/5">
 			<TodoToolbar searchQuery={searchQuery} onSearch={setSearchQuery} />
 
 			<div className="flex-1 overflow-y-auto">
