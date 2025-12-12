@@ -306,6 +306,138 @@ export function getScreenshotImage(id: number): string {
 	return `${baseUrl}/api/screenshots/${id}/image`;
 }
 
+// ===== Todo 相关 API（/api/todos）=====
+
+export type ApiTodoAttachment = {
+	id: number;
+	file_name: string;
+	file_path: string;
+	file_size?: number | null;
+	mime_type?: string | null;
+};
+
+export type ApiTodo = {
+	id: number;
+	name: string;
+	description?: string | null;
+	user_notes?: string | null;
+	parent_todo_id?: number | null;
+	deadline?: string | null;
+	status: "active" | "completed" | "canceled" | string;
+	priority: "high" | "medium" | "low" | "none" | string;
+	tags?: string[];
+	attachments?: ApiTodoAttachment[];
+	related_activities?: number[];
+	created_at: string;
+	updated_at: string;
+};
+
+export async function getTodos(params?: {
+	limit?: number;
+	offset?: number;
+	status?: string;
+}): Promise<{ total: number; todos: ApiTodo[] }> {
+	const queryParams = new URLSearchParams();
+	if (params?.limit) queryParams.append("limit", String(params.limit));
+	if (params?.offset) queryParams.append("offset", String(params.offset));
+	if (params?.status) queryParams.append("status", params.status);
+
+	const query = queryParams.toString();
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const url = `${baseUrl}/api/todos${query ? `?${query}` : ""}`;
+
+	const response = await fetch(url, {
+		headers: { "Content-Type": "application/json" },
+	});
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(
+			errorData.detail || `Request failed with status ${response.status}`,
+		);
+	}
+	return response.json();
+}
+
+export async function createTodo(payload: {
+	name: string;
+	description?: string;
+	user_notes?: string;
+	parent_todo_id?: number | null;
+	deadline?: string;
+	status?: string;
+	priority?: string;
+	tags?: string[];
+	related_activities?: number[];
+}): Promise<ApiTodo> {
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/todos`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(
+			errorData.detail || `Request failed with status ${response.status}`,
+		);
+	}
+	return response.json();
+}
+
+export async function updateTodoApi(
+	id: number,
+	payload: Partial<{
+		name: string | null;
+		description: string | null;
+		user_notes: string | null;
+		parent_todo_id: number | null;
+		deadline: string | null;
+		status: string | null;
+		priority: string | null;
+		tags: string[] | null;
+		related_activities: number[] | null;
+	}>,
+): Promise<ApiTodo> {
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/todos/${id}`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(payload),
+	});
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(
+			errorData.detail || `Request failed with status ${response.status}`,
+		);
+	}
+	return response.json();
+}
+
+export async function deleteTodoApi(id: number): Promise<void> {
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/todos/${id}`, {
+		method: "DELETE",
+	});
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(
+			errorData.detail || `Request failed with status ${response.status}`,
+		);
+	}
+}
+
 // 手动聚合事件为活动
 export async function createActivityFromEvents(eventIds: number[]): Promise<{
 	data?: Activity;

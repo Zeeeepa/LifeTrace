@@ -26,6 +26,7 @@ from lifetrace.routers import (
     system,
     task,
     time_allocation,
+    todo,
     vector,
 )
 from lifetrace.routers import config as config_router
@@ -129,6 +130,7 @@ app.include_router(system.router)
 app.include_router(logs.router)
 app.include_router(project.router)
 app.include_router(task.router)
+app.include_router(todo.router)
 app.include_router(journal.router)
 app.include_router(context.router)
 app.include_router(rag.router)

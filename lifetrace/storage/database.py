@@ -13,6 +13,7 @@ from lifetrace.storage.project_manager import ProjectManager
 from lifetrace.storage.screenshot_manager import ScreenshotManager
 from lifetrace.storage.stats_manager import StatsManager
 from lifetrace.storage.task_manager import TaskManager
+from lifetrace.storage.todo_manager import TodoManager
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -26,6 +27,7 @@ event_mgr = EventManager(db_base)
 ocr_mgr = OCRManager(db_base)
 project_mgr = ProjectManager(db_base)
 task_mgr = TaskManager(db_base)
+todo_mgr = TodoManager(db_base)
 context_mgr = ContextManager(db_base)
 chat_mgr = ChatManager(db_base)
 stats_mgr = StatsManager(db_base)

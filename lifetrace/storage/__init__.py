@@ -17,6 +17,7 @@ from lifetrace.storage.database import (
     screenshot_mgr,
     stats_mgr,
     task_mgr,
+    todo_mgr,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "ocr_mgr",
     "project_mgr",
     "task_mgr",
+    "todo_mgr",
     "context_mgr",
     "chat_mgr",
     "stats_mgr",

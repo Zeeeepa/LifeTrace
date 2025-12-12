@@ -16,7 +16,7 @@ import { useTodoStore } from "@/lib/store/todo-store";
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
-	const { addTodo, todos, selectedTodoIds, clearTodoSelection } =
+	const { createTodoWithResult, todos, selectedTodoIds, clearTodoSelection } =
 		useTodoStore();
 
 	const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -49,7 +49,7 @@ export function ChatPanel() {
 		locale,
 		todos,
 		selectedTodoIds,
-		addTodo,
+		createTodo: createTodoWithResult,
 	});
 
 	const typingText = useMemo(

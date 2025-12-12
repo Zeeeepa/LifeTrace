@@ -51,13 +51,22 @@ export function useOrderedTodos(
 				(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
 			);
 
+		// 对于子任务，按创建时间升序排序（保持创建顺序）
+		const sortChildrenByCreatedAt = (list: Todo[]) =>
+			[...list].sort((a, b) => {
+				const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+				const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+				return aTime - bTime;
+			});
+
 		const ordered: OrderedTodo[] = [];
 		const traverse = (items: Todo[], depth: number) => {
 			sortByOriginalOrder(items).forEach((item) => {
 				ordered.push({ todo: item, depth });
 				const children = childrenMap.get(item.id);
 				if (children?.length) {
-					traverse(children, depth + 1);
+					// 子任务按创建时间升序排序
+					traverse(sortChildrenByCreatedAt(children), depth + 1);
 				}
 			});
 		};

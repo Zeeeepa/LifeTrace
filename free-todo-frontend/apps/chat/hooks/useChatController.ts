@@ -12,14 +12,14 @@ type UseChatControllerParams = {
 	locale: string;
 	todos: Todo[];
 	selectedTodoIds: string[];
-	addTodo: (todo: CreateTodoInput) => void;
+	createTodo: (todo: CreateTodoInput) => Promise<Todo | null>;
 };
 
 export const useChatController = ({
 	locale,
 	todos,
 	selectedTodoIds,
-	addTodo,
+	createTodo,
 }: UseChatControllerParams) => {
 	const { planSystemPrompt, parsePlanTodos, buildTodoPayloads } =
 		usePlanParser(locale);
@@ -55,8 +55,8 @@ export const useChatController = ({
 		[selectedTodoIds, todos],
 	);
 	const effectiveTodos = useMemo(
-		() => (selectedTodos.length ? selectedTodos : todos),
-		[selectedTodos, todos],
+		() => (selectedTodos.length ? selectedTodos : []),
+		[selectedTodos],
 	);
 	const hasSelection = selectedTodoIds.length > 0;
 
@@ -112,8 +112,8 @@ export const useChatController = ({
 				? "已选待办"
 				: "Selected todos"
 			: locale === "zh"
-				? "全部待办"
-				: "All todos";
+				? "无待办上下文"
+				: "No todo context";
 		const todoContext = buildTodoContextBlock(
 			effectiveTodos,
 			todoSourceLabel,
@@ -186,13 +186,33 @@ export const useChatController = ({
 					setError(parseError);
 				} else {
 					const payloads = buildTodoPayloads(parsedTodos);
-					payloads.forEach((todo) => {
-						addTodo(todo);
-					});
+
+					// plan 模式：payloads 内的 id / parentTodoId 是前端临时 id（UUID），
+					// 需要顺序创建并把 parent 映射为后端数值 id，否则会在 toApiId(parseInt) 处报错。
+					const clientIdToApiId = new Map<string, string>();
+					let successCount = 0;
+					for (const draft of payloads) {
+						const clientId = draft.id ?? createId();
+						const parentClientId = draft.parentTodoId ?? null;
+						const apiParentId = parentClientId
+							? (clientIdToApiId.get(parentClientId) ?? null)
+							: null;
+
+						const created = await createTodo({
+							...draft,
+							// 若父任务未成功创建，则降级为根任务（避免整棵子树丢失）
+							parentTodoId: apiParentId,
+						});
+						if (created) {
+							clientIdToApiId.set(clientId, created.id);
+							successCount += 1;
+						}
+					}
+
 					const addedText =
 						locale === "zh"
-							? `已添加 ${payloads.length} 条待办到列表。`
-							: `Added ${payloads.length} todos to the list.`;
+							? `已添加 ${successCount} 条待办到列表。`
+							: `Added ${successCount} todos to the list.`;
 					setMessages((prev) =>
 						prev.map((msg) =>
 							msg.id === assistantMessageId
@@ -218,10 +238,10 @@ export const useChatController = ({
 			setIsStreaming(false);
 		}
 	}, [
-		addTodo,
 		buildTodoPayloads,
 		chatMode,
 		conversationId,
+		createTodo,
 		effectiveTodos,
 		hasSelection,
 		inputValue,

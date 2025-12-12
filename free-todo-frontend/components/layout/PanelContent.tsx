@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
+import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 
 // 动态导入调试面板（仅开发环境）
@@ -28,6 +30,11 @@ export function PanelContent({ position }: PanelContentProps) {
 	const { getFeatureByPosition } = useUiStore();
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
+	const { hydrate } = useTodoStore();
+
+	useEffect(() => {
+		void hydrate();
+	}, [hydrate]);
 
 	const feature = getFeatureByPosition(position);
 
