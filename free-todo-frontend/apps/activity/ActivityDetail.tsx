@@ -46,7 +46,7 @@ export function ActivityDetail({
 
 	return (
 		<section className="flex h-full flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-xl overflow-hidden">
-			<div className="flex-shrink-0 space-y-3">
+			<div className="shrink-0 space-y-3">
 				<h1 className="text-xl font-semibold text-foreground">{title}</h1>
 				<div className="flex flex-wrap items-center gap-2 text-xs text-foreground">
 					<span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1">
@@ -64,7 +64,7 @@ export function ActivityDetail({
 				</div>
 			</div>
 
-			<div className="flex-shrink-0 flex flex-wrap items-center gap-2">
+			<div className="shrink-0 flex flex-wrap items-center gap-2">
 				{uniqueApps.length === 0 ? (
 					<span className="text-xs text-muted-foreground">Apps: N/A</span>
 				) : (
@@ -88,7 +88,7 @@ export function ActivityDetail({
 			</div>
 
 			{events.length > 0 && (
-				<div className="flex-shrink-0 space-y-3 rounded-lg border border-border bg-secondary p-4">
+				<div className="shrink-0 space-y-3 rounded-lg border border-border bg-secondary p-4">
 					<h4 className="text-sm font-semibold text-foreground">Events</h4>
 					<div
 						className="space-y-2 max-h-[200px] overflow-y-auto"

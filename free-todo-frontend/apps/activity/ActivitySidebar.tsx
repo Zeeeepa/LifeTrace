@@ -26,7 +26,7 @@ export function ActivitySidebar({
 		: -1;
 
 	return (
-		<aside className="relative flex h-full w-[280px] min-w-[220px] max-w-[320px] flex-shrink flex-col overflow-hidden rounded-xl border border-border bg-card">
+		<aside className="relative flex h-full w-[280px] min-w-[220px] max-w-[320px] shrink flex-col overflow-hidden rounded-xl border border-border bg-card">
 			<div className="flex items-center justify-between px-3 py-2">
 				<h3 className="text-xs font-semibold text-foreground">Timeline</h3>
 				{loading && (

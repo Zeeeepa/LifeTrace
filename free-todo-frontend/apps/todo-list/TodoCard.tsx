@@ -372,7 +372,7 @@ export function TodoCard({
 			{contextMenu.open &&
 				typeof document !== "undefined" &&
 				createPortal(
-					<div className="fixed inset-0 z-[120] pointer-events-none">
+					<div className="fixed inset-0 z-120 pointer-events-none">
 						<div
 							ref={menuRef}
 							className="pointer-events-auto min-w-[170px] rounded-md border border-border bg-background shadow-lg"
