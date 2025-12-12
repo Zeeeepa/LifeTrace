@@ -106,7 +106,7 @@ export function TodoList() {
 			<TodoToolbar searchQuery={searchQuery} onSearch={setSearchQuery} />
 
 			<div className="flex-1 overflow-y-auto">
-				<div className="px-4 py-4 pb-4">
+				<div className="px-6 py-4 pb-4">
 					<NewTodoInlineForm
 						value={newTodoName}
 						onChange={setNewTodoName}

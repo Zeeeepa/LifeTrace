@@ -233,11 +233,11 @@ export function TodoCard({
 					}
 				}}
 				className={cn(
-					"todo-card group relative flex h-full flex-col gap-3 rounded-xl p-4 cursor-pointer",
+					"todo-card group relative flex h-full flex-col gap-3 rounded-xl p-3 cursor-pointer",
 					isDragging && "ring-2 ring-primary/30",
 				)}
 			>
-				<div className="flex items-start gap-3">
+				<div className="flex items-start gap-2">
 					{hasChildren && (
 						<button
 							type="button"
@@ -263,7 +263,7 @@ export function TodoCard({
 							e.stopPropagation();
 							toggleTodoStatus(todo.id);
 						}}
-						className="mt-1 shrink-0"
+						className="shrink-0"
 					>
 						{todo.status === "completed" ? (
 							<div className="flex h-5 w-5 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
@@ -276,7 +276,7 @@ export function TodoCard({
 						)}
 					</button>
 
-					<div className="flex-1 min-w-0 space-y-3">
+					<div className="flex-1 min-w-0 space-y-1">
 						<div className="flex items-start justify-between gap-2">
 							<div className="min-w-0 space-y-1">
 								<h3
