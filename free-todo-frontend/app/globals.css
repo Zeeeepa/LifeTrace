@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Tailwind v4 自定义 dark 模式变体 - 基于 .dark 类 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tailwind v4 语义色令牌映射：
  * 让组件可以优雅地使用 bg-background、text-foreground、bg-primary/10 等语义类，
  * 而不需要在每个地方手写 bg-[oklch(var(--xxx)/0.xx)] 这种“细节色”。
