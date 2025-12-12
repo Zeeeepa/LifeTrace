@@ -31,6 +31,23 @@
 	--color-border: oklch(var(--border));
 	--color-input: oklch(var(--input));
 	--color-ring: oklch(var(--ring));
+
+	--color-chart-1: oklch(var(--chart-1));
+	--color-chart-2: oklch(var(--chart-2));
+	--color-chart-3: oklch(var(--chart-3));
+	--color-chart-4: oklch(var(--chart-4));
+	--color-chart-5: oklch(var(--chart-5));
+
+	--color-sidebar: oklch(var(--sidebar));
+	--color-sidebar-foreground: oklch(var(--sidebar-foreground));
+	--color-sidebar-primary: oklch(var(--sidebar-primary));
+	--color-sidebar-primary-foreground: oklch(var(--sidebar-primary-foreground));
+	--color-sidebar-accent: oklch(var(--sidebar-accent));
+	--color-sidebar-accent-foreground: oklch(var(--sidebar-accent-foreground));
+	--color-sidebar-border: oklch(var(--sidebar-border));
+	--color-sidebar-ring: oklch(var(--sidebar-ring));
+
+	--color-overlay: oklch(var(--overlay));
 }
 
 @layer base {
