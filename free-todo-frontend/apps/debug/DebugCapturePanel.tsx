@@ -108,7 +108,7 @@ function ScreenshotModal({
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"fixed inset-0 z-[200] flex items-center justify-center p-4",
+				"fixed inset-0 z-200 flex items-center justify-center p-4",
 				"bg-black/80 backdrop-blur-sm",
 				"transition-opacity duration-200",
 				isOpen ? "opacity-100" : "opacity-0",
@@ -721,7 +721,7 @@ export function DebugCapturePanel() {
 
 			{/* 选中事件提示 */}
 			{selectedEvents.size > 0 && (
-				<div className="flex-shrink-0 flex items-center justify-between rounded-lg mx-3 sm:mx-4 mt-3 sm:mt-4 px-4 py-3 border bg-primary/10 border-primary/20">
+				<div className="shrink-0 flex items-center justify-between rounded-lg mx-3 sm:mx-4 mt-3 sm:mt-4 px-4 py-3 border bg-primary/10 border-primary/20">
 					<div className="flex items-center gap-2">
 						<Check className="h-5 w-5 text-primary" />
 						<span className="font-medium text-primary">
@@ -760,7 +760,7 @@ export function DebugCapturePanel() {
 			)}
 
 			{/* 搜索表单 */}
-			<div className="flex-shrink-0 border-b border-border bg-muted/30 p-3 sm:p-4">
+			<div className="shrink-0 border-b border-border bg-muted/30 p-3 sm:p-4">
 				<form
 					onSubmit={handleSearch}
 					className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-end"
@@ -827,7 +827,7 @@ export function DebugCapturePanel() {
 
 			{/* 时间轴区域 */}
 			<div className="flex-1 overflow-hidden flex flex-col">
-				<div className="flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 border-b border-border bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
+				<div className="shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 border-b border-border bg-muted/30 px-3 sm:px-4 py-2 sm:py-3">
 					<h2 className="text-sm font-medium">事件时间轴</h2>
 					{!loading && (
 						<div className="text-xs text-muted-foreground">
@@ -944,7 +944,7 @@ export function DebugCapturePanel() {
 																<div className="flex flex-col sm:flex-row gap-4">
 																	<div className="flex-1 min-w-0 space-y-2">
 																		<div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-wrap">
-																			<h3 className="text-sm sm:text-base font-semibold text-foreground break-words">
+																			<h3 className="text-sm sm:text-base font-semibold text-foreground wrap-break-word">
 																				{event.window_title || "未知窗口"}
 																			</h3>
 																			<span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
@@ -990,7 +990,7 @@ export function DebugCapturePanel() {
 																	</div>
 
 																	{screenshots.length > 0 && (
-																		<div className="flex-shrink-0 flex justify-start sm:justify-end w-full sm:w-auto">
+																		<div className="shrink-0 flex justify-start sm:justify-end w-full sm:w-auto">
 																			<div
 																				className="relative h-24 sm:h-32"
 																				style={{
@@ -1075,7 +1075,7 @@ export function DebugCapturePanel() {
 																							);
 																						},
 																					)}
-																				<div className="absolute bottom-0 right-0 rounded-md bg-[oklch(var(--overlay))] px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-[oklch(var(--foreground))] z-[60] pointer-events-none">
+																				<div className="absolute bottom-0 right-0 rounded-md bg-[oklch(var(--overlay))] px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-[oklch(var(--foreground))] z-60 pointer-events-none">
 																					{screenshots.length} 张
 																				</div>
 																			</div>

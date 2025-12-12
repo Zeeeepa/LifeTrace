@@ -33,7 +33,7 @@ export function AchievementsPanel() {
 					<div className="mb-6 flex items-center justify-center">
 						<div className="relative">
 							<div className="absolute inset-0 rounded-full bg-yellow-500/20 blur-2xl" />
-							<div className="relative rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 p-6">
+							<div className="relative rounded-full bg-linear-to-br from-yellow-400 to-orange-500 p-6">
 								<Trophy className="h-12 w-12 text-white" />
 							</div>
 						</div>

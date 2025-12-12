@@ -96,7 +96,7 @@ export function ActivitySummary({ summary }: ActivitySummaryProps) {
 
 	return (
 		<div className="flex flex-col h-full min-h-0 rounded-lg border border-border bg-secondary p-4">
-			<h4 className="text-sm font-semibold text-foreground mb-3 flex-shrink-0">
+			<h4 className="text-sm font-semibold text-foreground mb-3 shrink-0">
 				Summary
 			</h4>
 			<div
