@@ -61,11 +61,11 @@ export function TodoCard({
 	const getStatusColor = (status: TodoStatus) => {
 		switch (status) {
 			case "active":
-				return "bg-[oklch(var(--primary))/0.12] text-[oklch(var(--primary))] border-[oklch(var(--primary))/0.32]";
+				return "bg-[oklch(var(--primary)/0.12)] text-[oklch(var(--primary))] border-[oklch(var(--primary)/0.32)]";
 			case "completed":
-				return "bg-[oklch(var(--accent))/0.16] text-[oklch(var(--accent-foreground))] border-[oklch(var(--accent))/0.28]";
+				return "bg-[oklch(var(--accent)/0.16)] text-[oklch(var(--accent-foreground))] border-[oklch(var(--accent)/0.28)]";
 			case "canceled":
-				return "bg-[oklch(var(--muted))/0.35] text-[oklch(var(--muted-foreground))] border-[oklch(var(--border))]";
+				return "bg-[oklch(var(--muted)/0.35)] text-[oklch(var(--muted-foreground))] border-[oklch(var(--border))]";
 			default:
 				return "";
 		}
