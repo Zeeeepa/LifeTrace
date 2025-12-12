@@ -714,9 +714,13 @@ export function DebugCapturePanel() {
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
 			{/* 头部 */}
-			<div className="flex h-10 shrink-0 items-center gap-2 bg-orange-50 px-4 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300">
-				<Camera className="h-4 w-4" />
-				<h2 className="text-sm font-medium">截图管理（开发调试）</h2>
+			<div className="shrink-0 bg-primary/15">
+				<div className="flex items-center justify-between px-4 py-2.5">
+					<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+						<Camera className="h-5 w-5 text-primary" />
+						截图管理（开发调试）
+					</h2>
+				</div>
 			</div>
 
 			{/* 选中事件提示 */}

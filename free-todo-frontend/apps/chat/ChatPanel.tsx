@@ -98,14 +98,13 @@ export function ChatPanel() {
 
 	return (
 		<div className="flex h-full flex-col bg-background">
+			<HeaderBar
+				chatHistoryLabel={t.page.chatHistory}
+				newChatLabel={t.page.newChat}
+				onToggleHistory={() => setHistoryOpen((prev) => !prev)}
+				onNewChat={handleNewChat}
+			/>
 			<div className="flex flex-col gap-2 p-4">
-				<HeaderBar
-					title={t.page.chatTitle}
-					chatHistoryLabel={t.page.chatHistory}
-					newChatLabel={t.page.newChat}
-					onToggleHistory={() => setHistoryOpen((prev) => !prev)}
-					onNewChat={handleNewChat}
-				/>
 				<p className="text-sm text-muted-foreground">{t.page.chatSubtitle}</p>
 				<p className="text-xs text-muted-foreground">{helperText}</p>
 			</div>

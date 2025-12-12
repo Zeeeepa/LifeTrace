@@ -15,14 +15,12 @@ export function AchievementsPanel() {
 	return (
 		<div className="relative flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
-			<div className="shrink-0 bg-background">
-				<div className="flex items-center justify-between px-4 py-3">
-					<div className="flex items-center gap-2">
-						<Award className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
-						<h2 className="text-lg font-semibold text-foreground">
-							{t.page.achievementsLabel}
-						</h2>
-					</div>
+			<div className="shrink-0 bg-primary/15">
+				<div className="flex items-center justify-between px-4 py-2.5">
+					<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+						<Award className="h-5 w-5 text-primary" />
+						{t.page.achievementsLabel}
+					</h2>
 				</div>
 			</div>
 

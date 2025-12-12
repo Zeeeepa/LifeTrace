@@ -556,18 +556,21 @@ export function CalendarPanel() {
 			onDragEnd={handleDragEnd}
 			onDragStart={(event) => handleDragStart(String(event.active.id))}
 		>
-			<div className="flex h-full flex-col gap-3 overflow-hidden bg-background">
-				{/* 顶部工具栏 */}
-				<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 px-4 py-3">
-					<div className="flex items-center gap-2">
-						<Calendar className="h-5 w-5 text-primary" />
-						<h2 className="text-base font-semibold text-foreground">
-							日历面板
+			<div className="flex h-full flex-col overflow-hidden bg-background">
+				{/* 顶部标题栏 */}
+				<div className="shrink-0 bg-primary/15">
+					<div className="flex items-center justify-between px-4 py-2.5">
+						<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+							<Calendar className="h-5 w-5 text-primary" />
+							日历
 						</h2>
-						<span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-							拖拽待办可调整截止日期
-						</span>
 					</div>
+				</div>
+				{/* 顶部工具栏 */}
+				<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+					<span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+						拖拽待办可调整截止日期
+					</span>
 					<div className="flex items-center gap-2">
 						<button
 							type="button"
@@ -622,7 +625,7 @@ export function CalendarPanel() {
 				</div>
 
 				{/* 视图主体 */}
-				<div className="flex-1 overflow-y-auto rounded-xl border bg-card p-3">
+				<div className="flex-1 overflow-y-auto border-t border-border bg-card p-3">
 					<div className="grid grid-cols-7 gap-2 pb-2 text-center text-xs text-muted-foreground">
 						{WEEKDAY_LABELS.map((label) => (
 							<span key={label} className="font-medium">
