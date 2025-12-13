@@ -60,6 +60,10 @@ export function TodoDetail() {
 		updateTodo(todo.id, { description });
 	};
 
+	const handleNameChange = (name: string) => {
+		updateTodo(todo.id, { name });
+	};
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			<DetailHeader
@@ -75,6 +79,7 @@ export function TodoDetail() {
 					name={todo.name}
 					showDescription={showDescription}
 					onToggleDescription={() => setShowDescription((prev) => !prev)}
+					onNameChange={handleNameChange}
 				/>
 
 				<MetaSection
