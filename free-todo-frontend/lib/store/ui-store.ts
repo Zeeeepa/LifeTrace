@@ -147,7 +147,11 @@ export const useUiStore = create<UiStoreState>()(
 
 			setPanelCWidth: (width: number) =>
 				set((state) => {
-					if (!state.isPanelBOpen || !state.isPanelCOpen) {
+					// 允许在 panelC 打开且至少有一个左侧面板（A 或 B）打开时调整宽度
+					if (
+						!state.isPanelCOpen ||
+						(!state.isPanelAOpen && !state.isPanelBOpen)
+					) {
 						return state;
 					}
 
