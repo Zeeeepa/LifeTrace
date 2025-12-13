@@ -3,8 +3,9 @@
 import { AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/common/LanguageToggle";
+import { ThemeStyleSelect } from "@/components/common/ThemeStyleSelect";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { BottomDock } from "@/components/layout/BottomDock";
@@ -27,6 +28,16 @@ export default function HomePage() {
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
 	const containerRef = useRef<HTMLDivElement | null>(null);
+	const setGlobalResizeCursor = useCallback((enabled: boolean) => {
+		if (typeof document === "undefined") return;
+		document.body.style.cursor = enabled ? "col-resize" : "";
+		document.body.style.userSelect = enabled ? "none" : "";
+	}, []);
+
+	useEffect(() => {
+		// 清理：防止在组件卸载时光标和选择状态残留
+		return () => setGlobalResizeCursor(false);
+	}, [setGlobalResizeCursor]);
 
 	const layoutState = useMemo(() => {
 		// 计算基础宽度（不包括 panelC）
@@ -196,6 +207,7 @@ export default function HomePage() {
 		event.stopPropagation();
 
 		setIsDraggingPanelA(true);
+		setGlobalResizeCursor(true);
 		handlePanelADragAtClientX(event.clientX);
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -204,6 +216,7 @@ export default function HomePage() {
 
 		const handlePointerUp = () => {
 			setIsDraggingPanelA(false);
+			setGlobalResizeCursor(false);
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 		};
@@ -219,6 +232,7 @@ export default function HomePage() {
 		event.stopPropagation();
 
 		setIsDraggingPanelC(true);
+		setGlobalResizeCursor(true);
 		handlePanelCDragAtClientX(event.clientX);
 
 		const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -227,6 +241,7 @@ export default function HomePage() {
 
 		const handlePointerUp = () => {
 			setIsDraggingPanelC(false);
+			setGlobalResizeCursor(false);
 			window.removeEventListener("pointermove", handlePointerMove);
 			window.removeEventListener("pointerup", handlePointerUp);
 		};
@@ -236,9 +251,9 @@ export default function HomePage() {
 	};
 
 	return (
-		<main className="relative flex h-screen flex-col overflow-hidden bg-background">
-			<div className="relative z-10 flex h-full flex-col">
-				<header className="flex h-12 shrink-0 items-center justify-between gap-3 bg-background px-4">
+		<main className="relative flex h-screen flex-col overflow-hidden bg-background text-foreground">
+			<div className="relative z-10 flex h-full flex-col text-foreground">
+				<header className="flex h-12 shrink-0 items-center justify-between gap-3 bg-background px-4 text-foreground">
 					<div className="flex items-center gap-2">
 						<Image
 							src="/logo.png"
@@ -252,8 +267,9 @@ export default function HomePage() {
 						</h1>
 					</div>
 
-					<div className="flex items-center gap-1">
+					<div className="flex items-center gap-2">
 						<ThemeToggle />
+						<ThemeStyleSelect />
 						<LanguageToggle />
 						<UserAvatar />
 					</div>

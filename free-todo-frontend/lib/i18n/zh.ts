@@ -5,6 +5,11 @@ export const zh: Translation = {
 		zh: "中文",
 		en: "English",
 	},
+	colorTheme: {
+		blue: "蓝色",
+		neutral: "中性",
+		label: "配色风格",
+	},
 	theme: {
 		light: "浅色",
 		dark: "深色",
@@ -25,6 +30,7 @@ export const zh: Translation = {
 		activityPlaceholder: "占位：在这里接入活动流仪表盘",
 		todosLabel: "待办视图",
 		todosPlaceholder: "占位：在这里接入 Todo 待办",
+		todoListTitle: "待办",
 		chatLabel: "AI 聊天",
 		chatPlaceholder: "占位：在这里接入 AI 聊天组件",
 		chatTitle: "Free Todo - AI 智能助手",

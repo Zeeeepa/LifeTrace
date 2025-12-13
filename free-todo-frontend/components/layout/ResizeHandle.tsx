@@ -25,18 +25,18 @@ export function ResizeHandle({ onPointerDown, isDragging }: ResizeHandleProps) {
 			exit={{ opacity: 0, scaleX: 0 }}
 			transition={{ type: "spring", stiffness: 300, damping: 30 }}
 			className={cn(
-				"flex items-stretch justify-center cursor-col-resize",
-				isDragging ? "w-2 px-1" : isHovered ? "w-2 px-1" : "w-1 px-0.5",
+				"relative flex h-full w-1 items-center justify-center cursor-col-resize select-none touch-none",
+				isDragging || isHovered ? "bg-foreground/5" : "bg-transparent",
 			)}
 		>
 			<div
 				className={cn(
-					"h-full rounded-full transition-all duration-200",
+					"pointer-events-none h-7 w-[2px] rounded-full transition-all duration-150",
 					isDragging
-						? "w-1 bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
+						? "bg-primary shadow-[0_0_0_1px_oklch(var(--primary))]"
 						: isHovered
-							? "w-1 bg-primary/60 shadow-[0_0_4px_hsl(var(--primary))]"
-							: "w-px bg-border",
+							? "bg-muted-foreground/60 shadow-[0_0_0_1px_oklch(var(--border))]"
+							: "bg-border",
 				)}
 			/>
 		</motion.div>

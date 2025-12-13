@@ -1,4 +1,5 @@
 export type TodoStatus = "active" | "completed" | "canceled";
+export type TodoPriority = "high" | "medium" | "low" | "none";
 
 export interface TodoAttachment {
 	id: string;
@@ -14,6 +15,7 @@ export interface Todo {
 	description?: string;
 	userNotes?: string;
 	status: TodoStatus;
+	priority: TodoPriority;
 	deadline?: string; // ISO date string
 	tags?: string[];
 	attachments?: TodoAttachment[];
@@ -29,6 +31,7 @@ export interface CreateTodoInput {
 	name: string;
 	description?: string;
 	userNotes?: string;
+	priority?: TodoPriority;
 	deadline?: string;
 	tags?: string[];
 	attachments?: TodoAttachment[];
@@ -43,6 +46,7 @@ export interface UpdateTodoInput {
 	description?: string;
 	userNotes?: string;
 	status?: TodoStatus;
+	priority?: TodoPriority;
 	deadline?: string;
 	tags?: string[];
 	attachments?: TodoAttachment[];

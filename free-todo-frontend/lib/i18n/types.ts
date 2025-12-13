@@ -3,6 +3,11 @@ export type Translation = {
 		zh: string;
 		en: string;
 	};
+	colorTheme: {
+		blue: string;
+		neutral: string;
+		label: string;
+	};
 	theme: {
 		light: string;
 		dark: string;
@@ -18,8 +23,11 @@ export type Translation = {
 		subtitle: string;
 		calendarLabel: string;
 		calendarPlaceholder: string;
+		activityLabel: string;
+		activityPlaceholder: string;
 		todosLabel: string;
 		todosPlaceholder: string;
+		todoListTitle: string;
 		chatLabel: string;
 		chatPlaceholder: string;
 		chatTitle: string;
@@ -51,6 +59,7 @@ export type Translation = {
 	};
 	bottomDock: {
 		calendar: string;
+		activity: string;
 		todos: string;
 		chat: string;
 		todoDetail: string;

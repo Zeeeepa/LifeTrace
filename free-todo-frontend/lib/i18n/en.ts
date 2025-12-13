@@ -5,6 +5,11 @@ export const en: Translation = {
 		zh: "中文",
 		en: "English",
 	},
+	colorTheme: {
+		blue: "Blue",
+		neutral: "Neutral",
+		label: "Theme Style",
+	},
 	theme: {
 		light: "Light",
 		dark: "Dark",
@@ -25,6 +30,7 @@ export const en: Translation = {
 		activityPlaceholder: "Placeholder: plug an activity dashboard here",
 		todosLabel: "Todos View",
 		todosPlaceholder: "Placeholder: plug a Todo list here",
+		todoListTitle: "Todos",
 		chatLabel: "AI Chat",
 		chatPlaceholder: "Placeholder: plug an AI chat component here",
 		chatTitle: "Free Todo - AI Assistant",

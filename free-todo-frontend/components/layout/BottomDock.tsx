@@ -24,11 +24,25 @@ interface DockItem {
 	group?: string;
 }
 
-// 功能到翻译键的映射配置
+const FEATURE_LABEL_MAP: Partial<
+	Record<PanelFeature, keyof Translation["bottomDock"]>
+> = {
+	calendar: "calendar",
+	activity: "activity",
+	todos: "todos",
+	chat: "chat",
+	todoDetail: "todoDetail",
+	diary: "diary",
+	settings: "settings",
+	achievements: "achievements",
+	debugShots: "debugShots",
+};
+
+// 功能到翻译键的映射配置，缺失项回退到 todos
 function getFeatureLabelKey(
 	feature: PanelFeature,
 ): keyof Translation["bottomDock"] {
-	return feature;
+	return FEATURE_LABEL_MAP[feature] ?? "todos";
 }
 
 export function BottomDock({ className }: BottomDockProps) {
@@ -134,18 +148,18 @@ export function BottomDock({ className }: BottomDockProps) {
 			<div
 				className={cn(
 					"flex items-center gap-2",
-					"bg-white/80 dark:bg-zinc-900/80",
+					"bg-[oklch(var(--card))]/80",
 					"backdrop-blur-md",
-					"border border-zinc-200 dark:border-zinc-800",
+					"border border-[oklch(var(--border))]",
 					"shadow-lg",
 					"px-2 py-1.5",
-					"rounded-[var(--radius-panel)]",
+					"rounded-(--radius)",
 				)}
 			>
 				{groupEntries.map(([groupName, groupItems], groupIndex) => (
 					<div key={groupName} className="flex items-center gap-2">
 						{groupIndex > 0 && hasMultipleGroups && (
-							<div className="h-6 w-[1px] bg-zinc-300 dark:bg-zinc-700 mx-1" />
+							<div className="h-6 w-px bg-[oklch(var(--border))] mx-1" />
 						)}
 						{groupItems.map((item) => {
 							const Icon = item.icon;
@@ -170,10 +184,10 @@ export function BottomDock({ className }: BottomDockProps) {
 										"relative flex items-center gap-2",
 										"px-3 py-2 rounded-lg",
 										"transition-all duration-200",
-										"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+										"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2",
 										item.isActive
-											? "bg-[#e9f2fe] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-md shadow-blue-400/10 hover:bg-[#d4e7fd] dark:hover:bg-blue-900/40"
-											: "text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800",
+											? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
+											: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
 									)}
 									aria-label={item.label}
 									aria-pressed={item.isActive}
@@ -182,22 +196,22 @@ export function BottomDock({ className }: BottomDockProps) {
 										className={cn(
 											"h-5 w-5",
 											item.isActive
-												? "text-blue-600 dark:text-blue-400"
-												: "text-black dark:text-white",
+												? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+												: "text-[oklch(var(--foreground))]",
 										)}
 									/>
 									<span
 										className={cn(
 											"text-sm font-medium",
 											item.isActive
-												? "text-blue-600 dark:text-blue-400"
-												: "text-black dark:text-white",
+												? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+												: "text-[oklch(var(--foreground))]",
 										)}
 									>
 										{item.label}
 									</span>
 									{item.isActive && (
-										<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-blue-600 dark:bg-blue-400" />
+										<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
 									)}
 								</button>
 							);

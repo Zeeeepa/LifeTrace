@@ -1,11 +1,12 @@
 "use client";
 
-import { AchievementsPanel } from "@/components/achievements/AchievementsPanel";
-import { ActivityPanel } from "@/components/activity/ActivityPanel";
-import { CalendarPanel } from "@/components/calendar/CalendarPanel";
-import { ChatPanel } from "@/components/chat/ChatPanel";
-import { TodoDetail } from "@/components/todo/TodoDetail";
-import { TodoList } from "@/components/todo/TodoList";
+import { useEffect } from "react";
+import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
+import { ActivityPanel } from "@/apps/activity/ActivityPanel";
+import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
+import { ChatPanel } from "@/apps/chat/ChatPanel";
+import { TodoDetail } from "@/apps/todo-detail";
+import { TodoList } from "@/apps/todo-list";
 import type { PanelPosition } from "@/lib/config/panel-config";
 import {
 	FEATURE_ICON_MAP,
@@ -13,10 +14,12 @@ import {
 } from "@/lib/config/panel-config";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
+import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 
+// 动态导入调试面板（仅开发环境）
 const DebugCapturePanel = IS_DEV_FEATURE_ENABLED
-	? require("@/components/debug/DebugCapturePanel").DebugCapturePanel
+	? require("@/apps/debug/DebugCapturePanel").DebugCapturePanel
 	: null;
 
 interface PanelContentProps {
@@ -27,6 +30,11 @@ export function PanelContent({ position }: PanelContentProps) {
 	const { getFeatureByPosition } = useUiStore();
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
+	const { hydrate } = useTodoStore();
+
+	useEffect(() => {
+		void hydrate();
+	}, [hydrate]);
 
 	const feature = getFeatureByPosition(position);
 
@@ -106,7 +114,7 @@ export function PanelContent({ position }: PanelContentProps) {
 
 	// 其他功能显示占位符
 	return (
-		<div className="flex h-full flex-col">
+		<div className="flex h-full flex-col rounded-(--radius) overflow-hidden">
 			<div className="flex h-10 shrink-0 items-center gap-2 bg-muted/30 px-4">
 				{Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
 				<h2 className="text-sm font-medium text-foreground">
