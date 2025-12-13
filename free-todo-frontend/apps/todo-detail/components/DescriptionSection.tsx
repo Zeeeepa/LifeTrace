@@ -1,6 +1,7 @@
 "use client";
 
 import { Paperclip } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import type { TodoAttachment } from "@/lib/types/todo";
 
 interface DescriptionSectionProps {
@@ -20,7 +21,13 @@ export function DescriptionSection({
 				Description
 			</h2>
 			<div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
-				{description || "暂无描述"}
+				{description ? (
+					<div className="prose prose-sm max-w-none dark:prose-invert">
+						<ReactMarkdown>{description}</ReactMarkdown>
+					</div>
+				) : (
+					<span className="text-muted-foreground">暂无描述</span>
+				)}
 			</div>
 
 			{hasAttachments && (
