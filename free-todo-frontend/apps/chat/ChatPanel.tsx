@@ -21,8 +21,13 @@ import { useTodoStore } from "@/lib/store/todo-store";
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
-	const { createTodoWithResult, todos, selectedTodoIds, clearTodoSelection } =
-		useTodoStore();
+	const {
+		createTodoWithResult,
+		todos,
+		selectedTodoIds,
+		clearTodoSelection,
+		toggleTodoSelection,
+	} = useTodoStore();
 
 	// Plan功能相关状态
 	const {
@@ -300,16 +305,18 @@ export function ChatPanel() {
 					/>
 				)}
 
-				<LinkedTodos
-					effectiveTodos={effectiveTodos}
-					hasSelection={hasSelection}
-					locale={locale}
-					showTodosExpanded={showTodosExpanded}
-					onToggleExpand={() => setShowTodosExpanded((prev) => !prev)}
-					onClearSelection={clearTodoSelection}
-				/>
-
 				<InputBox
+					linkedTodos={
+						<LinkedTodos
+							effectiveTodos={effectiveTodos}
+							hasSelection={hasSelection}
+							locale={locale}
+							showTodosExpanded={showTodosExpanded}
+							onToggleExpand={() => setShowTodosExpanded((prev) => !prev)}
+							onClearSelection={clearTodoSelection}
+							onToggleTodo={toggleTodoSelection}
+						/>
+					}
 					modeSwitcher={
 						<div className="relative" ref={modeMenuRef}>
 							<ModeSwitcher

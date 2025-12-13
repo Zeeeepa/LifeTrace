@@ -14,6 +14,7 @@ type InputBoxProps = {
 	onCompositionEnd: () => void;
 	modeSwitcher?: React.ReactNode;
 	onAtClick?: () => void;
+	linkedTodos?: React.ReactNode;
 };
 
 export function InputBox({
@@ -28,6 +29,7 @@ export function InputBox({
 	onCompositionEnd,
 	modeSwitcher,
 	onAtClick,
+	linkedTodos,
 }: InputBoxProps) {
 	const isSendDisabled = !inputValue.trim() || isStreaming;
 
@@ -38,6 +40,9 @@ export function InputBox({
 				"bg-background/60 px-3 py-2 min-h-[80px]",
 			)}
 		>
+			{/* 关联待办区域 */}
+			{linkedTodos}
+
 			<textarea
 				value={inputValue}
 				onChange={(e) => onChange(e.target.value)}
