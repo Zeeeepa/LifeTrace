@@ -26,6 +26,7 @@ export default function HomePage() {
 		setPanelAWidth,
 		setPanelCWidth,
 	} = useUiStore();
+	const { currentNotification } = useNotificationStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
@@ -317,10 +318,15 @@ export default function HomePage() {
 						</h1>
 					</div>
 
-					{/* 中间：通知区域（灵动岛） */}
-					<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
-						<DynamicIsland />
-					</div>
+					{/* 中间：通知区域（灵动岛） - 只在有通知时显示 */}
+					{currentNotification && (
+						<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
+							<DynamicIsland />
+						</div>
+					)}
+
+					{/* 占位符：当没有通知时保持布局平衡 */}
+					{!currentNotification && <div className="flex-1" />}
 
 					{/* 右侧：工具 */}
 					<div className="flex items-center gap-2 shrink-0">
