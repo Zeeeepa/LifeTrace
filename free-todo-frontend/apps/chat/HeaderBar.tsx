@@ -1,4 +1,5 @@
 import { History, MessageSquare, PlusCircle } from "lucide-react";
+import { PanelHeader } from "@/components/common/PanelHeader";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
@@ -20,13 +21,11 @@ export function HeaderBar({
 	const t = useTranslations(locale);
 
 	return (
-		<div className="shrink-0 bg-primary/15">
-			<div className="flex items-center justify-between px-4 py-2.5">
-				<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-					<MessageSquare className="h-5 w-5 text-primary" />
-					{t.page.chatLabel}
-				</h2>
-				<div className="flex items-center gap-2">
+		<PanelHeader
+			icon={MessageSquare}
+			title={t.page.chatLabel}
+			actions={
+				<>
 					<button
 						type="button"
 						onClick={onToggleHistory}
@@ -53,8 +52,8 @@ export function HeaderBar({
 					>
 						<PlusCircle className="h-4 w-4" />
 					</button>
-				</div>
-			</div>
-		</div>
+				</>
+			}
+		/>
 	);
 }

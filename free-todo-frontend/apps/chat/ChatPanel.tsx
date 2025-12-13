@@ -57,18 +57,6 @@ export function ChatPanel() {
 		[locale],
 	);
 
-	const helperText = useMemo(
-		() =>
-			chatMode === "plan"
-				? locale === "zh"
-					? "Plan 模式：描述目标，AI 会拆解并生成待办。"
-					: "Plan mode: describe your goal and I will create todos."
-				: locale === "zh"
-					? "Ask 模式：直接聊天或询问任务相关问题。"
-					: "Ask mode: chat or ask about your tasks.",
-		[chatMode, locale],
-	);
-
 	const inputPlaceholder =
 		chatMode === "plan"
 			? locale === "zh"
@@ -104,10 +92,6 @@ export function ChatPanel() {
 				onToggleHistory={() => setHistoryOpen((prev) => !prev)}
 				onNewChat={handleNewChat}
 			/>
-			<div className="flex flex-col gap-2 p-4">
-				<p className="text-sm text-muted-foreground">{t.page.chatSubtitle}</p>
-				<p className="text-xs text-muted-foreground">{helperText}</p>
-			</div>
 
 			{historyOpen && (
 				<HistoryDrawer

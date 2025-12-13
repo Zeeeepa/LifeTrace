@@ -1,6 +1,7 @@
 "use client";
 
 import { Award, Star, Target, Trophy } from "lucide-react";
+import { PanelHeader } from "@/components/common/PanelHeader";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 
@@ -15,14 +16,7 @@ export function AchievementsPanel() {
 	return (
 		<div className="relative flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
-			<div className="shrink-0 bg-primary/15">
-				<div className="flex items-center justify-between px-4 py-2.5">
-					<h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-						<Award className="h-5 w-5 text-primary" />
-						{t.page.achievementsLabel}
-					</h2>
-				</div>
-			</div>
+			<PanelHeader icon={Award} title={t.page.achievementsLabel} />
 
 			{/* 成就内容区域 */}
 			<div className="flex-1 overflow-y-auto px-4 py-6">
