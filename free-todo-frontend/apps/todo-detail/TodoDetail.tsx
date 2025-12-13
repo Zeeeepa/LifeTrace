@@ -56,6 +56,10 @@ export function TodoDetail() {
 		requestAnimationFrame(adjustNotesHeight);
 	};
 
+	const handleDescriptionChange = (description: string) => {
+		updateTodo(todo.id, { description });
+	};
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			<DetailHeader
@@ -87,6 +91,7 @@ export function TodoDetail() {
 					<DescriptionSection
 						description={todo.description}
 						attachments={todo.attachments}
+						onDescriptionChange={handleDescriptionChange}
 					/>
 				)}
 
