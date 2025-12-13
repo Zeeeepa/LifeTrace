@@ -506,21 +506,16 @@ export function CalendarPanel() {
 
 	const renderWeekView = () => (
 		<div className="grid grid-cols-7 gap-3">
-			{weekDays.map((day, idx) => (
-				<div key={toDateKey(day.date)} className="flex flex-col gap-2">
-					<div className="flex items-center justify-between text-xs text-muted-foreground">
-						<span className="font-semibold">周{WEEKDAY_LABELS[idx]}</span>
-						<span>{formatHumanDate(day.date)}</span>
-					</div>
-					<DayColumn
-						day={day}
-						view="week"
-						activeId={activeId}
-						onSelectDay={handleSelectDay}
-						onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
-						todos={groupedByDay.get(toDateKey(day.date)) || []}
-					/>
-				</div>
+			{weekDays.map((day) => (
+				<DayColumn
+					key={toDateKey(day.date)}
+					day={day}
+					view="week"
+					activeId={activeId}
+					onSelectDay={handleSelectDay}
+					onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
+					todos={groupedByDay.get(toDateKey(day.date)) || []}
+				/>
 			))}
 		</div>
 	);
