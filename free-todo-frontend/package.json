@@ -6,8 +6,8 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "biome lint ./app ./components",
-		"format": "biome format --write ./app ./components",
+		"lint": "biome lint ./app ./apps ./components ./lib",
+		"format": "biome format --write ./app ./apps ./components ./lib",
 		"check": "biome check ./app ./apps ./components ./lib",
 		"type-check": "tsc --noEmit"
 	},
