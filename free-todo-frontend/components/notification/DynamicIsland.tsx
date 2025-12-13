@@ -355,7 +355,6 @@ export function DynamicIsland() {
 						}}
 						transition={{
 							duration: 0.3,
-							hover: { duration: 0.2 },
 						}}
 						className="relative flex items-center gap-2 overflow-hidden rounded-full
 						bg-background/95 backdrop-blur-sm border border-border/50
