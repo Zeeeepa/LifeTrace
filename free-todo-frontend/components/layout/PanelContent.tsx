@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
@@ -32,15 +32,19 @@ export function PanelContent({ position }: PanelContentProps) {
 	const { locale } = useLocaleStore();
 	const t = useTranslations(locale);
 	const { hydrate } = useTodoStore();
+	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
+		setMounted(true);
 		void hydrate();
 	}, [hydrate]);
 
-	const feature = getFeatureByPosition(position);
+	// 在 SSR 时使用 null，避免 hydration 错误
+	const feature = mounted ? getFeatureByPosition(position) : null;
 
 	// 获取位置对应的功能标签和占位符
 	const getFeatureLabel = (pos: PanelPosition): string => {
+		if (!mounted) return "";
 		const feat = getFeatureByPosition(pos);
 		if (!feat) return "";
 		const labelMap: Record<string, string> = {
@@ -58,6 +62,7 @@ export function PanelContent({ position }: PanelContentProps) {
 	};
 
 	const getFeaturePlaceholder = (pos: PanelPosition): string => {
+		if (!mounted) return "";
 		const feat = getFeatureByPosition(pos);
 		if (!feat) return "";
 		const placeholderMap: Record<string, string> = {
@@ -76,6 +81,20 @@ export function PanelContent({ position }: PanelContentProps) {
 
 	// 获取对应的图标
 	const Icon = feature ? FEATURE_ICON_MAP[feature] : null;
+
+	// 在 SSR 时显示占位符，避免 hydration 错误
+	if (!mounted) {
+		return (
+			<div className="flex h-full flex-col rounded-(--radius) overflow-hidden">
+				<div className="flex h-10 shrink-0 items-center gap-2 bg-muted/30 px-4">
+					<h2 className="text-sm font-medium text-foreground">Loading...</h2>
+				</div>
+				<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+					Loading...
+				</div>
+			</div>
+		);
+	}
 
 	// 如果是待办功能，显示待办组件
 	if (feature === "todos") {
