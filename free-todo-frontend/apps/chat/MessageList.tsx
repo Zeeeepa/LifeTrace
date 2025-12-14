@@ -29,12 +29,22 @@ export function MessageList({
 		}
 	}, [messages, isStreaming]);
 
+	// 检查是否正在等待 AI 首次回复（streaming 且最后一条 assistant 消息没有内容）
+	const lastMessage = messages[messages.length - 1];
+	const isWaitingForFirstResponse =
+		isStreaming && lastMessage?.role === "assistant" && !lastMessage?.content;
+
+	// 过滤掉正在等待首次回复时的空 assistant 消息
+	const displayMessages = isWaitingForFirstResponse
+		? messages.slice(0, -1)
+		: messages;
+
 	return (
 		<div
 			className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
 			ref={messageListRef}
 		>
-			{messages.map((msg) => (
+			{displayMessages.map((msg) => (
 				<div
 					key={msg.id}
 					className={cn(
@@ -177,7 +187,7 @@ export function MessageList({
 					</div>
 				</div>
 			))}
-			{isStreaming && (
+			{isWaitingForFirstResponse && (
 				<div className="flex justify-start">
 					<div className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-xs text-muted-foreground">
 						<Loader2 className="h-4 w-4 animate-spin" />
