@@ -117,6 +117,15 @@ export type Translation = {
 		generateQuestionsFailed: string;
 		generateSummaryFailed: string;
 		loading: string;
+		planSummary: {
+			title: string;
+			description: string;
+			taskSummary: string;
+			subtaskList: string;
+			noSubtasks: string;
+			applying: string;
+			acceptAndApply: string;
+		};
 	};
 	calendar: {
 		title: string;

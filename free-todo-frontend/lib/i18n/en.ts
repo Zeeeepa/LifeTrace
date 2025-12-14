@@ -123,12 +123,22 @@ export const en: Translation = {
 	},
 	chat: {
 		planModeInputPlaceholder:
-			"e.g. Help me plan the tasks for moving this weekend",
+			"e.g. Help me plan the todos for moving this weekend",
 		aiThinking: "AI is thinking...",
 		generatingQuestions: "AI is generating questions...",
 		generateQuestionsFailed: "Failed to generate questions, please try again",
 		generateSummaryFailed: "Failed to generate summary, please try again",
 		loading: "Loading",
+		planSummary: {
+			title: "Todo Planning Result",
+			description:
+				"Please review the AI-generated todo summary and subtask list, then click Accept to confirm",
+			taskSummary: "Todo Summary",
+			subtaskList: "Sub-todo List",
+			noSubtasks: "No sub-todos generated",
+			applying: "Applying...",
+			acceptAndApply: "Accept & Apply",
+		},
 	},
 	calendar: {
 		title: "Calendar",

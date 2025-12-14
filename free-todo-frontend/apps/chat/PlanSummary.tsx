@@ -3,6 +3,8 @@
 import { Check, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { ParsedTodoTree } from "@/apps/chat/types";
+import { useTranslations } from "@/lib/i18n";
+import type { Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
 interface PlanSummaryProps {
@@ -10,7 +12,7 @@ interface PlanSummaryProps {
 	subtasks: ParsedTodoTree[];
 	onAccept: () => void;
 	isApplying: boolean;
-	locale: string;
+	locale: Locale;
 }
 
 function SubtaskTree({
@@ -51,40 +53,40 @@ export function PlanSummary({
 	isApplying,
 	locale,
 }: PlanSummaryProps) {
+	const t = useTranslations(locale);
+
 	return (
 		<div className="flex-1 overflow-y-auto px-4 py-4">
 			<div className="mx-auto max-w-2xl space-y-6">
 				<div className="rounded-lg bg-muted/50 p-4">
 					<h3 className="mb-2 text-lg font-semibold">
-						{locale === "zh" ? "任务规划结果" : "Task Planning Result"}
+						{t.chat.planSummary.title}
 					</h3>
 					<p className="text-sm text-muted-foreground">
-						{locale === "zh"
-							? "请查看AI生成的任务总结和子任务列表，确认后点击接收"
-							: "Please review the AI-generated task summary and subtask list, then click Accept to confirm"}
+						{t.chat.planSummary.description}
 					</p>
 				</div>
 
-				{/* 任务总结 */}
+				{/* 待办总结 */}
 				<div className="rounded-lg border bg-card p-4 shadow-sm">
 					<h4 className="mb-3 text-base font-semibold">
-						{locale === "zh" ? "任务总结" : "Task Summary"}
+						{t.chat.planSummary.taskSummary}
 					</h4>
 					<div className="prose prose-sm max-w-none dark:prose-invert">
 						<ReactMarkdown>{summary}</ReactMarkdown>
 					</div>
 				</div>
 
-				{/* 子任务列表 */}
+				{/* 子待办列表 */}
 				<div className="rounded-lg border bg-card p-4 shadow-sm">
 					<h4 className="mb-3 text-base font-semibold">
-						{locale === "zh" ? "子任务列表" : "Subtask List"}
+						{t.chat.planSummary.subtaskList}
 					</h4>
 					{subtasks.length > 0 ? (
 						<SubtaskTree subtasks={subtasks} />
 					) : (
 						<p className="text-sm text-muted-foreground">
-							{locale === "zh" ? "没有生成子任务" : "No subtasks generated"}
+							{t.chat.planSummary.noSubtasks}
 						</p>
 					)}
 				</div>
@@ -105,12 +107,12 @@ export function PlanSummary({
 						{isApplying ? (
 							<>
 								<Loader2 className="h-4 w-4 animate-spin" />
-								{locale === "zh" ? "应用中..." : "Applying..."}
+								{t.chat.planSummary.applying}
 							</>
 						) : (
 							<>
 								<Check className="h-4 w-4" />
-								{locale === "zh" ? "接收并应用" : "Accept & Apply"}
+								{t.chat.planSummary.acceptAndApply}
 							</>
 						)}
 					</button>

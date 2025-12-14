@@ -123,10 +123,19 @@ export const zh: Translation = {
 	chat: {
 		planModeInputPlaceholder: "例如：帮我规划周末搬家需要做的事",
 		aiThinking: "AI 正在思考...",
-		generatingQuestions: "AI正在生成问题...",
-		generateQuestionsFailed: "生成问题失败，请重试",
+		generatingQuestions: "AI正在拆解待办...",
+		generateQuestionsFailed: "拆解待办失败，请重试",
 		generateSummaryFailed: "生成总结失败，请重试",
 		loading: "加载中",
+		planSummary: {
+			title: "待办规划结果",
+			description: "请查看AI生成的待办总结和子待办列表，确认后点击接收",
+			taskSummary: "待办总结",
+			subtaskList: "子待办列表",
+			noSubtasks: "没有生成子待办",
+			applying: "应用中...",
+			acceptAndApply: "接收并应用",
+		},
 	},
 	calendar: {
 		title: "日历",
