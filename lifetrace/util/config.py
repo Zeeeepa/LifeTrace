@@ -93,8 +93,20 @@ def frontend_to_backend_key(frontend_key: str) -> str:
         if i >= len(parts):
             return "".join(result)
 
+        # 特殊处理 auto_todo_detection（复合二级路径）
+        if (
+            i + 2 < len(parts)
+            and parts[i] == "auto"
+            and parts[i + 1] == "todo"
+            and parts[i + 2] == "detection"
+        ):
+            result.append(".auto_todo_detection")
+            i += 3
+            # 剩余部分用下划线连接作为配置项
+            if i < len(parts):
+                result.append("." + "_".join(parts[i:]))
         # 第二级路径（如 recorder）
-        if parts[i] in second_level_segments:
+        elif parts[i] in second_level_segments:
             result.append("." + parts[i])
             i += 1
             i = _process_nested_path_parts(parts, i, result)
