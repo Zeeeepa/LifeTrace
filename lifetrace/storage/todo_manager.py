@@ -89,8 +89,10 @@ class TodoManager:
             "user_notes": todo.user_notes,
             "parent_todo_id": todo.parent_todo_id,
             "deadline": todo.deadline,
+            "start_time": todo.start_time,
             "status": todo.status,
             "priority": todo.priority,
+            "order": getattr(todo, "order", 0),
             "tags": self._get_todo_tags(session, todo.id),
             "attachments": self._get_todo_attachments(session, todo.id),
             "related_activities": _safe_int_list(todo.related_activities),
@@ -169,8 +171,10 @@ class TodoManager:
         user_notes: str | None = None,
         parent_todo_id: int | None = None,
         deadline: datetime | None = None,
+        start_time: datetime | None = None,
         status: str = "active",
         priority: str = "none",
+        order: int = 0,
         tags: list[str] | None = None,
         related_activities: list[int] | None = None,
     ) -> int | None:
@@ -182,8 +186,10 @@ class TodoManager:
                     user_notes=user_notes,
                     parent_todo_id=parent_todo_id,
                     deadline=deadline,
+                    start_time=start_time,
                     status=status,
                     priority=priority,
+                    order=order,
                     related_activities=json.dumps(_safe_int_list(related_activities)),
                 )
                 session.add(todo)
@@ -258,25 +264,31 @@ class TodoManager:
         user_notes: str | Any = _UNSET,
         parent_todo_id: int | None | Any = _UNSET,
         deadline: datetime | None | Any = _UNSET,
+        start_time: datetime | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
+        order: int | Any = _UNSET,
         related_activities: list[int] | Any = _UNSET,
     ) -> None:
         """应用待办字段更新"""
-        if name is not _UNSET:
-            todo.name = name
-        if description is not _UNSET:
-            todo.description = description
-        if user_notes is not _UNSET:
-            todo.user_notes = user_notes
-        if parent_todo_id is not _UNSET:
-            todo.parent_todo_id = parent_todo_id
-        if deadline is not _UNSET:
-            todo.deadline = deadline
-        if status is not _UNSET:
-            todo.status = status
-        if priority is not _UNSET:
-            todo.priority = priority
+        # 使用字典映射来减少复杂度
+        updates = {
+            "name": name,
+            "description": description,
+            "user_notes": user_notes,
+            "parent_todo_id": parent_todo_id,
+            "deadline": deadline,
+            "start_time": start_time,
+            "status": status,
+            "priority": priority,
+            "order": order,
+        }
+
+        for attr, value in updates.items():
+            if value is not _UNSET:
+                setattr(todo, attr, value)
+
+        # 特殊处理 related_activities（需要 JSON 序列化）
         if related_activities is not _UNSET:
             todo.related_activities = json.dumps(_safe_int_list(related_activities))
 
@@ -289,8 +301,10 @@ class TodoManager:
         user_notes: str | Any = _UNSET,
         parent_todo_id: int | None | Any = _UNSET,
         deadline: datetime | None | Any = _UNSET,
+        start_time: datetime | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
+        order: int | Any = _UNSET,
         tags: list[str] | Any = _UNSET,
         related_activities: list[int] | Any = _UNSET,
     ) -> bool:
@@ -308,8 +322,10 @@ class TodoManager:
                     user_notes=user_notes,
                     parent_todo_id=parent_todo_id,
                     deadline=deadline,
+                    start_time=start_time,
                     status=status,
                     priority=priority,
+                    order=order,
                     related_activities=related_activities,
                 )
 

@@ -100,6 +100,8 @@ function fromApiTodo(apiTodo: ApiTodo): Todo {
 		status: normalizeStatus(apiTodo.status),
 		priority: normalizePriority(apiTodo.priority),
 		deadline: apiTodo.deadline ?? undefined,
+		startTime: apiTodo.start_time ?? undefined,
+		order: apiTodo.order ?? 0,
 		tags: apiTodo.tags ?? [],
 		attachments: mapAttachments(apiTodo),
 		parentTodoId:
@@ -232,8 +234,10 @@ export const useTodoStore = create<TodoStoreState>()(
 							? toApiId(input.parentTodoId)
 							: null,
 						deadline: normalizeDeadline(input.deadline),
+						start_time: input.startTime,
 						status: input.status ?? "active",
 						priority: input.priority ?? "none",
+						order: input.order ?? 0,
 						tags: input.tags ?? [],
 						related_activities: toNumberList(input.relatedActivities),
 					});
@@ -282,6 +286,8 @@ export const useTodoStore = create<TodoStoreState>()(
 						payload.deadline = input.deadline
 							? normalizeDeadline(input.deadline)
 							: null;
+					if (has("startTime")) payload.start_time = input.startTime ?? null;
+					if (has("order")) payload.order = input.order ?? 0;
 					if (has("tags")) payload.tags = input.tags ?? [];
 					if (has("parentTodoId"))
 						payload.parent_todo_id = input.parentTodoId

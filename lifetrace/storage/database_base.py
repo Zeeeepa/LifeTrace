@@ -110,6 +110,10 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                     ),
                     (
+                        "idx_todos_order",
+                        'CREATE INDEX IF NOT EXISTS idx_todos_order ON todos("order")',
+                    ),
+                    (
                         "idx_attachments_file_hash",
                         "CREATE INDEX IF NOT EXISTS idx_attachments_file_hash ON attachments(file_hash)",
                     ),
@@ -411,6 +415,14 @@ class DatabaseBase:
                         text("ALTER TABLE todos ADD COLUMN priority VARCHAR(20) DEFAULT 'none'")
                     )
                     logger.info("已为 todos 表添加列: priority")
+
+                if "start_time" not in columns:
+                    conn.execute(text("ALTER TABLE todos ADD COLUMN start_time DATETIME"))
+                    logger.info("已为 todos 表添加列: start_time")
+
+                if "order" not in columns:
+                    conn.execute(text('ALTER TABLE todos ADD COLUMN "order" INTEGER DEFAULT 0'))
+                    logger.info("已为 todos 表添加列: order")
 
                 conn.commit()
         except Exception as e:

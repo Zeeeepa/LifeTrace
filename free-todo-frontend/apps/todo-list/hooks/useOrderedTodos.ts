@@ -45,9 +45,16 @@ export function useOrderedTodos(
 				(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
 			);
 
-		// 对于子任务，按创建时间升序排序（保持创建顺序）
-		const sortChildrenByCreatedAt = (list: Todo[]) =>
+		// 对于子任务，优先按order字段排序，其次按创建时间升序排序
+		const sortChildrenByOrder = (list: Todo[]) =>
 			[...list].sort((a, b) => {
+				// 优先按order字段排序
+				const aOrder = a.order ?? 0;
+				const bOrder = b.order ?? 0;
+				if (aOrder !== bOrder) {
+					return aOrder - bOrder;
+				}
+				// order相同时，按创建时间排序
 				const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
 				const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
 				return aTime - bTime;
@@ -63,8 +70,8 @@ export function useOrderedTodos(
 					const isExpanded =
 						collapsedTodoIds === undefined || !collapsedTodoIds.has(item.id);
 					if (isExpanded) {
-						// 子任务按创建时间升序排序
-						traverse(sortChildrenByCreatedAt(children), depth + 1);
+						// 子任务优先按order字段排序，其次按创建时间排序
+						traverse(sortChildrenByOrder(children), depth + 1);
 					}
 				}
 			});

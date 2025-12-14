@@ -37,8 +37,10 @@ async def create_todo(todo: TodoCreate):
             user_notes=todo.user_notes,
             parent_todo_id=todo.parent_todo_id,
             deadline=todo.deadline,
+            start_time=todo.start_time,
             status=todo.status.value if todo.status else "active",
             priority=todo.priority.value if todo.priority else "none",
+            order=todo.order,
             tags=todo.tags,
             related_activities=todo.related_activities,
         )

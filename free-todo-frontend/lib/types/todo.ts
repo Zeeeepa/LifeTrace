@@ -17,6 +17,8 @@ export interface Todo {
 	status: TodoStatus;
 	priority: TodoPriority;
 	deadline?: string; // ISO date string
+	startTime?: string; // ISO date string
+	order?: number;
 	tags?: string[];
 	attachments?: TodoAttachment[];
 	parentTodoId?: string | null;
@@ -33,6 +35,8 @@ export interface CreateTodoInput {
 	userNotes?: string;
 	priority?: TodoPriority;
 	deadline?: string;
+	startTime?: string;
+	order?: number;
 	tags?: string[];
 	attachments?: TodoAttachment[];
 	parentTodoId?: string | null;
@@ -48,6 +52,8 @@ export interface UpdateTodoInput {
 	status?: TodoStatus;
 	priority?: TodoPriority;
 	deadline?: string;
+	startTime?: string;
+	order?: number;
 	tags?: string[];
 	attachments?: TodoAttachment[];
 	parentTodoId?: string | null;

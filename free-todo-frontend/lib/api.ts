@@ -423,8 +423,10 @@ export type ApiTodo = {
 	user_notes?: string | null;
 	parent_todo_id?: number | null;
 	deadline?: string | null;
+	start_time?: string | null;
 	status: "active" | "completed" | "canceled" | "draft" | string;
 	priority: "high" | "medium" | "low" | "none" | string;
+	order?: number;
 	tags?: string[];
 	attachments?: ApiTodoAttachment[];
 	related_activities?: number[];
@@ -467,8 +469,10 @@ export async function createTodo(payload: {
 	user_notes?: string;
 	parent_todo_id?: number | null;
 	deadline?: string;
+	start_time?: string;
 	status?: string;
 	priority?: string;
+	order?: number;
 	tags?: string[];
 	related_activities?: number[];
 }): Promise<ApiTodo> {
@@ -498,8 +502,10 @@ export async function updateTodoApi(
 		user_notes: string | null;
 		parent_todo_id: number | null;
 		deadline: string | null;
+		start_time: string | null;
 		status: string | null;
 		priority: string | null;
+		order: number | null;
 		tags: string[] | null;
 		related_activities: number[] | null;
 	}>,

@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HeaderBar } from "@/apps/chat/HeaderBar";
 import { HistoryDrawer } from "@/apps/chat/HistoryDrawer";
@@ -16,6 +17,7 @@ import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
+import type { Todo } from "@/lib/types/todo";
 
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
@@ -39,12 +41,17 @@ export function ChatPanel() {
 		isLoading: planLoading,
 		isGeneratingSummary,
 		summaryStreamingText,
+		isGeneratingQuestions,
+		questionStreamingCount,
+		questionStreamingTitle,
 		error: planError,
 		setQuestions,
 		setAnswer,
 		setSummary,
 		setSummaryStreaming,
 		setIsGeneratingSummary,
+		setQuestionStreaming,
+		setIsGeneratingQuestions,
 		applyPlan,
 	} = usePlanStore();
 
@@ -53,7 +60,7 @@ export function ChatPanel() {
 	// 获取当前正在规划的待办
 	const activePlanTodo = useMemo(() => {
 		if (!activePlanTodoId) return null;
-		return todos.find((t) => t.id === activePlanTodoId) || null;
+		return todos.find((todo: Todo) => todo.id === activePlanTodoId) || null;
 	}, [activePlanTodoId, todos]);
 
 	// 当进入questionnaire阶段时，生成选择题
@@ -73,13 +80,21 @@ export function ChatPanel() {
 						"任务ID:",
 						activePlanTodo.id,
 					);
+					setIsGeneratingQuestions(true);
 					const generatedQuestions = await generateQuestions(
 						activePlanTodo.name,
 						activePlanTodo.id,
+						(count, title) => {
+							// 流式更新问题生成进度
+							if (!cancelled) {
+								setQuestionStreaming(count, title);
+							}
+						},
 					);
 					if (!cancelled) {
 						console.log("生成的选择题:", generatedQuestions);
 						setQuestions(generatedQuestions);
+						setIsGeneratingQuestions(false);
 					}
 				} catch (error) {
 					if (!cancelled) {
@@ -91,6 +106,7 @@ export function ChatPanel() {
 									? error.message
 									: t.chat.generateQuestionsFailed,
 							isLoading: false,
+							isGeneratingQuestions: false,
 						});
 					}
 				}
@@ -107,6 +123,8 @@ export function ChatPanel() {
 		planLoading,
 		generateQuestions,
 		setQuestions,
+		setQuestionStreaming,
+		setIsGeneratingQuestions,
 		t.chat.generateQuestionsFailed,
 	]);
 
@@ -255,10 +273,28 @@ export function ChatPanel() {
 					/>
 				) : (
 					<div className="flex-1 flex items-center justify-center">
-						<div className="text-center">
-							<p className="text-muted-foreground">
-								{t.chat.generatingQuestions}
-							</p>
+						<div className="text-center space-y-3">
+							{isGeneratingQuestions && questionStreamingCount > 0 ? (
+								<div className="flex flex-col items-center gap-2">
+									<div className="flex items-center gap-2 rounded-full bg-muted px-4 py-2 text-sm text-muted-foreground">
+										<Loader2 className="h-4 w-4 animate-spin" />
+										<span>
+											{locale === "zh"
+												? `正在生成第 ${questionStreamingCount} 个问题`
+												: `Generating question ${questionStreamingCount}`}
+										</span>
+									</div>
+									{questionStreamingTitle && (
+										<p className="text-sm text-foreground max-w-md">
+											{questionStreamingTitle}
+										</p>
+									)}
+								</div>
+							) : (
+								<p className="text-muted-foreground">
+									{t.chat.generatingQuestions}
+								</p>
+							)}
 							{planError && (
 								<p className="mt-2 text-sm text-destructive">{planError}</p>
 							)}

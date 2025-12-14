@@ -98,9 +98,45 @@ const tryFixJson = (jsonText: string): string => {
 	return fixed;
 };
 
+// 尝试从不完整的流式响应中解析问题数量和标题
+const tryParseStreamingQuestions = (
+	text: string,
+): { count: number; title: string | null } => {
+	// 尝试找到 questions 数组
+	const questionsMatch = text.match(/"questions"\s*:\s*\[/);
+	if (!questionsMatch) {
+		return { count: 0, title: null };
+	}
+
+	const afterQuestions = text.substring(
+		questionsMatch.index! + questionsMatch[0].length,
+	);
+
+	// 尝试提取所有问题标题
+	const questionTitles: string[] = [];
+	const questionMatches = afterQuestions.matchAll(
+		/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/g,
+	);
+
+	for (const match of questionMatches) {
+		if (match[1]) {
+			questionTitles.push(match[1].replace(/\\"/g, '"')); // 处理转义的引号
+		}
+	}
+
+	const count = questionTitles.length;
+	const title = count > 0 ? questionTitles[count - 1] : null;
+
+	return { count, title };
+};
+
 export const usePlanService = () => {
 	const generateQuestions = useCallback(
-		async (todoName: string, todoId?: string): Promise<Question[]> => {
+		async (
+			todoName: string,
+			todoId?: string,
+			onStreaming?: (count: number, title: string | null) => void,
+		): Promise<Question[]> => {
 			let fullResponse = "";
 
 			console.log(
@@ -114,6 +150,13 @@ export const usePlanService = () => {
 				todoName,
 				(chunk) => {
 					fullResponse += chunk;
+					// 实时解析问题数量和标题
+					if (onStreaming) {
+						const { count, title } = tryParseStreamingQuestions(fullResponse);
+						if (count > 0 || title) {
+							onStreaming(count, title);
+						}
+					}
 				},
 				todoIdNum,
 			);

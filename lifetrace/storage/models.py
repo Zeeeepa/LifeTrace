@@ -179,8 +179,10 @@ class Todo(Base):
     user_notes = Column(Text)  # 用户笔记
     parent_todo_id = Column(Integer)  # 父级待办ID（自关联）
     deadline = Column(DateTime)  # 截止时间
+    start_time = Column(DateTime)  # 开始时间
     status = Column(String(20), default="active", nullable=False)  # active/completed/canceled
     priority = Column(String(20), default="none", nullable=False)  # high/medium/low/none
+    order = Column(Integer, default=0)  # 同级待办之间的展示排序
     related_activities = Column(Text)  # 关联活动ID的JSON数组
     created_at = Column(DateTime, default=get_local_time, nullable=False)
     updated_at = Column(DateTime, default=get_local_time, onupdate=get_local_time, nullable=False)

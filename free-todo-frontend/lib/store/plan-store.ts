@@ -21,6 +21,9 @@ interface PlanStoreState {
 	isLoading: boolean;
 	isGeneratingSummary: boolean; // 正在生成总结（流式）
 	summaryStreamingText: string | null; // 流式生成的文本（用于显示）
+	isGeneratingQuestions: boolean; // 正在生成问题（流式）
+	questionStreamingCount: number; // 当前已生成的问题数量
+	questionStreamingTitle: string | null; // 当前正在生成的问题标题
 	error: string | null;
 
 	startPlan: (todoId: string) => void;
@@ -29,6 +32,8 @@ interface PlanStoreState {
 	setSummary: (summary: string, subtasks: ParsedTodoTree[]) => void;
 	setSummaryStreaming: (text: string | null) => void; // 设置流式文本
 	setIsGeneratingSummary: (isGenerating: boolean) => void; // 设置生成状态
+	setQuestionStreaming: (count: number, title: string | null) => void; // 设置问题流式状态
+	setIsGeneratingQuestions: (isGenerating: boolean) => void; // 设置问题生成状态
 	resetPlan: () => void;
 	applyPlan: () => Promise<void>;
 }
@@ -43,6 +48,9 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 	isLoading: false,
 	isGeneratingSummary: false,
 	summaryStreamingText: null,
+	isGeneratingQuestions: false,
+	questionStreamingCount: 0,
+	questionStreamingTitle: null,
 	error: null,
 
 	startPlan: (todoId: string) => {
@@ -95,6 +103,19 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 		set({ isGeneratingSummary: isGenerating });
 	},
 
+	setQuestionStreaming: (count: number, title: string | null) => {
+		set({ questionStreamingCount: count, questionStreamingTitle: title });
+	},
+
+	setIsGeneratingQuestions: (isGenerating: boolean) => {
+		set({
+			isGeneratingQuestions: isGenerating,
+			...(isGenerating
+				? {}
+				: { questionStreamingCount: 0, questionStreamingTitle: null }),
+		});
+	},
+
 	resetPlan: () => {
 		set({
 			activePlanTodoId: null,
@@ -106,6 +127,9 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 			isLoading: false,
 			isGeneratingSummary: false,
 			summaryStreamingText: null,
+			isGeneratingQuestions: false,
+			questionStreamingCount: 0,
+			questionStreamingTitle: null,
 			error: null,
 		});
 	},

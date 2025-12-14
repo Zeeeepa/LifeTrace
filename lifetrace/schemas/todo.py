@@ -52,8 +52,10 @@ class TodoCreate(BaseModel):
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID")
     deadline: datetime | None = Field(None, description="截止时间")
+    start_time: datetime | None = Field(None, description="开始时间")
     status: TodoStatus = Field(TodoStatus.ACTIVE, description="状态")
     priority: TodoPriority = Field(TodoPriority.NONE, description="优先级")
+    order: int = Field(0, description="同级待办之间的展示排序")
     tags: list[str] = Field(default_factory=list, description="标签名称列表")
     related_activities: list[int] = Field(default_factory=list, description="关联活动ID列表")
 
@@ -66,8 +68,10 @@ class TodoUpdate(BaseModel):
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID（显式传 null 可清空）")
     deadline: datetime | None = Field(None, description="截止时间（显式传 null 可清空）")
+    start_time: datetime | None = Field(None, description="开始时间（显式传 null 可清空）")
     status: TodoStatus | None = Field(None, description="状态")
     priority: TodoPriority | None = Field(None, description="优先级")
+    order: int | None = Field(None, description="同级待办之间的展示排序")
     tags: list[str] | None = Field(None, description="标签名称列表（显式传空数组将清空）")
     related_activities: list[int] | None = Field(
         None, description="关联活动ID列表（显式传空数组将清空）"
@@ -83,8 +87,10 @@ class TodoResponse(BaseModel):
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID")
     deadline: datetime | None = Field(None, description="截止时间")
+    start_time: datetime | None = Field(None, description="开始时间")
     status: str = Field(..., description="状态")
     priority: str = Field(..., description="优先级")
+    order: int = Field(0, description="同级待办之间的展示排序")
     tags: list[str] = Field(default_factory=list, description="标签名称列表")
     attachments: list[TodoAttachmentResponse] = Field(default_factory=list, description="附件列表")
     related_activities: list[int] = Field(default_factory=list, description="关联活动ID列表")
