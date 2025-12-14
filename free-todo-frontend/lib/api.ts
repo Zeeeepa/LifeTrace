@@ -41,6 +41,15 @@ export type ChatHistoryResponse = {
 };
 
 /**
+ * 获取流式 API 的基础 URL
+ * 流式请求直接调用后端 API，绕过 Next.js 代理，避免 gzip 压缩破坏流式传输
+ */
+function getStreamApiBaseUrl(): string {
+	// 流式请求始终直接调用后端，避免 Next.js 代理导致的缓冲/压缩问题
+	return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
+/**
  * 发送聊天消息并以流式方式接收回复
  */
 export async function sendChatMessageStream(
@@ -48,10 +57,8 @@ export async function sendChatMessageStream(
 	onChunk: (chunk: string) => void,
 	onSessionId?: (sessionId: string) => void,
 ): Promise<void> {
-	const baseUrl =
-		typeof window !== "undefined"
-			? ""
-			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	// 流式请求直接调用后端 API，绕过 Next.js 代理
+	const baseUrl = getStreamApiBaseUrl();
 	const response = await fetch(`${baseUrl}/api/chat/stream`, {
 		method: "POST",
 		headers: {
@@ -98,7 +105,8 @@ export async function planQuestionnaireStream(
 	onChunk: (chunk: string) => void,
 	todoId?: number,
 ): Promise<void> {
-	const baseUrl = getApiBaseUrl();
+	// 流式请求直接调用后端 API，绕过 Next.js 代理
+	const baseUrl = getStreamApiBaseUrl();
 	const response = await fetch(
 		`${baseUrl}/api/chat/plan/questionnaire/stream`,
 		{
@@ -145,7 +153,8 @@ export async function planSummaryStream(
 	answers: Record<string, string[]>,
 	onChunk: (chunk: string) => void,
 ): Promise<void> {
-	const baseUrl = getApiBaseUrl();
+	// 流式请求直接调用后端 API，绕过 Next.js 代理
+	const baseUrl = getStreamApiBaseUrl();
 	const response = await fetch(`${baseUrl}/api/chat/plan/summary/stream`, {
 		method: "POST",
 		headers: {

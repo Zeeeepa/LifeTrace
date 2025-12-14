@@ -29,172 +29,181 @@ export function MessageList({
 		}
 	}, [messages, isStreaming]);
 
-	// 检查是否正在等待 AI 首次回复（streaming 且最后一条 assistant 消息没有内容）
-	const lastMessage = messages[messages.length - 1];
-	const isWaitingForFirstResponse =
-		isStreaming && lastMessage?.role === "assistant" && !lastMessage?.content;
-
-	// 过滤掉正在等待首次回复时的空 assistant 消息
-	const displayMessages = isWaitingForFirstResponse
-		? messages.slice(0, -1)
-		: messages;
-
 	return (
 		<div
 			className="flex-1 space-y-4 overflow-y-auto px-4 py-4"
 			ref={messageListRef}
 		>
-			{displayMessages.map((msg) => (
-				<div
-					key={msg.id}
-					className={cn(
-						"flex",
-						msg.role === "assistant" ? "justify-start" : "justify-end",
-					)}
-				>
+			{messages.map((msg, index) => {
+				const isLastMessage = index === messages.length - 1;
+				// 判断是否是正在等待首次回复的空 assistant 消息
+				const isEmptyStreamingMessage =
+					isStreaming &&
+					isLastMessage &&
+					msg.role === "assistant" &&
+					!msg.content;
+
+				// 跳过没有内容的非 streaming assistant 消息
+				if (
+					!msg.content &&
+					msg.role === "assistant" &&
+					!isEmptyStreamingMessage
+				) {
+					return null;
+				}
+
+				return (
 					<div
+						key={msg.id}
 						className={cn(
-							"max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm",
-							msg.role === "assistant"
-								? "bg-muted text-foreground"
-								: "bg-primary text-primary-foreground",
+							"flex",
+							msg.role === "assistant" ? "justify-start" : "justify-end",
 						)}
 					>
-						<div className="mb-1 text-[11px] uppercase tracking-wide opacity-70">
-							{msg.role === "assistant"
-								? locale === "zh"
-									? "助理"
-									: "Assistant"
-								: locale === "zh"
-									? "我"
-									: "You"}
-						</div>
-						<div className="leading-relaxed">
-							<ReactMarkdown
-								remarkPlugins={[remarkGfm]}
-								components={{
-									h1: ({ children }) => (
-										<h1
-											className={cn(
-												"text-lg font-bold mb-2 mt-0",
-												msg.role === "assistant"
-													? "text-foreground"
-													: "text-primary-foreground",
-											)}
-										>
-											{children}
-										</h1>
-									),
-									h2: ({ children }) => (
-										<h2
-											className={cn(
-												"text-base font-semibold mb-2 mt-3",
-												msg.role === "assistant"
-													? "text-foreground"
-													: "text-primary-foreground",
-											)}
-										>
-											{children}
-										</h2>
-									),
-									h3: ({ children }) => (
-										<h3
-											className={cn(
-												"text-sm font-semibold mb-1 mt-2",
-												msg.role === "assistant"
-													? "text-foreground"
-													: "text-primary-foreground",
-											)}
-										>
-											{children}
-										</h3>
-									),
-									p: ({ children }) => (
-										<p className="my-1.5 leading-relaxed">{children}</p>
-									),
-									ul: ({ children }) => (
-										<ul className="my-2 list-disc pl-5 space-y-0.5">
-											{children}
-										</ul>
-									),
-									ol: ({ children }) => (
-										<ol className="my-2 list-decimal pl-5 space-y-0.5">
-											{children}
-										</ol>
-									),
-									li: ({ children }) => (
-										<li className="leading-relaxed">{children}</li>
-									),
-									strong: ({ children }) => (
-										<strong className="font-semibold">{children}</strong>
-									),
-									code: ({ children }) => (
-										<code
-											className={cn(
-												"px-1.5 py-0.5 rounded text-xs font-mono",
-												msg.role === "assistant"
-													? "bg-background text-foreground"
-													: "bg-primary-foreground/20 text-primary-foreground",
-											)}
-										>
-											{children}
-										</code>
-									),
-									pre: ({ children }) => (
-										<pre
-											className={cn(
-												"rounded p-2 overflow-x-auto my-2 text-xs",
-												msg.role === "assistant"
-													? "bg-background border border-border"
-													: "bg-primary-foreground/20",
-											)}
-										>
-											{children}
-										</pre>
-									),
-									blockquote: ({ children }) => (
-										<blockquote
-											className={cn(
-												"border-l-2 pl-3 my-2 italic",
-												msg.role === "assistant"
-													? "border-border opacity-80"
-													: "border-primary-foreground/50 opacity-90",
-											)}
-										>
-											{children}
-										</blockquote>
-									),
-									a: ({ href, children }) => (
-										<a
-											href={href}
-											className={cn(
-												"underline underline-offset-2",
-												msg.role === "assistant"
-													? "hover:opacity-80"
-													: "hover:opacity-90",
-											)}
-											target="_blank"
-											rel="noopener noreferrer"
-										>
-											{children}
-										</a>
-									),
-								}}
+						{/* 空的 streaming 消息显示 loading 指示器 */}
+						{isEmptyStreamingMessage ? (
+							<div className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-xs text-muted-foreground">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								{typingText}
+							</div>
+						) : (
+							<div
+								className={cn(
+									"max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+									msg.role === "assistant"
+										? "bg-muted text-foreground"
+										: "bg-primary text-primary-foreground",
+								)}
 							>
-								{msg.content || typingText}
-							</ReactMarkdown>
-						</div>
+								<div className="mb-1 text-[11px] uppercase tracking-wide opacity-70">
+									{msg.role === "assistant"
+										? locale === "zh"
+											? "助理"
+											: "Assistant"
+										: locale === "zh"
+											? "我"
+											: "You"}
+								</div>
+								<div className="leading-relaxed">
+									<ReactMarkdown
+										remarkPlugins={[remarkGfm]}
+										components={{
+											h1: ({ children }) => (
+												<h1
+													className={cn(
+														"text-lg font-bold mb-2 mt-0",
+														msg.role === "assistant"
+															? "text-foreground"
+															: "text-primary-foreground",
+													)}
+												>
+													{children}
+												</h1>
+											),
+											h2: ({ children }) => (
+												<h2
+													className={cn(
+														"text-base font-semibold mb-2 mt-3",
+														msg.role === "assistant"
+															? "text-foreground"
+															: "text-primary-foreground",
+													)}
+												>
+													{children}
+												</h2>
+											),
+											h3: ({ children }) => (
+												<h3
+													className={cn(
+														"text-sm font-semibold mb-1 mt-2",
+														msg.role === "assistant"
+															? "text-foreground"
+															: "text-primary-foreground",
+													)}
+												>
+													{children}
+												</h3>
+											),
+											p: ({ children }) => (
+												<p className="my-1.5 leading-relaxed">{children}</p>
+											),
+											ul: ({ children }) => (
+												<ul className="my-2 list-disc pl-5 space-y-0.5">
+													{children}
+												</ul>
+											),
+											ol: ({ children }) => (
+												<ol className="my-2 list-decimal pl-5 space-y-0.5">
+													{children}
+												</ol>
+											),
+											li: ({ children }) => (
+												<li className="leading-relaxed">{children}</li>
+											),
+											strong: ({ children }) => (
+												<strong className="font-semibold">{children}</strong>
+											),
+											code: ({ children }) => (
+												<code
+													className={cn(
+														"px-1.5 py-0.5 rounded text-xs font-mono",
+														msg.role === "assistant"
+															? "bg-background text-foreground"
+															: "bg-primary-foreground/20 text-primary-foreground",
+													)}
+												>
+													{children}
+												</code>
+											),
+											pre: ({ children }) => (
+												<pre
+													className={cn(
+														"rounded p-2 overflow-x-auto my-2 text-xs",
+														msg.role === "assistant"
+															? "bg-background border border-border"
+															: "bg-primary-foreground/20",
+													)}
+												>
+													{children}
+												</pre>
+											),
+											blockquote: ({ children }) => (
+												<blockquote
+													className={cn(
+														"border-l-2 pl-3 my-2 italic",
+														msg.role === "assistant"
+															? "border-border opacity-80"
+															: "border-primary-foreground/50 opacity-90",
+													)}
+												>
+													{children}
+												</blockquote>
+											),
+											a: ({ href, children }) => (
+												<a
+													href={href}
+													className={cn(
+														"underline underline-offset-2",
+														msg.role === "assistant"
+															? "hover:opacity-80"
+															: "hover:opacity-90",
+													)}
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													{children}
+												</a>
+											),
+										}}
+									>
+										{msg.content}
+									</ReactMarkdown>
+								</div>
+							</div>
+						)}
 					</div>
-				</div>
-			))}
-			{isWaitingForFirstResponse && (
-				<div className="flex justify-start">
-					<div className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-xs text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						{typingText}
-					</div>
-				</div>
-			)}
+				);
+			})}
 		</div>
 	);
 }

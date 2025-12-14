@@ -1,9 +1,13 @@
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { usePlanParser } from "@/apps/chat/hooks/usePlanParser";
 import type { ChatMessage } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
-import { buildTodoContextBlock } from "@/apps/chat/utils/todoContext";
+import {
+	buildHierarchicalTodoContext,
+	buildTodoContextBlock,
+} from "@/apps/chat/utils/todoContext";
 import type { ChatHistoryItem, ChatSessionSummary } from "@/lib/api";
 import { getChatHistory, sendChatMessageStream } from "@/lib/api";
 import { useChatStore } from "@/lib/store/chat-store";
@@ -115,18 +119,15 @@ export const useChatController = ({
 		setInputValue("");
 		setError(null);
 
-		const todoSourceLabel = hasSelection
-			? locale === "zh"
-				? "已选待办"
-				: "Selected todos"
-			: locale === "zh"
-				? "无待办上下文"
-				: "No todo context";
-		const todoContext = buildTodoContextBlock(
-			effectiveTodos,
-			todoSourceLabel,
-			locale,
-		);
+		// 当有选中待办时，使用完整的层级上下文（包含所有参数和父子关系）
+		// 否则使用简单的空上下文提示
+		const todoContext = hasSelection
+			? buildHierarchicalTodoContext(effectiveTodos, todos, locale)
+			: buildTodoContextBlock(
+					[],
+					locale === "zh" ? "无待办上下文" : "No todo context",
+					locale,
+				);
 		const userLabel = locale === "zh" ? "用户输入" : "User input";
 
 		const payloadMessage =
@@ -157,13 +158,16 @@ export const useChatController = ({
 				},
 				(chunk) => {
 					assistantContent += chunk;
-					setMessages((prev) =>
-						prev.map((msg) =>
-							msg.id === assistantMessageId
-								? { ...msg, content: assistantContent }
-								: msg,
-						),
-					);
+					// 使用 flushSync 强制同步更新，确保流式输出效果
+					flushSync(() => {
+						setMessages((prev) =>
+							prev.map((msg) =>
+								msg.id === assistantMessageId
+									? { ...msg, content: assistantContent }
+									: msg,
+							),
+						);
+					});
 				},
 				(sessionId) => {
 					setConversationId(conversationId || sessionId);
@@ -258,6 +262,7 @@ export const useChatController = ({
 		parsePlanTodos,
 		planSystemPrompt,
 		setConversationId,
+		todos,
 	]);
 
 	const handleKeyDown = useCallback(
