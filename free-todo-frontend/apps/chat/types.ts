@@ -10,7 +10,7 @@ export type ChatMode = "ask" | "plan";
 
 export type ParsedTodo = Pick<
 	CreateTodoInput,
-	"name" | "description" | "tags" | "deadline"
+	"name" | "description" | "tags" | "deadline" | "order"
 >;
 
 export type ParsedTodoTree = ParsedTodo & { subtasks?: ParsedTodoTree[] };

@@ -109,7 +109,7 @@ const tryParseStreamingQuestions = (
 	}
 
 	const afterQuestions = text.substring(
-		questionsMatch.index! + questionsMatch[0].length,
+		(questionsMatch.index ?? 0) + questionsMatch[0].length,
 	);
 
 	// 尝试提取所有问题标题
@@ -348,6 +348,12 @@ export const usePlanService = () => {
 							? rawDescription.trim()
 							: undefined;
 
+					const rawOrder = (item as { order?: unknown }).order;
+					const order =
+						typeof rawOrder === "number" && !Number.isNaN(rawOrder)
+							? rawOrder
+							: undefined;
+
 					const rawSubtasks = (item as { subtasks?: unknown }).subtasks;
 					const subtasks = Array.isArray(rawSubtasks)
 						? rawSubtasks
@@ -358,6 +364,7 @@ export const usePlanService = () => {
 					return {
 						name: rawName,
 						description,
+						order,
 						subtasks,
 					};
 				};

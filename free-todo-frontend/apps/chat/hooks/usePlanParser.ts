@@ -9,13 +9,15 @@ export const usePlanParser = (locale: string) => {
 			locale === "zh"
 				? [
 						"你是任务规划助手：请先简短说明，再输出一个 JSON 对象，字段为 todos（数组）。",
-						"每个 todo: name(必填)、description(可选)、tags(可选字符串数组)、deadline(可选 ISO 8601)、subtasks(可选数组，结构同上)。",
+						"每个 todo: name(必填)、description(可选)、tags(可选字符串数组)、deadline(可选 ISO 8601)、order(可选数字，用于同级任务排序，从1开始递增)、subtasks(可选数组，结构同上)。",
+						"order 字段说明：同级任务按 order 升序排列，order 相同时按创建时间排序。请为同级任务分配合理的 order 值（如 1, 2, 3...），体现任务的逻辑顺序或优先级。",
 						"若用户只有单一意图，用 1 个根任务，其余步骤放到 subtasks；若存在多个不同意图，则使用多个根任务并在各自 subtasks 中细化。",
 						"无法生成待办时，返回空数组并解释原因。只输出一个 JSON，可用 ```json ``` 包裹，JSON 外可保留可读解释。",
 					].join("\n")
 				: [
 						"You are a planning assistant: give a brief explanation, then output ONE JSON object with key `todos` (array).",
-						"Each todo: name (required), description (optional), tags (optional string array), deadline (optional ISO 8601), subtasks (optional array with same shape).",
+						"Each todo: name (required), description (optional), tags (optional string array), deadline (optional ISO 8601), order (optional number for sorting sibling tasks, starting from 1), subtasks (optional array with same shape).",
+						"Order field explanation: sibling tasks are sorted by order in ascending order, with creation time as fallback. Assign reasonable order values (1, 2, 3...) to sibling tasks to reflect logical sequence or priority.",
 						"If the prompt has a single intent, produce one root todo and put steps in subtasks; if multiple distinct intents, use multiple root todos with their own subtasks.",
 						"If nothing actionable, return an empty array but explain. Only one JSON, may be wrapped in ```json ```, natural text may appear outside.",
 					].join("\n"),
@@ -83,6 +85,12 @@ export const usePlanParser = (locale: string) => {
 							? rawDeadline.trim()
 							: undefined;
 
+					const rawOrder = (item as { order?: unknown }).order;
+					const order =
+						typeof rawOrder === "number" && !Number.isNaN(rawOrder)
+							? rawOrder
+							: undefined;
+
 					const rawSubtasks = (item as { subtasks?: unknown }).subtasks;
 					const subtasks = Array.isArray(rawSubtasks)
 						? rawSubtasks
@@ -95,6 +103,7 @@ export const usePlanParser = (locale: string) => {
 						description,
 						tags,
 						deadline,
+						order,
 						subtasks,
 					};
 				};
@@ -142,6 +151,7 @@ export const usePlanParser = (locale: string) => {
 					description: node.description,
 					tags: node.tags,
 					deadline: node.deadline,
+					order: node.order,
 					parentTodoId: parentId ?? null,
 				});
 				if (node.subtasks?.length) {

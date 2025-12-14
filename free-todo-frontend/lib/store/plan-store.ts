@@ -160,6 +160,7 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 					const created = await createTodoWithResult({
 						name: node.name,
 						description: node.description,
+						order: node.order,
 						parentTodoId: parentId,
 					});
 

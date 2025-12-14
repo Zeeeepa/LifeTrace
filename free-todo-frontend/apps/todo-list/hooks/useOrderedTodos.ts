@@ -45,8 +45,8 @@ export function useOrderedTodos(
 				(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
 			);
 
-		// 对于子任务，优先按order字段排序，其次按创建时间升序排序
-		const sortChildrenByOrder = (list: Todo[]) =>
+		// 优先按order字段排序，其次按创建时间升序排序
+		const sortByOrder = (list: Todo[]) =>
 			[...list].sort((a, b) => {
 				// 优先按order字段排序
 				const aOrder = a.order ?? 0;
@@ -61,8 +61,16 @@ export function useOrderedTodos(
 			});
 
 		const ordered: OrderedTodo[] = [];
-		const traverse = (items: Todo[], depth: number) => {
-			sortByOriginalOrder(items).forEach((item) => {
+		const traverse = (
+			items: Todo[],
+			depth: number,
+			isRoot: boolean = false,
+		) => {
+			// 根任务按原始顺序排序（支持用户拖拽），子任务按order字段排序
+			const sortedItems = isRoot
+				? sortByOriginalOrder(items)
+				: sortByOrder(items);
+			sortedItems.forEach((item) => {
 				ordered.push({ todo: item, depth });
 				const children = childrenMap.get(item.id);
 				// 如果有子任务且父任务已展开（collapsedTodoIds 为空或未定义时默认展开，否则检查是否不在 Set 中）
@@ -71,13 +79,13 @@ export function useOrderedTodos(
 						collapsedTodoIds === undefined || !collapsedTodoIds.has(item.id);
 					if (isExpanded) {
 						// 子任务优先按order字段排序，其次按创建时间排序
-						traverse(sortChildrenByOrder(children), depth + 1);
+						traverse(children, depth + 1, false);
 					}
 				}
 			});
 		};
 
-		traverse(sortByOriginalOrder(roots), 0);
+		traverse(roots, 0, true);
 
 		return { filteredTodos: result, orderedTodos: ordered };
 	}, [todos, searchQuery, collapsedTodoIds]);
