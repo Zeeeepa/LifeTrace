@@ -34,6 +34,7 @@ const FEATURE_LABEL_MAP: Partial<
 	todoDetail: "todoDetail",
 	diary: "diary",
 	settings: "settings",
+	costTracking: "costTracking",
 	achievements: "achievements",
 	debugShots: "debugShots",
 };

@@ -5,6 +5,7 @@ import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
 import { ChatPanel } from "@/apps/chat/ChatPanel";
+import { CostTrackingPanel } from "@/apps/cost-tracking";
 import { SettingsPanel } from "@/apps/settings";
 import { TodoDetail } from "@/apps/todo-detail";
 import { TodoList } from "@/apps/todo-list";
@@ -55,6 +56,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			todoDetail: t.page.todoDetailLabel,
 			diary: t.page.diaryLabel,
 			settings: t.page.settingsLabel,
+			costTracking: t.page.costTrackingLabel,
 			achievements: t.page.achievementsLabel,
 			debugShots: t.page.debugShotsLabel,
 		};
@@ -73,6 +75,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			todoDetail: t.page.todoDetailPlaceholder,
 			diary: t.page.diaryPlaceholder,
 			settings: t.page.settingsPlaceholder,
+			costTracking: t.page.costTrackingPlaceholder,
 			achievements: t.page.achievementsPlaceholder,
 			debugShots: t.page.debugShotsPlaceholder,
 		};
@@ -133,6 +136,11 @@ export function PanelContent({ position }: PanelContentProps) {
 	// 如果是设置功能，显示设置组件
 	if (feature === "settings") {
 		return <SettingsPanel />;
+	}
+
+	// 如果是费用统计功能，显示费用面板
+	if (feature === "costTracking") {
+		return <CostTrackingPanel />;
 	}
 
 	// 如果是开发调试截图面板（仅开发环境可见）

@@ -61,6 +61,7 @@ export function PanelContainer({
 		todoDetail: "Todo Detail Panel",
 		diary: "Diary Panel",
 		settings: "Settings Panel",
+		costTracking: "Cost Tracking Panel",
 	};
 
 	// 拖动时使用即时更新，禁用动画

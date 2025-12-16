@@ -130,6 +130,25 @@ llm:
     qwen-turbo:
       input_price: 0.0003
       output_price: 0.0006
-    qwen3-vl-plus: # 视觉模型价格（非思考模式，0<Token≤32K）
+    qwen3-vl-plus: # 视觉模型价格（支持非思考/思考模式，按输入token分层计价）
+      # 兼容旧逻辑的基础单价（默认取第一档）
       input_price: 0.001 # 输入token价格（元/千token）
       output_price: 0.01 # 输出token价格（元/千token）
+      tiers:
+        # (0, 32,000]
+        - max_input_tokens: 32000
+          input_price: 0.001
+          output_price: 0.01
+        # (32,000, 128,000]
+        - max_input_tokens: 128000
+          input_price: 0.0015
+          output_price: 0.015
+        # (128,000, 256,000]
+        - max_input_tokens: 256000
+          input_price: 0.003
+          output_price: 0.03
+
+# UI 配置
+ui:
+  cost_tracking:
+    enabled: true

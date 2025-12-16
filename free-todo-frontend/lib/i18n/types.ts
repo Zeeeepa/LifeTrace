@@ -50,6 +50,8 @@ export type Translation = {
 		diaryPlaceholder: string;
 		settingsLabel: string;
 		settingsPlaceholder: string;
+		costTrackingLabel: string;
+		costTrackingPlaceholder: string;
 		settings: {
 			autoTodoDetectionTitle: string;
 			autoTodoDetectionDescription: string;
@@ -59,6 +61,12 @@ export type Translation = {
 			autoTodoDetectionDisabled: string;
 			loadFailed: string;
 			saveFailed: string;
+			costTrackingPanelTitle: string;
+			costTrackingPanelDescription: string;
+			costTrackingPanelLabel: string;
+			costTrackingPanelHint: string;
+			costTrackingPanelEnabled: string;
+			costTrackingPanelDisabled: string;
 		};
 		achievementsLabel: string;
 		achievementsPlaceholder: string;
@@ -66,6 +74,33 @@ export type Translation = {
 		screenshotsPlaceholder: string;
 		debugShotsLabel: string;
 		debugShotsPlaceholder: string;
+		costTracking: {
+			title: string;
+			subtitle: string;
+			statisticsPeriod: string;
+			last7Days: string;
+			last30Days: string;
+			last90Days: string;
+			refresh: string;
+			totalCost: string;
+			totalTokens: string;
+			totalRequests: string;
+			featureCostDetails: string;
+			feature: string;
+			featureId: string;
+			inputTokens: string;
+			outputTokens: string;
+			requests: string;
+			cost: string;
+			modelCostDetails: string;
+			model: string;
+			inputCost: string;
+			outputCost: string;
+			totalCostLabel: string;
+			dailyCostTrend: string;
+			loadFailed: string;
+			featureNames: Record<string, string>;
+		};
 	};
 	bottomDock: {
 		calendar: string;
@@ -75,6 +110,7 @@ export type Translation = {
 		todoDetail: string;
 		diary: string;
 		settings: string;
+		costTracking: string;
 		achievements: string;
 		screenshots: string;
 		debugShots: string;

@@ -10,6 +10,7 @@ import {
 	BookOpen,
 	CalendarDays,
 	Camera,
+	DollarSign,
 	FileText,
 	LayoutPanelLeft,
 	type LucideIcon,
@@ -28,6 +29,7 @@ export type CorePanelFeature =
 	| "todoDetail"
 	| "diary"
 	| "settings"
+	| "costTracking"
 	| "achievements";
 export type DevPanelFeature = "debugShots";
 export type PanelFeature = CorePanelFeature | DevPanelFeature;
@@ -40,6 +42,7 @@ const CORE_PANEL_FEATURES: CorePanelFeature[] = [
 	"todoDetail",
 	"diary",
 	"settings",
+	"costTracking",
 	"achievements",
 ];
 const DEV_PANEL_FEATURES: DevPanelFeature[] = IS_DEV_ENV ? ["debugShots"] : [];
@@ -66,6 +69,7 @@ const CORE_FEATURE_ICON_MAP: Record<CorePanelFeature, LucideIcon> = {
 	todoDetail: FileText,
 	diary: BookOpen,
 	settings: Settings,
+	costTracking: DollarSign,
 	achievements: Award,
 };
 

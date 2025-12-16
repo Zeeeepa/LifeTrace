@@ -1,0 +1,336 @@
+/* eslint-disable react/no-array-index-key */
+"use client";
+
+import {
+	Activity,
+	AlertCircle,
+	Calendar,
+	DollarSign,
+	RefreshCw,
+	TrendingUp,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CostStats } from "@/lib/api";
+import { getCostStats } from "@/lib/api";
+import { useTranslations } from "@/lib/i18n";
+import { useLocaleStore } from "@/lib/store/locale";
+
+const DEFAULT_DAYS = 30;
+
+export function CostTrackingPanel() {
+	const { locale } = useLocaleStore();
+	const t = useTranslations(locale);
+
+	const [stats, setStats] = useState<CostStats | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [days, setDays] = useState<number>(DEFAULT_DAYS);
+
+	const loadCostStats = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const response = await getCostStats(days);
+			if (response?.data) {
+				setStats(response.data);
+			} else {
+				setStats(null);
+				setError(t.page.costTracking.loadFailed);
+			}
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : t.page.costTracking.loadFailed;
+			setError(message);
+		} finally {
+			setLoading(false);
+		}
+	}, [days, t]);
+
+	useEffect(() => {
+		void loadCostStats();
+	}, [loadCostStats]);
+
+	const formatCurrency = (amount: number | undefined | null) => {
+		if (amount === undefined || amount === null || Number.isNaN(amount)) {
+			return "¥0.00";
+		}
+		return `¥${amount.toFixed(2)}`;
+	};
+
+	const formatNumber = (num: number | undefined | null) => {
+		if (num === undefined || num === null || Number.isNaN(num)) {
+			return "0";
+		}
+		return num.toLocaleString(locale === "zh" ? "zh-CN" : "en-US");
+	};
+
+	const featureName = (featureId: string) =>
+		t.page.costTracking.featureNames[featureId] ??
+		t.page.costTracking.featureNames.unknown ??
+		featureId;
+
+	const recentData = useMemo(() => {
+		if (!stats) return [];
+		const dates = Object.keys(stats.daily_costs).sort().slice(-7);
+		return dates.map((date) => ({
+			date,
+			cost: stats.daily_costs[date]?.cost ?? 0,
+			tokens: stats.daily_costs[date]?.total_tokens ?? 0,
+		}));
+	}, [stats]);
+
+	const maxCost = useMemo(() => {
+		if (!recentData.length) return 1;
+		return Math.max(1, ...recentData.map((item) => item.cost || 0));
+	}, [recentData]);
+
+	return (
+		<div className="flex h-full flex-col overflow-auto bg-[oklch(var(--card))] text-[oklch(var(--foreground))]">
+			<div className="border-b border-[oklch(var(--border))] bg-[oklch(var(--card))]/80 px-4 py-3">
+				<h2 className="text-lg font-semibold leading-tight">
+					{t.page.costTracking.title}
+				</h2>
+				<p className="text-sm text-[oklch(var(--muted-foreground))]">
+					{t.page.costTracking.subtitle}
+				</p>
+			</div>
+
+			<div className="flex-1 space-y-4 overflow-auto p-4">
+				<div className="flex flex-wrap items-center gap-3">
+					<div className="flex items-center gap-2 text-sm text-[oklch(var(--muted-foreground))]">
+						<Calendar className="h-4 w-4" />
+						<span>{t.page.costTracking.statisticsPeriod}:</span>
+					</div>
+					<select
+						value={days}
+						onChange={(e) => setDays(Number(e.target.value))}
+						className="rounded-lg border border-[oklch(var(--border))] bg-[oklch(var(--card))] px-3 py-2 text-sm shadow-sm focus:border-[oklch(var(--primary))] focus:outline-none focus:ring-2 focus:ring-[oklch(var(--primary))]/50"
+					>
+						<option value={7}>{t.page.costTracking.last7Days}</option>
+						<option value={30}>{t.page.costTracking.last30Days}</option>
+						<option value={90}>{t.page.costTracking.last90Days}</option>
+					</select>
+					<button
+						type="button"
+						onClick={() => void loadCostStats()}
+						className="inline-flex items-center gap-2 rounded-lg border border-[oklch(var(--border))] px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-[oklch(var(--muted))]"
+					>
+						<RefreshCw className="h-4 w-4" />
+						{t.page.costTracking.refresh}
+					</button>
+				</div>
+
+				{error && (
+					<div className="flex items-start gap-2 rounded-lg border border-[oklch(var(--destructive))]/40 bg-[oklch(var(--destructive))]/10 px-3 py-2 text-sm text-[oklch(var(--destructive))]">
+						<AlertCircle className="mt-0.5 h-4 w-4" />
+						<span>{error}</span>
+					</div>
+				)}
+
+				{loading ? (
+					<div className="flex h-48 items-center justify-center text-sm text-[oklch(var(--muted-foreground))]">
+						<div className="h-6 w-6 animate-spin rounded-full border-2 border-[oklch(var(--primary))]/30 border-t-[oklch(var(--primary))]" />
+					</div>
+				) : stats ? (
+					<div className="space-y-4">
+						<div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+							<div className="rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] p-4 shadow-sm">
+								<div className="flex items-center justify-between text-sm text-[oklch(var(--muted-foreground))]">
+									<span>{t.page.costTracking.totalCost}</span>
+									<DollarSign className="h-4 w-4 text-[oklch(var(--primary))]" />
+								</div>
+								<p className="mt-2 text-3xl font-bold text-[oklch(var(--primary))]">
+									{formatCurrency(stats.total_cost)}
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] p-4 shadow-sm">
+								<div className="flex items-center justify-between text-sm text-[oklch(var(--muted-foreground))]">
+									<span>{t.page.costTracking.totalTokens}</span>
+									<Activity className="h-4 w-4 text-[oklch(var(--primary))]" />
+								</div>
+								<p className="mt-2 text-3xl font-bold">
+									{formatNumber(stats.total_tokens)}
+								</p>
+							</div>
+
+							<div className="rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] p-4 shadow-sm">
+								<div className="flex items-center justify-between text-sm text-[oklch(var(--muted-foreground))]">
+									<span>{t.page.costTracking.totalRequests}</span>
+									<TrendingUp className="h-4 w-4 text-[oklch(var(--primary))]" />
+								</div>
+								<p className="mt-2 text-3xl font-bold">
+									{formatNumber(stats.total_requests)}
+								</p>
+							</div>
+						</div>
+
+						<div className="overflow-hidden rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] shadow-sm">
+							<div className="border-b border-[oklch(var(--border))] px-4 py-3">
+								<h3 className="text-base font-semibold">
+									{t.page.costTracking.featureCostDetails}
+								</h3>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="min-w-full text-sm">
+									<thead className="bg-[oklch(var(--muted))] text-left text-[oklch(var(--muted-foreground))]">
+										<tr>
+											<th className="px-4 py-2 font-medium">
+												{t.page.costTracking.feature}
+											</th>
+											<th className="px-4 py-2 font-medium">
+												{t.page.costTracking.featureId}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.inputTokens}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.outputTokens}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.requests}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.cost}
+											</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-[oklch(var(--border))]">
+										{Object.entries(stats.feature_costs)
+											.sort(([, a], [, b]) => (b.cost ?? 0) - (a.cost ?? 0))
+											.map(([featureId, data]) => (
+												<tr
+													key={featureId}
+													className="hover:bg-[oklch(var(--muted))]/50"
+												>
+													<td className="px-4 py-3 font-medium">
+														{featureName(featureId)}
+													</td>
+													<td className="px-4 py-3 font-mono text-[oklch(var(--muted-foreground))]">
+														{featureId}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatNumber(data.input_tokens)}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatNumber(data.output_tokens)}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatNumber(data.requests)}
+													</td>
+													<td className="px-4 py-3 text-right font-semibold text-[oklch(var(--primary))]">
+														{formatCurrency(data.cost)}
+													</td>
+												</tr>
+											))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+
+						<div className="overflow-hidden rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] shadow-sm">
+							<div className="border-b border-[oklch(var(--border))] px-4 py-3">
+								<h3 className="text-base font-semibold">
+									{t.page.costTracking.modelCostDetails}
+								</h3>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="min-w-full text-sm">
+									<thead className="bg-[oklch(var(--muted))] text-left text-[oklch(var(--muted-foreground))]">
+										<tr>
+											<th className="px-4 py-2 font-medium">
+												{t.page.costTracking.model}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.inputTokens}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.outputTokens}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.inputCost}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.outputCost}
+											</th>
+											<th className="px-4 py-2 text-right font-medium">
+												{t.page.costTracking.totalCostLabel}
+											</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-[oklch(var(--border))]">
+										{Object.entries(stats.model_costs)
+											.sort(
+												([, a], [, b]) =>
+													(b.total_cost ?? 0) - (a.total_cost ?? 0),
+											)
+											.map(([model, data]) => (
+												<tr
+													key={model}
+													className="hover:bg-[oklch(var(--muted))]/50"
+												>
+													<td className="px-4 py-3 font-medium">{model}</td>
+													<td className="px-4 py-3 text-right">
+														{formatNumber(data.input_tokens)}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatNumber(data.output_tokens)}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatCurrency(data.input_cost)}
+													</td>
+													<td className="px-4 py-3 text-right">
+														{formatCurrency(data.output_cost)}
+													</td>
+													<td className="px-4 py-3 text-right font-semibold text-[oklch(var(--primary))]">
+														{formatCurrency(data.total_cost)}
+													</td>
+												</tr>
+											))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+
+						{recentData.length > 0 && (
+							<div className="overflow-hidden rounded-xl border border-[oklch(var(--border))] bg-[oklch(var(--card))] shadow-sm">
+								<div className="border-b border-[oklch(var(--border))] px-4 py-3">
+									<h3 className="text-base font-semibold">
+										{t.page.costTracking.dailyCostTrend}
+									</h3>
+								</div>
+								<div className="space-y-3 p-4">
+									{recentData.map((item) => (
+										<div key={item.date} className="flex items-center gap-3">
+											<div className="w-20 shrink-0 text-xs text-[oklch(var(--muted-foreground))]">
+												{item.date.slice(5)}
+											</div>
+											<div className="flex-1">
+												<div className="flex items-center gap-2">
+													<div className="h-2 flex-1 rounded-full bg-[oklch(var(--muted))]">
+														<div
+															className="h-2 rounded-full bg-[oklch(var(--primary))]"
+															style={{
+																width: `${Math.min(
+																	(item.cost / maxCost) * 100,
+																	100,
+																)}%`,
+															}}
+														/>
+													</div>
+													<div className="w-24 text-right text-sm font-semibold text-[oklch(var(--primary))]">
+														{formatCurrency(item.cost)}
+													</div>
+												</div>
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						)}
+					</div>
+				) : null}
+			</div>
+		</div>
+	);
+}

@@ -119,6 +119,50 @@ def frontend_to_backend_key(frontend_key: str) -> str:
     return snake_case
 
 
+def _resolve_model_price(
+    model: str,
+    price_config: dict,
+    config_path: str,
+    input_tokens: int | None = None,
+) -> tuple[float, float]:
+    """根据价格配置解析模型的单价（元/千token）
+
+    支持分层定价（tiers）和旧版的 input_price/output_price 直配。
+    """
+
+    # 支持分层定价：tiers 为列表，按 max_input_tokens 升序匹配
+    if "tiers" in price_config:
+        tiers = price_config.get("tiers") or []
+        if not isinstance(tiers, list) or not tiers:
+            raise ValueError(f"模型 '{model}' 的 tiers 配置无效，请检查配置文件 {config_path}")
+
+        sorted_tiers = sorted(
+            tiers,
+            key=lambda tier: tier.get("max_input_tokens", float("inf")),
+        )
+        tokens = input_tokens if input_tokens is not None else 0
+        selected_tier = None
+        for tier in sorted_tiers:
+            max_tokens = tier.get("max_input_tokens")
+            # 如果未设置上限或在上限内，则匹配到该档
+            if max_tokens is None or tokens <= max_tokens:
+                selected_tier = tier
+                break
+        if selected_tier is None:
+            selected_tier = sorted_tiers[-1]
+
+        if "input_price" not in selected_tier or "output_price" not in selected_tier:
+            raise KeyError(f"模型 '{model}' 的 tiers 配置缺少 input_price 或 output_price。")
+        return float(selected_tier["input_price"]), float(selected_tier["output_price"])
+
+    # 兼容旧配置：直接使用 input_price/output_price
+    if "input_price" not in price_config or "output_price" not in price_config:
+        raise KeyError(
+            f"模型 '{model}' 的价格配置不完整。请确保配置了 input_price 和 output_price。"
+        )
+    return float(price_config["input_price"]), float(price_config["output_price"])
+
+
 class LifeTraceConfig:
     """LifeTrace配置管理类"""
 
@@ -214,6 +258,16 @@ class LifeTraceConfig:
 
             # 检查缺失的键
             missing_keys = default_keys - current_keys
+
+            # 对于新增的可选配置（例如分层定价），允许缺失以兼容旧版 config.yaml
+            optional_prefixes = [
+                "llm.model_prices.qwen3-vl-plus.tiers",
+            ]
+            missing_keys = {
+                key
+                for key in missing_keys
+                if not any(key.startswith(prefix) for prefix in optional_prefixes)
+            }
 
             if missing_keys:
                 # 按字母顺序排序缺失的键，便于阅读
@@ -450,33 +504,8 @@ class LifeTraceConfig:
         根据当前使用的模型从model_prices中获取价格，
         如果找不到对应模型的价格，则使用default价格
         """
-        model_prices = self.get("llm.model_prices")
-        current_model = self.get("llm.model")
-
-        # 先尝试获取当前模型的价格
-        if current_model in model_prices:
-            if "input_price" not in model_prices[current_model]:
-                raise KeyError(
-                    f"配置键 'llm.model_prices.{current_model}.input_price' 不存在。"
-                    f"请检查配置文件 {self.config_path}"
-                )
-            return model_prices[current_model]["input_price"]
-
-        # 如果没有找到，使用默认价格
-        if "default" not in model_prices:
-            raise KeyError(
-                f"配置键 'llm.model_prices.default' 不存在。"
-                f"请在配置文件中为模型 '{current_model}' 配置价格，或配置默认价格。"
-                f"请检查配置文件 {self.config_path}"
-            )
-
-        if "input_price" not in model_prices["default"]:
-            raise KeyError(
-                f"配置键 'llm.model_prices.default.input_price' 不存在。"
-                f"请检查配置文件 {self.config_path}"
-            )
-
-        return model_prices["default"]["input_price"]
+        input_price, _ = self.get_model_price(self.get("llm.model"), input_tokens=0)
+        return input_price
 
     @property
     def llm_output_token_price(self) -> float:
@@ -485,33 +514,30 @@ class LifeTraceConfig:
         根据当前使用的模型从model_prices中获取价格，
         如果找不到对应模型的价格，则使用default价格
         """
-        model_prices = self.get("llm.model_prices")
-        current_model = self.get("llm.model")
+        _, output_price = self.get_model_price(self.get("llm.model"), input_tokens=0)
+        return output_price
 
-        # 先尝试获取当前模型的价格
-        if current_model in model_prices:
-            if "output_price" not in model_prices[current_model]:
-                raise KeyError(
-                    f"配置键 'llm.model_prices.{current_model}.output_price' 不存在。"
-                    f"请检查配置文件 {self.config_path}"
-                )
-            return model_prices[current_model]["output_price"]
+    def get_model_price(self, model: str, input_tokens: int | None = None) -> tuple[float, float]:
+        """获取指定模型的单价（元/千token），支持按输入token区间分层计价"""
+
+        model_prices = self.get("llm.model_prices")
+
+        # 先尝试获取指定模型的价格
+        if model in model_prices:
+            return _resolve_model_price(
+                model, model_prices[model], self.config_path, input_tokens=input_tokens
+            )
 
         # 如果没有找到，使用默认价格
         if "default" not in model_prices:
             raise KeyError(
-                f"配置键 'llm.model_prices.default' 不存在。"
-                f"请在配置文件中为模型 '{current_model}' 配置价格，或配置默认价格。"
-                f"请检查配置文件 {self.config_path}"
+                f"找不到模型 '{model}' 的价格配置，也没有配置默认价格。"
+                f"请在配置文件中添加该模型的价格或配置 default 价格。"
             )
 
-        if "output_price" not in model_prices["default"]:
-            raise KeyError(
-                f"配置键 'llm.model_prices.default.output_price' 不存在。"
-                f"请检查配置文件 {self.config_path}"
-            )
-
-        return model_prices["default"]["output_price"]
+        return _resolve_model_price(
+            model, model_prices["default"], self.config_path, input_tokens=input_tokens
+        )
 
     # 调度器配置属性（需要路径拼接）
     @property

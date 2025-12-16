@@ -116,6 +116,8 @@ class ConfigService:
             "chat.history_limit",
             # 自动待办检测配置
             "jobs.auto_todo_detection.enabled",
+            # UI 配置
+            "ui.cost_tracking.enabled",
         ]
 
         config_dict = {}
