@@ -19,11 +19,12 @@ class TokenUsageLogger:
     def __init__(self, config=None):
         self.config = config
 
-    def _get_model_price(self, model: str) -> tuple[float, float]:
+    def _get_model_price(self, model: str, input_tokens: int | None = None) -> tuple[float, float]:
         """获取模型价格（元/千token）
 
         Args:
             model: 模型名称
+            input_tokens: 输入token数量，用于选择分层价格（可选）
 
         Returns:
             (input_price, output_price) 元组
@@ -31,9 +32,13 @@ class TokenUsageLogger:
         if not self.config:
             return 0.0, 0.0
 
+        # 如果配置类提供了统一方法，优先使用
+        if hasattr(self.config, "get_model_price"):
+            return self.config.get_model_price(model, input_tokens=input_tokens)
+
         model_prices = self.config.get("llm.model_prices")
 
-        # 先尝试获取指定模型的价格
+        # 兼容逻辑（无分层）
         if model in model_prices:
             prices = model_prices[model]
             if "input_price" not in prices or "output_price" not in prices:
@@ -42,7 +47,6 @@ class TokenUsageLogger:
                 )
             return prices["input_price"], prices["output_price"]
 
-        # 如果没有找到，使用默认价格
         if "default" not in model_prices:
             raise KeyError(
                 f"找不到模型 '{model}' 的价格配置，也没有配置默认价格。"
@@ -88,7 +92,7 @@ class TokenUsageLogger:
 
         try:
             # 计算成本
-            input_price, output_price = self._get_model_price(model)
+            input_price, output_price = self._get_model_price(model, input_tokens)
             input_cost = (input_tokens / 1000) * input_price
             output_cost = (output_tokens / 1000) * output_price
             total_cost = input_cost + output_cost

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getConfig, saveConfig } from "@/lib/api";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
+import { useUiStore } from "@/lib/store/ui-store";
 import { toastError, toastSuccess } from "@/lib/toast";
 
 /**
@@ -17,6 +18,10 @@ export function SettingsPanel() {
 	const [loading, setLoading] = useState(false);
 	const [autoTodoDetectionEnabled, setAutoTodoDetectionEnabled] =
 		useState(false);
+	const [costPanelEnabled, setCostPanelEnabled] = useState<boolean>(() =>
+		useUiStore.getState().isFeatureEnabled("costTracking"),
+	);
+	const setFeatureEnabled = useUiStore((state) => state.setFeatureEnabled);
 
 	const loadConfig = useCallback(async () => {
 		setLoading(true);
@@ -26,6 +31,10 @@ export function SettingsPanel() {
 				setAutoTodoDetectionEnabled(
 					(response.config.jobsAutoTodoDetectionEnabled as boolean) ?? false,
 				);
+				const costEnabled =
+					(response.config.uiCostTrackingEnabled as boolean) ?? true;
+				setCostPanelEnabled(costEnabled);
+				setFeatureEnabled("costTracking", costEnabled);
 			}
 		} catch (error) {
 			console.error("加载配置失败:", error);
@@ -34,7 +43,7 @@ export function SettingsPanel() {
 		} finally {
 			setLoading(false);
 		}
-	}, [t]);
+	}, [setFeatureEnabled, t]);
 
 	// 加载配置
 	useEffect(() => {
@@ -59,6 +68,30 @@ export function SettingsPanel() {
 			toastError(t.page.settings.saveFailed.replace("{error}", errorMsg));
 			// 恢复原状态
 			setAutoTodoDetectionEnabled(!enabled);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleToggleCostPanel = async (enabled: boolean) => {
+		setLoading(true);
+		try {
+			await saveConfig({
+				uiCostTrackingEnabled: enabled,
+			});
+			setCostPanelEnabled(enabled);
+			setFeatureEnabled("costTracking", enabled);
+			toastSuccess(
+				enabled
+					? t.page.settings.costTrackingPanelEnabled
+					: t.page.settings.costTrackingPanelDisabled,
+			);
+		} catch (error) {
+			console.error("保存配置失败:", error);
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			toastError(t.page.settings.saveFailed.replace("{error}", errorMsg));
+			setCostPanelEnabled(!enabled);
+			setFeatureEnabled("costTracking", !enabled);
 		} finally {
 			setLoading(false);
 		}
@@ -126,6 +159,55 @@ export function SettingsPanel() {
 						<div className="mt-3 rounded-md bg-primary/10 p-3">
 							<p className="text-xs text-primary">
 								{t.page.settings.autoTodoDetectionHint}
+							</p>
+						</div>
+					)}
+				</div>
+
+				{/* 费用统计面板 */}
+				<div className="rounded-lg border border-border bg-card p-4">
+					<div className="mb-4">
+						<h3 className="mb-1 text-base font-semibold text-foreground">
+							{t.page.settings.costTrackingPanelTitle}
+						</h3>
+						<p className="text-sm text-muted-foreground">
+							{t.page.settings.costTrackingPanelDescription}
+						</p>
+					</div>
+					<div className="flex items-center justify-between">
+						<div className="flex-1">
+							<label
+								htmlFor="cost-tracking-toggle"
+								className="text-sm font-medium text-foreground"
+							>
+								{t.page.settings.costTrackingPanelLabel}
+							</label>
+						</div>
+						<button
+							type="button"
+							id="cost-tracking-toggle"
+							disabled={loading}
+							onClick={() => handleToggleCostPanel(!costPanelEnabled)}
+							className={`
+                relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+                disabled:opacity-50 disabled:cursor-not-allowed
+                ${costPanelEnabled ? "bg-primary" : "bg-muted"}
+              `}
+							aria-label={t.page.settings.costTrackingPanelLabel}
+						>
+							<span
+								className={`
+                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                  ${costPanelEnabled ? "translate-x-6" : "translate-x-1"}
+                `}
+							/>
+						</button>
+					</div>
+					{!costPanelEnabled && (
+						<div className="mt-3 rounded-md bg-muted p-3">
+							<p className="text-xs text-muted-foreground">
+								{t.page.settings.costTrackingPanelHint}
 							</p>
 						</div>
 					)}

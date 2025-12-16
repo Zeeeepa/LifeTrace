@@ -14,6 +14,8 @@ interface UiStoreState {
 	// panelBWidth 是计算值，不需要单独存储
 	// 动态功能分配映射：每个位置当前显示的功能
 	panelFeatureMap: Record<PanelPosition, PanelFeature | null>;
+	// 被禁用的功能列表
+	disabledFeatures: PanelFeature[];
 	// 位置槽位 toggle 方法
 	togglePanelA: () => void;
 	togglePanelB: () => void;
@@ -26,6 +28,8 @@ interface UiStoreState {
 	setPanelFeature: (position: PanelPosition, feature: PanelFeature) => void;
 	getFeatureByPosition: (position: PanelPosition) => PanelFeature | null;
 	getAvailableFeatures: () => PanelFeature[];
+	setFeatureEnabled: (feature: PanelFeature, enabled: boolean) => void;
+	isFeatureEnabled: (feature: PanelFeature) => boolean;
 	// 兼容性方法：为了保持向后兼容，保留基于功能的访问方法
 	// 这些方法内部会通过动态映射查找位置
 	getIsFeatureOpen: (feature: PanelFeature) => boolean;
@@ -67,6 +71,7 @@ const DEFAULT_PANEL_STATE = {
 	isPanelCOpen: true,
 	panelAWidth: 0.5,
 	panelCWidth: 0.3,
+	disabledFeatures: [] as PanelFeature[],
 	panelFeatureMap: {
 		panelA: "todos" as PanelFeature,
 		panelB: "todoDetail" as PanelFeature,
@@ -116,6 +121,8 @@ export const useUiStore = create<UiStoreState>()(
 			panelCWidth: DEFAULT_PANEL_STATE.panelCWidth,
 			// 动态功能分配初始状态：默认分配
 			panelFeatureMap: DEFAULT_PANEL_STATE.panelFeatureMap,
+			// 默认没有禁用的功能
+			disabledFeatures: DEFAULT_PANEL_STATE.disabledFeatures,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -163,6 +170,10 @@ export const useUiStore = create<UiStoreState>()(
 			// 动态功能分配方法
 			setPanelFeature: (position, feature) =>
 				set((state) => {
+					// 禁用的功能不允许分配
+					if (state.disabledFeatures.includes(feature)) {
+						return state;
+					}
 					// 如果该功能已经在其他位置，先清除那个位置的分配
 					const currentMap = { ...state.panelFeatureMap };
 					for (const [pos, assignedFeature] of Object.entries(currentMap) as [
@@ -180,7 +191,9 @@ export const useUiStore = create<UiStoreState>()(
 
 			getFeatureByPosition: (position) => {
 				const state = get();
-				return state.panelFeatureMap[position];
+				const feature = state.panelFeatureMap[position];
+				if (!feature) return null;
+				return state.disabledFeatures.includes(feature) ? null : feature;
 			},
 
 			getAvailableFeatures: () => {
@@ -189,15 +202,47 @@ export const useUiStore = create<UiStoreState>()(
 					(f): f is PanelFeature => f !== null,
 				);
 				return ALL_PANEL_FEATURES.filter(
-					(feature) => !assignedFeatures.includes(feature),
+					(feature) =>
+						!assignedFeatures.includes(feature) &&
+						!state.disabledFeatures.includes(feature),
 				);
+			},
+
+			setFeatureEnabled: (feature, enabled) =>
+				set((state) => {
+					const disabledFeatures = new Set(state.disabledFeatures);
+					const panelFeatureMap = { ...state.panelFeatureMap };
+
+					if (!enabled) {
+						disabledFeatures.add(feature);
+						// 移除已分配到任何面板的禁用功能
+						for (const position of Object.keys(
+							panelFeatureMap,
+						) as PanelPosition[]) {
+							if (panelFeatureMap[position] === feature) {
+								panelFeatureMap[position] = null;
+							}
+						}
+					} else {
+						disabledFeatures.delete(feature);
+					}
+
+					return {
+						disabledFeatures: Array.from(disabledFeatures),
+						panelFeatureMap,
+					};
+				}),
+
+			isFeatureEnabled: (feature) => {
+				const state = get();
+				return !state.disabledFeatures.includes(feature);
 			},
 
 			// 兼容性方法：基于功能的访问
 			getIsFeatureOpen: (feature) => {
 				const position = getPositionByFeature(feature, get().panelFeatureMap);
-				if (!position) return false;
 				const state = get();
+				if (!position || state.disabledFeatures.includes(feature)) return false;
 				switch (position) {
 					case "panelA":
 						return state.isPanelAOpen;
@@ -308,6 +353,29 @@ export const useUiStore = create<UiStoreState>()(
 							}
 							if (typeof state.isPanelCOpen !== "boolean") {
 								state.isPanelCOpen = DEFAULT_PANEL_STATE.isPanelCOpen;
+							}
+
+							// 校验禁用功能列表
+							if (Array.isArray(state.disabledFeatures)) {
+								state.disabledFeatures = state.disabledFeatures.filter(
+									(feature: PanelFeature): feature is PanelFeature =>
+										ALL_PANEL_FEATURES.includes(feature),
+								);
+							} else {
+								state.disabledFeatures = DEFAULT_PANEL_STATE.disabledFeatures;
+							}
+
+							// 如果有功能被禁用，确保对应位置不再保留
+							for (const position of Object.keys(
+								state.panelFeatureMap,
+							) as PanelPosition[]) {
+								const feature = state.panelFeatureMap[position];
+								if (
+									feature &&
+									state.disabledFeatures.includes(feature as PanelFeature)
+								) {
+									state.panelFeatureMap[position] = null;
+								}
 							}
 
 							return JSON.stringify({ state });

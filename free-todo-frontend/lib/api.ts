@@ -40,6 +40,43 @@ export type ChatHistoryResponse = {
 	history?: ChatHistoryItem[];
 };
 
+export interface FeatureCost {
+	input_tokens: number;
+	output_tokens: number;
+	total_tokens: number;
+	requests: number;
+	cost: number;
+}
+
+export interface ModelCost {
+	input_tokens: number;
+	output_tokens: number;
+	total_tokens: number;
+	requests: number;
+	input_cost: number;
+	output_cost: number;
+	total_cost: number;
+}
+
+export interface DailyCost {
+	input_tokens: number;
+	output_tokens: number;
+	total_tokens: number;
+	requests: number;
+	cost: number;
+}
+
+export interface CostStats {
+	total_cost: number;
+	total_tokens: number;
+	total_requests: number;
+	feature_costs: Record<string, FeatureCost>;
+	model_costs: Record<string, ModelCost>;
+	daily_costs: Record<string, DailyCost>;
+	start_date: string;
+	end_date: string;
+}
+
 /**
  * 获取流式 API 的基础 URL
  * 流式请求直接调用后端 API，绕过 Next.js 代理，避免 gzip 压缩破坏流式传输
@@ -404,6 +441,52 @@ export function getScreenshotImage(id: number): string {
 			? ""
 			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 	return `${baseUrl}/api/screenshots/${id}/image`;
+}
+
+// ===== 费用统计相关 API =====
+
+export async function getCostStats(
+	days?: number,
+): Promise<{ success: boolean; data?: CostStats }> {
+	const query = days
+		? `?${new URLSearchParams({ days: String(days) }).toString()}`
+		: "";
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/cost-tracking/stats${query}`, {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	if (!response.ok) {
+		throw new Error(`Request failed with status ${response.status}`);
+	}
+
+	return response.json();
+}
+
+export async function getCostConfig(): Promise<{
+	success: boolean;
+	data?: {
+		model: string;
+		input_token_price: number;
+		output_token_price: number;
+	};
+}> {
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/cost-tracking/config`, {
+		headers: { "Content-Type": "application/json" },
+	});
+
+	if (!response.ok) {
+		throw new Error(`Request failed with status ${response.status}`);
+	}
+
+	return response.json();
 }
 
 // ===== Todo 相关 API（/api/todos）=====
