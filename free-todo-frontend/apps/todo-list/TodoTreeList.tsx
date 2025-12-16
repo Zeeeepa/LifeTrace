@@ -14,6 +14,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type React from "react";
+import { createPortal } from "react-dom";
 import type { OrderedTodo } from "./hooks/useOrderedTodos";
 import { TodoCard } from "./TodoCard";
 
@@ -76,23 +77,28 @@ export function TodoTreeList({
 				</div>
 			</SortableContext>
 
-			<DragOverlay>
-				{activeTodo ? (
-					<div
-						className="opacity-50"
-						style={{ marginLeft: (activeTodoEntry?.depth ?? 0) * 16 }}
-					>
-						<TodoCard
-							todo={activeTodo}
-							isDragging
-							selected={selectedTodoIds.includes(activeTodo.id)}
-							onSelect={(event) => onSelect(activeTodo.id, event)}
-							onSelectSingle={() => onSelectSingle(activeTodo.id)}
-							isOverlay
-						/>
-					</div>
-				) : null}
-			</DragOverlay>
+			{/* 使用 Portal 将 DragOverlay 渲染到 body，避免父容器 transform 导致的坐标偏移 */}
+			{typeof document !== "undefined" &&
+				createPortal(
+					<DragOverlay dropAnimation={null}>
+						{activeTodo ? (
+							<div
+								className="opacity-80 pointer-events-none"
+								style={{ marginLeft: (activeTodoEntry?.depth ?? 0) * 16 }}
+							>
+								<TodoCard
+									todo={activeTodo}
+									isDragging
+									selected={selectedTodoIds.includes(activeTodo.id)}
+									onSelect={(event) => onSelect(activeTodo.id, event)}
+									onSelectSingle={() => onSelectSingle(activeTodo.id)}
+									isOverlay
+								/>
+							</div>
+						) : null}
+					</DragOverlay>,
+					document.body,
+				)}
 		</DndContext>
 	);
 }

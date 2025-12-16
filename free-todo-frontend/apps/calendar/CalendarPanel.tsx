@@ -20,6 +20,7 @@ import {
 	X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/PanelHeader";
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
@@ -436,6 +437,12 @@ export function CalendarPanel() {
 			.sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
 	}, [todos]);
 
+	// 计算当前正在拖动的 CalendarTodo 对象，用于 DragOverlay 显示预览
+	const activeCalendarTodo = useMemo(() => {
+		if (!activeId) return null;
+		return todosWithDeadline.find((item) => item.todo.id === activeId) ?? null;
+	}, [activeId, todosWithDeadline]);
+
 	const todosInRange = useMemo(
 		() =>
 			todosWithDeadline.filter(
@@ -727,7 +734,46 @@ export function CalendarPanel() {
 					}}
 				/>
 
-				<DragOverlay />
+				{/* 使用 Portal 将 DragOverlay 渲染到 body，避免父容器 transform 导致的坐标偏移 */}
+				{typeof document !== "undefined" &&
+					createPortal(
+						<DragOverlay dropAnimation={null}>
+							{activeCalendarTodo ? (
+								<div
+									className={cn(
+										"opacity-80 pointer-events-none flex flex-col gap-1 rounded-lg border bg-card p-2 text-xs shadow-lg",
+										getStatusStyle(activeCalendarTodo.todo.status),
+									)}
+								>
+									<div className="flex items-center justify-between gap-2">
+										<p className="truncate text-[13px] font-semibold">
+											{activeCalendarTodo.todo.name}
+										</p>
+										<span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+											{formatTimeLabel(
+												activeCalendarTodo.deadline,
+												t.calendar.allDay,
+											)}
+										</span>
+									</div>
+									{activeCalendarTodo.todo.tags &&
+										activeCalendarTodo.todo.tags.length > 0 && (
+											<div className="flex flex-wrap gap-1">
+												{activeCalendarTodo.todo.tags.slice(0, 2).map((tag) => (
+													<span
+														key={tag}
+														className="rounded-full bg-white/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+													>
+														{tag}
+													</span>
+												))}
+											</div>
+										)}
+								</div>
+							) : null}
+						</DragOverlay>,
+						document.body,
+					)}
 			</div>
 		</DndContext>
 	);
