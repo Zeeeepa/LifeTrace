@@ -9,6 +9,7 @@ export {
 	GlobalDndProvider,
 	useGlobalDnd,
 	useGlobalDndSafe,
+	usePendingUpdate,
 } from "./context";
 // 处理器
 export {

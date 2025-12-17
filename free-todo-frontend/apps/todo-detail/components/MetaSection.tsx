@@ -6,14 +6,13 @@ import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
 import { cn } from "@/lib/utils";
 import {
 	formatDateTime,
-	formatDeadlineForInput,
 	getPriorityClassNames,
 	getPriorityLabel,
 	getStatusClassNames,
-	parseInputToIso,
 	priorityOptions,
 	statusOptions,
 } from "../helpers";
+import { DatePickerPopover } from "./DatePickerPopover";
 
 interface MetaSectionProps {
 	todo: Todo;
@@ -32,13 +31,11 @@ export function MetaSection({
 }: MetaSectionProps) {
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
+	const deadlineContainerRef = useRef<HTMLDivElement | null>(null);
 
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 	const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
-	const [isEditingDeadline, setIsEditingDeadline] = useState(false);
-	const [deadlineInput, setDeadlineInput] = useState(
-		formatDeadlineForInput(todo.deadline),
-	);
+	const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 	const [isEditingTags, setIsEditingTags] = useState(false);
 	const [tagsInput, setTagsInput] = useState(todo.tags?.join(", ") ?? "");
 
@@ -75,23 +72,10 @@ export function MetaSection({
 	useEffect(() => {
 		setIsStatusMenuOpen(false);
 		setIsPriorityMenuOpen(false);
-		setIsEditingDeadline(false);
+		setIsDatePickerOpen(false);
 		setIsEditingTags(false);
-		setDeadlineInput(formatDeadlineForInput(todo.deadline));
 		setTagsInput(todo.tags?.join(", ") ?? "");
-	}, [todo.deadline, todo.tags]);
-
-	const handleDeadlineSave = () => {
-		const nextDeadline = parseInputToIso(deadlineInput);
-		onDeadlineChange(deadlineInput.trim() === "" ? undefined : nextDeadline);
-		setIsEditingDeadline(false);
-	};
-
-	const handleDeadlineClear = () => {
-		onDeadlineChange(undefined);
-		setDeadlineInput("");
-		setIsEditingDeadline(false);
-	};
+	}, [todo.tags]);
 
 	const handleTagsSave = () => {
 		const parsedTags = tagsInput
@@ -213,19 +197,25 @@ export function MetaSection({
 					)}
 				</div>
 
-				<button
-					type="button"
-					onClick={() => {
-						setDeadlineInput(formatDeadlineForInput(todo.deadline));
-						setIsEditingDeadline(true);
-					}}
-					className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:border-border hover:bg-muted/40"
-				>
-					<Calendar className="h-4 w-4" />
-					<span className="truncate">
-						{todo.deadline ? formatDateTime(todo.deadline) : "添加截止时间"}
-					</span>
-				</button>
+				<div className="relative" ref={deadlineContainerRef}>
+					<button
+						type="button"
+						onClick={() => setIsDatePickerOpen((prev) => !prev)}
+						className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 transition-colors hover:border-border hover:bg-muted/40"
+					>
+						<Calendar className="h-4 w-4" />
+						<span className="truncate">
+							{todo.deadline ? formatDateTime(todo.deadline) : "添加截止时间"}
+						</span>
+					</button>
+					{isDatePickerOpen && (
+						<DatePickerPopover
+							value={todo.deadline}
+							onChange={onDeadlineChange}
+							onClose={() => setIsDatePickerOpen(false)}
+						/>
+					)}
+				</div>
 
 				<button
 					type="button"
@@ -243,41 +233,6 @@ export function MetaSection({
 					</span>
 				</button>
 			</div>
-
-			{isEditingDeadline && (
-				<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground">
-					<input
-						type="datetime-local"
-						value={deadlineInput}
-						onChange={(e) => setDeadlineInput(e.target.value)}
-						className="min-w-[240px] rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-					/>
-					<button
-						type="button"
-						onClick={handleDeadlineSave}
-						className="rounded-md bg-primary px-2 py-1 text-primary-foreground transition-colors hover:bg-primary/90"
-					>
-						保存
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setIsEditingDeadline(false);
-							setDeadlineInput(formatDeadlineForInput(todo.deadline));
-						}}
-						className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40"
-					>
-						取消
-					</button>
-					<button
-						type="button"
-						onClick={handleDeadlineClear}
-						className="rounded-md border border-destructive/40 px-2 py-1 text-destructive transition-colors hover:bg-destructive/10"
-					>
-						清空
-					</button>
-				</div>
-			)}
 
 			{isEditingTags && (
 				<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-foreground">

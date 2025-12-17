@@ -6,7 +6,6 @@
  */
 
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import {
 	Calendar,
 	ChevronLeft,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PanelHeader } from "@/components/common/PanelHeader";
-import type { DragData, DropData } from "@/lib/dnd";
+import { type DragData, type DropData, usePendingUpdate } from "@/lib/dnd";
 import { useTranslations } from "@/lib/i18n";
 import { useCreateTodo, useTodos } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
@@ -91,7 +90,18 @@ function toDateKey(date: Date): string {
 
 function parseDeadline(deadline?: string): Date | null {
 	if (!deadline) return null;
-	const parsed = new Date(deadline);
+	// 如果 deadline 字符串没有时区信息（没有 Z 或 +/- 偏移），
+	// 假设它是 UTC 时间并添加 Z 后缀，避免被解析为本地时间导致日期偏移
+	let normalizedDeadline = deadline;
+	if (
+		deadline.includes("T") &&
+		!deadline.includes("Z") &&
+		!deadline.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(deadline)
+	) {
+		normalizedDeadline = `${deadline}Z`;
+	}
+	const parsed = new Date(normalizedDeadline);
 	return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
@@ -151,6 +161,11 @@ function DraggableTodo({
 	calendarTodo: CalendarTodo;
 	onSelect: (todo: Todo) => void;
 }) {
+	// 获取正在进行乐观更新的 todo ID
+	const pendingTodoId = usePendingUpdate();
+	// 检查当前 todo 是否正在进行乐观更新
+	const isPendingUpdate = pendingTodoId === calendarTodo.todo.id;
+
 	// 构建类型化的拖拽数据
 	const dragData: DragData = useMemo(
 		() => ({
@@ -165,23 +180,30 @@ function DraggableTodo({
 
 	// 使用带前缀的 id，避免与 TodoList 中的同一 todo 产生 id 冲突
 	// 这样当在 TodoList 中拖动时，Calendar 中的对应 todo 不会跟着移动
-	const { attributes, listeners, setNodeRef, transform, isDragging } =
-		useDraggable({
-			id: `calendar-${calendarTodo.todo.id}`,
-			data: dragData,
-		});
+	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+		id: `calendar-${calendarTodo.todo.id}`,
+		data: dragData,
+	});
 
-	const style = transform
-		? {
-				transform: CSS.Translate.toString(transform),
-				transition: "transform 150ms ease",
-			}
-		: undefined;
+	// 拖拽时或乐观更新期间，隐藏原始元素避免"弹回"效果
+	// DragOverlay 会显示拖拽预览
+	if (isDragging || isPendingUpdate) {
+		return (
+			<div
+				ref={setNodeRef}
+				className="opacity-0 pointer-events-none"
+				aria-hidden="true"
+			>
+				<p className="truncate text-[12px] font-medium leading-tight">
+					{calendarTodo.todo.name}
+				</p>
+			</div>
+		);
+	}
 
 	return (
 		<div
 			ref={setNodeRef}
-			style={style}
 			{...attributes}
 			{...listeners}
 			onClick={() => onSelect(calendarTodo.todo)}
@@ -196,7 +218,6 @@ function DraggableTodo({
 			className={cn(
 				"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
 				getStatusStyle(calendarTodo.todo.status),
-				isDragging && "opacity-70 ring-1 ring-primary/40",
 			)}
 		>
 			<p className="truncate text-[12px] font-medium leading-tight">

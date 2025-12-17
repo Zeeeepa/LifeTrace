@@ -3,6 +3,7 @@
  * Drag Drop Handlers - Strategy Pattern Dispatch
  */
 
+import { flushSync } from "react-dom";
 import { updateTodoApi } from "@/lib/api";
 import { getQueryClient, queryKeys } from "@/lib/query";
 import type {
@@ -44,6 +45,7 @@ export function getHandler(key: HandlerKey): DragDropHandler | undefined {
 /**
  * TODO_CARD -> CALENDAR_DATE
  * 将待办拖到日历日期上，设置 deadline
+ * 使用乐观更新：先更新前端缓存，再调用 API
  */
 const handleTodoToCalendarDate: DragDropHandler = (
 	dragData,
@@ -72,14 +74,44 @@ const handleTodoToCalendarDate: DragDropHandler = (
 		newDeadline.setHours(9, 0, 0, 0);
 	}
 
-	// 使用 API 更新并刷新缓存
+	const newDeadlineStr = newDeadline.toISOString();
+	const queryClient = getQueryClient();
+
+	// 取消正在进行的 todos 查询，避免竞态条件
+	void queryClient.cancelQueries({ queryKey: queryKeys.todos.all });
+
+	// 保存旧数据用于回滚
+	const previousTodos = queryClient.getQueryData(queryKeys.todos.list());
+
+	// 乐观更新：使用 flushSync 强制同步渲染，确保在 onDragEnd 返回前 UI 已更新
+	// 这样可以避免 "先弹回再闪现" 的视觉 Bug
+	flushSync(() => {
+		queryClient.setQueryData<Array<{ id: string; deadline?: string }>>(
+			queryKeys.todos.list(),
+			(oldData) => {
+				if (!oldData) return oldData;
+				return oldData.map((t) =>
+					t.id === todo.id ? { ...t, deadline: newDeadlineStr } : t,
+				);
+			},
+		);
+	});
+
+	// 异步调用 API
 	const todoId = Number.parseInt(todo.id, 10);
-	void updateTodoApi(todoId, { deadline: newDeadline.toISOString() }).then(
-		() => {
-			const queryClient = getQueryClient();
+	void updateTodoApi(todoId, { deadline: newDeadlineStr })
+		.then(() => {
+			// API 成功后刷新缓存以确保数据一致性
 			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
-		},
-	);
+		})
+		.catch((error) => {
+			// API 失败时回滚到之前的数据
+			console.error("[DnD] Failed to update deadline:", error);
+			if (previousTodos) {
+				queryClient.setQueryData(queryKeys.todos.list(), previousTodos);
+			}
+			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+		});
 
 	return {
 		success: true,
@@ -91,6 +123,7 @@ const handleTodoToCalendarDate: DragDropHandler = (
  * TODO_CARD -> TODO_LIST
  * 待办在列表内重新排序
  * 注意：内部排序由 TodoList 组件通过 useDndMonitor 处理
+ * 使用乐观更新：先更新前端缓存，再调用 API
  */
 const handleTodoToTodoList: DragDropHandler = (
 	dragData,
@@ -105,12 +138,37 @@ const handleTodoToTodoList: DragDropHandler = (
 
 	// 如果指定了父级 ID，更新父子关系
 	if (parentTodoId !== undefined) {
+		const queryClient = getQueryClient();
+
+		// 取消正在进行的 todos 查询
+		void queryClient.cancelQueries({ queryKey: queryKeys.todos.all });
+
+		// 保存旧数据用于回滚
+		const previousTodos = queryClient.getQueryData(queryKeys.todos.list());
+
+		// 乐观更新：立即更新前端缓存（使用与 useTodos 相同的 key）
+		queryClient.setQueryData<
+			Array<{ id: string; parentTodoId?: string | null }>
+		>(queryKeys.todos.list(), (oldData) => {
+			if (!oldData) return oldData;
+			return oldData.map((t) =>
+				t.id === todo.id ? { ...t, parentTodoId: parentTodoId || null } : t,
+			);
+		});
+
 		const todoId = Number.parseInt(todo.id, 10);
 		const parentId = parentTodoId ? Number.parseInt(parentTodoId, 10) : null;
-		void updateTodoApi(todoId, { parent_todo_id: parentId }).then(() => {
-			const queryClient = getQueryClient();
-			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
-		});
+		void updateTodoApi(todoId, { parent_todo_id: parentId })
+			.then(() => {
+				void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+			})
+			.catch((error) => {
+				console.error("[DnD] Failed to update parent:", error);
+				if (previousTodos) {
+					queryClient.setQueryData(queryKeys.todos.list(), previousTodos);
+				}
+				void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+			});
 	}
 
 	// 注意：列表内部排序由 TodoList 组件的 useDndMonitor 处理

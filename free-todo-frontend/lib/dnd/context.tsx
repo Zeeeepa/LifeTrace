@@ -32,6 +32,12 @@ import type {
 // Context 创建
 // ============================================================================
 
+// 用于跟踪正在进行乐观更新的 todo，确保在数据同步前卡片保持隐藏
+export const PendingUpdateContext = createContext<{
+	pendingTodoId: string | null;
+	setPendingTodoId: (id: string | null) => void;
+} | null>(null);
+
 const GlobalDndContext = createContext<GlobalDndContextValue | null>(null);
 
 /**
@@ -50,6 +56,15 @@ export function useGlobalDnd(): GlobalDndContextValue {
  */
 export function useGlobalDndSafe(): GlobalDndContextValue | null {
 	return useContext(GlobalDndContext);
+}
+
+/**
+ * 获取正在进行乐观更新的 todo ID
+ * 用于在数据同步完成前保持被拖拽的卡片隐藏
+ */
+export function usePendingUpdate() {
+	const context = useContext(PendingUpdateContext);
+	return context?.pendingTodoId ?? null;
 }
 
 // ============================================================================
@@ -87,6 +102,8 @@ interface GlobalDndProviderProps {
 
 export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 	const [activeDrag, setActiveDrag] = useState<ActiveDragState | null>(null);
+	// 跟踪正在进行乐观更新的 todo ID，用于在数据同步完成前保持卡片隐藏
+	const [pendingTodoId, setPendingTodoId] = useState<string | null>(null);
 
 	// 配置传感器
 	const sensors = useSensors(
@@ -125,6 +142,16 @@ export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 				dropType: dropData?.type,
 			});
 
+			// 提取被拖拽的 todo ID，用于乐观更新期间保持卡片隐藏
+			if (dragData?.type === "TODO_CARD") {
+				const todoId = dragData.payload.todo.id;
+				setPendingTodoId(todoId);
+				// 在短暂延迟后清除 pending 状态，让 React Query 有时间传播更新
+				setTimeout(() => {
+					setPendingTodoId(null);
+				}, 150);
+			}
+
 			// 分发到对应的处理器
 			dispatchDragDrop(dragData, dropData);
 		}
@@ -142,6 +169,11 @@ export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 		activeDrag,
 	};
 
+	const pendingUpdateValue = {
+		pendingTodoId,
+		setPendingTodoId,
+	};
+
 	return (
 		<DndContext
 			sensors={sensors}
@@ -150,9 +182,11 @@ export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 			onDragEnd={handleDragEnd}
 			onDragCancel={handleDragCancel}
 		>
-			<GlobalDndContext.Provider value={contextValue}>
-				{children}
-			</GlobalDndContext.Provider>
+			<PendingUpdateContext.Provider value={pendingUpdateValue}>
+				<GlobalDndContext.Provider value={contextValue}>
+					{children}
+				</GlobalDndContext.Provider>
+			</PendingUpdateContext.Provider>
 			<GlobalDragOverlay activeDrag={activeDrag} />
 		</DndContext>
 	);
