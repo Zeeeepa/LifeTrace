@@ -499,7 +499,7 @@ import type {
 	TodoResponse,
 	TodoStatus as TodoStatusType,
 	TodoUpdate as TodoUpdateType,
-} from "./api/schemas";
+} from "./generated/schemas";
 
 export type ApiTodo = TodoResponse;
 export type ApiTodoAttachment = TodoAttachmentResponse;

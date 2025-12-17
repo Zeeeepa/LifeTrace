@@ -8,13 +8,13 @@ export default defineConfig({
 		},
 		output: {
 			// 生成文件的目标目录
-			target: "./lib/api/generated.ts",
-			schemas: "./lib/api/schemas",
+			target: "./lib/generated/generated.ts",
+			schemas: "./lib/generated/schemas",
 			client: "react-query",
 			mode: "tags-split", // 按 API tag 分割文件
 			override: {
 				mutator: {
-					path: "./lib/api/fetcher.ts",
+					path: "./lib/generated/fetcher.ts",
 					name: "customFetcher",
 				},
 				// 生成 Zod schemas
