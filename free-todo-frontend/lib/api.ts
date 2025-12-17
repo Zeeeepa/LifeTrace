@@ -491,31 +491,22 @@ export async function getCostConfig(): Promise<{
 
 // ===== Todo 相关 API（/api/todos）=====
 
-export type ApiTodoAttachment = {
-	id: number;
-	file_name: string;
-	file_path: string;
-	file_size?: number | null;
-	mime_type?: string | null;
-};
+// 使用 orval 生成的类型
+import type {
+	TodoAttachmentResponse,
+	TodoCreate as TodoCreateType,
+	TodoPriority as TodoPriorityType,
+	TodoResponse,
+	TodoStatus as TodoStatusType,
+	TodoUpdate as TodoUpdateType,
+} from "./api/schemas";
 
-export type ApiTodo = {
-	id: number;
-	name: string;
-	description?: string | null;
-	user_notes?: string | null;
-	parent_todo_id?: number | null;
-	deadline?: string | null;
-	start_time?: string | null;
-	status: "active" | "completed" | "canceled" | "draft" | string;
-	priority: "high" | "medium" | "low" | "none" | string;
-	order?: number;
-	tags?: string[];
-	attachments?: ApiTodoAttachment[];
-	related_activities?: number[];
-	created_at: string;
-	updated_at: string;
-};
+export type ApiTodo = TodoResponse;
+export type ApiTodoAttachment = TodoAttachmentResponse;
+export type TodoCreate = TodoCreateType;
+export type TodoUpdate = TodoUpdateType;
+export type TodoStatus = TodoStatusType;
+export type TodoPriority = TodoPriorityType;
 
 export async function getTodos(params?: {
 	limit?: number;
