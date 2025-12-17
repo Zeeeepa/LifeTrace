@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LanguageToggle } from "@/components/common/LanguageToggle";
+import { LayoutSelector } from "@/components/common/LayoutSelector";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { UserAvatar } from "@/components/common/UserAvatar";
 import { BottomDock } from "@/components/layout/BottomDock";
@@ -347,6 +348,7 @@ export default function HomePage() {
 
 						{/* 右侧：工具 */}
 						<div className="flex items-center gap-2 shrink-0">
+							<LayoutSelector />
 							<ThemeToggle />
 							<LanguageToggle />
 							<UserAvatar />

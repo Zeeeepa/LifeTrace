@@ -29,8 +29,10 @@ export { getQueryClient, QueryProvider } from "./provider";
 // Todo Hooks
 export {
 	fromApiTodo,
+	type ReorderTodoItem,
 	useCreateTodo,
 	useDeleteTodo,
+	useReorderTodos,
 	useTodoMutations,
 	useTodos,
 	useToggleTodoStatus,

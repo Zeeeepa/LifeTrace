@@ -133,6 +133,34 @@ const handleTodoToTodoCardSlot: DragDropHandler = (
 	return { success: true };
 };
 
+/**
+ * TODO_CARD -> TODO_DROP_ZONE
+ * 将待办设置为另一个待办的子任务
+ * 注意：实际的父子关系设置由 TodoList 组件处理，这里主要做记录
+ */
+const handleTodoToTodoDropZone: DragDropHandler = (
+	dragData,
+	dropData,
+): DragDropResult => {
+	if (dragData.type !== "TODO_CARD" || dropData.type !== "TODO_DROP_ZONE") {
+		return { success: false, message: "Invalid drag/drop type combination" };
+	}
+
+	const { todo } = dragData.payload;
+	const { todoId, position } = dropData.metadata;
+
+	if (position === "nest") {
+		console.log(`[DnD] 设置 "${todo.name}" 为 todo ${todoId} 的子任务`);
+		// 实际的 API 调用由 TodoList 组件的 handleInternalReorder 处理
+		return {
+			success: true,
+			message: `已将 "${todo.name}" 设置为子任务`,
+		};
+	}
+
+	return { success: false, message: "Unknown position" };
+};
+
 // ============================================================================
 // 注册内置处理器
 // ============================================================================
@@ -140,6 +168,7 @@ const handleTodoToTodoCardSlot: DragDropHandler = (
 registerHandler("TODO_CARD->CALENDAR_DATE", handleTodoToCalendarDate);
 registerHandler("TODO_CARD->TODO_LIST", handleTodoToTodoList);
 registerHandler("TODO_CARD->TODO_CARD_SLOT", handleTodoToTodoCardSlot);
+registerHandler("TODO_CARD->TODO_DROP_ZONE", handleTodoToTodoDropZone);
 
 // ============================================================================
 // 分发函数 (Dispatch Function)

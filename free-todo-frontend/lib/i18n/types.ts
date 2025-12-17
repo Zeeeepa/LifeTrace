@@ -189,4 +189,11 @@ export type Translation = {
 		};
 		weekPrefix: string;
 	};
+	layoutSelector: {
+		label: string;
+		selectLayout: string;
+		layouts: {
+			default: string;
+		};
+	};
 };

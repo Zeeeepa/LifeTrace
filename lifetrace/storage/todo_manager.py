@@ -380,6 +380,44 @@ class TodoManager:
             return False
 
     # ========== 关系写入 ==========
+    def reorder_todos(self, items: list[dict[str, Any]]) -> bool:
+        """批量更新待办的排序和父子关系
+
+        Args:
+            items: 待办列表，每个元素包含 id, order, 可选 parent_todo_id
+
+        Returns:
+            是否全部更新成功
+        """
+        try:
+            with self.db_base.get_session() as session:
+                for item in items:
+                    todo_id = item.get("id")
+                    if not todo_id:
+                        continue
+
+                    todo = session.query(Todo).filter_by(id=todo_id).first()
+                    if not todo:
+                        logger.warning(f"reorder_todos: todo 不存在: {todo_id}")
+                        continue
+
+                    # 更新 order
+                    if "order" in item:
+                        todo.order = item["order"]
+
+                    # 更新 parent_todo_id（如果提供了该字段）
+                    if "parent_todo_id" in item:
+                        todo.parent_todo_id = item["parent_todo_id"]
+
+                    todo.updated_at = datetime.now()
+
+                session.flush()
+                logger.info(f"批量重排序 {len(items)} 个待办")
+                return True
+        except SQLAlchemyError as e:
+            logger.error(f"批量重排序待办失败: {e}")
+            return False
+
     def _set_todo_tags(self, session, todo_id: int, tags: list[str]) -> None:
         # 清空旧关系
         session.query(TodoTagRelation).filter(TodoTagRelation.todo_id == todo_id).delete()

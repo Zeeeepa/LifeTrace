@@ -207,4 +207,11 @@ export const zh: Translation = {
 		},
 		weekPrefix: "周",
 	},
+	layoutSelector: {
+		label: "布局",
+		selectLayout: "选择布局",
+		layouts: {
+			default: "待办模式",
+		},
+	},
 };

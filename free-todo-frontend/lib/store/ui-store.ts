@@ -3,6 +3,36 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
 
+// 布局预设类型
+export interface LayoutPreset {
+	id: string;
+	name: string;
+	panelFeatureMap: Record<PanelPosition, PanelFeature | null>;
+	isPanelAOpen: boolean;
+	isPanelBOpen: boolean;
+	isPanelCOpen: boolean;
+	panelAWidth?: number;
+	panelCWidth?: number;
+}
+
+// 预设布局列表
+export const LAYOUT_PRESETS: LayoutPreset[] = [
+	{
+		id: "default",
+		name: "待办模式",
+		panelFeatureMap: {
+			panelA: "todos",
+			panelB: "todoDetail",
+			panelC: "chat",
+		},
+		isPanelAOpen: true,
+		isPanelBOpen: true,
+		isPanelCOpen: true,
+		panelAWidth: 0.5,
+		panelCWidth: 0.3,
+	},
+];
+
 interface UiStoreState {
 	// 位置槽位状态
 	isPanelAOpen: boolean;
@@ -36,6 +66,8 @@ interface UiStoreState {
 	toggleFeature: (feature: PanelFeature) => void;
 	getFeatureWidth: (feature: PanelFeature) => number;
 	setFeatureWidth: (feature: PanelFeature, width: number) => void;
+	// 应用预设布局
+	applyLayout: (layoutId: string) => void;
 }
 
 const MIN_PANEL_WIDTH = 0.2;
@@ -302,6 +334,24 @@ export const useUiStore = create<UiStoreState>()(
 						state.setPanelCWidth(width);
 						break;
 				}
+			},
+
+			applyLayout: (layoutId) => {
+				const layout = LAYOUT_PRESETS.find((l) => l.id === layoutId);
+				if (!layout) return;
+
+				set({
+					panelFeatureMap: { ...layout.panelFeatureMap },
+					isPanelAOpen: layout.isPanelAOpen,
+					isPanelBOpen: layout.isPanelBOpen,
+					isPanelCOpen: layout.isPanelCOpen,
+					...(layout.panelAWidth !== undefined && {
+						panelAWidth: layout.panelAWidth,
+					}),
+					...(layout.panelCWidth !== undefined && {
+						panelCWidth: layout.panelCWidth,
+					}),
+				});
 			},
 		}),
 		{

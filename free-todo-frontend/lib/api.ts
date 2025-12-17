@@ -627,6 +627,36 @@ export async function deleteTodoApi(id: number): Promise<void> {
 	}
 }
 
+export type TodoReorderItem = {
+	id: number;
+	order: number;
+	parent_todo_id?: number | null;
+};
+
+/**
+ * 批量重排序待办事项
+ */
+export async function reorderTodosApi(
+	items: TodoReorderItem[],
+): Promise<{ success: boolean; message: string }> {
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	const response = await fetch(`${baseUrl}/api/todos/reorder`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ items }),
+	});
+	if (!response.ok) {
+		const errorData = await response.json().catch(() => ({}));
+		throw new Error(
+			errorData.detail || `Request failed with status ${response.status}`,
+		);
+	}
+	return response.json();
+}
+
 // 手动聚合事件为活动
 export async function createActivityFromEvents(eventIds: number[]): Promise<{
 	data?: Activity;

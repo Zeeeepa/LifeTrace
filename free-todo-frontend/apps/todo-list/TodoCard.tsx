@@ -1,10 +1,12 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
 	Calendar,
 	ChevronRight,
+	CornerDownRight,
 	Flag,
 	Paperclip,
 	Plus,
@@ -17,6 +19,7 @@ import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { DragData } from "@/lib/dnd";
+import { useGlobalDndSafe } from "@/lib/dnd";
 import { useTodoMutations, useTodos } from "@/lib/query";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
@@ -89,6 +92,53 @@ export function TodoCard({
 	const transform = sortable.transform;
 	const transition = sortable.transition;
 	const isSortableDragging = sortable.isDragging;
+
+	// 放置区域：用于将其他 todo 设为此 todo 的子任务
+	const nestDroppable = useDroppable({
+		id: `${todo.id}-nest`,
+		disabled: isOverlay,
+		data: {
+			type: "TODO_DROP_ZONE",
+			metadata: {
+				todoId: todo.id,
+				position: "nest",
+			},
+		},
+	});
+
+	// 获取全局拖拽状态
+	const dndContext = useGlobalDndSafe();
+	const isOtherDragging =
+		dndContext?.activeDrag !== null &&
+		dndContext?.activeDrag?.id !== todo.id &&
+		dndContext?.activeDrag?.data?.type === "TODO_CARD";
+
+	// 检查当前拖拽的 todo 是否是此 todo 的子孙（防止循环引用）
+	const isDescendantDragging = useMemo(() => {
+		if (!dndContext?.activeDrag?.data) return false;
+		const draggedData = dndContext.activeDrag.data;
+		if (draggedData.type !== "TODO_CARD") return false;
+		const draggedTodo = draggedData.payload.todo;
+
+		// 检查当前 todo 是否是被拖拽 todo 的子孙
+		const checkIsDescendant = (
+			potentialParentId: string,
+			potentialChildId: string,
+		): boolean => {
+			let current = todos.find((t) => t.id === potentialChildId);
+			while (current?.parentTodoId) {
+				if (current.parentTodoId === potentialParentId) return true;
+				current = todos.find((t) => t.id === current?.parentTodoId);
+			}
+			return false;
+		};
+
+		return checkIsDescendant(draggedTodo.id, todo.id);
+	}, [dndContext?.activeDrag, todos, todo.id]);
+
+	// 是否显示放置区域
+	const showNestDropZone =
+		isOtherDragging && !isDescendantDragging && !isSortableDragging;
 
 	// 检查是否有子任务
 	const hasChildren = useMemo(() => {
@@ -548,6 +598,31 @@ export function TodoCard({
 							</button>
 						</div>
 					</form>
+				)}
+
+				{/* 放置区域：设为子任务 */}
+				{showNestDropZone && (
+					<div
+						ref={nestDroppable.setNodeRef}
+						className={cn(
+							"absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed transition-all duration-200",
+							nestDroppable.isOver
+								? "border-primary bg-primary/10"
+								: "border-muted-foreground/30 bg-muted/20",
+						)}
+					>
+						<div
+							className={cn(
+								"flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+								nestDroppable.isOver
+									? "bg-primary text-primary-foreground"
+									: "bg-muted text-muted-foreground",
+							)}
+						>
+							<CornerDownRight className="h-4 w-4" />
+							<span>设为子任务</span>
+						</div>
+					</div>
 				)}
 			</div>
 

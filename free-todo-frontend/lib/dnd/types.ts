@@ -53,6 +53,7 @@ export type DropTargetType =
 	| "CALENDAR_DATE"
 	| "TODO_LIST"
 	| "TODO_CARD_SLOT"
+	| "TODO_DROP_ZONE"
 	| "CHAT_WINDOW";
 
 /**
@@ -79,6 +80,13 @@ export type DropData =
 			metadata: {
 				todoId: string;
 				position: "before" | "after";
+			};
+	  }
+	| {
+			type: "TODO_DROP_ZONE";
+			metadata: {
+				todoId: string;
+				position: "nest"; // 设为子任务
 			};
 	  }
 	| {
@@ -166,4 +174,13 @@ export function isTodoListDropData(
 	data: DropData,
 ): data is Extract<DropData, { type: "TODO_LIST" }> {
 	return data.type === "TODO_LIST";
+}
+
+/**
+ * 检查是否为 TODO_DROP_ZONE 类型的放置数据
+ */
+export function isTodoDropZoneDropData(
+	data: DropData,
+): data is Extract<DropData, { type: "TODO_DROP_ZONE" }> {
+	return data.type === "TODO_DROP_ZONE";
 }

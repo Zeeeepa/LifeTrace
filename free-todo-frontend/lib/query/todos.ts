@@ -6,6 +6,8 @@ import {
 	createTodo,
 	deleteTodoApi,
 	getTodos,
+	reorderTodosApi,
+	type TodoReorderItem,
 	updateTodoApi,
 } from "@/lib/api";
 import type {
@@ -394,6 +396,81 @@ export function useToggleTodoStatus() {
 	});
 }
 
+/**
+ * 重排序参数
+ */
+export interface ReorderTodoItem {
+	id: string;
+	order: number;
+	parentTodoId?: string | null;
+}
+
+/**
+ * 批量重排序 Todo 的 Mutation Hook
+ * 支持更新 order 和 parentTodoId
+ */
+export function useReorderTodos() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (items: ReorderTodoItem[]) => {
+			// 转换为 API 格式
+			const apiItems: TodoReorderItem[] = items.map((item) => ({
+				id: toApiId(item.id),
+				order: item.order,
+				...(item.parentTodoId !== undefined
+					? {
+							parent_todo_id: item.parentTodoId
+								? toApiId(item.parentTodoId)
+								: null,
+						}
+					: {}),
+			}));
+			return reorderTodosApi(apiItems);
+		},
+		onMutate: async (items) => {
+			// 取消正在进行的 todos 查询
+			await queryClient.cancelQueries({ queryKey: queryKeys.todos.all });
+
+			// 保存之前的数据用于回滚
+			const previousTodos = queryClient.getQueryData<Todo[]>(
+				queryKeys.todos.list(),
+			);
+
+			// 乐观更新
+			queryClient.setQueryData<Todo[]>(queryKeys.todos.list(), (old) => {
+				if (!old) return old;
+				return old.map((todo) => {
+					const item = items.find((i) => i.id === todo.id);
+					if (item) {
+						return {
+							...todo,
+							order: item.order,
+							...(item.parentTodoId !== undefined
+								? { parentTodoId: item.parentTodoId }
+								: {}),
+							updatedAt: new Date().toISOString(),
+						};
+					}
+					return todo;
+				});
+			});
+
+			return { previousTodos };
+		},
+		onError: (_err, _variables, context) => {
+			// 发生错误时回滚
+			if (context?.previousTodos) {
+				queryClient.setQueryData(queryKeys.todos.list(), context.previousTodos);
+			}
+		},
+		onSettled: () => {
+			// 无论成功失败，都重新获取最新数据
+			queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+		},
+	});
+}
+
 // ============================================================================
 // 组合 Hook：提供完整的 Todo 操作能力
 // ============================================================================
@@ -406,6 +483,7 @@ export function useTodoMutations() {
 	const updateMutation = useUpdateTodo();
 	const deleteMutation = useDeleteTodo();
 	const toggleStatusMutation = useToggleTodoStatus();
+	const reorderMutation = useReorderTodos();
 
 	return {
 		createTodo: createMutation.mutateAsync,
@@ -413,11 +491,14 @@ export function useTodoMutations() {
 			updateMutation.mutateAsync({ id, input }),
 		deleteTodo: deleteMutation.mutateAsync,
 		toggleTodoStatus: toggleStatusMutation.mutateAsync,
+		reorderTodos: reorderMutation.mutateAsync,
 		isCreating: createMutation.isPending,
 		isUpdating: updateMutation.isPending,
 		isDeleting: deleteMutation.isPending,
+		isReordering: reorderMutation.isPending,
 		createError: createMutation.error,
 		updateError: updateMutation.error,
 		deleteError: deleteMutation.error,
+		reorderError: reorderMutation.error,
 	};
 }

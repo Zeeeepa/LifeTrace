@@ -212,4 +212,11 @@ export const en: Translation = {
 		},
 		weekPrefix: "",
 	},
+	layoutSelector: {
+		label: "Layout",
+		selectLayout: "Select layout",
+		layouts: {
+			default: "Todo Mode",
+		},
+	},
 };

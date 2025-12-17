@@ -34,5 +34,6 @@ export type {
 export {
 	isCalendarDateDropData,
 	isTodoCardDragData,
+	isTodoDropZoneDropData,
 	isTodoListDropData,
 } from "./types";

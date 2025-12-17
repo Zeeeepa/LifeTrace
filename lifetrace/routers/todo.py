@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from lifetrace.schemas.todo import TodoCreate, TodoListResponse, TodoResponse, TodoUpdate
+from lifetrace.schemas.todo import (
+    TodoCreate,
+    TodoListResponse,
+    TodoReorderRequest,
+    TodoResponse,
+    TodoUpdate,
+)
 from lifetrace.storage import todo_mgr
 from lifetrace.util.logging_config import get_logger
 
@@ -26,6 +32,33 @@ async def list_todos(
     except Exception as e:
         logger.error(f"获取 todo 列表失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取 todo 列表失败: {str(e)}") from e
+
+
+@router.post("/reorder", status_code=200)
+async def reorder_todos(request: TodoReorderRequest):
+    """批量更新待办的排序和父子关系"""
+    try:
+        items = [
+            {
+                "id": item.id,
+                "order": item.order,
+                **(
+                    {"parent_todo_id": item.parent_todo_id}
+                    if item.parent_todo_id is not None
+                    else {}
+                ),
+            }
+            for item in request.items
+        ]
+        success = todo_mgr.reorder_todos(items)
+        if not success:
+            raise HTTPException(status_code=500, detail="批量重排序失败")
+        return {"success": True, "message": f"成功更新 {len(items)} 个待办的排序"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量重排序失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"批量重排序失败: {str(e)}") from e
 
 
 @router.post("", response_model=TodoResponse, status_code=201)

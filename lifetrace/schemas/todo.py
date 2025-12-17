@@ -106,3 +106,17 @@ class TodoListResponse(BaseModel):
 
     total: int = Field(..., description="总数")
     todos: list[TodoResponse] = Field(..., description="待办列表")
+
+
+class TodoReorderItem(BaseModel):
+    """单个待办排序项"""
+
+    id: int = Field(..., description="待办ID")
+    order: int = Field(..., description="新的排序值")
+    parent_todo_id: int | None = Field(None, description="父级待办ID（可选，用于设置父子关系）")
+
+
+class TodoReorderRequest(BaseModel):
+    """批量重排序请求模型"""
+
+    items: list[TodoReorderItem] = Field(..., description="待排序的待办列表")
