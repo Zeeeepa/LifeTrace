@@ -70,6 +70,18 @@ function startOfMonth(date: Date): Date {
 	return startOfDay(new Date(date.getFullYear(), date.getMonth(), 1));
 }
 
+function getWeekOfYear(date: Date): number {
+	const d = new Date(date);
+	d.setHours(0, 0, 0, 0);
+	// Set to Thursday of current week (ISO week starts Monday)
+	d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+	const yearStart = new Date(d.getFullYear(), 0, 1);
+	const weekNumber = Math.ceil(
+		((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+	);
+	return weekNumber;
+}
+
 function toDateKey(date: Date): string {
 	const y = date.getFullYear();
 	const m = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -135,11 +147,9 @@ function buildWeekDays(currentDate: Date): CalendarDay[] {
 function DraggableTodo({
 	calendarTodo,
 	onSelect,
-	allDayText,
 }: {
 	calendarTodo: CalendarTodo;
 	onSelect: (todo: Todo) => void;
-	allDayText: string;
 }) {
 	// 构建类型化的拖拽数据
 	const dragData: DragData = useMemo(
@@ -168,14 +178,6 @@ function DraggableTodo({
 			}
 		: undefined;
 
-	const severity = getDeadlineSeverity(calendarTodo.deadline);
-	const badge =
-		severity === "overdue"
-			? "text-red-600"
-			: severity === "soon"
-				? "text-amber-600"
-				: "text-muted-foreground";
-
 	return (
 		<div
 			ref={setNodeRef}
@@ -192,37 +194,14 @@ function DraggableTodo({
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"group relative flex flex-col gap-1 rounded-lg border bg-card p-2 text-xs shadow-sm transition-all",
+				"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
 				getStatusStyle(calendarTodo.todo.status),
-				isDragging && "opacity-70 ring-2 ring-primary/40",
+				isDragging && "opacity-70 ring-1 ring-primary/40",
 			)}
 		>
-			{/* 标题与状态 */}
-			<div className="flex items-center justify-between gap-2">
-				<p className="truncate text-[13px] font-semibold">
-					{calendarTodo.todo.name}
-				</p>
-				<span className={cn("shrink-0 text-[11px] font-medium", badge)}>
-					{formatTimeLabel(calendarTodo.deadline, allDayText)}
-				</span>
-			</div>
-			{calendarTodo.todo.tags && calendarTodo.todo.tags.length > 0 && (
-				<div className="flex flex-wrap gap-1">
-					{calendarTodo.todo.tags.slice(0, 2).map((tag) => (
-						<span
-							key={tag}
-							className="rounded-full bg-white/50 px-2 py-0.5 text-[10px] text-muted-foreground"
-						>
-							{tag}
-						</span>
-					))}
-					{calendarTodo.todo.tags.length > 2 && (
-						<span className="text-[10px] text-muted-foreground">
-							+{calendarTodo.todo.tags.length - 2}
-						</span>
-					)}
-				</div>
-			)}
+			<p className="truncate text-[12px] font-medium leading-tight">
+				{calendarTodo.todo.name}
+			</p>
 		</div>
 	);
 }
@@ -238,7 +217,6 @@ function DayColumn({
 	onSelectTodo,
 	view,
 	todayText,
-	allDayText,
 }: {
 	day: CalendarDay;
 	todos: CalendarTodo[];
@@ -246,7 +224,6 @@ function DayColumn({
 	onSelectTodo: (todo: Todo) => void;
 	view: CalendarView;
 	todayText: string;
-	allDayText: string;
 }) {
 	const dateKey = toDateKey(day.date);
 
@@ -282,10 +259,10 @@ function DayColumn({
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"flex flex-col gap-2 rounded-lg border p-2 transition-colors",
-				isOver && "border-primary/60 bg-primary/5 ring-2 ring-primary/20",
-				day.inCurrentMonth === false && "opacity-50",
-				isToday && "border-primary/60",
+				"flex flex-col gap-1 border-r border-b border-border p-1.5 transition-colors",
+				isOver && "bg-primary/5",
+				day.inCurrentMonth === false && "opacity-40 bg-muted/20",
+				isToday && "bg-primary/5",
 				view === "month" ? "min-h-[120px]" : "min-h-[180px]",
 			)}
 		>
@@ -293,7 +270,7 @@ function DayColumn({
 				<span
 					className={cn(
 						"inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold",
-						isToday && "bg-primary/10 text-primary",
+						isToday && "bg-primary text-primary-foreground",
 					)}
 				>
 					{day.date.getDate()}
@@ -303,13 +280,12 @@ function DayColumn({
 				)}
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="flex flex-col gap-1">
 				{todos.map((item) => (
 					<DraggableTodo
 						key={item.todo.id}
 						calendarTodo={item}
 						onSelect={onSelectTodo}
-						allDayText={allDayText}
 					/>
 				))}
 			</div>
@@ -524,7 +500,7 @@ export function CalendarPanel() {
 	};
 
 	const renderMonthView = () => (
-		<div className="grid grid-cols-7 gap-2">
+		<div className="grid grid-cols-7 border-l border-t border-border">
 			{monthDays.map((day) => (
 				<DayColumn
 					key={toDateKey(day.date)}
@@ -534,14 +510,13 @@ export function CalendarPanel() {
 					onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 					todos={groupedByDay.get(toDateKey(day.date)) || []}
 					todayText={t.calendar.today}
-					allDayText={t.calendar.allDay}
 				/>
 			))}
 		</div>
 	);
 
 	const renderWeekView = () => (
-		<div className="grid grid-cols-7 gap-3">
+		<div className="grid grid-cols-7 border-l border-t border-border">
 			{weekDays.map((day) => (
 				<DayColumn
 					key={toDateKey(day.date)}
@@ -551,7 +526,6 @@ export function CalendarPanel() {
 					onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 					todos={groupedByDay.get(toDateKey(day.date)) || []}
 					todayText={t.calendar.today}
-					allDayText={t.calendar.allDay}
 				/>
 			))}
 		</div>
@@ -628,8 +602,21 @@ export function CalendarPanel() {
 			<PanelHeader icon={Calendar} title={t.calendar.title} />
 			{/* 顶部工具栏 */}
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
-				<span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-					{t.calendar.dragTip}
+				<span className="text-sm font-medium text-foreground">
+					{view === "month" &&
+						t.calendar.yearMonth
+							.replace("{year}", String(currentDate.getFullYear()))
+							.replace("{month}", String(currentDate.getMonth() + 1))}
+					{view === "week" &&
+						t.calendar.yearMonthWeek
+							.replace("{year}", String(currentDate.getFullYear()))
+							.replace("{month}", String(currentDate.getMonth() + 1))
+							.replace("{week}", String(getWeekOfYear(currentDate)))}
+					{view === "day" &&
+						t.calendar.yearMonthDay
+							.replace("{year}", String(currentDate.getFullYear()))
+							.replace("{month}", String(currentDate.getMonth() + 1))
+							.replace("{day}", String(currentDate.getDate()))}
 				</span>
 				<div className="flex items-center gap-2">
 					<button
@@ -685,18 +672,21 @@ export function CalendarPanel() {
 			</div>
 
 			{/* 视图主体 */}
-			<div className="flex-1 overflow-y-auto border-t border-border bg-card p-3">
+			<div className="flex-1 overflow-y-auto bg-card p-3">
 				{view !== "day" && (
-					<div className="grid grid-cols-7 gap-2 pb-2 text-center text-xs text-muted-foreground">
+					<div className="grid grid-cols-7">
 						{WEEKDAY_LABELS.map((label) => (
-							<span key={label} className="font-medium">
+							<span
+								key={label}
+								className="py-2 text-center text-xs font-medium text-muted-foreground"
+							>
 								{t.calendar.weekPrefix}
 								{label}
 							</span>
 						))}
 					</div>
 				)}
-				<div className="space-y-4">
+				<div>
 					{view === "month" && renderMonthView()}
 					{view === "week" && renderWeekView()}
 					{view === "day" && renderDayView()}

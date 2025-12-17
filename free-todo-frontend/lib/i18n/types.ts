@@ -172,7 +172,9 @@ export type Translation = {
 		previous: string;
 		next: string;
 		create: string;
-		dragTip: string;
+		yearMonth: string;
+		yearMonthWeek: string;
+		yearMonthDay: string;
 		createOnDate: string;
 		closeCreate: string;
 		inputTodoTitle: string;
