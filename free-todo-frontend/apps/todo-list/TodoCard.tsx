@@ -22,7 +22,7 @@ import { useTodoMutations, useTodos } from "@/lib/query";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
+import type { Todo, TodoPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface TodoCardProps {
@@ -150,35 +150,6 @@ export function TodoCard({
 		},
 		[],
 	);
-
-	const getStatusColor = (status: TodoStatus) => {
-		switch (status) {
-			case "active":
-				return "border-primary/70 bg-primary/20 text-primary";
-			case "completed":
-				return "border-green-500/60 bg-green-500/12 text-green-600 dark:text-green-500";
-			case "draft":
-				return "border-orange-500/50 bg-orange-500/8 text-orange-600 dark:text-orange-400";
-			case "canceled":
-			default:
-				return "border-muted-foreground/40 bg-muted/15 text-muted-foreground";
-		}
-	};
-
-	const getStatusLabel = (status: TodoStatus) => {
-		switch (status) {
-			case "active":
-				return "Active";
-			case "completed":
-				return "Completed";
-			case "canceled":
-				return "Canceled";
-			case "draft":
-				return "Draft";
-			default:
-				return status;
-		}
-	};
 
 	const getPriorityBgColor = (priority: TodoPriority) => {
 		switch (priority) {
@@ -409,16 +380,6 @@ export function TodoCard({
 									<Flag className="h-3.5 w-3.5" fill="currentColor" />
 									<span>{getPriorityLabel(todo.priority)}</span>
 								</div>
-							)}
-							{todo.status && (
-								<span
-									className={cn(
-										"px-2 py-0.5 rounded-full text-xs font-medium border shadow-sm",
-										getStatusColor(todo.status),
-									)}
-								>
-									{getStatusLabel(todo.status)}
-								</span>
 							)}
 							{todo.attachments && todo.attachments.length > 0 && (
 								<span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground bg-muted/50">
