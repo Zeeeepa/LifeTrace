@@ -42,14 +42,6 @@ export function PanelContainer({
 	}, []);
 
 	const flexBasis = `${Math.round(width * 1000) / 10}%`;
-	// panelA 从左侧滑入，panelB 和 panelC 从右侧滑入
-	const isLeftPanel = position === "panelA";
-
-	// 计算滑动方向
-	// panelA：从左侧滑入（x: -100%）/ 向左侧滑出（x: -100%）
-	// panelB 和 panelC：从右侧滑入（x: 100%）/ 向右侧滑出（x: 100%）
-	const getInitialX = () => (isLeftPanel ? "-100%" : "100%");
-	const getExitX = () => (isLeftPanel ? "-100%" : "100%");
 
 	// 获取位置对应的功能，用于 aria-label
 	// 在 SSR 时使用默认值，避免 hydration 错误
@@ -78,34 +70,31 @@ export function PanelContainer({
 			suppressHydrationWarning
 			data-panel={position}
 			className={cn(
-				"relative flex h-full min-h-0 flex-1 flex-col",
+				"relative flex h-full min-h-0 flex-col",
 				"bg-[oklch(var(--card))]",
 				"border border-[oklch(var(--border))]",
 				"rounded-(--radius)",
 				"overflow-hidden",
+				// 当不可见时，隐藏边框和背景，避免残留视觉元素
+				!isVisible && "border-transparent bg-transparent",
 				className,
 			)}
-			initial={{
-				flexBasis: "0%",
-				x: getInitialX(),
-				opacity: 0,
-				scale: 0.95,
-			}}
+			initial={false}
 			animate={{
 				flexBasis: isVisible ? flexBasis : "0%",
-				x: isVisible ? 0 : getExitX(),
 				opacity: isVisible ? 1 : 0,
-				scale: isVisible ? 1 : 0.95,
-			}}
-			exit={{
-				flexBasis: "0%",
-				x: getExitX(),
-				opacity: 0,
-				scale: 0.95,
+				scale: isVisible ? 1 : 0,
+				// 确保隐藏时不占用任何空间
+				width: isVisible ? "auto" : 0,
+				padding: isVisible ? undefined : 0,
+				borderWidth: isVisible ? undefined : 0,
 			}}
 			transition={transition}
 			style={{
 				minWidth: 0,
+				// 当不可见时，不需要占用空间
+				flexGrow: isVisible ? 1 : 0,
+				flexShrink: isVisible ? 1 : 0,
 				willChange: isDragging
 					? "flex-basis"
 					: "flex-basis, transform, opacity",

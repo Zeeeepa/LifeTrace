@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -357,66 +356,52 @@ export default function HomePage() {
 
 					<div
 						ref={containerRef}
-						className="relative flex min-h-0 flex-1 gap-1.5 overflow-hidden p-3"
+						className="relative flex min-h-0 flex-1 overflow-hidden p-3"
 					>
-						<AnimatePresence mode="sync" initial={false}>
-							{layoutState.showPanelA && (
-								<PanelContainer
-									position="panelA"
-									isVisible={layoutState.showPanelA}
-									width={layoutState.panelAWidth}
-									isDragging={isDraggingPanelA || isDraggingPanelC}
-								>
-									<PanelContent position="panelA" />
-								</PanelContainer>
-							)}
-						</AnimatePresence>
+						{/* 始终渲染所有面板和 ResizeHandle，通过 isVisible 控制动画，避免 DOM 移除导致的布局跳跃 */}
+						<PanelContainer
+							key="panelA"
+							position="panelA"
+							isVisible={layoutState.showPanelA}
+							width={layoutState.showPanelA ? layoutState.panelAWidth : 0}
+							isDragging={isDraggingPanelA || isDraggingPanelC}
+						>
+							<PanelContent position="panelA" />
+						</PanelContainer>
 
-						<AnimatePresence mode="sync" initial={false}>
-							{layoutState.showPanelAResizeHandle && (
-								<ResizeHandle
-									key="panelA-resize-handle"
-									onPointerDown={handlePanelAResizePointerDown}
-									isDragging={isDraggingPanelA}
-								/>
-							)}
-						</AnimatePresence>
+						<ResizeHandle
+							key="panelA-resize-handle"
+							onPointerDown={handlePanelAResizePointerDown}
+							isDragging={isDraggingPanelA}
+							isVisible={layoutState.showPanelAResizeHandle}
+						/>
 
-						<AnimatePresence mode="sync" initial={false}>
-							{layoutState.showPanelB && (
-								<PanelContainer
-									position="panelB"
-									isVisible={layoutState.showPanelB}
-									width={layoutState.panelBWidth}
-									isDragging={isDraggingPanelA || isDraggingPanelC}
-								>
-									<PanelContent position="panelB" />
-								</PanelContainer>
-							)}
-						</AnimatePresence>
+						<PanelContainer
+							key="panelB"
+							position="panelB"
+							isVisible={layoutState.showPanelB}
+							width={layoutState.showPanelB ? layoutState.panelBWidth : 0}
+							isDragging={isDraggingPanelA || isDraggingPanelC}
+						>
+							<PanelContent position="panelB" />
+						</PanelContainer>
 
-						<AnimatePresence mode="sync" initial={false}>
-							{layoutState.showPanelCResizeHandle && (
-								<ResizeHandle
-									key="panelC-resize-handle"
-									onPointerDown={handlePanelCResizePointerDown}
-									isDragging={isDraggingPanelC}
-								/>
-							)}
-						</AnimatePresence>
+						<ResizeHandle
+							key="panelC-resize-handle"
+							onPointerDown={handlePanelCResizePointerDown}
+							isDragging={isDraggingPanelC}
+							isVisible={layoutState.showPanelCResizeHandle}
+						/>
 
-						<AnimatePresence mode="sync" initial={false}>
-							{layoutState.showPanelC && (
-								<PanelContainer
-									position="panelC"
-									isVisible={layoutState.showPanelC}
-									width={layoutState.panelCWidth}
-									isDragging={isDraggingPanelA || isDraggingPanelC}
-								>
-									<PanelContent position="panelC" />
-								</PanelContainer>
-							)}
-						</AnimatePresence>
+						<PanelContainer
+							key="panelC"
+							position="panelC"
+							isVisible={layoutState.showPanelC}
+							width={layoutState.showPanelC ? layoutState.panelCWidth : 0}
+							isDragging={isDraggingPanelA || isDraggingPanelC}
+						>
+							<PanelContent position="panelC" />
+						</PanelContainer>
 					</div>
 				</div>
 

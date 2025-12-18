@@ -8,26 +8,52 @@ import { cn } from "@/lib/utils";
 interface ResizeHandleProps {
 	onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
 	isDragging: boolean;
+	isVisible?: boolean;
 }
 
-export function ResizeHandle({ onPointerDown, isDragging }: ResizeHandleProps) {
+// 与 PanelContainer 使用相同的动画配置，确保同步
+const ANIMATION_CONFIG = {
+	spring: {
+		type: "spring" as const,
+		stiffness: 280,
+		damping: 28,
+		mass: 0.9,
+	},
+};
+
+export function ResizeHandle({
+	onPointerDown,
+	isDragging,
+	isVisible = true,
+}: ResizeHandleProps) {
 	const [isHovered, setIsHovered] = useState(false);
 
 	return (
 		<motion.div
 			role="separator"
 			aria-orientation="vertical"
-			onPointerDown={onPointerDown}
-			onMouseEnter={() => setIsHovered(true)}
+			onPointerDown={isVisible ? onPointerDown : undefined}
+			onMouseEnter={() => isVisible && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
-			initial={{ opacity: 0, scaleX: 0 }}
-			animate={{ opacity: 1, scaleX: 1 }}
-			exit={{ opacity: 0, scaleX: 0 }}
-			transition={{ type: "spring", stiffness: 300, damping: 30 }}
+			initial={false}
+			animate={{
+				opacity: isVisible ? 1 : 0,
+				scaleX: isVisible ? 1 : 0,
+				width: isVisible ? 4 : 0,
+				// 当可见时添加左右 margin 来创建间距（替代 container 的 gap）
+				marginLeft: isVisible ? 3 : 0,
+				marginRight: isVisible ? 3 : 0,
+			}}
+			transition={ANIMATION_CONFIG.spring}
 			className={cn(
-				"relative flex h-full w-1 items-center justify-center cursor-col-resize select-none touch-none",
+				"relative flex h-full items-center justify-center select-none touch-none",
+				isVisible && "cursor-col-resize",
 				isDragging || isHovered ? "bg-foreground/5" : "bg-transparent",
 			)}
+			style={{
+				// 当不可见时不占用 flex 空间
+				flexShrink: isVisible ? 0 : 1,
+			}}
 		>
 			<div
 				className={cn(
