@@ -76,6 +76,7 @@ export function PanelContainer({
 			key={position}
 			aria-label={ariaLabel}
 			suppressHydrationWarning
+			data-panel={position}
 			className={cn(
 				"relative flex h-full min-h-0 flex-1 flex-col",
 				"bg-[oklch(var(--card))]",

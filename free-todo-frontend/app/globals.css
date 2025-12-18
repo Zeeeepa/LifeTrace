@@ -216,10 +216,59 @@
 
 	* {
 		border-color: oklch(var(--border));
+		/* 滚动条轨道和滑块的基础样式 */
+		scrollbar-width: thin; /* Firefox: 使用细滚动条 */
+		scrollbar-color: transparent transparent; /* Firefox: 默认透明 */
 	}
 
 	body {
 		background-color: oklch(var(--background));
 		color: oklch(var(--foreground));
+	}
+
+	/* Webkit 浏览器 (Chrome, Safari, Edge) 滚动条样式 */
+	*::-webkit-scrollbar {
+		width: 6px; /* 滚动条宽度减半（默认约12px） */
+		height: 6px; /* 水平滚动条高度 */
+	}
+
+	*::-webkit-scrollbar-track {
+		background: transparent; /* 轨道透明 */
+	}
+
+	/* 滚动条样式：简洁版本（无动画，浏览器不支持滚动条伪元素的过渡动画） */
+	*::-webkit-scrollbar-thumb {
+		background: transparent;
+		border-radius: 3px;
+	}
+
+	/* 移除滚动条按钮（上下箭头） */
+	*::-webkit-scrollbar-button {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+
+	/* 默认状态：滚动条透明 */
+	[data-panel] *::-webkit-scrollbar-thumb {
+		background: transparent;
+	}
+
+	/* 当 panel 有 scrollbar-visible 类时：滚动条显示 */
+	[data-panel].scrollbar-visible *::-webkit-scrollbar-thumb {
+		background: rgba(128, 128, 128, 0.25);
+	}
+
+	/* hover 时增加颜色强度 */
+	[data-panel].scrollbar-visible *::-webkit-scrollbar-thumb:hover {
+		background: rgba(128, 128, 128, 0.4);
+	}
+
+	/* Firefox 滚动条显示控制 */
+	/* 注意：Firefox 的 scrollbar-color 不支持透明度语法，使用 border 颜色 */
+	[data-panel="panelA"].scrollbar-visible *,
+	[data-panel="panelB"].scrollbar-visible *,
+	[data-panel="panelC"].scrollbar-visible * {
+		scrollbar-color: oklch(var(--border)) transparent;
 	}
 }

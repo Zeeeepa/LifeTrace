@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ScrollbarController } from "@/components/common/ScrollbarController";
 import { ThemeProvider } from "@/components/common/ThemeProvider";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 				className="min-h-screen bg-background text-foreground antialiased"
 				suppressHydrationWarning
 			>
+				<ScrollbarController />
 				<QueryProvider>
 					<ThemeProvider>{children}</ThemeProvider>
 				</QueryProvider>
