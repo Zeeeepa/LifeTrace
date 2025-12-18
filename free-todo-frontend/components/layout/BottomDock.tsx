@@ -1,9 +1,12 @@
 "use client";
 
+import { useDraggable, useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
+import type { DragData, DropData } from "@/lib/dnd";
 import { useTranslations } from "@/lib/i18n";
 import type { Translation } from "@/lib/i18n/types";
 import { useLocaleStore } from "@/lib/store/locale";
@@ -44,6 +47,127 @@ function getFeatureLabelKey(
 	feature: PanelFeature,
 ): keyof Translation["bottomDock"] {
 	return FEATURE_LABEL_MAP[feature] ?? "todos";
+}
+
+// Dock Item 组件 - 单独组件以正确使用 hooks
+interface DockItemButtonProps {
+	item: DockItem;
+	position: PanelPosition;
+	onContextMenu: (
+		e: React.MouseEvent<HTMLButtonElement>,
+		position: PanelPosition,
+	) => void;
+	setItemRef: (position: PanelPosition, el: HTMLButtonElement | null) => void;
+}
+
+function DockItemButton({
+	item,
+	position,
+	onContextMenu,
+	setItemRef,
+}: DockItemButtonProps) {
+	const Icon = item.icon;
+
+	// 构建拖拽数据
+	const dragData: DragData = useMemo(
+		() => ({
+			type: "PANEL_HEADER" as const,
+			payload: {
+				position,
+			},
+		}),
+		[position],
+	);
+
+	// 构建放置数据
+	const dropData: DropData = useMemo(
+		() => ({
+			type: "PANEL_HEADER" as const,
+			metadata: {
+				position,
+			},
+		}),
+		[position],
+	);
+
+	// 可拖拽
+	const {
+		attributes: dragAttributes,
+		listeners: dragListeners,
+		setNodeRef: setDragRef,
+		transform: dragTransform,
+		isDragging: isDraggingItem,
+	} = useDraggable({
+		id: `dock-item-${position}`,
+		data: dragData,
+	});
+
+	// 可放置
+	const { setNodeRef: setDropRef, isOver: isOverItem } = useDroppable({
+		id: `dock-drop-${position}`,
+		data: dropData,
+	});
+
+	// 合并 refs
+	const setRefs = (el: HTMLButtonElement | null) => {
+		setItemRef(position, el);
+		setDragRef(el);
+		setDropRef(el);
+	};
+
+	const dragStyle = dragTransform
+		? {
+				transform: CSS.Translate.toString(dragTransform),
+			}
+		: undefined;
+
+	return (
+		<button
+			ref={setRefs}
+			type="button"
+			style={dragStyle}
+			{...dragAttributes}
+			{...dragListeners}
+			onClick={item.onClick}
+			onContextMenu={(e) => onContextMenu(e, position)}
+			className={cn(
+				"relative flex items-center gap-2",
+				"px-3 py-2 rounded-lg",
+				"transition-all duration-200",
+				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2",
+				"cursor-grab active:cursor-grabbing",
+				isDraggingItem && "opacity-50",
+				isOverItem && !isDraggingItem && "ring-2 ring-primary/50 ring-offset-2",
+				item.isActive
+					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
+					: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
+			)}
+			aria-label={item.label}
+			aria-pressed={item.isActive}
+		>
+			<Icon
+				className={cn(
+					"h-5 w-5",
+					item.isActive
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						: "text-[oklch(var(--foreground))]",
+				)}
+			/>
+			<span
+				className={cn(
+					"text-sm font-medium",
+					item.isActive
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						: "text-[oklch(var(--foreground))]",
+				)}
+			>
+				{item.label}
+			</span>
+			{item.isActive && (
+				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
+			)}
+		</button>
+	);
 }
 
 export function BottomDock({ className }: BottomDockProps) {
@@ -177,58 +301,24 @@ export function BottomDock({ className }: BottomDockProps) {
 							<div className="h-6 w-px bg-[oklch(var(--border))] mx-1" />
 						)}
 						{groupItems.map((item) => {
-							const Icon = item.icon;
 							const position = item.id as PanelPosition;
 							return (
-								<button
+								<DockItemButton
 									key={item.id}
-									ref={(el) => {
-										itemRefs.current[position] = el;
-									}}
-									type="button"
-									onClick={item.onClick}
-									onContextMenu={(e) => {
+									item={item}
+									position={position}
+									onContextMenu={(e, pos) => {
 										e.preventDefault();
 										setMenuState({
 											isOpen: true,
-											position,
+											position: pos,
 											anchorElement: e.currentTarget,
 										});
 									}}
-									className={cn(
-										"relative flex items-center gap-2",
-										"px-3 py-2 rounded-lg",
-										"transition-all duration-200",
-										"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2",
-										item.isActive
-											? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
-											: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
-									)}
-									aria-label={item.label}
-									aria-pressed={item.isActive}
-								>
-									<Icon
-										className={cn(
-											"h-5 w-5",
-											item.isActive
-												? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
-												: "text-[oklch(var(--foreground))]",
-										)}
-									/>
-									<span
-										className={cn(
-											"text-sm font-medium",
-											item.isActive
-												? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
-												: "text-[oklch(var(--foreground))]",
-										)}
-									>
-										{item.label}
-									</span>
-									{item.isActive && (
-										<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
-									)}
-								</button>
+									setItemRef={(pos, el) => {
+										itemRefs.current[pos] = el;
+									}}
+								/>
 							);
 						})}
 					</div>
