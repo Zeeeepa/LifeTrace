@@ -4,6 +4,12 @@ import { Settings, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PanelHeader } from "@/components/common/PanelHeader";
 import {
+	ALL_PANEL_FEATURES,
+	FEATURE_ICON_MAP,
+	IS_DEV_FEATURE_ENABLED,
+	type PanelFeature,
+} from "@/lib/config/panel-config";
+import {
 	useSaveAndInitLlmApiSaveAndInitLlmPost,
 	useTestLlmConfigApiTestLlmConfigPost,
 } from "@/lib/generated/config/config";
@@ -33,10 +39,8 @@ export function SettingsPanel() {
 	// 状态管理
 	const [autoTodoDetectionEnabled, setAutoTodoDetectionEnabled] =
 		useState(false);
-	const [costPanelEnabled, setCostPanelEnabled] = useState<boolean>(() =>
-		useUiStore.getState().isFeatureEnabled("costTracking"),
-	);
 	const setFeatureEnabled = useUiStore((state) => state.setFeatureEnabled);
+	const isFeatureEnabled = useUiStore((state) => state.isFeatureEnabled);
 
 	// LLM 配置状态
 	const [llmApiKey, setLlmApiKey] = useState("");
@@ -72,7 +76,6 @@ export function SettingsPanel() {
 				(config.jobsAutoTodoDetectionEnabled as boolean) ?? false,
 			);
 			const costEnabled = (config.uiCostTrackingEnabled as boolean) ?? true;
-			setCostPanelEnabled(costEnabled);
 			setFeatureEnabled("costTracking", costEnabled);
 
 			// LLM 配置
@@ -335,29 +338,38 @@ export function SettingsPanel() {
 		}
 	};
 
-	// 费用统计面板处理
-	const handleToggleCostPanel = async (enabled: boolean) => {
+	// 面板开关处理
+	const handleTogglePanel = async (feature: PanelFeature, enabled: boolean) => {
 		try {
-			await saveConfigMutation.mutateAsync({
-				data: {
-					uiCostTrackingEnabled: enabled,
-				},
-			});
-			setCostPanelEnabled(enabled);
-			setFeatureEnabled("costTracking", enabled);
+			setFeatureEnabled(feature, enabled);
+
+			// 如果是费用统计面板，还需要保存到配置
+			if (feature === "costTracking") {
+				await saveConfigMutation.mutateAsync({
+					data: {
+						uiCostTrackingEnabled: enabled,
+					},
+				});
+			}
+
 			toastSuccess(
 				enabled
-					? t.page.settings.costTrackingPanelEnabled
-					: t.page.settings.costTrackingPanelDisabled,
+					? `${t.bottomDock[feature as keyof typeof t.bottomDock]} ${t.page.settings.panelEnabled}`
+					: `${t.bottomDock[feature as keyof typeof t.bottomDock]} ${t.page.settings.panelDisabled}`,
 			);
 		} catch (error) {
 			console.error("保存配置失败:", error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			toastError(t.page.settings.saveFailed.replace("{error}", errorMsg));
-			setCostPanelEnabled(!enabled);
-			setFeatureEnabled("costTracking", !enabled);
+			// 回滚状态
+			setFeatureEnabled(feature, !enabled);
 		}
 	};
+
+	// 获取所有可用的面板（排除 settings）
+	const availablePanels = ALL_PANEL_FEATURES.filter(
+		(feature) => feature !== "settings",
+	);
 
 	return (
 		<div className="relative flex h-full flex-col overflow-hidden bg-background">
@@ -737,53 +749,70 @@ export function SettingsPanel() {
 					)}
 				</div>
 
-				{/* 费用统计面板 */}
+				{/* 面板开关 */}
 				<div className="rounded-lg border border-border p-4">
 					<div className="mb-4">
 						<h3 className="mb-1 text-base font-semibold text-foreground">
-							{t.page.settings.costTrackingPanelTitle}
+							{t.page.settings.panelSwitchesTitle}
 						</h3>
 						<p className="text-sm text-muted-foreground">
-							{t.page.settings.costTrackingPanelDescription}
+							{t.page.settings.panelSwitchesDescription}
 						</p>
 					</div>
-					<div className="flex items-center justify-between">
-						<div className="flex-1">
-							<label
-								htmlFor="cost-tracking-toggle"
-								className="text-sm font-medium text-foreground"
-							>
-								{t.page.settings.costTrackingPanelLabel}
-							</label>
-						</div>
-						<button
-							type="button"
-							id="cost-tracking-toggle"
-							disabled={loading}
-							onClick={() => handleToggleCostPanel(!costPanelEnabled)}
-							className={`
-                relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
-                disabled:opacity-50 disabled:cursor-not-allowed
-                ${costPanelEnabled ? "bg-primary" : "bg-muted"}
-              `}
-							aria-label={t.page.settings.costTrackingPanelLabel}
-						>
-							<span
-								className={`
-                  inline-block h-4 w-4 transform rounded-full bg-white transition-transform
-                  ${costPanelEnabled ? "translate-x-6" : "translate-x-1"}
-                `}
-							/>
-						</button>
+					<div className="space-y-3">
+						{availablePanels.map((feature) => {
+							// 跳过开发模式下的功能（如果不是开发模式）
+							if (feature === "debugShots" && !IS_DEV_FEATURE_ENABLED) {
+								return null;
+							}
+
+							const enabled = isFeatureEnabled(feature);
+							const panelLabel =
+								(feature in t.bottomDock
+									? t.bottomDock[feature as keyof typeof t.bottomDock]
+									: feature) || feature;
+							const Icon = FEATURE_ICON_MAP[feature];
+
+							return (
+								<div
+									key={feature}
+									className="flex items-center justify-between"
+								>
+									<div className="flex-1 flex items-center gap-2">
+										{Icon && (
+											<Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+										)}
+										<label
+											htmlFor={`panel-toggle-${feature}`}
+											className="text-sm font-medium text-foreground cursor-pointer"
+										>
+											{panelLabel}
+										</label>
+									</div>
+									<button
+										type="button"
+										id={`panel-toggle-${feature}`}
+										disabled={loading}
+										onClick={() => handleTogglePanel(feature, !enabled)}
+										className={`
+                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                      focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      ${enabled ? "bg-primary" : "bg-muted"}
+                    `}
+										aria-label={panelLabel}
+									>
+										<span
+											className={`
+                        inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                        ${enabled ? "translate-x-6" : "translate-x-1"}
+                      `}
+										/>
+									</button>
+								</div>
+							);
+						})}
 					</div>
-					{!costPanelEnabled && (
-						<div className="mt-3 rounded-md bg-muted p-3">
-							<p className="text-xs text-muted-foreground">
-								{t.page.settings.costTrackingPanelHint}
-							</p>
-						</div>
-					)}
 				</div>
 			</div>
 		</div>

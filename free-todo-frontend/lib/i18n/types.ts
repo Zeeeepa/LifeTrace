@@ -67,6 +67,10 @@ export type Translation = {
 			costTrackingPanelHint: string;
 			costTrackingPanelEnabled: string;
 			costTrackingPanelDisabled: string;
+			panelSwitchesTitle: string;
+			panelSwitchesDescription: string;
+			panelEnabled: string;
+			panelDisabled: string;
 			llmConfig: string;
 			apiKey: string;
 			baseUrl: string;
