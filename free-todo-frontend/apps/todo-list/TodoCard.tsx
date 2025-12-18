@@ -564,13 +564,13 @@ export function TodoCard({
 							value={childName}
 							onChange={(e) => setChildName(e.target.value)}
 							onKeyDown={(e) => {
+								// 阻止所有键盘事件冒泡到父元素，避免空格等键被父元素拦截
+								e.stopPropagation();
 								if (e.key === "Enter") {
-									e.stopPropagation();
 									handleCreateChild();
 									return;
 								}
 								if (e.key === "Escape") {
-									e.stopPropagation();
 									setIsAddingChild(false);
 									setChildName("");
 								}
