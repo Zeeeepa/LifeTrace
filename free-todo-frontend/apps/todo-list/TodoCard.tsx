@@ -352,6 +352,12 @@ export function TodoCard({
 								×
 							</span>
 						</div>
+					) : todo.status === "draft" ? (
+						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">
+							<span className="text-[12px] text-white dark:text-orange-50 font-semibold">
+								—
+							</span>
+						</div>
 					) : (
 						<div className="h-5 w-5 rounded-md border-2 border-muted-foreground/40 hover:border-foreground transition-colors" />
 					)}
