@@ -9,6 +9,7 @@ import {
 	TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { PanelHeader } from "@/components/common/PanelHeader";
 import { useTranslations } from "@/lib/i18n";
 import { useCostStats } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
@@ -64,10 +65,8 @@ export function CostTrackingPanel() {
 
 	return (
 		<div className="flex h-full flex-col overflow-auto bg-[oklch(var(--card))] text-[oklch(var(--foreground))]">
+			<PanelHeader icon={DollarSign} title={t.page.costTracking.title} />
 			<div className="border-b border-[oklch(var(--border))] bg-[oklch(var(--card))]/80 px-4 py-3">
-				<h2 className="text-lg font-semibold leading-tight">
-					{t.page.costTracking.title}
-				</h2>
 				<p className="text-sm text-[oklch(var(--muted-foreground))]">
 					{t.page.costTracking.subtitle}
 				</p>
