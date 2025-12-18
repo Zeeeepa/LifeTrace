@@ -367,7 +367,7 @@ export function SettingsPanel() {
 			{/* 设置内容区域 */}
 			<div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
 				{/* LLM 配置 */}
-				<div className="rounded-lg border border-border bg-card p-4">
+				<div className="rounded-lg border border-border p-4">
 					<div className="mb-4">
 						<h3 className="mb-1 text-base font-semibold text-foreground">
 							{t.page.settings.llmConfig}
@@ -525,7 +525,7 @@ export function SettingsPanel() {
 				</div>
 
 				{/* 基础设置 */}
-				<div className="rounded-lg border border-border bg-card p-4">
+				<div className="rounded-lg border border-border p-4">
 					<div className="mb-4">
 						<h3 className="mb-1 text-base font-semibold text-foreground">
 							{t.page.settings.basicSettings}
@@ -685,7 +685,7 @@ export function SettingsPanel() {
 
 				{/* 功能开关 */}
 				{/* 自动待办检测设置 */}
-				<div className="rounded-lg border border-border bg-card p-4">
+				<div className="rounded-lg border border-border p-4">
 					<div className="mb-4">
 						<h3 className="mb-1 text-base font-semibold text-foreground">
 							{t.page.settings.autoTodoDetectionTitle}
@@ -738,7 +738,7 @@ export function SettingsPanel() {
 				</div>
 
 				{/* 费用统计面板 */}
-				<div className="rounded-lg border border-border bg-card p-4">
+				<div className="rounded-lg border border-border p-4">
 					<div className="mb-4">
 						<h3 className="mb-1 text-base font-semibold text-foreground">
 							{t.page.settings.costTrackingPanelTitle}
