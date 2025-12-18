@@ -2,7 +2,7 @@
 
 import { Calendar, Flag, Plus, Tag as TagIcon } from "lucide-react";
 import { useState } from "react";
-import type { Todo } from "@/lib/types/todo";
+import type { Todo } from "@/lib/types";
 import {
 	formatDateTime,
 	getChildProgress,
@@ -13,7 +13,7 @@ import {
 interface ChildTodoSectionProps {
 	childTodos: Todo[];
 	allTodos: Todo[];
-	onSelectTodo: (id: string) => void;
+	onSelectTodo: (id: number) => void;
 	onCreateChild: (name: string) => void;
 }
 

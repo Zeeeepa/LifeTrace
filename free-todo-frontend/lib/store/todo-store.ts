@@ -9,60 +9,60 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 interface TodoUIState {
 	/** 当前选中的 todo ID（主选中） */
-	selectedTodoId: string | null;
+	selectedTodoId: number | null;
 	/** 所有选中的 todo IDs（多选） */
-	selectedTodoIds: string[];
+	selectedTodoIds: number[];
 	/** 已折叠的 todo IDs */
-	collapsedTodoIds: Set<string>;
+	collapsedTodoIds: Set<number>;
 
 	// UI 操作
-	setSelectedTodoId: (id: string | null) => void;
-	setSelectedTodoIds: (ids: string[]) => void;
-	toggleTodoSelection: (id: string) => void;
+	setSelectedTodoId: (id: number | null) => void;
+	setSelectedTodoIds: (ids: number[]) => void;
+	toggleTodoSelection: (id: number) => void;
 	clearTodoSelection: () => void;
-	toggleTodoExpanded: (id: string) => void;
-	isTodoExpanded: (id: string) => boolean;
+	toggleTodoExpanded: (id: number) => void;
+	isTodoExpanded: (id: number) => boolean;
 
 	/** 当 todo 被删除时清理相关的 UI 状态 */
-	onTodoDeleted: (deletedIds: string[]) => void;
+	onTodoDeleted: (deletedIds: number[]) => void;
 }
 
 // 验证和修复存储的数据
 function validateTodoSelectionState(state: {
-	selectedTodoId: string | null;
-	selectedTodoIds: string[];
-	collapsedTodoIds: string[] | Set<string>;
+	selectedTodoId: number | null;
+	selectedTodoIds: number[];
+	collapsedTodoIds: number[] | Set<number>;
 }): {
-	selectedTodoId: string | null;
-	selectedTodoIds: string[];
-	collapsedTodoIds: Set<string>;
+	selectedTodoId: number | null;
+	selectedTodoIds: number[];
+	collapsedTodoIds: Set<number>;
 } {
 	// 验证 selectedTodoId
-	let selectedTodoId: string | null = null;
-	if (state.selectedTodoId && typeof state.selectedTodoId === "string") {
+	let selectedTodoId: number | null = null;
+	if (state.selectedTodoId && typeof state.selectedTodoId === "number") {
 		selectedTodoId = state.selectedTodoId;
 	}
 
 	// 验证 selectedTodoIds
-	let selectedTodoIds: string[] = [];
+	let selectedTodoIds: number[] = [];
 	if (Array.isArray(state.selectedTodoIds)) {
 		selectedTodoIds = state.selectedTodoIds.filter(
-			(id): id is string => typeof id === "string",
+			(id): id is number => typeof id === "number",
 		);
 	}
 
 	// 验证 collapsedTodoIds
-	let collapsedTodoIds: Set<string>;
+	let collapsedTodoIds: Set<number>;
 	if (state.collapsedTodoIds instanceof Set) {
 		collapsedTodoIds = state.collapsedTodoIds;
 	} else if (Array.isArray(state.collapsedTodoIds)) {
 		collapsedTodoIds = new Set(
 			state.collapsedTodoIds.filter(
-				(id): id is string => typeof id === "string",
+				(id): id is number => typeof id === "number",
 			),
 		);
 	} else {
-		collapsedTodoIds = new Set<string>();
+		collapsedTodoIds = new Set<number>();
 	}
 
 	// 确保 selectedTodoId 在 selectedTodoIds 中
@@ -82,7 +82,7 @@ export const useTodoStore = create<TodoUIState>()(
 		(set, get) => ({
 			selectedTodoId: null,
 			selectedTodoIds: [],
-			collapsedTodoIds: new Set<string>(),
+			collapsedTodoIds: new Set<number>(),
 
 			setSelectedTodoId: (id) =>
 				set({
@@ -132,7 +132,7 @@ export const useTodoStore = create<TodoUIState>()(
 			onTodoDeleted: (deletedIds) => {
 				const deletedSet = new Set(deletedIds);
 				set((state) => ({
-					selectedTodoId: deletedSet.has(state.selectedTodoId ?? "")
+					selectedTodoId: deletedSet.has(state.selectedTodoId ?? -1)
 						? null
 						: state.selectedTodoId,
 					selectedTodoIds: state.selectedTodoIds.filter(
@@ -215,9 +215,9 @@ export const useTodoStore = create<TodoUIState>()(
 			// 恢复状态时，将数组转换回 Set
 			merge: (persistedState, currentState) => {
 				const persisted = persistedState as {
-					selectedTodoId?: string | null;
-					selectedTodoIds?: string[];
-					collapsedTodoIds?: string[];
+					selectedTodoId?: number | null;
+					selectedTodoIds?: number[];
+					collapsedTodoIds?: number[];
 				};
 
 				const validated = validateTodoSelectionState({

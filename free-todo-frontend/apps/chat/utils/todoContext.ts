@@ -1,4 +1,4 @@
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 
 // 格式化优先级
 const formatPriority = (priority: TodoPriority, locale: string): string => {

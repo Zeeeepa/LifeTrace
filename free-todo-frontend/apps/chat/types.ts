@@ -1,4 +1,4 @@
-import type { CreateTodoInput } from "@/lib/types/todo";
+import type { CreateTodoInput } from "@/lib/types";
 
 export type ChatMessage = {
 	id: string;

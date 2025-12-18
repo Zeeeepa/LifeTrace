@@ -1,4 +1,4 @@
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const statusOptions: TodoStatus[] = [
@@ -87,7 +87,7 @@ export const formatDateTime = (value?: string) => {
 	return date.toLocaleString();
 };
 
-export const getChildProgress = (todos: Todo[], parentId: string) => {
+export const getChildProgress = (todos: Todo[], parentId: number) => {
 	const children = todos.filter((item) => item.parentTodoId === parentId);
 	const completed = children.filter(
 		(item) => item.status === "completed",

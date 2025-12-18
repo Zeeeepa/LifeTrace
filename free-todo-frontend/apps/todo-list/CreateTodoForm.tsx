@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useCreateTodo } from "@/lib/query";
-import type { CreateTodoInput, TodoPriority } from "@/lib/types/todo";
+import type { CreateTodoInput, TodoPriority } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface CreateTodoFormProps {

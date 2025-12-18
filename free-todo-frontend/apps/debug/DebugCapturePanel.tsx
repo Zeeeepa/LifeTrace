@@ -28,7 +28,7 @@ import { useExtractTodosFromEventApiTodoExtractionExtractPost } from "@/lib/gene
 import { useTranslations } from "@/lib/i18n";
 import { useLocaleStore } from "@/lib/store/locale";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
-import type { Event, Screenshot } from "@/lib/types/event";
+import type { Event, Screenshot } from "@/lib/types";
 import {
 	calculateDuration,
 	cn,
@@ -295,7 +295,7 @@ function ScreenshotModal({
 									</div>
 									<div className="text-sm text-foreground">
 										{formatDateTime(
-											currentScreenshot.created_at,
+											currentScreenshot.createdAt,
 											"YYYY-MM-DD HH:mm:ss",
 										)}
 									</div>
@@ -305,7 +305,7 @@ function ScreenshotModal({
 										应用
 									</div>
 									<div className="text-sm text-foreground">
-										{currentScreenshot.app_name || "未知"}
+										{currentScreenshot.appName || "未知"}
 									</div>
 								</div>
 								<div className="space-y-1 sm:col-span-2">
@@ -313,7 +313,7 @@ function ScreenshotModal({
 										窗口标题
 									</div>
 									<div className="text-sm text-foreground">
-										{currentScreenshot.window_title || "无"}
+										{currentScreenshot.windowTitle || "无"}
 									</div>
 								</div>
 								<div className="space-y-1">
@@ -326,14 +326,14 @@ function ScreenshotModal({
 								</div>
 							</div>
 
-							{currentScreenshot.ocr_result?.text_content && (
+							{currentScreenshot.ocrResult?.textContent && (
 								<div className="space-y-2 pt-4 border-t border-border">
 									<div className="text-sm font-medium text-muted-foreground">
 										OCR 结果
 									</div>
 									<div className="rounded-md border border-border bg-muted/50 p-4 max-h-64 overflow-y-auto">
 										<pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed font-mono">
-											{currentScreenshot.ocr_result.text_content}
+											{currentScreenshot.ocrResult.textContent}
 										</pre>
 									</div>
 								</div>
@@ -401,7 +401,8 @@ export function DebugCapturePanel() {
 	const loadEventDetail = useCallback(async (eventId: number) => {
 		try {
 			const eventData = await getEventDetailApiEventsEventIdGet(eventId);
-			const eventDataTyped = (eventData || {}) as Partial<Event> & {
+			// API响应经过fetcher自动转换为camelCase，使用unknown作为中间类型
+			const eventDataTyped = (eventData || {}) as unknown as Partial<Event> & {
 				screenshots?: Screenshot[];
 			};
 
@@ -410,7 +411,7 @@ export function DebugCapturePanel() {
 				const screenshotsWithOcr = await Promise.all(
 					eventDataTyped.screenshots.map(async (screenshot: Screenshot) => {
 						// 如果已经有 OCR 结果，直接返回
-						if (screenshot.ocr_result) {
+						if (screenshot.ocrResult) {
 							return screenshot;
 						}
 
@@ -420,12 +421,12 @@ export function DebugCapturePanel() {
 								await getScreenshotApiScreenshotsScreenshotIdGet(screenshot.id);
 							if (screenshotData) {
 								const data = screenshotData as {
-									ocr_result?: { text_content: string };
+									ocrResult?: { textContent: string };
 									[id: string]: unknown;
 								};
 								return {
 									...screenshot,
-									ocr_result: data.ocr_result,
+									ocrResult: data.ocrResult,
 								};
 							}
 						} catch (_error) {
@@ -493,12 +494,13 @@ export function DebugCapturePanel() {
 					typeof responseData === "object" &&
 					"events" in responseData
 				) {
-					const eventListResponse = responseData as {
+					// API响应经过fetcher自动转换为camelCase
+					const eventListResponse = responseData as unknown as {
 						events?: Event[];
-						total_count?: number;
+						total?: number;
 					};
 					newEvents = eventListResponse.events || [];
-					totalCount = eventListResponse.total_count ?? 0;
+					totalCount = eventListResponse.total ?? 0;
 				} else {
 					newEvents = [];
 					totalCount = 0;
@@ -593,7 +595,7 @@ export function DebugCapturePanel() {
 		// 检查是否有未结束的事件
 		const unendedEvents = Array.from(selectedEvents).filter((eventId) => {
 			const event = events.find((e) => e.id === eventId);
-			return event && !event.end_time;
+			return event && !event.endTime;
 		});
 
 		if (unendedEvents.length > 0) {
@@ -695,14 +697,12 @@ export function DebugCapturePanel() {
 		}
 
 		const sortedEvents = [...events].sort((a, b) => {
-			return (
-				new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
-			);
+			return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
 		});
 
 		const grouped: { [date: string]: Event[] } = {};
 		sortedEvents.forEach((event) => {
-			const date = formatDateTime(event.start_time, "YYYY-MM-DD");
+			const date = formatDateTime(event.startTime, "YYYY-MM-DD");
 			if (!grouped[date]) {
 				grouped[date] = [];
 			}
@@ -712,7 +712,7 @@ export function DebugCapturePanel() {
 		Object.keys(grouped).forEach((date) => {
 			grouped[date].sort((a, b) => {
 				return (
-					new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+					new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
 				);
 			});
 		});
@@ -783,13 +783,14 @@ export function DebugCapturePanel() {
 
 				const response = await listEventsApiEventsGet(params);
 
-				const responseData = (response || {}) as {
+				// API响应经过fetcher自动转换为camelCase
+				const responseData = (response || {}) as unknown as {
 					events?: Event[];
-					total_count?: number;
+					total?: number;
 				};
 
 				const newEvents = responseData.events || [];
-				const totalCount = responseData.total_count ?? 0;
+				const totalCount = responseData.total ?? 0;
 
 				setEvents(newEvents);
 				setTotalCount(totalCount);
@@ -983,15 +984,12 @@ export function DebugCapturePanel() {
 												{dateEvents.map((event) => {
 													const detail = eventDetails[event.id];
 													const screenshots = detail?.screenshots || [];
-													const duration = event.end_time
-														? calculateDuration(
-																event.start_time,
-																event.end_time,
-															)
+													const duration = event.endTime
+														? calculateDuration(event.startTime, event.endTime)
 														: null;
 
 													const allOcrText = screenshots
-														.map((s: Screenshot) => s.ocr_result?.text_content)
+														.map((s: Screenshot) => s.ocrResult?.textContent)
 														.filter(Boolean)
 														.join("\n\n");
 
@@ -1039,14 +1037,14 @@ export function DebugCapturePanel() {
 																</button>
 
 																{/* 提取待办按钮（仅白名单应用显示） */}
-																{isWhitelistApp(event.app_name) && (
+																{isWhitelistApp(event.appName) && (
 																	<button
 																		type="button"
 																		onClick={(e) => {
 																			e.stopPropagation();
 																			handleExtractTodos(
 																				event.id,
-																				event.app_name,
+																				event.appName,
 																			);
 																		}}
 																		disabled={extractingTodos.has(event.id)}
@@ -1084,23 +1082,23 @@ export function DebugCapturePanel() {
 																	<div className="flex-1 min-w-0 space-y-2">
 																		<div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-wrap">
 																			<h3 className="text-sm sm:text-base font-semibold text-foreground wrap-break-word">
-																				{event.window_title || "未知窗口"}
+																				{event.windowTitle || "未知窗口"}
 																			</h3>
 																			<span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-																				{event.app_name}
+																				{event.appName}
 																			</span>
 																		</div>
 
 																		<div className="text-xs sm:text-sm text-muted-foreground">
 																			{formatDateTime(
-																				event.start_time,
+																				event.startTime,
 																				"MM/DD HH:mm",
 																			)}
-																			{event.end_time && (
+																			{event.endTime && (
 																				<>
 																					{" - "}
 																					{formatDateTime(
-																						event.end_time,
+																						event.endTime,
 																						"MM/DD HH:mm",
 																					)}
 																				</>
@@ -1119,7 +1117,7 @@ export function DebugCapturePanel() {
 																		</div>
 
 																		<div className="text-xs sm:text-sm text-foreground/80 leading-relaxed line-clamp-2 sm:line-clamp-none">
-																			{event.ai_summary ||
+																			{event.aiSummary ||
 																				allOcrText?.slice(0, 100) +
 																					(allOcrText?.length > 100
 																						? "..."

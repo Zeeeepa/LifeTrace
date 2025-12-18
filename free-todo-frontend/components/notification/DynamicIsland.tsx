@@ -118,7 +118,7 @@ export function DynamicIsland() {
 
 		try {
 			await updateTodoMutation.mutateAsync({
-				id: String(currentNotification.todoId),
+				id: currentNotification.todoId,
 				input: { status: "active" },
 			});
 			toastSuccess(t.todoExtraction.acceptSuccess);
@@ -137,7 +137,7 @@ export function DynamicIsland() {
 
 		try {
 			await updateTodoMutation.mutateAsync({
-				id: String(currentNotification.todoId),
+				id: currentNotification.todoId,
 				input: { status: "canceled" },
 			});
 			toastSuccess(t.todoExtraction.rejectSuccess);

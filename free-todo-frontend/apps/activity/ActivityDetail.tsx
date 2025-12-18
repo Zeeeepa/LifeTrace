@@ -6,8 +6,7 @@ import {
 	formatRelativeTime,
 	formatTimeRange,
 } from "@/apps/activity/utils/timeUtils";
-import type { Activity } from "@/lib/types/activity";
-import type { Event } from "@/lib/types/event";
+import type { Activity, Event } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ActivityDetailProps {
@@ -37,11 +36,11 @@ export function ActivityDetail({
 		);
 	}
 
-	const title = activity.ai_title || `Activity #${activity.id}`;
-	const timeRange = formatTimeRange(activity.start_time, activity.end_time);
-	const relative = formatRelativeTime(activity.start_time);
+	const title = activity.aiTitle || `Activity #${activity.id}`;
+	const timeRange = formatTimeRange(activity.startTime, activity.endTime);
+	const relative = formatRelativeTime(activity.startTime);
 	const uniqueApps = Array.from(
-		new Set(events.map((e) => e.app_name).filter(Boolean)),
+		new Set(events.map((e) => e.appName).filter(Boolean)),
 	).slice(0, 6);
 
 	return (
@@ -55,7 +54,7 @@ export function ActivityDetail({
 					</span>
 					<span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1">
 						<ListChecks className="h-4 w-4 text-emerald-500" />
-						{activity.event_count ?? 0} Events
+						{activity.eventCount ?? 0} Events
 					</span>
 					<span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-3 py-1">
 						<Clock3 className="h-4 w-4 text-muted-foreground" />
@@ -84,7 +83,7 @@ export function ActivityDetail({
 			</div>
 
 			<div className="flex-1 min-h-0 flex flex-col">
-				<ActivitySummary summary={activity.ai_summary} />
+				<ActivitySummary summary={activity.aiSummary} />
 			</div>
 
 			{events.length > 0 && (
@@ -101,10 +100,10 @@ export function ActivityDetail({
 							>
 								<div className="flex items-center justify-between text-xs text-muted-foreground">
 									<span>#{ev.id}</span>
-									<span>{formatRelativeTime(ev.start_time)}</span>
+									<span>{formatRelativeTime(ev.startTime)}</span>
 								</div>
 								<p className="mt-1 text-[13px] font-semibold text-foreground line-clamp-1">
-									{ev.ai_title || ev.window_title || "Untitled Event"}
+									{ev.aiTitle || ev.windowTitle || "Untitled Event"}
 								</p>
 								<div className="mt-1 text-xs text-muted-foreground prose prose-sm max-w-none line-clamp-3">
 									<ReactMarkdown
@@ -148,7 +147,7 @@ export function ActivityDetail({
 											),
 										}}
 									>
-										{ev.ai_summary || "No summary"}
+										{ev.aiSummary || "No summary"}
 									</ReactMarkdown>
 								</div>
 							</div>

@@ -13,7 +13,7 @@ import type { DragData } from "@/lib/dnd";
 import { useTodoMutations, useTodos } from "@/lib/query";
 import type { ReorderTodoItem } from "@/lib/query/todos";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { CreateTodoInput, Todo } from "@/lib/types/todo";
+import type { CreateTodoInput, Todo } from "@/lib/types";
 import { useOrderedTodos } from "./hooks/useOrderedTodos";
 import { NewTodoInlineForm } from "./NewTodoInlineForm";
 import { TodoToolbar } from "./TodoToolbar";
@@ -54,35 +54,35 @@ export function TodoList() {
 			const dragData = active.data.current as DragData | undefined;
 			if (dragData?.type !== "TODO_CARD") return;
 
-			const activeIdStr = String(active.id);
-			const overIdStr = String(over.id);
+			const activeId = Number(active.id);
+			const overId = Number(over.id);
 
 			// 获取拖拽的 todo
-			const activeTodo = todos.find((t: Todo) => t.id === activeIdStr);
+			const activeTodo = todos.find((t: Todo) => t.id === activeId);
 
 			if (!activeTodo) return;
 
 			// 检查放置数据类型
 			const overData = over.data.current as
 				| DragData
-				| { type: string; metadata?: { position?: string; todoId?: string } }
+				| { type: string; metadata?: { position?: string; todoId?: number } }
 				| undefined;
 
 			// 情况1: 拖放到 todo 上设置父子关系（通过特殊放置区域）
 			if (overData?.type === "TODO_DROP_ZONE") {
 				const metadata = (
-					overData as { metadata?: { position?: string; todoId?: string } }
+					overData as { metadata?: { position?: string; todoId?: number } }
 				)?.metadata;
 				const position = metadata?.position;
 				// 从放置区域的 metadata 中获取目标 todo ID
 				const targetTodoId = metadata?.todoId;
 
-				if (position === "nest" && targetTodoId) {
+				if (position === "nest" && targetTodoId !== undefined) {
 					// 设置为子任务
 					// 防止将任务设置为自己的子任务或子孙的子任务
 					const isDescendant = (
-						parentId: string,
-						childId: string,
+						parentId: number,
+						childId: number,
 						allTodos: Todo[],
 					): boolean => {
 						let current = allTodos.find((t) => t.id === childId);
@@ -94,8 +94,8 @@ export function TodoList() {
 					};
 
 					if (
-						activeIdStr !== targetTodoId &&
-						!isDescendant(activeIdStr, targetTodoId, todos)
+						activeId !== targetTodoId &&
+						!isDescendant(activeId, targetTodoId, todos)
 					) {
 						try {
 							// 获取目标父任务下的子任务
@@ -111,7 +111,7 @@ export function TodoList() {
 
 							await reorderTodos([
 								{
-									id: activeIdStr,
+									id: activeId,
 									order: newOrder,
 									parentTodoId: targetTodoId,
 								},
@@ -125,19 +125,19 @@ export function TodoList() {
 			}
 
 			// 情况2: 常规列表内排序
-			const overTodo = todos.find((t: Todo) => t.id === overIdStr);
+			const overTodo = todos.find((t: Todo) => t.id === overId);
 			if (!overTodo) return;
 
 			const isInternalDrop = orderedTodos.some(
-				({ todo }) => todo.id === overIdStr,
+				({ todo }) => todo.id === overId,
 			);
 
 			if (isInternalDrop) {
 				const oldIndex = orderedTodos.findIndex(
-					({ todo }) => todo.id === activeIdStr,
+					({ todo }) => todo.id === activeId,
 				);
 				const newIndex = orderedTodos.findIndex(
-					({ todo }) => todo.id === overIdStr,
+					({ todo }) => todo.id === overId,
 				);
 
 				if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
@@ -153,8 +153,8 @@ export function TodoList() {
 
 						// 找到在 orderedTodos 中的索引
 						const siblingIds = siblings.map((t: Todo) => t.id);
-						const oldSiblingIndex = siblingIds.indexOf(activeIdStr);
-						const newSiblingIndex = siblingIds.indexOf(overIdStr);
+						const oldSiblingIndex = siblingIds.indexOf(activeId);
+						const newSiblingIndex = siblingIds.indexOf(overId);
 
 						if (oldSiblingIndex !== -1 && newSiblingIndex !== -1) {
 							// 重新排列数组
@@ -182,13 +182,12 @@ export function TodoList() {
 						// 跨级移动：将任务移动到目标位置附近，并更新父级关系
 						const newParentId = overTodo.parentTodoId;
 						const newSiblings = todos.filter(
-							(t: Todo) =>
-								t.parentTodoId === newParentId && t.id !== activeIdStr,
+							(t: Todo) => t.parentTodoId === newParentId && t.id !== activeId,
 						);
 
 						// 找到插入位置
 						const overSiblingIndex = newSiblings.findIndex(
-							(t: Todo) => t.id === overIdStr,
+							(t: Todo) => t.id === overId,
 						);
 						const insertIndex =
 							overSiblingIndex !== -1 ? overSiblingIndex : newSiblings.length;
@@ -202,9 +201,7 @@ export function TodoList() {
 							(todo: Todo, index: number) => ({
 								id: todo.id,
 								order: index,
-								...(todo.id === activeIdStr
-									? { parentTodoId: newParentId }
-									: {}),
+								...(todo.id === activeId ? { parentTodoId: newParentId } : {}),
 							}),
 						);
 
@@ -226,7 +223,7 @@ export function TodoList() {
 	});
 
 	const handleSelect = (
-		todoId: string,
+		todoId: number,
 		event: React.MouseEvent<HTMLDivElement>,
 	) => {
 		const isMulti = event.metaKey || event.ctrlKey;

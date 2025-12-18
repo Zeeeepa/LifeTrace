@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { ActivityCard } from "@/apps/activity/ActivityCard";
 import type { ActivityGroup } from "@/apps/activity/utils/timeUtils";
 import { formatTimeRange } from "@/apps/activity/utils/timeUtils";
-import type { Activity } from "@/lib/types/activity";
+import type { Activity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ActivitySidebarProps {
@@ -53,8 +53,8 @@ export function ActivitySidebar({
 									activity={activity}
 									isSelected={activity.id === selectedId}
 									timeLabel={formatTimeRange(
-										activity.start_time,
-										activity.end_time,
+										activity.startTime,
+										activity.endTime,
 									)}
 									onSelect={onSelect}
 								/>

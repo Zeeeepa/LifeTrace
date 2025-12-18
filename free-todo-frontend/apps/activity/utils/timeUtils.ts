@@ -1,4 +1,4 @@
-import type { Activity } from "@/lib/types/activity";
+import type { Activity } from "@/lib/types";
 
 const ONE_MINUTE = 60 * 1000;
 const ONE_HOUR = 60 * ONE_MINUTE;
@@ -94,7 +94,7 @@ export function groupActivitiesByTime(activities: Activity[]): ActivityGroup[] {
 	};
 
 	for (const activity of activities) {
-		const startDate = toDate(activity.start_time);
+		const startDate = toDate(activity.startTime);
 		if (!startDate) {
 			groups.Older.push(activity);
 			continue;

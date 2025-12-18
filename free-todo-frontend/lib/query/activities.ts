@@ -10,15 +10,58 @@ import {
 	useListEventsApiEventsGet,
 } from "@/lib/generated/event/event";
 import type {
+	Activity,
 	ActivityEventsResponse,
 	ActivityListResponse,
-	ActivityResponse,
-	EventDetailResponse,
+	ActivityWithEvents,
+	Event,
 	EventListResponse,
-} from "@/lib/generated/schemas";
-import type { Activity, ActivityWithEvents } from "@/lib/types/activity";
-import type { Event } from "@/lib/types/event";
+} from "@/lib/types";
 import { queryKeys } from "./keys";
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Normalize API response to ensure consistent Activity type
+ * Now that fetcher auto-converts snake_case -> camelCase
+ */
+function normalizeActivity(raw: Record<string, unknown>): Activity {
+	return {
+		id: raw.id as number,
+		startTime: raw.startTime as string,
+		endTime: raw.endTime as string,
+		aiTitle: (raw.aiTitle as string) ?? undefined,
+		aiSummary: (raw.aiSummary as string) ?? undefined,
+		eventCount: raw.eventCount as number,
+		createdAt: (raw.createdAt as string) ?? undefined,
+		updatedAt: (raw.updatedAt as string) ?? undefined,
+	};
+}
+
+/**
+ * Normalize API response to ensure consistent Event type
+ */
+function normalizeEvent(raw: Record<string, unknown>): Event {
+	const screenshots = (raw.screenshots as unknown[]) || [];
+	const screenshotCount = screenshots.length ?? 0;
+	const firstScreenshotId =
+		((screenshots[0] as Record<string, unknown>)?.id as number) ?? undefined;
+
+	return {
+		id: raw.id as number,
+		appName: (raw.appName as string) || "",
+		windowTitle: (raw.windowTitle as string) || "",
+		startTime: raw.startTime as string,
+		endTime: (raw.endTime as string) ?? undefined,
+		screenshotCount,
+		firstScreenshotId,
+		aiTitle: (raw.aiTitle as string) ?? undefined,
+		aiSummary: (raw.aiSummary as string) ?? undefined,
+		screenshots: screenshots as Event["screenshots"],
+	};
+}
 
 // ============================================================================
 // Query Hooks
@@ -29,20 +72,6 @@ interface UseActivitiesParams {
 	offset?: number;
 	start_date?: string;
 	end_date?: string;
-}
-
-/**
- * 将 ActivityResponse 转换为 Activity 类型
- * 处理 null 值转换为 undefined（因为 Activity.created_at 是 string | undefined，不是 string | null | undefined）
- */
-function mapActivityResponseToActivity(response: ActivityResponse): Activity {
-	return {
-		...response,
-		created_at: response.created_at ?? undefined,
-		updated_at: response.updated_at ?? undefined,
-		ai_title: response.ai_title ?? undefined,
-		ai_summary: response.ai_summary ?? undefined,
-	};
 }
 
 /**
@@ -61,9 +90,12 @@ export function useActivities(params?: UseActivitiesParams) {
 			query: {
 				queryKey: queryKeys.activities.list(params),
 				staleTime: 30 * 1000,
-				select: (data: ActivityListResponse) => {
-					// 处理响应格式，将 ActivityResponse[] 转换为 Activity[]
-					return (data?.activities ?? []).map(mapActivityResponseToActivity);
+				select: (data: unknown) => {
+					// Data is now auto-converted to camelCase by the fetcher
+					const response = data as ActivityListResponse;
+					return (response?.activities ?? []).map((raw) =>
+						normalizeActivity(raw as unknown as Record<string, unknown>),
+					);
 				},
 			},
 		},
@@ -80,9 +112,10 @@ export function useActivityEvents(activityId: number | null) {
 			queryKey: queryKeys.activities.events(activityId ?? 0),
 			enabled: activityId !== null,
 			staleTime: 60 * 1000,
-			select: (data: ActivityEventsResponse) => {
-				// 处理响应格式
-				return data?.event_ids ?? [];
+			select: (data: unknown) => {
+				// Data is now auto-converted to camelCase by the fetcher
+				const response = data as ActivityEventsResponse;
+				return response?.eventIds ?? [];
 			},
 		},
 	});
@@ -98,25 +131,9 @@ export function useEvent(eventId: number | null) {
 			queryKey: queryKeys.events.detail(eventId ?? 0),
 			enabled: eventId !== null,
 			staleTime: 60 * 1000,
-			select: (data: EventDetailResponse) => {
+			select: (data: unknown) => {
 				if (!data) return null;
-
-				const screenshots = data.screenshots || [];
-				const screenshotCount = screenshots.length ?? 0;
-				const firstScreenshotId = screenshots[0]?.id ?? undefined;
-
-				return {
-					id: data.id,
-					app_name: data.app_name || "",
-					window_title: data.window_title || "",
-					start_time: data.start_time,
-					end_time: data.end_time ?? undefined,
-					screenshot_count: screenshotCount,
-					first_screenshot_id: firstScreenshotId,
-					ai_title: data.ai_title ?? undefined,
-					ai_summary: data.ai_summary ?? undefined,
-					screenshots,
-				} as Event;
+				return normalizeEvent(data as Record<string, unknown>);
 			},
 		},
 	});
@@ -142,23 +159,7 @@ export function useEvents(eventIds: number[]) {
 					try {
 						const data = await getEventDetailApiEventsEventIdGet(id);
 						if (!data) return null;
-
-						const screenshots = data.screenshots || [];
-						const screenshotCount = screenshots.length ?? 0;
-						const firstScreenshotId = screenshots[0]?.id ?? undefined;
-
-						return {
-							id: data.id,
-							app_name: data.app_name || "",
-							window_title: data.window_title || "",
-							start_time: data.start_time,
-							end_time: data.end_time ?? undefined,
-							screenshot_count: screenshotCount,
-							first_screenshot_id: firstScreenshotId,
-							ai_title: data.ai_title ?? undefined,
-							ai_summary: data.ai_summary ?? undefined,
-							screenshots,
-						} as Event;
+						return normalizeEvent(data as unknown as Record<string, unknown>);
 					} catch (error) {
 						console.error("Failed to load event", id, error);
 						return null;
@@ -190,8 +191,9 @@ export function useEventsList(params?: UseEventsListParams) {
 		query: {
 			queryKey: queryKeys.events.list(params),
 			staleTime: 30 * 1000,
-			select: (data: EventListResponse) => {
-				return data?.events ?? [];
+			select: (data: unknown) => {
+				const response = data as EventListResponse;
+				return response?.events ?? [];
 			},
 		},
 	});
@@ -232,7 +234,7 @@ export function useActivityWithEvents(
 	const activityWithEvents: ActivityWithEvents | null = activity
 		? {
 				...activity,
-				event_ids: eventIds,
+				eventIds,
 				events,
 			}
 		: null;

@@ -1,6 +1,6 @@
 import { Clock3 } from "lucide-react";
 import { forwardRef } from "react";
-import type { Activity } from "@/lib/types/activity";
+import type { Activity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface ActivityCardProps {
@@ -15,8 +15,8 @@ export const ActivityCard = forwardRef<HTMLButtonElement, ActivityCardProps>(
 		{ activity, isSelected = false, timeLabel, onSelect },
 		ref,
 	) {
-		const title = activity.ai_title || `Activity #${activity.id}`;
-		const summary = activity.ai_summary || "No summary available";
+		const title = activity.aiTitle || `Activity #${activity.id}`;
+		const summary = activity.aiSummary || "No summary available";
 
 		return (
 			<button

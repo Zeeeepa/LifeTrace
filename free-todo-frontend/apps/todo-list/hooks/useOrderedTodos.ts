@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Todo } from "@/lib/types/todo";
+import type { Todo } from "@/lib/types";
 
 export type OrderedTodo = {
 	todo: Todo;
@@ -9,7 +9,7 @@ export type OrderedTodo = {
 export function useOrderedTodos(
 	todos: Todo[],
 	searchQuery: string,
-	collapsedTodoIds?: Set<string>,
+	collapsedTodoIds?: Set<number>,
 ) {
 	return useMemo(() => {
 		let result = todos;
@@ -26,7 +26,7 @@ export function useOrderedTodos(
 
 		const orderMap = new Map(result.map((todo, index) => [todo.id, index]));
 		const visibleIds = new Set(result.map((todo) => todo.id));
-		const childrenMap = new Map<string, Todo[]>();
+		const childrenMap = new Map<number, Todo[]>();
 		const roots: Todo[] = [];
 
 		result.forEach((todo) => {

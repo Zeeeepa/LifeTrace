@@ -2,7 +2,7 @@
 
 import { Calendar, Flag, Tag as TagIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
 	formatDateTime,

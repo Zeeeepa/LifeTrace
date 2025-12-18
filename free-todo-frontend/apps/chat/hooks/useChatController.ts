@@ -12,11 +12,11 @@ import type { ChatHistoryItem } from "@/lib/api";
 import { sendChatMessageStream } from "@/lib/api";
 import { useChatHistory, useChatSessions, useTodos } from "@/lib/query";
 import { useChatStore } from "@/lib/store/chat-store";
-import type { CreateTodoInput, Todo } from "@/lib/types/todo";
+import type { CreateTodoInput, Todo } from "@/lib/types";
 
 type UseChatControllerParams = {
 	locale: string;
-	selectedTodoIds: string[];
+	selectedTodoIds: number[];
 	createTodo: (todo: CreateTodoInput) => Promise<Todo | null>;
 };
 
@@ -82,7 +82,7 @@ export const useChatController = ({
 	const selectedTodos = useMemo(
 		() => todos.filter((todo: Todo) => selectedTodoIds.includes(todo.id)),
 		[selectedTodoIds, todos],
-	);
+	) as Todo[];
 	const effectiveTodos = useMemo(
 		() => (selectedTodos.length ? selectedTodos : []),
 		[selectedTodos],
@@ -212,18 +212,21 @@ export const useChatController = ({
 					const payloads = buildTodoPayloads(parsedTodos);
 
 					// plan 模式：payloads 内的 id / parentTodoId 是前端临时 id（UUID），
-					// 需要顺序创建并把 parent 映射为后端数值 id，否则会在 toApiId(parseInt) 处报错。
-					const clientIdToApiId = new Map<string, string>();
+					// 需要顺序创建并把 parent 映射为后端数值 id
+					const clientIdToApiId = new Map<string, number>();
 					let successCount = 0;
 					for (const draft of payloads) {
 						const clientId = draft.id ?? createId();
-						const parentClientId = draft.parentTodoId ?? null;
-						const apiParentId = parentClientId
-							? (clientIdToApiId.get(parentClientId) ?? null)
-							: null;
+						const parentClientId = draft.parentTodoId;
+						const apiParentId =
+							typeof parentClientId === "string"
+								? (clientIdToApiId.get(parentClientId) ?? null)
+								: (parentClientId ?? null);
 
+						// Create payload without the temporary string ID
+						const { id: _tempId, ...createPayload } = draft;
 						const created = await createTodo({
-							...draft,
+							...createPayload,
 							// 若父任务未成功创建，则降级为根任务（避免整棵子树丢失）
 							parentTodoId: apiParentId,
 						});

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTodoMutations, useTodos } from "@/lib/query";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo } from "@/lib/types/todo";
+import type { Todo } from "@/lib/types";
 import { ChildTodoSection } from "./components/ChildTodoSection";
 import { DescriptionSection } from "./components/DescriptionSection";
 import { DetailHeader } from "./components/DetailHeader";
@@ -29,7 +29,7 @@ export function TodoDetail() {
 	const [localUserNotes, setLocalUserNotes] = useState<string>("");
 	const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isUpdatingRef = useRef<boolean>(false);
-	const lastSyncedTodoIdRef = useRef<string | null>(null);
+	const lastSyncedTodoIdRef = useRef<number | null>(null);
 
 	const todo = useMemo(
 		() =>
@@ -164,10 +164,10 @@ export function TodoDetail() {
 		try {
 			// 递归查找所有子任务 ID
 			const findAllChildIds = (
-				parentId: string,
+				parentId: number,
 				allTodos: Todo[],
-			): string[] => {
-				const childIds: string[] = [];
+			): number[] => {
+				const childIds: number[] = [];
 				const children = allTodos.filter(
 					(t: Todo) => t.parentTodoId === parentId,
 				);

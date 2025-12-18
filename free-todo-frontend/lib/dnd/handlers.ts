@@ -95,8 +95,7 @@ const handleTodoToCalendarDate: DragDropHandler = (
 				// 处理原始 API 响应结构 { total, todos: TodoResponse[] }
 				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
 					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
-						const todoId = String(t.id);
-						if (todoId === todo.id) {
+						if (t.id === todo.id) {
 							return { ...t, deadline: newDeadlineStr };
 						}
 						return t;
@@ -120,8 +119,7 @@ const handleTodoToCalendarDate: DragDropHandler = (
 	});
 
 	// 异步调用 API
-	const todoId = Number.parseInt(todo.id, 10);
-	void updateTodoApiTodosTodoIdPut(todoId, { deadline: newDeadlineStr })
+	void updateTodoApiTodosTodoIdPut(todo.id, { deadline: newDeadlineStr })
 		.then(() => {
 			// API 成功后刷新缓存以确保数据一致性
 			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
@@ -177,13 +175,10 @@ const handleTodoToTodoList: DragDropHandler = (
 				// 处理原始 API 响应结构 { total, todos: TodoResponse[] }
 				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
 					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
-						const todoId = String(t.id);
-						if (todoId === todo.id) {
+						if (t.id === todo.id) {
 							return {
 								...t,
-								parent_todo_id: parentTodoId
-									? Number.parseInt(parentTodoId, 10)
-									: null,
+								parent_todo_id: parentTodoId ?? null,
 							};
 						}
 						return t;
@@ -197,7 +192,7 @@ const handleTodoToTodoList: DragDropHandler = (
 				// 向后兼容：如果是数组格式（不应该发生，但为了安全）
 				if (Array.isArray(oldData)) {
 					return oldData.map((t) =>
-						t.id === todo.id ? { ...t, parentTodoId: parentTodoId || null } : t,
+						t.id === todo.id ? { ...t, parentTodoId: parentTodoId ?? null } : t,
 					) as unknown as TodoListResponse;
 				}
 
@@ -205,9 +200,9 @@ const handleTodoToTodoList: DragDropHandler = (
 			},
 		);
 
-		const todoId = Number.parseInt(todo.id, 10);
-		const parentId = parentTodoId ? Number.parseInt(parentTodoId, 10) : null;
-		void updateTodoApiTodosTodoIdPut(todoId, { parent_todo_id: parentId })
+		void updateTodoApiTodosTodoIdPut(todo.id, {
+			parent_todo_id: parentTodoId ?? null,
+		})
 			.then(() => {
 				void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
 			})

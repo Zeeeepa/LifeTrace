@@ -18,7 +18,7 @@ import { useCreateTodo, useTodos } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { CreateTodoInput, Todo } from "@/lib/types/todo";
+import type { CreateTodoInput, Todo } from "@/lib/types";
 
 export function ChatPanel() {
 	const { locale } = useLocaleStore();

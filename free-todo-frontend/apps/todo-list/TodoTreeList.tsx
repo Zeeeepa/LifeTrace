@@ -17,9 +17,9 @@ import { TodoCard } from "./TodoCard";
 
 interface TodoTreeListProps {
 	orderedTodos: OrderedTodo[];
-	selectedTodoIds: string[];
-	onSelect: (todoId: string, event: React.MouseEvent<HTMLDivElement>) => void;
-	onSelectSingle: (todoId: string) => void;
+	selectedTodoIds: number[];
+	onSelect: (todoId: number, event: React.MouseEvent<HTMLDivElement>) => void;
+	onSelectSingle: (todoId: number) => void;
 }
 
 export function TodoTreeList({

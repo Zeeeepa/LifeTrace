@@ -4,7 +4,7 @@ import {
 	createTodoApiTodosPost,
 	updateTodoApiTodosTodoIdPut,
 } from "@/lib/generated/todos/todos";
-import { fromApiTodo, getQueryClient, queryKeys } from "@/lib/query";
+import { getQueryClient, queryKeys } from "@/lib/query";
 
 export interface Question {
 	id: string;
@@ -16,7 +16,7 @@ export interface Question {
 type PlanStage = "idle" | "questionnaire" | "summary" | "completed";
 
 interface PlanStoreState {
-	activePlanTodoId: string | null;
+	activePlanTodoId: number | null;
 	stage: PlanStage;
 	questions: Question[];
 	answers: Record<string, string[]>;
@@ -30,7 +30,7 @@ interface PlanStoreState {
 	questionStreamingTitle: string | null; // 当前正在生成的问题标题
 	error: string | null;
 
-	startPlan: (todoId: string) => void;
+	startPlan: (todoId: number) => void;
 	setQuestions: (questions: Question[]) => void;
 	setAnswer: (questionId: string, options: string[]) => void;
 	setSummary: (summary: string, subtasks: ParsedTodoTree[]) => void;
@@ -57,7 +57,7 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 	questionStreamingTitle: null,
 	error: null,
 
-	startPlan: (todoId: string) => {
+	startPlan: (todoId: number) => {
 		set({
 			activePlanTodoId: todoId,
 			stage: "questionnaire",
@@ -148,17 +148,14 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 
 		try {
 			// 更新任务描述
-			await updateTodoApiTodosTodoIdPut(
-				Number.parseInt(state.activePlanTodoId, 10),
-				{
-					description: state.summary,
-				},
-			);
+			await updateTodoApiTodosTodoIdPut(state.activePlanTodoId, {
+				description: state.summary,
+			});
 
 			// 添加子任务 - 递归创建，处理层级关系
 			const createSubtasks = async (
 				trees: ParsedTodoTree[],
-				parentId: string | null,
+				parentId: number | null,
 			): Promise<void> => {
 				for (const node of trees) {
 					// 创建当前子任务
@@ -166,13 +163,14 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 						name: node.name,
 						description: node.description,
 						order: node.order,
-						parent_todo_id: parentId ? Number.parseInt(parentId, 10) : null,
+						parent_todo_id: parentId,
 					});
-					const created = fromApiTodo(apiTodo);
+					// apiTodo.id is already a number after fetcher conversion
+					const createdId = (apiTodo as { id: number }).id;
 
 					// 如果有嵌套子任务，递归创建
-					if (created && node.subtasks && node.subtasks.length > 0) {
-						await createSubtasks(node.subtasks, created.id);
+					if (createdId && node.subtasks && node.subtasks.length > 0) {
+						await createSubtasks(node.subtasks, createdId);
 					}
 				}
 			};

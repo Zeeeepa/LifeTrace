@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import { camelToSnake, snakeToCamel } from "./case-transform";
 
 // 标准化时间字符串（处理无时区后缀问题）
 function normalizeTimestamps(obj: unknown): unknown {
@@ -55,10 +56,13 @@ export async function customFetcher<T>({
 				new URLSearchParams(filteredParams as Record<string, string>).toString()
 			: "";
 
+	// Transform request body: camelCase -> snake_case
+	const transformedData = data ? camelToSnake(data) : undefined;
+
 	const response = await fetch(`${baseUrl}${url}${queryString}`, {
 		method,
 		headers: { "Content-Type": "application/json", ...headers },
-		body: data ? JSON.stringify(data) : undefined,
+		body: transformedData ? JSON.stringify(transformedData) : undefined,
 		signal,
 	});
 
@@ -100,6 +104,9 @@ export async function customFetcher<T>({
 
 	// 标准化时间字符串
 	json = normalizeTimestamps(json);
+
+	// Transform response: snake_case -> camelCase
+	json = snakeToCamel(json);
 
 	// 如果提供了 schema，进行验证
 	if (responseSchema) {

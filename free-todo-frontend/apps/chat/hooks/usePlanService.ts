@@ -134,7 +134,7 @@ export const usePlanService = () => {
 	const generateQuestions = useCallback(
 		async (
 			todoName: string,
-			todoId?: string,
+			todoId?: number,
 			onStreaming?: (count: number, title: string | null) => void,
 		): Promise<Question[]> => {
 			let fullResponse = "";
@@ -145,7 +145,6 @@ export const usePlanService = () => {
 				"任务ID:",
 				todoId,
 			);
-			const todoIdNum = todoId ? Number.parseInt(todoId, 10) : undefined;
 			await planQuestionnaireStream(
 				todoName,
 				(chunk) => {
@@ -158,7 +157,7 @@ export const usePlanService = () => {
 						}
 					}
 				},
-				todoIdNum,
+				todoId,
 			);
 			console.log("[Plan] 收到完整响应，长度:", fullResponse.length);
 			console.log("[Plan] 完整响应内容:", fullResponse);

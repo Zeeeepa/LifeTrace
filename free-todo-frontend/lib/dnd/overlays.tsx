@@ -8,7 +8,7 @@
 import { DragOverlay } from "@dnd-kit/core";
 import { Calendar, Flag, Paperclip, Tag } from "lucide-react";
 import { createPortal } from "react-dom";
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { ActiveDragState, DragData } from "./types";
 

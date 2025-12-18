@@ -3,7 +3,8 @@
  * Cross-Panel Drag and Drop Type Definitions
  */
 
-import type { Todo, TodoAttachment } from "@/lib/types/todo";
+import type { UniqueIdentifier } from "@dnd-kit/core";
+import type { Todo, TodoAttachment } from "@/lib/types";
 
 // ============================================================================
 // 拖拽源类型 (Drag Source Types)
@@ -31,7 +32,7 @@ export type DragData =
 			type: "FILE";
 			payload: {
 				file: TodoAttachment;
-				sourceTodoId?: string;
+				sourceTodoId?: number;
 			};
 	  }
 	| {
@@ -72,20 +73,20 @@ export type DropData =
 			type: "TODO_LIST";
 			metadata: {
 				targetIndex?: number;
-				parentTodoId?: string | null;
+				parentTodoId?: number | null;
 			};
 	  }
 	| {
 			type: "TODO_CARD_SLOT";
 			metadata: {
-				todoId: string;
+				todoId: number;
 				position: "before" | "after";
 			};
 	  }
 	| {
 			type: "TODO_DROP_ZONE";
 			metadata: {
-				todoId: string;
+				todoId: number;
 				position: "nest"; // 设为子任务
 			};
 	  }
@@ -102,9 +103,11 @@ export type DropData =
 
 /**
  * 当前正在拖拽的元素状态
+ * id 使用 dnd-kit 的 UniqueIdentifier 类型 (string | number)
+ * 因为不同面板可能使用不同格式的 ID（如 calendar 使用 "calendar-{todoId}"）
  */
 export interface ActiveDragState {
-	id: string;
+	id: UniqueIdentifier;
 	data: DragData;
 }
 

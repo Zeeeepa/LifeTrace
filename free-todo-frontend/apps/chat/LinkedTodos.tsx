@@ -1,4 +1,4 @@
-import type { Todo } from "@/lib/types/todo";
+import type { Todo } from "@/lib/types";
 
 type LinkedTodosProps = {
 	effectiveTodos: Todo[];
@@ -7,7 +7,7 @@ type LinkedTodosProps = {
 	showTodosExpanded: boolean;
 	onToggleExpand: () => void;
 	onClearSelection: () => void;
-	onToggleTodo: (id: string) => void;
+	onToggleTodo: (id: number) => void;
 };
 
 export function LinkedTodos({

@@ -34,8 +34,8 @@ import type {
 
 // 用于跟踪正在进行乐观更新的 todo，确保在数据同步前卡片保持隐藏
 export const PendingUpdateContext = createContext<{
-	pendingTodoId: string | null;
-	setPendingTodoId: (id: string | null) => void;
+	pendingTodoId: number | null;
+	setPendingTodoId: (id: number | null) => void;
 } | null>(null);
 
 const GlobalDndContext = createContext<GlobalDndContextValue | null>(null);
@@ -103,7 +103,7 @@ interface GlobalDndProviderProps {
 export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 	const [activeDrag, setActiveDrag] = useState<ActiveDragState | null>(null);
 	// 跟踪正在进行乐观更新的 todo ID，用于在数据同步完成前保持卡片隐藏
-	const [pendingTodoId, setPendingTodoId] = useState<string | null>(null);
+	const [pendingTodoId, setPendingTodoId] = useState<number | null>(null);
 
 	// 配置传感器
 	const sensors = useSensors(
@@ -119,8 +119,10 @@ export function GlobalDndProvider({ children }: GlobalDndProviderProps) {
 		const data = event.active.data.current as DragData | undefined;
 
 		if (data) {
+			// 保持原始 ID 类型，不做转换
+			// Calendar 使用 "calendar-{id}" 格式，TodoList 使用数字 ID
 			setActiveDrag({
-				id: String(event.active.id),
+				id: event.active.id,
 				data,
 			});
 			console.log("[DnD] Drag started:", data.type, event.active.id);

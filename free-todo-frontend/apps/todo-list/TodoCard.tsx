@@ -24,7 +24,7 @@ import { useTodoMutations, useTodos } from "@/lib/query";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface TodoCardProps {
@@ -122,8 +122,8 @@ export function TodoCard({
 
 		// 检查当前 todo 是否是被拖拽 todo 的子孙
 		const checkIsDescendant = (
-			potentialParentId: string,
-			potentialChildId: string,
+			potentialParentId: number,
+			potentialChildId: number,
 		): boolean => {
 			let current = todos.find((t: Todo) => t.id === potentialChildId);
 			while (current?.parentTodoId) {
@@ -355,10 +355,10 @@ export function TodoCard({
 		try {
 			// 递归查找所有子任务 ID
 			const findAllChildIds = (
-				parentId: string,
+				parentId: number,
 				allTodos: Todo[],
-			): string[] => {
-				const childIds: string[] = [];
+			): number[] => {
+				const childIds: number[] = [];
 				const children = allTodos.filter((t) => t.parentTodoId === parentId);
 				for (const child of children) {
 					childIds.push(child.id);

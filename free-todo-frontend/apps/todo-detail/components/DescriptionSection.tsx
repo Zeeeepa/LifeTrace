@@ -4,7 +4,7 @@ import { Check, Paperclip, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { TodoAttachment } from "@/lib/types/todo";
+import type { TodoAttachment } from "@/lib/types";
 
 interface DescriptionSectionProps {
 	description?: string;

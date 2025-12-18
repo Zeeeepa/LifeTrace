@@ -21,7 +21,7 @@ import { useTranslations } from "@/lib/i18n";
 import { useCreateTodo, useTodos } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo, TodoStatus } from "@/lib/types/todo";
+import type { Todo, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type CalendarView = "month" | "week" | "day";

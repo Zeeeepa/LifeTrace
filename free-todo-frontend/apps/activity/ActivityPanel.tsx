@@ -7,7 +7,7 @@ import { ActivitySidebar } from "@/apps/activity/ActivitySidebar";
 import { groupActivitiesByTime } from "@/apps/activity/utils/timeUtils";
 import { useActivities, useActivityWithEvents } from "@/lib/query";
 import { useActivityStore } from "@/lib/store/activity-store";
-import type { Activity } from "@/lib/types/activity";
+import type { Activity } from "@/lib/types";
 
 export function ActivityPanel() {
 	const { selectedActivityId, search, setSelectedActivityId, setSearch } =
@@ -28,8 +28,8 @@ export function ActivityPanel() {
 		const keyword = search.toLowerCase();
 		return activities.filter(
 			(item: Activity) =>
-				item.ai_title?.toLowerCase().includes(keyword) ||
-				item.ai_summary?.toLowerCase().includes(keyword),
+				item.aiTitle?.toLowerCase().includes(keyword) ||
+				item.aiSummary?.toLowerCase().includes(keyword),
 		);
 	}, [search, activities]);
 

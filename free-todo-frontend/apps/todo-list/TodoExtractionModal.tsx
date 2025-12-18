@@ -7,7 +7,7 @@ import { useTranslations } from "@/lib/i18n";
 import { useCreateTodo } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { toastError, toastSuccess } from "@/lib/toast";
-import type { CreateTodoInput } from "@/lib/types/todo";
+import type { CreateTodoInput } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
 
 interface TodoExtractionModalProps {

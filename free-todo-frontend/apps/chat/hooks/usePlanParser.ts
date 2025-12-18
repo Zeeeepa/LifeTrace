@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import type { ParsedTodoTree } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
-import type { CreateTodoInput } from "@/lib/types/todo";
+import type { CreateTodoInput } from "@/lib/types";
 
 export const usePlanParser = (locale: string) => {
 	const planSystemPrompt = useMemo(
@@ -141,12 +141,18 @@ export const usePlanParser = (locale: string) => {
 	);
 
 	const buildTodoPayloads = useCallback((trees: ParsedTodoTree[]) => {
-		const payloads: CreateTodoInput[] = [];
+		// Use a temporary string ID for tracking parent-child relationships
+		// These will be replaced with actual numeric IDs during creation
+		// Use Omit to properly override parentTodoId type for temporary string IDs
+		const payloads: (Omit<CreateTodoInput, "parentTodoId"> & {
+			id?: string;
+			parentTodoId?: string | number | null;
+		})[] = [];
 		const walk = (nodes: ParsedTodoTree[], parentId?: string | null) => {
 			nodes.forEach((node) => {
 				const id = createId();
 				payloads.push({
-					id,
+					id, // Temporary string ID for tracking
 					name: node.name,
 					description: node.description,
 					tags: node.tags,
