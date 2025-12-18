@@ -12,8 +12,20 @@ import { queryKeys } from "./keys";
 // ============================================================================
 
 export interface AppConfig {
+	// 现有配置
 	jobsAutoTodoDetectionEnabled?: boolean;
 	uiCostTrackingEnabled?: boolean;
+	// LLM 配置
+	llmApiKey?: string;
+	llmBaseUrl?: string;
+	llmModel?: string;
+	llmTemperature?: number;
+	llmMaxTokens?: number;
+	// 录制配置
+	jobsRecorderEnabled?: boolean;
+	jobsRecorderInterval?: number;
+	jobsRecorderParamsBlacklistEnabled?: boolean;
+	jobsRecorderParamsBlacklistApps?: string[];
 	[key: string]: unknown;
 }
 

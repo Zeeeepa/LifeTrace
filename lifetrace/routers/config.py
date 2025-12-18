@@ -51,13 +51,28 @@ def _handle_llm_test_error(error_msg: str, model: str) -> dict[str, Any]:
     return {"success": False, "error": error_msg}
 
 
+def _get_config_value(config_data: dict[str, Any], camel_key: str, snake_key: str) -> Any:
+    """从配置数据中获取值，同时支持 camelCase 和 snake_case 格式
+
+    Args:
+        config_data: 配置字典
+        camel_key: camelCase 格式的键（如 llmApiKey）
+        snake_key: snake_case 格式的键（如 llm_api_key）
+
+    Returns:
+        配置值，如果都不存在则返回 None
+    """
+    return config_data.get(camel_key) or config_data.get(snake_key)
+
+
 @router.post("/test-llm-config")
 async def test_llm_config(config_data: dict[str, str]):
     """测试LLM配置是否可用（仅验证认证）"""
     try:
-        llm_key = config_data.get("llmApiKey")
-        base_url = config_data.get("llmBaseUrl")
-        model = config_data.get("llmModel")
+        # 同时支持 camelCase 和 snake_case 格式（前端 fetcher 会自动转换为 snake_case）
+        llm_key = _get_config_value(config_data, "llmApiKey", "llm_api_key")
+        base_url = _get_config_value(config_data, "llmBaseUrl", "llm_base_url")
+        model = _get_config_value(config_data, "llmModel", "llm_model")
 
         if not llm_key or not base_url:
             return {"success": False, "error": "LLM Key 和 Base URL 不能为空"}
@@ -108,8 +123,20 @@ async def get_config_detailed():
 
 def _validate_config_fields(config_data: dict[str, str]) -> dict[str, Any] | None:
     """验证配置字段，返回错误信息或 None"""
-    required_fields = ["llmApiKey", "llmBaseUrl", "llmModel"]
-    missing_fields = [f for f in required_fields if not config_data.get(f)]
+    # 同时支持 camelCase 和 snake_case 格式
+    llm_key = _get_config_value(config_data, "llmApiKey", "llm_api_key")
+    base_url = _get_config_value(config_data, "llmBaseUrl", "llm_base_url")
+    model = _get_config_value(config_data, "llmModel", "llm_model")
+
+    # 检查必需字段
+    missing_fields = []
+    if not llm_key:
+        missing_fields.append("llmApiKey")
+    if not base_url:
+        missing_fields.append("llmBaseUrl")
+    if not model:
+        missing_fields.append("llmModel")
+
     if missing_fields:
         return {
             "success": False,
@@ -117,19 +144,13 @@ def _validate_config_fields(config_data: dict[str, str]) -> dict[str, Any] | Non
         }
 
     # 验证字段类型和内容
-    if (
-        not isinstance(config_data.get("llmApiKey"), str)
-        or not config_data.get("llmApiKey").strip()
-    ):
+    if not isinstance(llm_key, str) or not llm_key.strip():
         return {"success": False, "error": "LLM Key必须是非空字符串"}
 
-    if (
-        not isinstance(config_data.get("llmBaseUrl"), str)
-        or not config_data.get("llmBaseUrl").strip()
-    ):
+    if not isinstance(base_url, str) or not base_url.strip():
         return {"success": False, "error": "Base URL必须是非空字符串"}
 
-    if not isinstance(config_data.get("llmModel"), str) or not config_data.get("llmModel").strip():
+    if not isinstance(model, str) or not model.strip():
         return {"success": False, "error": "模型名称必须是非空字符串"}
 
     return None
