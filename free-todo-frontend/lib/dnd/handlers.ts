@@ -4,6 +4,7 @@
  */
 
 import { flushSync } from "react-dom";
+import type { TodoListResponse, TodoResponse } from "@/lib/generated/schemas";
 import { updateTodoApiTodosTodoIdPut } from "@/lib/generated/todos/todos";
 import { getQueryClient, queryKeys } from "@/lib/query";
 import type {
@@ -86,13 +87,34 @@ const handleTodoToCalendarDate: DragDropHandler = (
 	// 乐观更新：使用 flushSync 强制同步渲染，确保在 onDragEnd 返回前 UI 已更新
 	// 这样可以避免 "先弹回再闪现" 的视觉 Bug
 	flushSync(() => {
-		queryClient.setQueryData<Array<{ id: string; deadline?: string }>>(
+		queryClient.setQueryData<TodoListResponse>(
 			queryKeys.todos.list(),
 			(oldData) => {
 				if (!oldData) return oldData;
-				return oldData.map((t) =>
-					t.id === todo.id ? { ...t, deadline: newDeadlineStr } : t,
-				);
+
+				// 处理原始 API 响应结构 { total, todos: TodoResponse[] }
+				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
+					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
+						const todoId = String(t.id);
+						if (todoId === todo.id) {
+							return { ...t, deadline: newDeadlineStr };
+						}
+						return t;
+					});
+					return {
+						...oldData,
+						todos: updatedTodos,
+					};
+				}
+
+				// 向后兼容：如果是数组格式（不应该发生，但为了安全）
+				if (Array.isArray(oldData)) {
+					return oldData.map((t) =>
+						t.id === todo.id ? { ...t, deadline: newDeadlineStr } : t,
+					) as unknown as TodoListResponse;
+				}
+
+				return oldData;
 			},
 		);
 	});
@@ -147,14 +169,41 @@ const handleTodoToTodoList: DragDropHandler = (
 		const previousTodos = queryClient.getQueryData(queryKeys.todos.list());
 
 		// 乐观更新：立即更新前端缓存（使用与 useTodos 相同的 key）
-		queryClient.setQueryData<
-			Array<{ id: string; parentTodoId?: string | null }>
-		>(queryKeys.todos.list(), (oldData) => {
-			if (!oldData) return oldData;
-			return oldData.map((t) =>
-				t.id === todo.id ? { ...t, parentTodoId: parentTodoId || null } : t,
-			);
-		});
+		queryClient.setQueryData<TodoListResponse>(
+			queryKeys.todos.list(),
+			(oldData) => {
+				if (!oldData) return oldData;
+
+				// 处理原始 API 响应结构 { total, todos: TodoResponse[] }
+				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
+					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
+						const todoId = String(t.id);
+						if (todoId === todo.id) {
+							return {
+								...t,
+								parent_todo_id: parentTodoId
+									? Number.parseInt(parentTodoId, 10)
+									: null,
+							};
+						}
+						return t;
+					});
+					return {
+						...oldData,
+						todos: updatedTodos,
+					};
+				}
+
+				// 向后兼容：如果是数组格式（不应该发生，但为了安全）
+				if (Array.isArray(oldData)) {
+					return oldData.map((t) =>
+						t.id === todo.id ? { ...t, parentTodoId: parentTodoId || null } : t,
+					) as unknown as TodoListResponse;
+				}
+
+				return oldData;
+			},
+		);
 
 		const todoId = Number.parseInt(todo.id, 10);
 		const parentId = parentTodoId ? Number.parseInt(parentTodoId, 10) : null;
