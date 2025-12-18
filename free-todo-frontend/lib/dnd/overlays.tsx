@@ -19,15 +19,14 @@ import type { ActiveDragState, DragData } from "./types";
 function getStatusColor(status: TodoStatus) {
 	switch (status) {
 		case "active":
-			return "bg-[oklch(var(--primary)/0.12)] text-[oklch(var(--primary))] border-[oklch(var(--primary)/0.32)]";
+			return "border-primary/70 bg-primary/20 text-primary";
 		case "completed":
-			return "bg-[oklch(var(--accent)/0.16)] text-[oklch(var(--accent-foreground))] border-[oklch(var(--accent)/0.28)]";
-		case "canceled":
-			return "bg-[oklch(var(--muted)/0.35)] text-[oklch(var(--muted-foreground))] border-[oklch(var(--border))]";
+			return "border-green-500/60 bg-green-500/12 text-green-600 dark:text-green-500";
 		case "draft":
-			return "bg-orange-500/12 text-orange-600 dark:text-orange-400 border-orange-500/32";
+			return "border-orange-500/50 bg-orange-500/8 text-orange-600 dark:text-orange-400";
+		case "canceled":
 		default:
-			return "";
+			return "border-muted-foreground/40 bg-muted/15 text-muted-foreground";
 	}
 }
 

@@ -17,13 +17,13 @@ export const priorityOptions: TodoPriority[] = [
 export const getStatusClassNames = (status: TodoStatus) =>
 	cn(
 		"rounded-full border px-2 py-0.5 text-xs font-medium",
-		status === "completed"
-			? "border-primary/60 bg-primary/10 text-primary"
-			: status === "canceled"
-				? "border-muted-foreground/50 bg-muted/20 text-muted-foreground"
+		status === "active"
+			? "border-primary/70 bg-primary/20 text-primary"
+			: status === "completed"
+				? "border-green-500/60 bg-green-500/12 text-green-600 dark:text-green-500"
 				: status === "draft"
-					? "border-orange-500/60 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-					: "border-accent/60 bg-accent/10 text-accent-foreground",
+					? "border-orange-500/50 bg-orange-500/8 text-orange-600 dark:text-orange-400"
+					: "border-muted-foreground/40 bg-muted/15 text-muted-foreground",
 	);
 
 export const getPriorityClassNames = (priority: TodoPriority) =>
