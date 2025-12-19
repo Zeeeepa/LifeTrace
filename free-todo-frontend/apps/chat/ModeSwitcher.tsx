@@ -11,6 +11,26 @@ type ModeSwitcherProps = {
 	variant?: "default" | "inline";
 };
 
+// Helper function to get mode label
+const getModeLabel = (mode: ChatMode, locale: string): string => {
+	const labels: Record<ChatMode, { zh: string; en: string }> = {
+		ask: { zh: "Ask 模式", en: "Ask" },
+		plan: { zh: "Plan 模式", en: "Plan" },
+		edit: { zh: "Edit 模式", en: "Edit" },
+	};
+	return locale === "zh" ? labels[mode].zh : labels[mode].en;
+};
+
+// Helper function to get mode description
+const getModeDescription = (mode: ChatMode, locale: string): string => {
+	const descriptions: Record<ChatMode, { zh: string; en: string }> = {
+		ask: { zh: "直接聊天或提问", en: "Chat freely" },
+		plan: { zh: "拆解需求并生成待办", en: "Break down and add todos" },
+		edit: { zh: "生成内容追加到待办备注", en: "Generate and append to notes" },
+	};
+	return locale === "zh" ? descriptions[mode].zh : descriptions[mode].en;
+};
+
 export function ModeSwitcher({
 	chatMode,
 	locale,
@@ -34,23 +54,17 @@ export function ModeSwitcher({
 					variant === "inline" ? "h-10 bg-background/80" : "h-11 bg-muted/60",
 				)}
 				aria-label={
-					locale === "zh" ? "切换 Ask/Plan 模式" : "Toggle Ask/Plan mode"
+					locale === "zh"
+						? "切换 Ask/Plan/Edit 模式"
+						: "Toggle Ask/Plan/Edit mode"
 				}
 			>
-				<span>
-					{chatMode === "plan"
-						? locale === "zh"
-							? "Plan 模式"
-							: "Plan"
-						: locale === "zh"
-							? "Ask 模式"
-							: "Ask"}
-				</span>
+				<span>{getModeLabel(chatMode, locale)}</span>
 				<ChevronDown className="h-4 w-4 text-muted-foreground" />
 			</button>
 			{modeMenuOpen && (
-				<div className="absolute z-20 mb-2 w-32 overflow-hidden rounded-lg border border-border bg-background shadow-lg bottom-full">
-					{(["ask", "plan"] as const).map((mode) => (
+				<div className="absolute z-20 mb-2 w-36 overflow-hidden rounded-lg border border-border bg-background shadow-lg bottom-full">
+					{(["ask", "plan", "edit"] as const).map((mode) => (
 						<button
 							key={mode}
 							type="button"
@@ -62,15 +76,7 @@ export function ModeSwitcher({
 									: "text-foreground hover:bg-foreground/5",
 							)}
 						>
-							<span>
-								{mode === "ask"
-									? locale === "zh"
-										? "Ask 模式"
-										: "Ask"
-									: locale === "zh"
-										? "Plan 模式"
-										: "Plan"}
-							</span>
+							<span>{getModeLabel(mode, locale)}</span>
 							{mode === chatMode && (
 								<span className="text-xs text-primary">
 									{locale === "zh" ? "当前" : "Active"}
@@ -82,13 +88,7 @@ export function ModeSwitcher({
 			)}
 			{variant === "default" && (
 				<p className="mt-1 text-[11px] text-muted-foreground">
-					{chatMode === "plan"
-						? locale === "zh"
-							? "拆解需求并生成待办"
-							: "Break down and add todos"
-						: locale === "zh"
-							? "直接聊天或提问"
-							: "Chat freely"}
+					{getModeDescription(chatMode, locale)}
 				</p>
 			)}
 		</div>

@@ -6,7 +6,7 @@ export type ChatMessage = {
 	content: string;
 };
 
-export type ChatMode = "ask" | "plan";
+export type ChatMode = "ask" | "plan" | "edit";
 
 export type ParsedTodo = Pick<
 	CreateTodoInput,
@@ -14,3 +14,11 @@ export type ParsedTodo = Pick<
 >;
 
 export type ParsedTodoTree = ParsedTodo & { subtasks?: ParsedTodoTree[] };
+
+// Edit mode content block with AI-recommended target todo
+export type EditContentBlock = {
+	id: string;
+	title: string;
+	content: string;
+	recommendedTodoId: number | null;
+};

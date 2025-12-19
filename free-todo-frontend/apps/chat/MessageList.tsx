@@ -2,7 +2,9 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { ChatMessage } from "@/apps/chat/types";
+import { EditModeMessage } from "@/apps/chat/EditModeMessage";
+import type { ChatMessage, ChatMode } from "@/apps/chat/types";
+import type { Todo, UpdateTodoInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type MessageListProps = {
@@ -10,6 +12,14 @@ type MessageListProps = {
 	isStreaming: boolean;
 	typingText: string;
 	locale: string;
+	// Edit mode props (optional)
+	chatMode?: ChatMode;
+	effectiveTodos?: Todo[];
+	onUpdateTodo?: (params: {
+		id: number;
+		input: UpdateTodoInput;
+	}) => Promise<Todo>;
+	isUpdating?: boolean;
 };
 
 export function MessageList({
@@ -17,6 +27,10 @@ export function MessageList({
 	isStreaming,
 	typingText,
 	locale,
+	chatMode,
+	effectiveTodos = [],
+	onUpdateTodo,
+	isUpdating = false,
 }: MessageListProps) {
 	const messageListRef = useRef<HTMLDivElement>(null);
 	// 跟踪用户是否在底部（或接近底部）
@@ -46,7 +60,6 @@ export function MessageList({
 	}, []);
 
 	// 当用户发送新消息时，强制滚动到底部
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 保持依赖个数恒定以避免 HMR 报错
 	useEffect(() => {
 		if (messages.length === 0) return;
 
@@ -104,6 +117,14 @@ export function MessageList({
 					return null;
 				}
 
+				// Check if this is an edit mode assistant message (non-streaming)
+				const isEditModeAssistantMessage =
+					chatMode === "edit" &&
+					msg.role === "assistant" &&
+					msg.content &&
+					!isEmptyStreamingMessage &&
+					onUpdateTodo;
+
 				return (
 					<div
 						key={msg.id}
@@ -117,6 +138,20 @@ export function MessageList({
 							<div className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-xs text-muted-foreground">
 								<Loader2 className="h-4 w-4 animate-spin" />
 								{typingText}
+							</div>
+						) : isEditModeAssistantMessage ? (
+							/* Edit mode: render with append-to-todo functionality */
+							<div className="w-full max-w-[90%]">
+								<div className="mb-1 text-[11px] uppercase tracking-wide opacity-70 text-foreground">
+									{locale === "zh" ? "助理" : "Assistant"}
+								</div>
+								<EditModeMessage
+									content={msg.content}
+									effectiveTodos={effectiveTodos}
+									locale={locale}
+									onUpdateTodo={onUpdateTodo}
+									isUpdating={isUpdating}
+								/>
 							</div>
 						) : (
 							<div

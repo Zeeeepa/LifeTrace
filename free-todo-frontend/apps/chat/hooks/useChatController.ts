@@ -20,6 +20,53 @@ type UseChatControllerParams = {
 	createTodo: (todo: CreateTodoInput) => Promise<Todo | null>;
 };
 
+// Build Edit mode system prompt
+const buildEditSystemPrompt = (locale: string): string => {
+	return locale === "zh"
+		? `你是一个待办编辑助手。根据用户的请求和关联待办的上下文，生成有用的内容。
+
+**重要规则：**
+1. 使用 ## 标题来分隔不同的内容块
+2. **每个内容块的末尾必须添加 [append_to: <todo_id>]**，推荐这段内容应该追加到哪个待办的备注中
+3. 使用上下文中提供的待办ID（数字），根据内容相关性选择最合适的待办
+4. 每个内容块都必须有推荐的目标待办，不能遗漏
+
+**输出格式示例：**
+## 项目概述
+这是项目的主要目标和范围...
+
+[append_to: 123]
+
+## 下一步行动
+1. 完成需求分析
+2. 安排会议
+
+[append_to: 456]
+
+注意：[append_to: xxx] 中的 xxx 必须是上下文中存在的待办ID数字。`
+		: `You are a todo editing assistant. Generate helpful content based on the user's request and linked todos context.
+
+**Important Rules:**
+1. Use ## headers to separate distinct content blocks
+2. **Every content block MUST end with [append_to: <todo_id>]** to recommend which todo this content should be appended to
+3. Use the todo IDs (numbers) provided in context, choose the most relevant one based on content
+4. Every block must have a recommended target todo, do not omit any
+
+**Output Format Example:**
+## Project Overview
+This section describes the main goals and scope...
+
+[append_to: 123]
+
+## Next Steps
+1. Complete requirements analysis
+2. Schedule meeting
+
+[append_to: 456]
+
+Note: The xxx in [append_to: xxx] must be an existing todo ID number from the context.`;
+};
+
 export const useChatController = ({
 	locale,
 	selectedTodoIds,
@@ -27,6 +74,12 @@ export const useChatController = ({
 }: UseChatControllerParams) => {
 	const { planSystemPrompt, parsePlanTodos, buildTodoPayloads } =
 		usePlanParser(locale);
+
+	// Edit mode system prompt
+	const editSystemPrompt = useMemo(
+		() => buildEditSystemPrompt(locale),
+		[locale],
+	);
 
 	// 从 TanStack Query 获取 todos 数据
 	const { data: todos = [] } = useTodos();
@@ -174,10 +227,17 @@ export const useChatController = ({
 				);
 		const userLabel = locale === "zh" ? "用户输入" : "User input";
 
-		const payloadMessage =
-			chatMode === "plan"
-				? `${planSystemPrompt}\n\n${userLabel}: ${text}`
-				: `${todoContext}\n\n${userLabel}: ${text}`;
+		// Build payload message based on chat mode
+		let payloadMessage: string;
+		if (chatMode === "plan") {
+			payloadMessage = `${planSystemPrompt}\n\n${userLabel}: ${text}`;
+		} else if (chatMode === "edit") {
+			// Edit mode: combine todo context with edit system prompt
+			payloadMessage = `${editSystemPrompt}\n\n${todoContext}\n\n${userLabel}: ${text}`;
+		} else {
+			// Ask mode: just todo context
+			payloadMessage = `${todoContext}\n\n${userLabel}: ${text}`;
+		}
 		const userMessage: ChatMessage = {
 			id: createId(),
 			role: "user",
@@ -304,6 +364,7 @@ export const useChatController = ({
 		chatMode,
 		conversationId,
 		createTodo,
+		editSystemPrompt,
 		effectiveTodos,
 		hasSelection,
 		inputValue,

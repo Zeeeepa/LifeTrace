@@ -187,6 +187,19 @@ export type Translation = {
 			applying: string;
 			acceptAndApply: string;
 		};
+		editMode?: {
+			inputPlaceholder: string;
+			appendTo: string;
+			appendSuccess: string;
+			appendFailed: string;
+			selectTodo: string;
+			noLinkedTodos: string;
+			append: string;
+			appending: string;
+			appended: string;
+			failed: string;
+			aiRecommended: string;
+		};
 	};
 	calendar: {
 		title: string;

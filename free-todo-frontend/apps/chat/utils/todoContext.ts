@@ -52,6 +52,11 @@ export const buildDetailedTodoInfo = (
 	indent = "",
 ): string => {
 	const lines: string[] = [];
+
+	// ID is critical for AI to reference when recommending target todos
+	const idLabel = "ID";
+	lines.push(`${indent}${idLabel}: ${todo.id}`);
+
 	const label = locale === "zh" ? "名称" : "Name";
 	lines.push(`${indent}${label}: ${todo.name}`);
 
@@ -83,11 +88,15 @@ export const buildDetailedTodoInfo = (
 		lines.push(`${indent}${tagsLabel}: ${todo.tags.join(", ")}`);
 	}
 
+	// Show parentTodoId as numeric ID for AI reference
 	if (todo.parentTodoId) {
+		const parentIdLabel = locale === "zh" ? "父待办ID" : "Parent Todo ID";
+		lines.push(`${indent}${parentIdLabel}: ${todo.parentTodoId}`);
+		// Also show parent name for context
 		const parent = allTodos.find((t) => t.id === todo.parentTodoId);
 		if (parent) {
-			const parentLabel = locale === "zh" ? "父待办" : "Parent Todo";
-			lines.push(`${indent}${parentLabel}: ${parent.name}`);
+			const parentNameLabel = locale === "zh" ? "父待办名称" : "Parent Name";
+			lines.push(`${indent}${parentNameLabel}: ${parent.name}`);
 		}
 	}
 

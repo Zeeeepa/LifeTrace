@@ -14,7 +14,7 @@ import { PlanSummary } from "@/apps/chat/PlanSummary";
 import { Questionnaire } from "@/apps/chat/Questionnaire";
 import { SummaryStreaming } from "@/apps/chat/SummaryStreaming";
 import { useTranslations } from "@/lib/i18n";
-import { useCreateTodo, useTodos } from "@/lib/query";
+import { useCreateTodo, useTodos, useUpdateTodo } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
@@ -29,6 +29,9 @@ export function ChatPanel() {
 
 	// 从 TanStack Query 获取创建 todo 的 mutation
 	const createTodoMutation = useCreateTodo();
+
+	// 从 TanStack Query 获取更新 todo 的 mutation（用于 Edit 模式）
+	const updateTodoMutation = useUpdateTodo();
 
 	// 包装 createTodo 函数以匹配 useChatController 期望的签名
 	const createTodoWithResult = useCallback(
@@ -227,7 +230,9 @@ export function ChatPanel() {
 	const inputPlaceholder =
 		chatMode === "plan"
 			? t.chat.planModeInputPlaceholder
-			: t.page.chatInputPlaceholder;
+			: chatMode === "edit"
+				? t.chat.editMode?.inputPlaceholder || t.page.chatInputPlaceholder
+				: t.page.chatInputPlaceholder;
 
 	const formatMessageCount = useCallback(
 		(count?: number) =>
@@ -344,6 +349,10 @@ export function ChatPanel() {
 					isStreaming={isStreaming}
 					typingText={typingText}
 					locale={locale}
+					chatMode={chatMode}
+					effectiveTodos={effectiveTodos}
+					onUpdateTodo={updateTodoMutation.mutateAsync}
+					isUpdating={updateTodoMutation.isPending}
 				/>
 			)}
 
