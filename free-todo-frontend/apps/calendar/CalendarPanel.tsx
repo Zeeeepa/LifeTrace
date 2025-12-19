@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PanelHeader } from "@/components/common/PanelHeader";
+import { TodoContextMenu } from "@/components/common/TodoContextMenu";
 import { type DragData, type DropData, usePendingUpdate } from "@/lib/dnd";
 import { useTranslations } from "@/lib/i18n";
 import { useCreateTodo, useTodos } from "@/lib/query";
@@ -202,28 +203,30 @@ function DraggableTodo({
 	}
 
 	return (
-		<div
-			ref={setNodeRef}
-			{...attributes}
-			{...listeners}
-			onClick={() => onSelect(calendarTodo.todo)}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					onSelect(calendarTodo.todo);
-				}
-			}}
-			role="button"
-			tabIndex={0}
-			className={cn(
-				"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
-				getStatusStyle(calendarTodo.todo.status),
-			)}
-		>
-			<p className="truncate text-[12px] font-medium leading-tight">
-				{calendarTodo.todo.name}
-			</p>
-		</div>
+		<TodoContextMenu todoId={calendarTodo.todo.id}>
+			<div
+				ref={setNodeRef}
+				{...attributes}
+				{...listeners}
+				onClick={() => onSelect(calendarTodo.todo)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						onSelect(calendarTodo.todo);
+					}
+				}}
+				role="button"
+				tabIndex={0}
+				className={cn(
+					"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
+					getStatusStyle(calendarTodo.todo.status),
+				)}
+			>
+				<p className="truncate text-[12px] font-medium leading-tight">
+					{calendarTodo.todo.name}
+				</p>
+			</div>
+		</TodoContextMenu>
 	);
 }
 
@@ -567,52 +570,53 @@ export function CalendarPanel() {
 						</div>
 					) : (
 						todaysTodos.map((item) => (
-							<div
-								key={item.todo.id}
-								className={cn(
-									"group relative flex flex-col gap-1 rounded-lg border bg-card p-3 text-xs shadow-sm transition-all",
-									getStatusStyle(item.todo.status),
-								)}
-								onClick={() => setSelectedTodoId(item.todo.id)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										setSelectedTodoId(item.todo.id);
-									}
-								}}
-								role="button"
-								tabIndex={0}
-							>
-								<div className="flex items-center justify-between gap-2">
-									<p className="truncate text-base font-semibold">
-										{item.todo.name}
-									</p>
-									<span
-										className={cn(
-											"shrink-0 text-sm font-medium",
-											getDeadlineSeverity(item.deadline) === "overdue"
-												? "text-red-600"
-												: getDeadlineSeverity(item.deadline) === "soon"
-													? "text-amber-600"
-													: "text-muted-foreground",
-										)}
-									>
-										{formatTimeLabel(item.deadline, t.calendar.allDay)}
-									</span>
-								</div>
-								{item.todo.tags && item.todo.tags.length > 0 && (
-									<div className="flex flex-wrap gap-1">
-										{item.todo.tags.map((tag) => (
-											<span
-												key={tag}
-												className="rounded-full bg-white/50 px-2 py-0.5 text-xs text-muted-foreground"
-											>
-												{tag}
-											</span>
-										))}
+							<TodoContextMenu key={item.todo.id} todoId={item.todo.id}>
+								<div
+									className={cn(
+										"group relative flex flex-col gap-1 rounded-lg border bg-card p-3 text-xs shadow-sm transition-all",
+										getStatusStyle(item.todo.status),
+									)}
+									onClick={() => setSelectedTodoId(item.todo.id)}
+									onKeyDown={(e) => {
+										if (e.key === "Enter" || e.key === " ") {
+											e.preventDefault();
+											setSelectedTodoId(item.todo.id);
+										}
+									}}
+									role="button"
+									tabIndex={0}
+								>
+									<div className="flex items-center justify-between gap-2">
+										<p className="truncate text-base font-semibold">
+											{item.todo.name}
+										</p>
+										<span
+											className={cn(
+												"shrink-0 text-sm font-medium",
+												getDeadlineSeverity(item.deadline) === "overdue"
+													? "text-red-600"
+													: getDeadlineSeverity(item.deadline) === "soon"
+														? "text-amber-600"
+														: "text-muted-foreground",
+											)}
+										>
+											{formatTimeLabel(item.deadline, t.calendar.allDay)}
+										</span>
 									</div>
-								)}
-							</div>
+									{item.todo.tags && item.todo.tags.length > 0 && (
+										<div className="flex flex-wrap gap-1">
+											{item.todo.tags.map((tag) => (
+												<span
+													key={tag}
+													className="rounded-full bg-white/50 px-2 py-0.5 text-xs text-muted-foreground"
+												>
+													{tag}
+												</span>
+											))}
+										</div>
+									)}
+								</div>
+							</TodoContextMenu>
 						))
 					)}
 				</div>
