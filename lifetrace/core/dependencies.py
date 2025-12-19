@@ -11,18 +11,13 @@ from sqlalchemy.orm import Session
 from lifetrace.repositories.interfaces import ITodoRepository
 from lifetrace.repositories.sql_todo_repository import SqlTodoRepository
 from lifetrace.services.todo_service import TodoService
+from lifetrace.storage.database import db_base
 from lifetrace.storage.database_base import DatabaseBase
-
-# 数据库基础实例（轻量，保持单例）
-_db_base: DatabaseBase | None = None
 
 
 def get_db_base() -> DatabaseBase:
-    """获取数据库基础实例（单例）"""
-    global _db_base
-    if _db_base is None:
-        _db_base = DatabaseBase()
-    return _db_base
+    """获取数据库基础实例（复用 storage 模块的单例）"""
+    return db_base
 
 
 def get_db_session(
@@ -55,3 +50,20 @@ def get_todo_service(
 ) -> TodoService:
     """获取 Todo 服务实例"""
     return TodoService(repo)
+
+
+# ========== 延迟加载服务 ==========
+
+
+def get_vector_service():
+    """获取向量服务（延迟加载）"""
+    from lifetrace.core.lazy_services import get_vector_service as lazy_get
+
+    return lazy_get()
+
+
+def get_rag_service():
+    """获取 RAG 服务（延迟加载）"""
+    from lifetrace.core.lazy_services import get_rag_service as lazy_get
+
+    return lazy_get()

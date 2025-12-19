@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
+from lifetrace.core.dependencies import get_rag_service, get_vector_service
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -12,26 +13,13 @@ logger = get_logger()
 # 全局依赖对象 - 在 server.py 中初始化
 ocr_processor = None
 config = None
+behavior_tracker = None  # 行为追踪器（可选功能）
 
 # 会话管理
 chat_sessions = defaultdict(dict)
 
 # 配置状态标志
 is_llm_configured = False
-
-
-def get_vector_service():
-    """获取向量服务（延迟加载）"""
-    from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
-
-    return lazy_get_vector_service()
-
-
-def get_rag_service():
-    """获取 RAG 服务（延迟加载）"""
-    from lifetrace.core.lazy_services import get_rag_service as lazy_get_rag_service
-
-    return lazy_get_rag_service()
 
 
 # 向后兼容的属性访问
