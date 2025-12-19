@@ -285,8 +285,9 @@ export function TodoCard({
 				"border border-transparent transition-all duration-200",
 				"bg-card dark:bg-background hover:bg-muted/40",
 				selected &&
-					"bg-[oklch(var(--primary-weak))] border-[oklch(var(--primary-border)/0.3)]",
-				selected && "hover:bg-[oklch(var(--primary-weak-hover))]",
+					"bg-[oklch(var(--primary-weak))] dark:bg-primary/17 border-[oklch(var(--primary-border)/0.3)] dark:border-primary/30",
+				selected &&
+					"hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-primary/30",
 				isDragging && "ring-2 ring-primary/30",
 			)}
 		>
