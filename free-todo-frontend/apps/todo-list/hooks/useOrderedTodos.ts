@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { Todo } from "@/lib/types";
+import { sortTodosByOrder, sortTodosByOriginalOrder } from "@/lib/utils";
 
 export type OrderedTodo = {
 	todo: Todo;
@@ -40,26 +41,6 @@ export function useOrderedTodos(
 			}
 		});
 
-		const sortByOriginalOrder = (list: Todo[]) =>
-			[...list].sort(
-				(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
-			);
-
-		// 优先按order字段排序，其次按创建时间升序排序
-		const sortByOrder = (list: Todo[]) =>
-			[...list].sort((a, b) => {
-				// 优先按order字段排序
-				const aOrder = a.order ?? 0;
-				const bOrder = b.order ?? 0;
-				if (aOrder !== bOrder) {
-					return aOrder - bOrder;
-				}
-				// order相同时，按创建时间排序
-				const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-				const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-				return aTime - bTime;
-			});
-
 		const ordered: OrderedTodo[] = [];
 		const traverse = (
 			items: Todo[],
@@ -68,8 +49,8 @@ export function useOrderedTodos(
 		) => {
 			// 根任务按原始顺序排序（支持用户拖拽），子任务按order字段排序
 			const sortedItems = isRoot
-				? sortByOriginalOrder(items)
-				: sortByOrder(items);
+				? sortTodosByOriginalOrder(items, orderMap)
+				: sortTodosByOrder(items);
 			sortedItems.forEach((item) => {
 				ordered.push({ todo: item, depth });
 				const children = childrenMap.get(item.id);

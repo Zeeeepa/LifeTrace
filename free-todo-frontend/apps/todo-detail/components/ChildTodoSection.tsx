@@ -1,9 +1,10 @@
 "use client";
 
 import { Calendar, Flag, Plus, Tag as TagIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TodoContextMenu } from "@/components/common/TodoContextMenu";
 import type { Todo } from "@/lib/types";
+import { sortTodosByOrder } from "@/lib/utils";
 import {
 	formatDateTime,
 	getChildProgress,
@@ -27,6 +28,12 @@ export function ChildTodoSection({
 	const [isAddingChild, setIsAddingChild] = useState(false);
 	const [childName, setChildName] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	// 使用与 TodoList 相同的排序逻辑：按 order 字段排序，如果 order 相同则按创建时间排序
+	const sortedChildTodos = useMemo(
+		() => sortTodosByOrder(childTodos),
+		[childTodos],
+	);
 
 	useEffect(() => {
 		if (isAddingChild) {
@@ -52,17 +59,17 @@ export function ChildTodoSection({
 			<div className="mb-2 flex items-center justify-between">
 				<div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
 					子待办
-					{childTodos.length > 0 && (
+					{sortedChildTodos.length > 0 && (
 						<span className="ml-1">
-							{childTodos.filter((c) => c.status === "completed").length}/
-							{childTodos.length}
+							{sortedChildTodos.filter((c) => c.status === "completed").length}/
+							{sortedChildTodos.length}
 						</span>
 					)}
 				</div>
 			</div>
 
 			<div className="space-y-1">
-				{childTodos.map((child) => {
+				{sortedChildTodos.map((child) => {
 					const { completed, total } = getChildProgress(allTodos, child.id);
 					return (
 						<TodoContextMenu

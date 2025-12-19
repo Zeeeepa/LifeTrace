@@ -2,6 +2,7 @@ import clsx, { type ClassValue } from "clsx";
 import dayjs from "dayjs";
 import { twMerge } from "tailwind-merge";
 import "dayjs/locale/zh-cn";
+import type { Todo } from "./types";
 
 dayjs.locale("zh-cn");
 
@@ -61,4 +62,40 @@ export function formatDuration(
 
 	// 如果所有单位都是0（理论上不会发生，因为最小是1秒），返回"1 秒"
 	return parts.length > 0 ? parts.join(" ") : `1 ${timeTranslations.seconds}`;
+}
+
+// ============================================================================
+// Todo 排序工具函数
+// ============================================================================
+
+/**
+ * 按 order 字段排序 Todo 列表（用于子任务）
+ * 优先按 order 字段排序，如果 order 相同则按创建时间升序排序
+ */
+export function sortTodosByOrder<T extends Todo>(todos: T[]): T[] {
+	return [...todos].sort((a, b) => {
+		// 优先按 order 字段排序
+		const aOrder = a.order ?? 0;
+		const bOrder = b.order ?? 0;
+		if (aOrder !== bOrder) {
+			return aOrder - bOrder;
+		}
+		// order 相同时，按创建时间排序
+		const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+		const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+		return aTime - bTime;
+	});
+}
+
+/**
+ * 按原始顺序排序 Todo 列表（用于根任务）
+ * 保持数组中的原始顺序（支持用户拖拽排序）
+ */
+export function sortTodosByOriginalOrder<T extends Todo>(
+	todos: T[],
+	orderMap: Map<number, number>,
+): T[] {
+	return [...todos].sort(
+		(a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0),
+	);
 }
