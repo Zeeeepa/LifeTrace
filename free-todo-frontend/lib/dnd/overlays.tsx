@@ -6,7 +6,7 @@
  */
 
 import { DragOverlay } from "@dnd-kit/core";
-import { Calendar, Flag, Paperclip, Tag } from "lucide-react";
+import { Calendar, Flag, Paperclip, Tag, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -112,10 +112,13 @@ function TodoCardOverlay({ todo, depth = 0 }: TodoCardOverlayProps) {
 								</span>
 							</div>
 						) : todo.status === "canceled" ? (
-							<div className="flex h-5 w-5 items-center justify-center rounded-md bg-[oklch(var(--muted))] border border-[oklch(var(--muted-foreground))] shadow-inner">
-								<span className="text-[14px] text-[oklch(var(--muted-foreground))] font-semibold">
-									×
-								</span>
+							<div
+								className={cn(
+									"flex h-5 w-5 items-center justify-center rounded-md border-2",
+									"border-muted-foreground/40 bg-muted/30 text-muted-foreground/70",
+								)}
+							>
+								<X className="h-3.5 w-3.5" strokeWidth={2.5} />
 							</div>
 						) : todo.status === "draft" ? (
 							<div className="flex h-5 w-5 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">

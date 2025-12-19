@@ -9,6 +9,7 @@ import { type DragEndEvent, useDndMonitor } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import type React from "react";
 import { useCallback, useState } from "react";
+import { MultiTodoContextMenu } from "@/components/common/MultiTodoContextMenu";
 import type { DragData } from "@/lib/dnd";
 import { useTodoMutations, useTodos } from "@/lib/query";
 import type { ReorderTodoItem } from "@/lib/query/todos";
@@ -30,8 +31,11 @@ export function TodoList() {
 	const {
 		selectedTodoIds,
 		setSelectedTodoId,
+		setSelectedTodoIds,
 		toggleTodoSelection,
 		collapsedTodoIds,
+		anchorTodoId,
+		setAnchorTodoId,
 	} = useTodoStore();
 
 	const [searchQuery, setSearchQuery] = useState("");
@@ -226,12 +230,53 @@ export function TodoList() {
 		todoId: number,
 		event: React.MouseEvent<HTMLDivElement>,
 	) => {
+		const isShift = event.shiftKey;
 		const isMulti = event.metaKey || event.ctrlKey;
-		if (isMulti) {
-			toggleTodoSelection(todoId);
-		} else {
+
+		// Shift 键范围选择
+		if (isShift && !isMulti) {
+			// 如果有锚点，进行范围选择
+			if (anchorTodoId !== null) {
+				// 找到锚点和当前点击的 todo 在 orderedTodos 中的索引
+				const anchorIndex = orderedTodos.findIndex(
+					({ todo }) => todo.id === anchorTodoId,
+				);
+				const currentIndex = orderedTodos.findIndex(
+					({ todo }) => todo.id === todoId,
+				);
+
+				// 如果两个索引都有效
+				if (anchorIndex !== -1 && currentIndex !== -1) {
+					// 确定范围（从较小的索引到较大的索引）
+					const startIndex = Math.min(anchorIndex, currentIndex);
+					const endIndex = Math.max(anchorIndex, currentIndex);
+
+					// 选择范围内的所有 todo
+					const rangeTodoIds = orderedTodos
+						.slice(startIndex, endIndex + 1)
+						.map(({ todo }) => todo.id);
+
+					setSelectedTodoIds(rangeTodoIds);
+					return;
+				}
+			}
+
+			// 如果没有锚点或找不到索引，只选择当前 todo 并设置为锚点
 			setSelectedTodoId(todoId);
+			setAnchorTodoId(todoId);
+			return;
 		}
+
+		// Ctrl/Cmd 键多选
+		if (isMulti && !isShift) {
+			toggleTodoSelection(todoId);
+			// 多选时不改变锚点，保持上一次单独点击的锚点
+			return;
+		}
+
+		// 普通单击：只选择当前 todo
+		setSelectedTodoId(todoId);
+		setAnchorTodoId(todoId);
 	};
 
 	const handleCreateTodo = async (e?: React.FormEvent) => {
@@ -274,29 +319,31 @@ export function TodoList() {
 		<div className="relative flex h-full flex-col overflow-hidden bg-background dark:bg-background">
 			<TodoToolbar searchQuery={searchQuery} onSearch={setSearchQuery} />
 
-			<div className="flex-1 overflow-y-auto">
-				<div className="px-6 py-4 pb-4">
-					<NewTodoInlineForm
-						value={newTodoName}
-						onChange={setNewTodoName}
-						onSubmit={handleCreateTodo}
-						onCancel={() => setNewTodoName("")}
-					/>
-				</div>
-
-				{filteredTodos.length === 0 ? (
-					<div className="flex h-[200px] items-center justify-center px-4 text-sm text-muted-foreground">
-						暂无待办事项
+			<MultiTodoContextMenu selectedTodoIds={selectedTodoIds}>
+				<div className="flex-1 overflow-y-auto">
+					<div className="px-6 py-4 pb-4">
+						<NewTodoInlineForm
+							value={newTodoName}
+							onChange={setNewTodoName}
+							onSubmit={handleCreateTodo}
+							onCancel={() => setNewTodoName("")}
+						/>
 					</div>
-				) : (
-					<TodoTreeList
-						orderedTodos={orderedTodos}
-						selectedTodoIds={selectedTodoIds}
-						onSelect={handleSelect}
-						onSelectSingle={(id) => setSelectedTodoId(id)}
-					/>
-				)}
-			</div>
+
+					{filteredTodos.length === 0 ? (
+						<div className="flex h-[200px] items-center justify-center px-4 text-sm text-muted-foreground">
+							暂无待办事项
+						</div>
+					) : (
+						<TodoTreeList
+							orderedTodos={orderedTodos}
+							selectedTodoIds={selectedTodoIds}
+							onSelect={handleSelect}
+							onSelectSingle={(id) => setSelectedTodoId(id)}
+						/>
+					)}
+				</div>
+			</MultiTodoContextMenu>
 		</div>
 	);
 }

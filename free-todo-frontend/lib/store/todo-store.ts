@@ -14,6 +14,8 @@ interface TodoUIState {
 	selectedTodoIds: number[];
 	/** 已折叠的 todo IDs */
 	collapsedTodoIds: Set<number>;
+	/** 范围选择的锚点 todo ID（用于 Shift 键范围选择） */
+	anchorTodoId: number | null;
 
 	// UI 操作
 	setSelectedTodoId: (id: number | null) => void;
@@ -22,6 +24,7 @@ interface TodoUIState {
 	clearTodoSelection: () => void;
 	toggleTodoExpanded: (id: number) => void;
 	isTodoExpanded: (id: number) => boolean;
+	setAnchorTodoId: (id: number | null) => void;
 
 	/** 当 todo 被删除时清理相关的 UI 状态 */
 	onTodoDeleted: (deletedIds: number[]) => void;
@@ -83,11 +86,13 @@ export const useTodoStore = create<TodoUIState>()(
 			selectedTodoId: null,
 			selectedTodoIds: [],
 			collapsedTodoIds: new Set<number>(),
+			anchorTodoId: null,
 
 			setSelectedTodoId: (id) =>
 				set({
 					selectedTodoId: id,
 					selectedTodoIds: id ? [id] : [],
+					anchorTodoId: id, // 单独选择时更新锚点
 				}),
 
 			setSelectedTodoIds: (ids) =>
@@ -109,7 +114,9 @@ export const useTodoStore = create<TodoUIState>()(
 				}),
 
 			clearTodoSelection: () =>
-				set({ selectedTodoId: null, selectedTodoIds: [] }),
+				set({ selectedTodoId: null, selectedTodoIds: [], anchorTodoId: null }),
+
+			setAnchorTodoId: (id) => set({ anchorTodoId: id }),
 
 			toggleTodoExpanded: (id) =>
 				set((state) => {
@@ -138,6 +145,9 @@ export const useTodoStore = create<TodoUIState>()(
 					selectedTodoIds: state.selectedTodoIds.filter(
 						(x) => !deletedSet.has(x),
 					),
+					anchorTodoId: deletedSet.has(state.anchorTodoId ?? -1)
+						? null
+						: state.anchorTodoId,
 				}));
 			},
 		}),

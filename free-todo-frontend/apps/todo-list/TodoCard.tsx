@@ -12,6 +12,7 @@ import {
 	Plus,
 	Sparkles,
 	Tag,
+	X,
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +32,7 @@ export interface TodoCardProps {
 	isDragging?: boolean;
 	selected?: boolean;
 	isOverlay?: boolean;
+	hasMultipleSelection?: boolean; // 是否有多个 todo 被选中
 	onSelect: (e: React.MouseEvent<HTMLDivElement>) => void;
 	onSelectSingle: () => void;
 }
@@ -41,6 +43,7 @@ export function TodoCard({
 	isDragging,
 	selected,
 	isOverlay,
+	hasMultipleSelection = false,
 	onSelect,
 	onSelectSingle,
 }: TodoCardProps) {
@@ -273,6 +276,12 @@ export function TodoCard({
 			role="button"
 			tabIndex={0}
 			onClick={onSelect}
+			onMouseDown={(e) => {
+				// 阻止文本选择（当按住 Shift 或 Ctrl/Cmd 进行多选时）
+				if (e.shiftKey || e.metaKey || e.ctrlKey) {
+					e.preventDefault();
+				}
+			}}
 			data-state={selected ? "selected" : "default"}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
@@ -284,6 +293,7 @@ export function TodoCard({
 				"todo-card group relative flex h-full flex-col gap-3 rounded-xl p-3 cursor-pointer",
 				"border border-transparent transition-all duration-200",
 				"bg-card dark:bg-background hover:bg-muted/40",
+				"select-none", // 阻止文本选择
 				selected &&
 					"bg-[oklch(var(--primary-weak))] dark:bg-primary/17 border-[oklch(var(--primary-border)/0.3)] dark:border-primary/30",
 				selected &&
@@ -319,10 +329,15 @@ export function TodoCard({
 							</span>
 						</div>
 					) : todo.status === "canceled" ? (
-						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-[oklch(var(--muted))] border border-[oklch(var(--muted-foreground))] shadow-inner">
-							<span className="text-[14px] text-[oklch(var(--muted-foreground))] font-semibold">
-								×
-							</span>
+						<div
+							className={cn(
+								"flex h-5 w-5 items-center justify-center rounded-md border-2",
+								"border-muted-foreground/40 bg-muted/30 text-muted-foreground/70",
+								"transition-colors",
+								"hover:border-muted-foreground/60 hover:bg-muted/40 hover:text-muted-foreground",
+							)}
+						>
+							<X className="h-3.5 w-3.5" strokeWidth={2.5} />
 						</div>
 					) : todo.status === "draft" ? (
 						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">
@@ -505,6 +520,11 @@ export function TodoCard({
 
 	// 如果是拖拽覆盖层，不需要右键菜单
 	if (isOverlay) {
+		return cardContent;
+	}
+
+	// 如果有多选，不显示单个 todo 的右键菜单（由 MultiTodoContextMenu 处理）
+	if (hasMultipleSelection) {
 		return cardContent;
 	}
 

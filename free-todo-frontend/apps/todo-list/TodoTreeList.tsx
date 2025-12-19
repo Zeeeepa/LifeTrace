@@ -49,6 +49,7 @@ export function TodoTreeList({
 							depth={depth}
 							isDragging={activeId === todo.id}
 							selected={selectedTodoIds.includes(todo.id)}
+							hasMultipleSelection={selectedTodoIds.length > 1}
 							onSelect={(event) => onSelect(todo.id, event)}
 							onSelectSingle={() => onSelectSingle(todo.id)}
 						/>
