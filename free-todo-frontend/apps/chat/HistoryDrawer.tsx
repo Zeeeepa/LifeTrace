@@ -50,18 +50,18 @@ export function HistoryDrawer({
 						sessions.map((session, index) => (
 							<button
 								key={
-									session.session_id
-										? `${session.session_id}-${index}`
+									session.sessionId
+										? `${session.sessionId}-${index}`
 										: `session-${index}`
 								}
 								type="button"
-								onClick={() => onSelectSession(session.session_id)}
+								onClick={() => onSelectSession(session.sessionId)}
 								disabled={historyLoading}
 								className={cn(
 									"w-full rounded-(--radius) border border-border bg-background px-3 py-2 text-left text-sm",
 									"transition-colors hover:bg-foreground/5",
 									"disabled:cursor-not-allowed disabled:opacity-60",
-									session.session_id === conversationId
+									session.sessionId === conversationId
 										? "ring-2 ring-ring"
 										: "",
 								)}
@@ -71,15 +71,15 @@ export function HistoryDrawer({
 										{session.title || labels.chatHistory}
 									</span>
 									<span className="text-[11px] text-muted-foreground">
-										{formatMessageCount(session.message_count)}
+										{formatMessageCount(session.messageCount)}
 									</span>
 								</div>
 								<div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
 									<span className="truncate">
-										{session.last_active || session.session_id}
+										{session.lastActive || session.sessionId}
 									</span>
 									<span className="uppercase tracking-wide">
-										{session.chat_type || "default"}
+										{session.chatType || "default"}
 									</span>
 								</div>
 							</button>

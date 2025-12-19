@@ -13,8 +13,8 @@ function getStreamApiBaseUrl(): string {
 
 export interface SendChatParams {
 	message: string;
-	conversation_id?: string;
-	use_rag?: boolean;
+	conversationId?: string;
+	useRag?: boolean;
 }
 
 /**
@@ -32,7 +32,11 @@ export async function sendChatMessageStream(
 		headers: {
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify(params),
+		body: JSON.stringify({
+			message: params.message,
+			conversation_id: params.conversationId,
+			use_rag: params.useRag,
+		}),
 	});
 
 	if (!response.ok) {
@@ -197,12 +201,13 @@ export type {
 } from "@/lib/generated/schemas";
 
 // Chat 相关类型（这些类型在后端 OpenAPI spec 中可能没有定义，手动定义）
+// 注意：使用 camelCase，因为 fetcher 会自动将后端的 snake_case 转换为 camelCase
 export type ChatSessionSummary = {
-	session_id: string;
+	sessionId: string;
 	title?: string;
-	last_active?: string;
-	message_count?: number;
-	chat_type?: string;
+	lastActive?: string;
+	messageCount?: number;
+	chatType?: string;
 };
 
 export type ChatHistoryItem = {

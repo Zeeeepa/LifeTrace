@@ -198,10 +198,10 @@ export const useChatController = ({
 			await sendChatMessageStream(
 				{
 					message: payloadMessage,
-					conversation_id: conversationId || undefined,
-					// 当发送格式化消息（包含todo上下文）时，设置use_rag=false
+					conversationId: conversationId || undefined,
+					// 当发送格式化消息（包含todo上下文）时，设置useRag=false
 					// 因为前端已经构建了完整的prompt，后端只需要解析并保存用户输入部分
-					use_rag: false,
+					useRag: false,
 				},
 				(chunk) => {
 					assistantContent += chunk;
