@@ -457,7 +457,8 @@ export function TodoCard({
 						onKeyDown={(e) => {
 							// 阻止所有键盘事件冒泡到父元素，避免空格等键被父元素拦截
 							e.stopPropagation();
-							if (e.key === "Enter") {
+							if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+								// 只在非输入法组合状态下处理回车键，避免干扰中文输入法
 								e.preventDefault(); // 阻止表单提交，避免重复创建
 								handleCreateChild();
 								return;
