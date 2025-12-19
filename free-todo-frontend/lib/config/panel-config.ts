@@ -12,7 +12,7 @@ import {
 	Camera,
 	DollarSign,
 	FileText,
-	LayoutPanelLeft,
+	ListTodo,
 	type LucideIcon,
 	MessageSquare,
 	Settings,
@@ -64,7 +64,7 @@ export const IS_DEV_FEATURE_ENABLED = IS_DEV_ENV;
 const CORE_FEATURE_ICON_MAP: Record<CorePanelFeature, LucideIcon> = {
 	calendar: CalendarDays,
 	activity: Activity,
-	todos: LayoutPanelLeft,
+	todos: ListTodo,
 	chat: MessageSquare,
 	todoDetail: FileText,
 	diary: BookOpen,
