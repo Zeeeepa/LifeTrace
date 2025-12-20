@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from lifetrace.routers import dependencies as deps
+from lifetrace.core.dependencies import get_rag_service
 from lifetrace.schemas.vision import VisionChatRequest, VisionChatResponse
 from lifetrace.util.logging_config import get_logger
 
@@ -50,14 +50,15 @@ async def vision_chat(request: VisionChatRequest):
         )
 
         # 检查LLM客户端是否可用
-        if not deps.rag_service.llm_client.is_available():
+        rag_service = get_rag_service()
+        if not rag_service.llm_client.is_available():
             raise HTTPException(
                 status_code=503,
                 detail="LLM服务当前不可用，请检查配置或稍后重试",
             )
 
         # 调用视觉模型
-        result = deps.rag_service.llm_client.vision_chat(
+        result = rag_service.llm_client.vision_chat(
             screenshot_ids=request.screenshot_ids,
             prompt=request.prompt,
             model=request.model,

@@ -1,12 +1,11 @@
 """RAG服务和应用图标相关路由"""
 
 from datetime import datetime
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from lifetrace.routers import dependencies as deps
+from lifetrace.core.dependencies import get_rag_service
 from lifetrace.util.app_utils import get_icon_filename
 from lifetrace.util.logging_config import get_logger
 
@@ -19,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["rag"])
 async def rag_health_check():
     """RAG服务健康检查"""
     try:
-        return deps.rag_service.health_check()
+        return get_rag_service().health_check()
     except Exception as e:
         logger.error(f"RAG健康检查失败: {e}")
         return {
@@ -49,9 +48,11 @@ async def get_app_icon(app_name: str):
             raise HTTPException(status_code=404, detail="图标未找到")
 
         # 构建图标文件路径
-        # 获取项目根目录
-        current_dir = Path(__file__).parent.parent
-        project_root = current_dir.parent
+        # 获取项目根目录（lifetrace 的父目录）
+        from lifetrace.util.path_utils import get_app_root
+
+        lifetrace_dir = get_app_root()
+        project_root = lifetrace_dir.parent
         icon_path = project_root / ".github" / "assets" / "icons" / "apps" / icon_filename
 
         if not icon_path.exists():

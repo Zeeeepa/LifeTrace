@@ -5,9 +5,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from lifetrace.jobs.job_manager import get_job_manager
-from lifetrace.jobs.ocr import SimpleOCRProcessor
-from lifetrace.llm.rag_service import RAGService
-from lifetrace.llm.vector_service import create_vector_service
 from lifetrace.routers import (
     activity,
     chat,
@@ -32,13 +29,14 @@ from lifetrace.routers import (
     vision,
 )
 from lifetrace.routers import config as config_router
-from lifetrace.routers import dependencies as deps
-from lifetrace.util.config import config
+from lifetrace.services.config_service import is_llm_configured
 from lifetrace.util.logging_config import get_logger, setup_logging
+from lifetrace.util.path_utils import get_user_logs_dir
+from lifetrace.util.settings import settings
 
 # 使用处理后的日志路径配置
-logging_config = config.get("logging").copy()
-logging_config["log_path"] = config.log_path
+logging_config = settings.get("logging").copy()
+logging_config["log_path"] = str(get_user_logs_dir()) + "/"
 setup_logging(logging_config)
 
 logger = get_logger()
@@ -91,31 +89,13 @@ app.add_middleware(
     expose_headers=["X-Session-Id"],  # 允许前端读取会话ID，支持多轮对话
 )
 
-# 初始化OCR处理器
-ocr_processor = SimpleOCRProcessor()
-
-# 初始化向量数据库服务
-vector_service = create_vector_service(config)
-
-# 初始化RAG服务 - 从配置文件读取API配置
-rag_service = RAGService()
-logger.info(
-    f"RAG服务初始化完成 - 模型: {config.get('llm.model')}, Base URL: {config.get('llm.base_url')}"
-)
+# 向量服务、RAG服务和OCR处理器均改为延迟加载
+# 通过 lifetrace.core.dependencies 模块按需获取
 
 # 全局配置状态标志
-is_llm_configured = config.is_configured()
-config_status = "已配置" if is_llm_configured else "未配置，需要引导配置"
+llm_configured = is_llm_configured()
+config_status = "已配置" if llm_configured else "未配置，需要引导配置"
 logger.info(f"LLM配置状态: {config_status}")
-
-# 初始化路由依赖
-deps.init_dependencies(
-    ocr_processor,
-    vector_service,
-    rag_service,
-    config,
-    is_llm_configured,
-)
 
 
 # 注册所有路由
@@ -144,9 +124,9 @@ app.include_router(vision.router)
 
 
 if __name__ == "__main__":
-    server_host = config.get("server.host")
-    server_port = config.get("server.port")
-    server_debug = config.get("server.debug")
+    server_host = settings.server.host
+    server_port = settings.server.port
+    server_debug = settings.server.debug
 
     logger.info(f"启动服务器: http://{server_host}:{server_port}")
     logger.info(f"调试模式: {'开启' if server_debug else '关闭'}")

@@ -5,9 +5,10 @@ from datetime import datetime
 from fastapi import APIRouter
 from openai import OpenAI
 
-from lifetrace.routers import dependencies as deps
+from lifetrace.core.dependencies import get_ocr_processor, get_rag_service
 from lifetrace.storage import db_base
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.settings import settings
 
 logger = get_logger()
 
@@ -17,11 +18,12 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     """健康检查"""
+    ocr_processor = get_ocr_processor()
     return {
         "status": "healthy",
         "timestamp": datetime.now(),
         "database": "connected" if db_base.engine else "disconnected",
-        "ocr": "available" if deps.ocr_processor.is_available() else "unavailable",
+        "ocr": "available" if ocr_processor.is_available() else "unavailable",
     }
 
 
@@ -29,17 +31,19 @@ async def health_check():
 async def llm_health_check():
     """LLM服务健康检查"""
     try:
-        # 检查RAG服务是否已初始化
-        if deps.rag_service is None:
+        # 获取RAG服务（延迟加载）- 验证服务能正常初始化
+        try:
+            get_rag_service()
+        except Exception as init_error:
             return {
                 "status": "unavailable",
-                "message": "RAG服务未初始化",
+                "message": f"RAG服务初始化失败: {str(init_error)}",
                 "timestamp": datetime.now().isoformat(),
             }
 
         # 检查配置是否完整
-        llm_key = deps.config.get("llm.api_key")
-        base_url = deps.config.get("llm.base_url")
+        llm_key = settings.llm.api_key
+        base_url = settings.llm.base_url
 
         if not llm_key or not base_url:
             return {
@@ -49,7 +53,7 @@ async def llm_health_check():
             }
 
         client = OpenAI(api_key=llm_key, base_url=base_url)
-        model = deps.config.get("llm.model")
+        model = settings.llm.model
 
         # 发送最小化测试请求
         response = client.chat.completions.create(  # noqa: F841
