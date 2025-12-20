@@ -33,3 +33,23 @@ def get_rag_service() -> "RAGService":
 
         _rag_service = RAGService()
     return _rag_service
+
+
+def reinit_vector_service():
+    """重新初始化向量服务
+
+    在配置变更（如向量数据库设置变更）时调用。
+    """
+    global _vector_service
+    _vector_service = None
+
+
+def reinit_rag_service():
+    """重新初始化 RAG 服务
+
+    在配置变更（如 LLM API Key 或 Base URL 变更）时调用。
+    同时也会重新初始化向量服务。
+    """
+    global _rag_service, _vector_service
+    _rag_service = None
+    _vector_service = None

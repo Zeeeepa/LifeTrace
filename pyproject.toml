@@ -49,6 +49,8 @@ dependencies = [
     "openai>=1.0.0",
     # Environment variables
     "python-dotenv>=1.0.0",
+    # Configuration management with hot reload support
+    "dynaconf[yaml]>=3.2.0",
     # macOS specific dependencies (only install on macOS)
     "pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz>=9.0; sys_platform == 'darwin'",

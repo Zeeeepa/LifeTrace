@@ -1,12 +1,17 @@
+"""
+LifeTrace 配置管理模块 - Dynaconf 兼容层
+
+保持与现有代码的 API 兼容性，同时使用 Dynaconf 提供热加载能力。
+"""
+
 import os
 import re
-import shutil
-import sys
 import threading
 
 import yaml
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.settings import get_settings, reload_settings
 
 logger = get_logger()
 
@@ -163,21 +168,28 @@ def _resolve_model_price(
 
 
 class LifeTraceConfig:
-    """LifeTrace配置管理类"""
+    """LifeTrace 配置管理类 - Dynaconf 兼容层
+
+    保持与现有代码的 API 兼容性，内部使用 Dynaconf 提供热加载能力。
+    """
 
     def __init__(self, config_path: str | None = None):
-        self.config_path = config_path or self._get_default_config_path()
+        """初始化配置管理器
 
-        # 初始化配置文件（如果不存在则从默认配置复制）
-        self._init_config_file()
-
-        self._config = self._load_config()
-
-        # 线程安全锁（用于 set 方法）
+        Args:
+            config_path: 配置文件路径（可选，主要用于兼容性）
+        """
+        self._settings = get_settings()
         self._config_lock = threading.RLock()
 
+        # 配置文件路径（用于保存配置和兼容旧代码）
+        if config_path:
+            self._config_path = config_path
+        else:
+            self._config_path = self._get_default_config_path()
+
     def _get_application_path(self) -> str:
-        """获取应用程序路径，兼容PyInstaller打包"""
+        """获取应用程序路径，兼容 PyInstaller 打包"""
         from lifetrace.util.path_utils import get_app_root
 
         return str(get_app_root())
@@ -192,254 +204,14 @@ class LifeTraceConfig:
 
     def _get_default_config_path(self) -> str:
         """获取默认配置文件路径"""
-        # 如果指定了数据目录，使用数据目录下的config
-        data_dir = self._get_data_directory()
-        if data_dir:
-            config_dir = os.path.join(data_dir, "config")
-            os.makedirs(config_dir, exist_ok=True)
-            config_path = os.path.join(config_dir, "config.yaml")
-            logger.info(f"Using data directory config: {config_path}")
-            return config_path
+        from lifetrace.util.path_utils import get_user_config_dir
 
-        # 否则使用应用目录下的config
-        app_path = self._get_application_path()
-        config_dir = os.path.join(app_path, "config")
-        os.makedirs(config_dir, exist_ok=True)
+        return str(get_user_config_dir() / "config.yaml")
 
-        # 使用项目目录下的config/config.yaml作为配置文件
-        project_config = os.path.join(config_dir, "config.yaml")
-        if os.path.exists(project_config):
-            return project_config
-        # 如果config.yaml不存在，检查default_config.yaml是否存在
-        default_config = os.path.join(config_dir, "default_config.yaml")
-        if os.path.exists(default_config):
-            # 如果default_config.yaml存在，返回config.yaml的路径（即使不存在）
-            return project_config
-        # 如果两者都不存在，返回config.yaml的路径
-        return project_config
-
-    def _get_all_keys(self, config_dict: dict, prefix: str = "") -> set:
-        """递归获取配置字典中的所有键（使用点分隔的完整路径）
-
-        Args:
-            config_dict: 配置字典
-            prefix: 键前缀（用于递归）
-
-        Returns:
-            包含所有键路径的集合
-        """
-        keys = set()
-        for key, value in config_dict.items():
-            full_key = f"{prefix}.{key}" if prefix else key
-            keys.add(full_key)
-            if isinstance(value, dict):
-                # 递归获取嵌套字典的键
-                keys.update(self._get_all_keys(value, full_key))
-        return keys
-
-    def _validate_config_completeness(self):
-        """验证 config.yaml 是否包含 default_config.yaml 中的所有键
-
-        如果 config.yaml 缺少某些键，则抛出异常并停止程序
-        """
-        # 获取 default_config.yaml 路径
-        config_dir = os.path.dirname(self.config_path)
-        default_config_path = os.path.join(config_dir, "default_config.yaml")
-
-        # 检查 default_config.yaml 是否存在
-        if not os.path.exists(default_config_path):
-            logger.warning(f"默认配置文件不存在: {default_config_path}，跳过完整性检查")
-            return
-
-        try:
-            # 加载 default_config.yaml
-            with open(default_config_path, encoding="utf-8") as f:
-                default_config = yaml.safe_load(f)
-                if not default_config:
-                    logger.warning("默认配置文件为空，跳过完整性检查")
-                    return
-
-            # 加载 config.yaml
-            with open(self.config_path, encoding="utf-8") as f:
-                current_config = yaml.safe_load(f)
-                if not current_config:
-                    raise ValueError(f"配置文件内容为空: {self.config_path}")
-
-            # 获取所有键
-            default_keys = self._get_all_keys(default_config)
-            current_keys = self._get_all_keys(current_config)
-
-            # 检查缺失的键
-            missing_keys = default_keys - current_keys
-
-            # 对于新增的可选配置（例如分层定价），允许缺失以兼容旧版 config.yaml
-            optional_prefixes = [
-                "llm.model_prices.qwen3-vl-plus.tiers",
-            ]
-            missing_keys = {
-                key
-                for key in missing_keys
-                if not any(key.startswith(prefix) for prefix in optional_prefixes)
-            }
-
-            if missing_keys:
-                # 按字母顺序排序缺失的键，便于阅读
-                sorted_missing_keys = sorted(missing_keys)
-                error_message = (
-                    f"❌ 配置文件不完整！\n\n"
-                    f"config.yaml 缺少以下配置项（共 {len(missing_keys)} 个）：\n\n"
-                )
-                for key in sorted_missing_keys:
-                    error_message += f"  - {key}\n"
-                error_message += (
-                    f"\n请检查并更新 config.yaml（参考 default_config.yaml），"
-                    f"或删除 config.yaml 让系统重新生成。\n\n"
-                    f">> 默认配置文件路径: {default_config_path}\n"
-                    f">> 当前配置文件路径: {self.config_path}\n"
-                )
-
-                logger.error(error_message)
-                sys.exit(1)
-
-            logger.info(f"✅ 配置文件完整性检查通过，共 {len(default_keys)} 个配置项")
-
-        except yaml.YAMLError as e:
-            raise ValueError(f"配置文件格式错误: {e}") from e
-        except Exception as e:
-            if isinstance(e, ValueError) and "配置文件不完整" in str(e):
-                # 重新抛出我们自己的错误
-                sys.exit(1)
-            raise RuntimeError(f"配置完整性检查失败: {e}") from e
-
-    def _init_config_file(self):
-        """初始化配置文件
-        检查config.yaml是否存在，如果不存在则从default_config.yaml复制
-        在打包环境下，如果数据目录中缺少 default_config.yaml，会尝试从内置配置复制。
-        """
-        # 获取 default_config.yaml 路径（优先使用数据目录）
-        config_dir = os.path.dirname(self.config_path)
-        default_config_path = os.path.join(config_dir, "default_config.yaml")
-
-        # 如果数据目录中的 default_config.yaml 不存在，尝试从应用内置配置复制一份
-        if not os.path.exists(default_config_path):
-            # 在打包环境下，默认配置位于应用目录的 `config` 中（与 _internal 同级别）
-            from lifetrace.util.path_utils import get_config_dir
-
-            app_config_dir = get_config_dir()
-            candidate_paths = [
-                str(app_config_dir / "default_config.yaml"),
-            ]
-
-            source_default = None
-            for candidate in candidate_paths:
-                if os.path.exists(candidate):
-                    source_default = candidate
-                    logger.info(
-                        "Missing data directory default_config.yaml, "
-                        f"using bundled default from: {candidate}"
-                    )
-                    break
-
-            if source_default is not None:
-                # 确保配置目录存在，然后复制一份到数据目录
-                os.makedirs(config_dir, exist_ok=True)
-                shutil.copy2(source_default, default_config_path)
-                logger.info(
-                    f"Copied bundled default_config.yaml to data directory: {default_config_path}"
-                )
-            else:
-                # 如果连内置默认配置也不存在，再报错
-                raise FileNotFoundError(
-                    f"默认配置文件不存在: {default_config_path}\n"
-                    "请确保 default_config.yaml 文件存在于数据目录的 config 目录中，"
-                    "或在应用目录下的 _internal/config 或 config 目录中。"
-                )
-
-        # 如果config.yaml已存在，检查完整性
-        if os.path.exists(self.config_path):
-            logger.debug(f"配置文件已存在: {self.config_path}")
-            # 验证配置文件完整性
-            self._validate_config_completeness()
-            return
-
-        # 如果config.yaml不存在，从default_config.yaml复制
-        try:
-            shutil.copy2(default_config_path, self.config_path)
-            logger.info(f"已从默认配置创建配置文件: {self.config_path}")
-        except Exception as e:
-            raise RuntimeError(f"初始化配置文件失败: {e}") from e
-
-    def _load_config(self) -> dict:
-        """加载配置文件
-        只从 config.yaml 加载配置，不存在则报错
-        """
-        # 检查配置文件是否存在
-        if not os.path.exists(self.config_path):
-            raise FileNotFoundError(
-                f"配置文件不存在: {self.config_path}\n"
-                "请确保 config.yaml 文件存在，或运行系统初始化从 default_config.yaml 复制"
-            )
-
-        # 加载配置文件
-        try:
-            with open(self.config_path, encoding="utf-8") as f:
-                config = yaml.safe_load(f)
-                if not config:
-                    raise ValueError(f"配置文件内容为空: {self.config_path}")
-                return config
-        except yaml.YAMLError as e:
-            raise ValueError(f"配置文件格式错误: {e}") from e
-        except Exception as e:
-            raise RuntimeError(f"读取配置文件失败: {e}") from e
-
-    def save_config(self):
-        """保存配置文件
-        如果配置文件不存在，则从 default_config.yaml 复制
-        配置文件保存在config目录下，而不是~目录
-        """
-        # 获取默认配置文件路径
-        from lifetrace.util.path_utils import get_config_dir
-
-        default_config_path = str(get_config_dir() / "default_config.yaml")
-
-        # 检查默认配置文件是否存在
-        if not os.path.exists(default_config_path):
-            raise FileNotFoundError(
-                f"默认配置文件不存在: {default_config_path}\n"
-                "请确保 default_config.yaml 文件存在于 config 目录中"
-            )
-
-        # 确保配置目录存在
-        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-
-        try:
-            import shutil
-
-            # 从 default_config.yaml 复制到 config.yaml
-            shutil.copy2(default_config_path, self.config_path)
-
-            # 读取复制后的配置文件
-            with open(self.config_path, encoding="utf-8") as f:
-                config_data = yaml.safe_load(f)
-
-            # 修改路径设置（路径应该相对于base_dir）
-            config_data["base_dir"] = "lifetrace/data"
-            config_data["database_path"] = "lifetrace.db"
-            config_data["screenshots_dir"] = "screenshots/"
-            if "logging" not in config_data:
-                config_data["logging"] = {}
-            config_data["logging"]["log_path"] = "logs/"
-            if "scheduler" in config_data:
-                config_data["scheduler"]["database_path"] = "scheduler.db"
-
-            # 保存修改后的配置
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                yaml.dump(config_data, f, allow_unicode=True, sort_keys=False)
-
-            # 重新加载配置
-            self._config = self._load_config()
-        except Exception as e:
-            raise RuntimeError(f"保存配置文件失败: {e}") from e
+    @property
+    def config_path(self) -> str:
+        """配置文件路径"""
+        return self._config_path
 
     def get(self, key: str):
         """获取配置值
@@ -453,20 +225,25 @@ class LifeTraceConfig:
         Raises:
             KeyError: 如果配置键不存在
         """
-        keys = key.split(".")
-        value = self._config
-        for i, k in enumerate(keys):
-            if isinstance(value, dict) and k in value:
-                value = value[k]
-            else:
-                # 构建已访问的路径，用于错误提示
-                visited_path = ".".join(keys[:i]) if i > 0 else "root"
-                raise KeyError(
-                    f"配置键 '{key}' 不存在。"
-                    f"在路径 '{visited_path}' 中找不到键 '{k}'。"
-                    f"请检查配置文件 {self.config_path}"
-                )
-        return value
+        try:
+            # Dynaconf 使用点号访问嵌套值
+            value = self._settings.get(key, default=None)
+            if value is None:
+                # 尝试使用属性访问方式
+                parts = key.split(".")
+                value = self._settings
+                for part in parts:
+                    if hasattr(value, part):
+                        value = getattr(value, part)
+                    elif isinstance(value, dict) and part in value:
+                        value = value[part]
+                    else:
+                        raise KeyError(f"配置键 '{key}' 不存在。请检查配置文件 {self._config_path}")
+            return value
+        except Exception as e:
+            if isinstance(e, KeyError):
+                raise
+            raise KeyError(f"配置键 '{key}' 不存在: {e}") from e
 
     def set(self, key: str, value, persist: bool = True):
         """设置配置值
@@ -474,37 +251,68 @@ class LifeTraceConfig:
         Args:
             key: 配置键（支持点号分隔的嵌套键）
             value: 配置值
-            persist: 是否持久化到配置文件，默认为True
+            persist: 是否持久化到配置文件，默认为 True
         """
         with self._config_lock:
-            keys = key.split(".")
-            config = self._config
-            for k in keys[:-1]:
-                if k not in config:
-                    config[k] = {}
-                config = config[k]
-            config[keys[-1]] = value
+            # 使用 Dynaconf 的 set 方法
+            self._settings.set(key, value)
 
             # 如果需要持久化，保存到配置文件
             if persist:
-                try:
-                    with open(self.config_path, "w", encoding="utf-8") as f:
-                        yaml.dump(self._config, f, allow_unicode=True, sort_keys=False)
-                    logger.debug(f"配置已保存到文件: {key} = {value}")
-                except Exception as e:
-                    logger.error(f"保存配置到文件失败: {e}")
-                    raise
+                self._persist_to_file(key, value)
+
+    def _persist_to_file(self, key: str, value):
+        """持久化配置到文件"""
+        try:
+            # 读取当前配置文件
+            with open(self._config_path, encoding="utf-8") as f:
+                config_data = yaml.safe_load(f) or {}
+
+            # 设置嵌套值
+            keys = key.split(".")
+            current = config_data
+            for k in keys[:-1]:
+                if k not in current:
+                    current[k] = {}
+                current = current[k]
+            current[keys[-1]] = value
+
+            # 写回配置文件
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_data, f, allow_unicode=True, sort_keys=False)
+
+            logger.debug(f"配置已保存到文件: {key} = {value}")
+        except Exception as e:
+            logger.error(f"保存配置到文件失败: {e}")
+            raise
+
+    def reload(self) -> bool:
+        """重新加载配置文件（热加载）
+
+        Returns:
+            bool: 是否成功重载
+        """
+        with self._config_lock:
+            try:
+                result = reload_settings()
+                if result:
+                    logger.info("配置文件已重新加载（热加载）")
+                return result
+            except Exception as e:
+                logger.error(f"配置重载失败: {e}")
+                return False
 
     @property
     def base_dir(self) -> str:
-        # 如果指定了数据目录，使用数据目录下的data子目录
+        """基础数据目录"""
+        # 如果指定了数据目录，使用数据目录下的 data 子目录
         data_dir = self._get_data_directory()
         if data_dir:
             base_dir = os.path.join(data_dir, "data")
             os.makedirs(base_dir, exist_ok=True)
             return base_dir.rstrip(os.sep)
 
-        # 否则使用配置中的base_dir
+        # 否则使用配置中的 base_dir
         base_dir = self.get("base_dir")
         # 如果是相对路径，转换为绝对路径
         if not os.path.isabs(base_dir):
@@ -516,7 +324,7 @@ class LifeTraceConfig:
     def database_path(self) -> str:
         """数据库路径"""
         db_path = self.get("database_path")
-        # 如果是相对路径，基于base_dir拼接
+        # 如果是相对路径，基于 base_dir 拼接
         if not os.path.isabs(db_path):
             db_path = os.path.join(self.base_dir, db_path)
         return db_path
@@ -526,66 +334,60 @@ class LifeTraceConfig:
         """截图目录路径"""
         screenshots_dir = self.get("screenshots_dir")
         if not os.path.isabs(screenshots_dir):
-            # 如果是相对路径，先转换为相对于项目根目录的路径
             screenshots_dir = os.path.join(self.base_dir, screenshots_dir)
         return screenshots_dir
 
     @property
     def log_path(self) -> str:
         """日志目录路径"""
-        # 如果指定了数据目录，使用数据目录下的logs子目录
+        # 如果指定了数据目录，使用数据目录下的 logs 子目录
         data_dir = self._get_data_directory()
         if data_dir:
             log_path = os.path.join(data_dir, "logs")
             os.makedirs(log_path, exist_ok=True)
-            # 确保路径以 / 结尾，以便 logging_config 识别为目录
             return log_path + os.sep if not log_path.endswith(os.sep) else log_path
 
-        # 否则使用配置中的log_path
+        # 否则使用配置中的 log_path
         log_path = self.get("logging.log_path")
         if not os.path.isabs(log_path):
-            # 如果是相对路径，基于base_dir拼接
             log_path = os.path.join(self.base_dir, log_path)
-        # 确保路径以 / 结尾，以便 logging_config 识别为目录
         return log_path + os.sep if not log_path.endswith(os.sep) else log_path
 
     @property
     def vector_db_persist_directory(self) -> str:
+        """向量数据库持久化目录"""
         persist_dir = self.get("vector_db.persist_directory")
         if not os.path.isabs(persist_dir):
             return os.path.join(self.base_dir, persist_dir)
         return persist_dir
 
-    # LLM价格相关属性（需要特殊处理逻辑）
     @property
     def llm_input_token_price(self) -> float:
-        """LLM输入token价格（元/千token）
-
-        根据当前使用的模型从model_prices中获取价格，
-        如果找不到对应模型的价格，则使用default价格
-        """
+        """LLM 输入 token 价格（元/千 token）"""
         input_price, _ = self.get_model_price(self.get("llm.model"), input_tokens=0)
         return input_price
 
     @property
     def llm_output_token_price(self) -> float:
-        """LLM输出token价格（元/千token）
-
-        根据当前使用的模型从model_prices中获取价格，
-        如果找不到对应模型的价格，则使用default价格
-        """
+        """LLM 输出 token 价格（元/千 token）"""
         _, output_price = self.get_model_price(self.get("llm.model"), input_tokens=0)
         return output_price
 
     def get_model_price(self, model: str, input_tokens: int | None = None) -> tuple[float, float]:
-        """获取指定模型的单价（元/千token），支持按输入token区间分层计价"""
-
+        """获取指定模型的单价（元/千 token），支持按输入 token 区间分层计价"""
         model_prices = self.get("llm.model_prices")
+
+        # 将 Dynaconf Box 对象转换为普通字典
+        if hasattr(model_prices, "to_dict"):
+            model_prices = model_prices.to_dict()
 
         # 先尝试获取指定模型的价格
         if model in model_prices:
+            price_config = model_prices[model]
+            if hasattr(price_config, "to_dict"):
+                price_config = price_config.to_dict()
             return _resolve_model_price(
-                model, model_prices[model], self.config_path, input_tokens=input_tokens
+                model, price_config, self._config_path, input_tokens=input_tokens
             )
 
         # 如果没有找到，使用默认价格
@@ -595,25 +397,26 @@ class LifeTraceConfig:
                 f"请在配置文件中添加该模型的价格或配置 default 价格。"
             )
 
+        default_config = model_prices["default"]
+        if hasattr(default_config, "to_dict"):
+            default_config = default_config.to_dict()
         return _resolve_model_price(
-            model, model_prices["default"], self.config_path, input_tokens=input_tokens
+            model, default_config, self._config_path, input_tokens=input_tokens
         )
 
-    # 调度器配置属性（需要路径拼接）
     @property
     def scheduler_database_path(self) -> str:
         """调度器数据库路径"""
         db_path = self.get("scheduler.database_path")
-        # 如果是相对路径，基于base_dir拼接
         if not os.path.isabs(db_path):
             db_path = os.path.join(self.base_dir, db_path)
         return db_path
 
     def is_configured(self) -> bool:
-        """检查LLM配置是否已完成
+        """检查 LLM 配置是否已完成
 
         Returns:
-            bool: 如果llm_key和base_url都已配置（不是占位符或空），返回True
+            bool: 如果 llm_key 和 base_url 都已配置（不是占位符或空），返回 True
         """
         llm_key = self.get("llm.api_key")
         base_url = self.get("llm.base_url")
@@ -627,30 +430,48 @@ class LifeTraceConfig:
         ]
         return llm_key not in invalid_values and base_url not in invalid_values
 
-    def reload(self) -> bool:
-        """重新加载配置文件
-        注意：仅用于前端主动刷新配置，不会自动监听文件变化
+    def save_config(self):
+        """保存配置文件（兼容方法）
 
-        Returns:
-            bool: 是否成功重载
+        从 default_config.yaml 复制并初始化配置。
         """
+        from lifetrace.util.path_utils import get_config_dir
+
+        default_config_path = str(get_config_dir() / "default_config.yaml")
+
+        if not os.path.exists(default_config_path):
+            raise FileNotFoundError(
+                f"默认配置文件不存在: {default_config_path}\n"
+                "请确保 default_config.yaml 文件存在于 config 目录中"
+            )
+
+        os.makedirs(os.path.dirname(self._config_path), exist_ok=True)
+
         try:
-            with self._config_lock:
-                # 验证配置文件完整性
-                self._validate_config_completeness()
+            import shutil
 
-                # 重新加载配置
-                new_config = self._load_config()
+            shutil.copy2(default_config_path, self._config_path)
 
-                # 更新配置
-                self._config = new_config
+            with open(self._config_path, encoding="utf-8") as f:
+                config_data = yaml.safe_load(f)
 
-                logger.info("配置文件已重新加载")
-                return True
+            # 修改路径设置
+            config_data["base_dir"] = "lifetrace/data"
+            config_data["database_path"] = "lifetrace.db"
+            config_data["screenshots_dir"] = "screenshots/"
+            if "logging" not in config_data:
+                config_data["logging"] = {}
+            config_data["logging"]["log_path"] = "logs/"
+            if "scheduler" in config_data:
+                config_data["scheduler"]["database_path"] = "scheduler.db"
 
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_data, f, allow_unicode=True, sort_keys=False)
+
+            # 重新加载配置
+            self.reload()
         except Exception as e:
-            logger.error(f"配置重载失败: {e}")
-            return False
+            raise RuntimeError(f"保存配置文件失败: {e}") from e
 
 
 # 全局配置实例
