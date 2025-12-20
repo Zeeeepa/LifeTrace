@@ -400,11 +400,6 @@
 		},
 		"numberLocale": "en-US"
 	},
-	"todoDetail": {
-		"editTitle": "Click to edit title",
-		"viewDescription": "View description",
-		"selectTodoPrompt": "Please select a todo to view details"
-	},
 	"debugCapture": {
 		"title": "Screenshot Management (Debug)",
 		"screenshotDetail": "Screenshot Details",
@@ -478,7 +473,43 @@
 	},
 	"todoList": {
 		"addTodo": "Add todo",
+		"add": "Add",
 		"submit": "Submit",
-		"reset": "Reset"
+		"reset": "Reset",
+		"searchPlaceholder": "Search todos...",
+		"loadFailed": "Load failed: {error}",
+		"noTodos": "No todos",
+		"deadline": "Deadline",
+		"description": "Description",
+		"descriptionPlaceholder": "Describe task details...",
+		"tags": "Tags (comma-separated)",
+		"tagsPlaceholder": "e.g., work, report",
+		"priority": "Priority",
+		"notes": "Notes",
+		"notesPlaceholder": "Personal notes or action items"
+	},
+	"todoDetail": {
+		"editTitle": "Click to edit title",
+		"viewDescription": "View description",
+		"selectTodoPrompt": "Please select a todo to view details",
+		"markAsComplete": "Mark as complete",
+		"delete": "Delete",
+		"addDeadline": "Add deadline",
+		"addTags": "Add tags",
+		"tagsPlaceholder": "Separate multiple tags with commas",
+		"save": "Save",
+		"cancel": "Cancel",
+		"clear": "Clear",
+		"current": "Current",
+		"priorityLabel": "Priority: {priority}",
+		"setAsChild": "Set as child task",
+		"collapseSubTasks": "Collapse sub-tasks",
+		"expandSubTasks": "Expand sub-tasks",
+		"addChildPlaceholder": "Enter child todo name...",
+		"add": "Add",
+		"addChild": "Add child todo",
+		"childTodos": "Child Todos",
+		"useAiPlan": "Use AI to plan",
+		"useAiPlanTitle": "Use AI to plan"
 	}
 }

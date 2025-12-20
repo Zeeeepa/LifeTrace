@@ -1,13 +1,13 @@
 "use client";
 
 import { Calendar, Flag, Tag as TagIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getPriorityLabel, getStatusLabel } from "@/lib/utils";
 import {
 	formatDateTime,
 	getPriorityClassNames,
-	getPriorityLabel,
 	getStatusClassNames,
 	priorityOptions,
 	statusOptions,
@@ -29,6 +29,8 @@ export function MetaSection({
 	onDeadlineChange,
 	onTagsChange,
 }: MetaSectionProps) {
+	const tCommon = useTranslations("common");
+	const tTodoDetail = useTranslations("todoDetail");
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
 	const deadlineContainerRef = useRef<HTMLDivElement | null>(null);
@@ -106,7 +108,7 @@ export function MetaSection({
 						aria-expanded={isStatusMenuOpen}
 						aria-haspopup="listbox"
 					>
-						{todo.status}
+						{getStatusLabel(todo.status, tCommon)}
 					</button>
 					{isStatusMenuOpen && (
 						<div className="pointer-events-auto absolute z-120 mt-2 min-w-[170px] rounded-md border border-border bg-popover text-foreground shadow-lg">
@@ -131,10 +133,12 @@ export function MetaSection({
 										aria-selected={status === todo.status}
 									>
 										<span className={getStatusClassNames(status)}>
-											{status}
+											{getStatusLabel(status, tCommon)}
 										</span>
 										{status === todo.status && (
-											<span className="text-[11px] text-primary">当前</span>
+											<span className="text-[11px] text-primary">
+												{tTodoDetail("current")}
+											</span>
 										)}
 									</button>
 								))}
@@ -155,7 +159,7 @@ export function MetaSection({
 						aria-haspopup="listbox"
 					>
 						<Flag className="h-4 w-4" fill="currentColor" aria-hidden />
-						{getPriorityLabel(todo.priority ?? "none")}
+						{getPriorityLabel(todo.priority ?? "none", tCommon)}
 					</button>
 					{isPriorityMenuOpen && (
 						<div className="pointer-events-auto absolute z-120 mt-2 min-w-[170px] rounded-md border border-border bg-popover text-foreground shadow-lg">
@@ -185,10 +189,12 @@ export function MetaSection({
 												fill="currentColor"
 												aria-hidden
 											/>
-											{getPriorityLabel(priority)}
+											{getPriorityLabel(priority, tCommon)}
 										</span>
 										{priority === (todo.priority ?? "none") && (
-											<span className="text-[11px] text-primary">当前</span>
+											<span className="text-[11px] text-primary">
+												{tTodoDetail("current")}
+											</span>
 										)}
 									</button>
 								))}
@@ -205,7 +211,9 @@ export function MetaSection({
 					>
 						<Calendar className="h-4 w-4" />
 						<span className="truncate">
-							{todo.deadline ? formatDateTime(todo.deadline) : "添加截止时间"}
+							{todo.deadline
+								? formatDateTime(todo.deadline)
+								: tTodoDetail("addDeadline")}
 						</span>
 					</button>
 					{isDatePickerOpen && (
@@ -229,7 +237,7 @@ export function MetaSection({
 					<span className="truncate">
 						{todo.tags && todo.tags.length > 0
 							? todo.tags.join(", ")
-							: "添加标签"}
+							: tTodoDetail("addTags")}
 					</span>
 				</button>
 			</div>
@@ -240,7 +248,7 @@ export function MetaSection({
 						type="text"
 						value={tagsInput}
 						onChange={(e) => setTagsInput(e.target.value)}
-						placeholder="使用逗号分隔多个标签"
+						placeholder={tTodoDetail("tagsPlaceholder")}
 						className="min-w-[240px] rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
 					/>
 					<button
@@ -248,7 +256,7 @@ export function MetaSection({
 						onClick={handleTagsSave}
 						className="rounded-md bg-primary px-2 py-1 text-primary-foreground transition-colors hover:bg-primary/90"
 					>
-						保存
+						{tTodoDetail("save")}
 					</button>
 					<button
 						type="button"
@@ -258,14 +266,14 @@ export function MetaSection({
 						}}
 						className="rounded-md border border-border px-2 py-1 text-muted-foreground transition-colors hover:bg-muted/40"
 					>
-						取消
+						{tTodoDetail("cancel")}
 					</button>
 					<button
 						type="button"
 						onClick={handleTagsClear}
 						className="rounded-md border border-destructive/40 px-2 py-1 text-destructive transition-colors hover:bg-destructive/10"
 					>
-						清空
+						{tTodoDetail("clear")}
 					</button>
 				</div>
 			)}

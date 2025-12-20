@@ -1,15 +1,15 @@
 "use client";
 
 import { Calendar, Flag, Plus, Tag as TagIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TodoContextMenu } from "@/components/common/TodoContextMenu";
 import type { Todo } from "@/lib/types";
-import { sortTodosByOrder } from "@/lib/utils";
+import { getPriorityLabel, sortTodosByOrder } from "@/lib/utils";
 import {
 	formatDateTime,
 	getChildProgress,
 	getPriorityIconColor,
-	getPriorityLabel,
 } from "../helpers";
 
 interface ChildTodoSectionProps {
@@ -25,6 +25,8 @@ export function ChildTodoSection({
 	onSelectTodo,
 	onCreateChild,
 }: ChildTodoSectionProps) {
+	const tCommon = useTranslations("common");
+	const tTodoDetail = useTranslations("todoDetail");
 	const [isAddingChild, setIsAddingChild] = useState(false);
 	const [childName, setChildName] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +60,7 @@ export function ChildTodoSection({
 		<div className="mb-4">
 			<div className="mb-2 flex items-center justify-between">
 				<div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					子待办
+					{tTodoDetail("childTodos")}
 					{sortedChildTodos.length > 0 && (
 						<span className="ml-1">
 							{sortedChildTodos.filter((c) => c.status === "completed").length}/
@@ -88,7 +90,12 @@ export function ChildTodoSection({
 										<Flag
 											className={getPriorityIconColor(child.priority ?? "none")}
 											fill="currentColor"
-											aria-label={`优先级：${getPriorityLabel(child.priority ?? "none")}`}
+											aria-label={tTodoDetail("priorityLabel", {
+												priority: getPriorityLabel(
+													child.priority ?? "none",
+													tCommon,
+												),
+											})}
 										/>
 										<span className="text-sm font-semibold text-foreground">
 											{child.name}
@@ -139,7 +146,7 @@ export function ChildTodoSection({
 						type="text"
 						value={childName}
 						onChange={(e) => setChildName(e.target.value)}
-						placeholder="输入子待办名称..."
+						placeholder={tTodoDetail("addChildPlaceholder")}
 						className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 					/>
 					<button
@@ -147,7 +154,7 @@ export function ChildTodoSection({
 						className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
 					>
 						<Plus className="h-4 w-4" />
-						添加
+						{tTodoDetail("add")}
 					</button>
 					<button
 						type="button"
@@ -157,7 +164,7 @@ export function ChildTodoSection({
 						}}
 						className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 transition-colors"
 					>
-						取消
+						{tTodoDetail("cancel")}
 					</button>
 				</form>
 			) : (
@@ -170,7 +177,7 @@ export function ChildTodoSection({
 					className="mt-2 flex w-full items-center gap-2 rounded-lg px-1 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
 				>
 					<Plus className="h-4 w-4" />
-					<span>添加子待办</span>
+					<span>{tTodoDetail("addChild")}</span>
 				</button>
 			)}
 		</div>

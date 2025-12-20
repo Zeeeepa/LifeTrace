@@ -11,6 +11,7 @@ interface TodoToolbarProps {
 
 export function TodoToolbar({ searchQuery, onSearch }: TodoToolbarProps) {
 	const t = useTranslations("page");
+	const tTodoList = useTranslations("todoList");
 
 	return (
 		<PanelHeader
@@ -23,7 +24,7 @@ export function TodoToolbar({ searchQuery, onSearch }: TodoToolbarProps) {
 						type="text"
 						value={searchQuery}
 						onChange={(e) => onSearch(e.target.value)}
-						placeholder="Search tasks..."
+						placeholder={tTodoList("searchPlaceholder")}
 						className="h-7 w-48 rounded-md border border-primary/20 px-8 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 					/>
 				</div>

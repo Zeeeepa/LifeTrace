@@ -400,11 +400,6 @@
 		},
 		"numberLocale": "zh-CN"
 	},
-	"todoDetail": {
-		"editTitle": "点击编辑标题",
-		"viewDescription": "查看描述",
-		"selectTodoPrompt": "请选择一个待办事项查看详情"
-	},
 	"debugCapture": {
 		"title": "截图管理（开发调试）",
 		"screenshotDetail": "截图详情",
@@ -478,7 +473,43 @@
 	},
 	"todoList": {
 		"addTodo": "添加待办",
+		"add": "添加",
 		"submit": "提交",
-		"reset": "重置"
+		"reset": "重置",
+		"searchPlaceholder": "搜索待办...",
+		"loadFailed": "加载失败: {error}",
+		"noTodos": "暂无待办事项",
+		"deadline": "截止日期",
+		"description": "描述",
+		"descriptionPlaceholder": "描述任务细节...",
+		"tags": "标签（逗号分隔）",
+		"tagsPlaceholder": "如：工作, 报告",
+		"priority": "优先级",
+		"notes": "备注",
+		"notesPlaceholder": "个人备注或行动项"
+	},
+	"todoDetail": {
+		"editTitle": "点击编辑标题",
+		"viewDescription": "查看描述",
+		"selectTodoPrompt": "请选择一个待办事项查看详情",
+		"markAsComplete": "标记为完成",
+		"delete": "删除",
+		"addDeadline": "添加截止时间",
+		"addTags": "添加标签",
+		"tagsPlaceholder": "使用逗号分隔多个标签",
+		"save": "保存",
+		"cancel": "取消",
+		"clear": "清空",
+		"current": "当前",
+		"priorityLabel": "优先级：{priority}",
+		"setAsChild": "设为子任务",
+		"collapseSubTasks": "折叠子任务",
+		"expandSubTasks": "展开子任务",
+		"addChildPlaceholder": "输入子待办名称...",
+		"add": "添加",
+		"addChild": "添加子待办",
+		"childTodos": "子待办",
+		"useAiPlan": "使用AI规划",
+		"useAiPlanTitle": "使用AI规划"
 	}
 }

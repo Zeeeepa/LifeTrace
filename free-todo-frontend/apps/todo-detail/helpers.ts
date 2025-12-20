@@ -51,19 +51,6 @@ export const getPriorityIconColor = (priority: TodoPriority) => {
 	}
 };
 
-export const getPriorityLabel = (priority: TodoPriority) => {
-	switch (priority) {
-		case "high":
-			return "高";
-		case "medium":
-			return "中";
-		case "low":
-			return "低";
-		default:
-			return "无";
-	}
-};
-
 export const formatDeadlineForInput = (value?: string) => {
 	if (!value) return "";
 	const date = new Date(value);

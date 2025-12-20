@@ -14,6 +14,7 @@ import {
 	Tag,
 	X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TodoContextMenu } from "@/components/common/TodoContextMenu";
@@ -24,7 +25,7 @@ import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo, TodoPriority } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, getPriorityLabel } from "@/lib/utils";
 
 export interface TodoCardProps {
 	todo: Todo;
@@ -47,6 +48,8 @@ export function TodoCard({
 	onSelect,
 	onSelectSingle,
 }: TodoCardProps) {
+	const tCommon = useTranslations("common");
+	const tTodoDetail = useTranslations("todoDetail");
 	// 从 TanStack Query 获取 todos 数据（用于检查是否有子任务）
 	const { data: todos = [] } = useTodos();
 
@@ -164,19 +167,6 @@ export function TodoCard({
 				return "border-secondary/60 bg-secondary/20 text-secondary-foreground";
 			default:
 				return "border-muted-foreground/40 text-muted-foreground";
-		}
-	};
-
-	const getPriorityLabel = (priority: TodoPriority) => {
-		switch (priority) {
-			case "high":
-				return "高";
-			case "medium":
-				return "中";
-			case "low":
-				return "低";
-			default:
-				return "无";
 		}
 	};
 
@@ -310,7 +300,11 @@ export function TodoCard({
 							toggleTodoExpanded(todo.id);
 						}}
 						className="mt-1 shrink-0 flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
-						aria-label={isExpanded ? "折叠子任务" : "展开子任务"}
+						aria-label={
+							isExpanded
+								? tTodoDetail("collapseSubTasks")
+								: tTodoDetail("expandSubTasks")
+						}
 					>
 						<ChevronRight
 							className={cn(
@@ -378,8 +372,8 @@ export function TodoCard({
 								handleStartPlan();
 							}}
 							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
-							aria-label="使用AI规划"
-							title="使用AI规划"
+							aria-label={tTodoDetail("useAiPlan")}
+							title={tTodoDetail("useAiPlanTitle")}
 						>
 							<Sparkles className="h-4 w-4 text-primary" />
 						</button>
@@ -391,10 +385,12 @@ export function TodoCard({
 										"flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
 										getPriorityBgColor(todo.priority),
 									)}
-									title={`优先级：${getPriorityLabel(todo.priority)}`}
+									title={tTodoDetail("priorityLabel", {
+										priority: getPriorityLabel(todo.priority, tCommon),
+									})}
 								>
 									<Flag className="h-3.5 w-3.5" fill="currentColor" />
-									<span>{getPriorityLabel(todo.priority)}</span>
+									<span>{getPriorityLabel(todo.priority, tCommon)}</span>
 								</div>
 							)}
 							{todo.attachments && todo.attachments.length > 0 && (
@@ -468,7 +464,7 @@ export function TodoCard({
 								setChildName("");
 							}
 						}}
-						placeholder="输入子待办名称..."
+						placeholder={tTodoDetail("addChildPlaceholder")}
 						className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 					/>
 					<div className="flex items-center justify-end gap-2">
@@ -480,14 +476,14 @@ export function TodoCard({
 							}}
 							className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
 						>
-							取消
+							{tTodoDetail("cancel")}
 						</button>
 						<button
 							type="submit"
 							className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
 						>
 							<Plus className="h-4 w-4" />
-							添加
+							{tTodoDetail("add")}
 						</button>
 					</div>
 				</form>
@@ -513,7 +509,7 @@ export function TodoCard({
 						)}
 					>
 						<CornerDownRight className="h-4 w-4" />
-						<span>设为子任务</span>
+						<span>{tTodoDetail("setAsChild")}</span>
 					</div>
 				</div>
 			)}
