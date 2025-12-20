@@ -291,7 +291,7 @@ export function TodoCard({
 				isDragging && "ring-2 ring-primary/30",
 			)}
 		>
-			<div className="flex items-start gap-2">
+			<div className="flex items-start gap-2 justify-center align-middle">
 				{hasChildren && (
 					<button
 						type="button"
@@ -299,7 +299,7 @@ export function TodoCard({
 							e.stopPropagation();
 							toggleTodoExpanded(todo.id);
 						}}
-						className="mt-1 shrink-0 flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+						className="shrink-0 flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
 						aria-label={
 							isExpanded
 								? tTodoDetail("collapseSubTasks")
