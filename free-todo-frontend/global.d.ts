@@ -1,4 +1,4 @@
-import type messages from "./messages/zh.json";
+import type messages from "./lib/i18n/messages/zh.json";
 
 type Messages = typeof messages;
 
