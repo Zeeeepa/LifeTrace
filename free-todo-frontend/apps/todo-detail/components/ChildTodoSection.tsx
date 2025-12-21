@@ -104,10 +104,17 @@ export function ChildTodoSection({
 							>
 								<div className="flex flex-col gap-1">
 									<div className="flex items-center gap-2">
-										<button
-											type="button"
+										<div
+											role="button"
+											tabIndex={0}
 											onClick={(e) => handleToggleStatus(e, child)}
-											className="shrink-0"
+											onKeyDown={(e) => {
+												if (e.key === "Enter" || e.key === " ") {
+													e.preventDefault();
+													handleToggleStatus(e as any, child);
+												}
+											}}
+											className="shrink-0 cursor-pointer"
 										>
 											{child.status === "completed" ? (
 												<div className="flex h-4 w-4 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
@@ -142,7 +149,7 @@ export function ChildTodoSection({
 													)}
 												/>
 											)}
-										</button>
+										</div>
 										<span className="text-sm font-semibold text-foreground">
 											{child.name}
 										</span>

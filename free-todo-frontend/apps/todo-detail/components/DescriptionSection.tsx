@@ -159,37 +159,37 @@ export function DescriptionSection({
 								remarkPlugins={[remarkGfm]}
 								components={{
 									h1: ({ children }) => (
-										<h1 className="text-xl font-bold mb-3 mt-0 text-foreground">
+										<h1 className="text-xl font-semibold mb-2 mt-0 text-foreground">
 											{children}
 										</h1>
 									),
 									h2: ({ children }) => (
-										<h2 className="text-lg font-semibold mb-2 mt-4 text-foreground">
+										<h2 className="text-base font-semibold mb-2 mt-3 text-foreground">
 											{children}
 										</h2>
 									),
 									h3: ({ children }) => (
-										<h3 className="text-base font-semibold mb-2 mt-3 text-foreground">
+										<h3 className="text-sm font-semibold mb-1.5 mt-2 text-foreground">
 											{children}
 										</h3>
 									),
 									p: ({ children }) => (
-										<p className="my-2 leading-relaxed text-foreground">
+										<p className="my-1.5 leading-relaxed text-sm text-foreground">
 											{children}
 										</p>
 									),
 									ul: ({ children }) => (
-										<ul className="my-2 list-disc pl-5 space-y-1">
+										<ul className="my-1.5 list-disc pl-5 space-y-0.5">
 											{children}
 										</ul>
 									),
 									ol: ({ children }) => (
-										<ol className="my-2 list-decimal pl-5 space-y-1">
+										<ol className="my-1.5 list-decimal pl-5 space-y-0.5">
 											{children}
 										</ol>
 									),
 									li: ({ children }) => (
-										<li className="text-foreground leading-relaxed">
+										<li className="text-sm text-foreground leading-relaxed">
 											{children}
 										</li>
 									),
@@ -199,17 +199,17 @@ export function DescriptionSection({
 										</strong>
 									),
 									code: ({ children }) => (
-										<code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">
+										<code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">
 											{children}
 										</code>
 									),
 									pre: ({ children }) => (
-										<pre className="bg-muted border border-border rounded p-3 overflow-x-auto my-3">
+										<pre className="bg-muted border border-border rounded p-2 overflow-x-auto my-2 text-xs">
 											{children}
 										</pre>
 									),
 									blockquote: ({ children }) => (
-										<blockquote className="border-l-4 border-primary pl-4 my-3 italic text-muted-foreground">
+										<blockquote className="border-l-4 border-primary pl-4 my-2 italic text-sm text-muted-foreground">
 											{children}
 										</blockquote>
 									),
@@ -229,7 +229,7 @@ export function DescriptionSection({
 							</ReactMarkdown>
 						</div>
 					) : (
-						<span className="text-muted-foreground">
+						<span className="text-sm text-muted-foreground">
 							{t("descriptionEmptyPlaceholder")}
 						</span>
 					)}
@@ -245,11 +245,11 @@ export function DescriptionSection({
 						{attachments?.map((file) => (
 							<div
 								key={file.id}
-								className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+								className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs"
 							>
-								<Paperclip className="h-4 w-4 text-muted-foreground" />
+								<Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
 								<div className="flex-1 truncate">
-									<div className="font-medium text-foreground">
+									<div className="font-medium text-sm text-foreground">
 										{file.fileName}
 									</div>
 									<div className="text-xs text-muted-foreground">
