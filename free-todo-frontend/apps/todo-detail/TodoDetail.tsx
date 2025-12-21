@@ -25,7 +25,10 @@ export function TodoDetail() {
 	// 从 Zustand 获取 UI 状态
 	const { selectedTodoId, setSelectedTodoId, onTodoDeleted } = useTodoStore();
 
+	// 各 section 的折叠状态
 	const [showDescription, setShowDescription] = useState(true);
+	const [showNotes, setShowNotes] = useState(true);
+	const [showChildTodos, setShowChildTodos] = useState(true);
 
 	// 本地状态管理 userNotes，用于即时输入响应
 	const [localUserNotes, setLocalUserNotes] = useState<string>("");
@@ -208,13 +211,8 @@ export function TodoDetail() {
 				onDelete={handleDelete}
 			/>
 
-			<div className="flex-1 overflow-y-auto px-4 py-6">
-				<DetailTitle
-					name={todo.name}
-					showDescription={showDescription}
-					onToggleDescription={() => setShowDescription((prev) => !prev)}
-					onNameChange={handleNameChange}
-				/>
+			<div className="flex-1 overflow-y-scroll px-4 py-6">
+				<DetailTitle name={todo.name} onNameChange={handleNameChange} />
 
 				<MetaSection
 					todo={todo}
@@ -226,16 +224,18 @@ export function TodoDetail() {
 					onTagsChange={(tags) => updateTodo(todo.id, { tags })}
 				/>
 
-				{showDescription && (
-					<DescriptionSection
-						description={todo.description}
-						attachments={todo.attachments}
-						onDescriptionChange={handleDescriptionChange}
-					/>
-				)}
+				<DescriptionSection
+					description={todo.description}
+					attachments={todo.attachments}
+					show={showDescription}
+					onToggle={() => setShowDescription((prev) => !prev)}
+					onDescriptionChange={handleDescriptionChange}
+				/>
 
 				<NotesEditor
 					value={localUserNotes}
+					show={showNotes}
+					onToggle={() => setShowNotes((prev) => !prev)}
 					onChange={handleNotesChange}
 					onBlur={handleNotesBlur}
 					notesRef={notesRef}
@@ -245,6 +245,8 @@ export function TodoDetail() {
 				<ChildTodoSection
 					childTodos={childTodos}
 					allTodos={todos}
+					show={showChildTodos}
+					onToggle={() => setShowChildTodos((prev) => !prev)}
 					onSelectTodo={setSelectedTodoId}
 					onCreateChild={handleCreateChild}
 					onToggleStatus={toggleTodoStatus}
