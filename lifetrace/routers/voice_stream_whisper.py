@@ -99,9 +99,9 @@ class PCMAudioProcessor:
     def __init__(
         self,
         sample_rate: int = 16000,
-        chunk_duration: float = 1.0,  # 1秒处理一次（提高实时性）
-        overlap: float = 0.2,  # 0.2秒重叠
-        min_samples: int = 8000,  # 最小样本数（约 0.5 秒 @ 16kHz）
+        chunk_duration: float = 3.0,  # 3秒处理一次（增加转录文本长度）
+        overlap: float = 0.5,  # 0.5秒重叠（确保不丢失内容）
+        min_samples: int = 32000,  # 最小样本数（约 2 秒 @ 16kHz，确保有足够内容）
     ):
         self.sample_rate = sample_rate
         self.chunk_duration = chunk_duration
@@ -109,8 +109,8 @@ class PCMAudioProcessor:
         self.min_samples = min_samples
         
         # 使用 deque 作为 PCM 数据缓冲区（Int16，2 bytes per sample）
-        # 限制最大长度，防止无限积压（约 3 秒的音频）
-        max_buffer_samples = int(sample_rate * 3.0)  # 最多 3 秒
+        # 限制最大长度，防止无限积压（约 6 秒的音频，支持更长的转录）
+        max_buffer_samples = int(sample_rate * 6.0)  # 最多 6 秒
         max_buffer_size = max_buffer_samples * 2  # Int16 = 2 bytes
         self.pcm_buffer = deque(maxlen=max_buffer_size)
         
@@ -183,22 +183,23 @@ class PCMAudioProcessor:
             audio_duration = len(audio_array) / self.sample_rate
             logger.info(f"✅ PCM 转换成功，开始识别，音频长度: {audio_duration:.2f}s, 样本数: {len(audio_array)}")
             
-            # 添加超时机制（最多等待 5 秒）
+            # 添加超时机制（根据音频长度动态调整，最多等待 10 秒）
+            timeout_seconds = min(10.0, audio_duration * 2.0 + 2.0)  # 至少是音频长度的2倍+2秒，最多10秒
             try:
                 result = await asyncio.wait_for(
                     self._transcribe(audio_array),
-                    timeout=5.0  # 5 秒超时
+                    timeout=timeout_seconds
                 )
             except asyncio.TimeoutError:
-                logger.error(f"识别超时（>5秒），音频长度: {audio_duration:.2f}s")
+                logger.error(f"识别超时（>{timeout_seconds:.1f}秒），音频长度: {audio_duration:.2f}s")
                 result = ""
             
             process_duration = time.time() - process_start_time
             
             # 4. 清理已处理的缓冲区（保留部分数据用于重叠）
             if result:  # 只有成功识别才清理
-                # 保留最后 30% 的样本（用于重叠）
-                keep_samples = max(int(current_samples * 0.3), int(self.sample_rate * 0.2))  # 至少保留 0.2 秒
+                # 保留重叠部分的样本（用于重叠，确保不丢失内容）
+                keep_samples = max(int(current_samples * self.overlap), int(self.sample_rate * 0.5))  # 至少保留 0.5 秒
                 keep_bytes = keep_samples * 2  # Int16 = 2 bytes
                 remove_count = len(self.pcm_buffer) - keep_bytes
                 for _ in range(max(0, remove_count)):
@@ -364,9 +365,9 @@ async def stream_transcription(websocket: WebSocket):
     # 创建音频处理器（现在处理 PCM Int16 数据）
     processor = PCMAudioProcessor(
         sample_rate=16000,
-        chunk_duration=1.0,  # 每 1 秒处理一次（提高实时性）
-        overlap=0.2,  # 0.2 秒重叠
-        min_samples=8000,  # 至少 8000 样本（约 0.5 秒 @ 16kHz）
+        chunk_duration=3.0,  # 每 3 秒处理一次（增加转录文本长度）
+        overlap=0.5,  # 0.5 秒重叠（确保不丢失内容）
+        min_samples=32000,  # 至少 32000 样本（约 2 秒 @ 16kHz，确保有足够内容）
     )
     
     try:

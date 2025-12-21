@@ -332,7 +332,9 @@ export function VoiceModulePanel() {
       containsSchedule,
     });
 
-    if (containsSchedule && scheduleExtractionServiceRef.current) {
+    // 无论 containsSchedule 是否为 true，都尝试提取日程
+    // 因为即使 LLM 没有标记，文本中也可能包含时间信息
+    if (scheduleExtractionServiceRef.current) {
       const segment = transcripts.find(t => t.id === segmentId);
       if (segment) {
         scheduleExtractionServiceRef.current.enqueue({
