@@ -51,6 +51,19 @@ export const getPriorityIconColor = (priority: TodoPriority) => {
 	}
 };
 
+export const getPriorityBorderColor = (priority: TodoPriority) => {
+	switch (priority) {
+		case "high":
+			return "border-destructive/60";
+		case "medium":
+			return "border-primary/60";
+		case "low":
+			return "border-secondary/60";
+		default:
+			return "border-muted-foreground/40";
+	}
+};
+
 export const formatDeadlineForInput = (value?: string) => {
 	if (!value) return "";
 	const date = new Date(value);

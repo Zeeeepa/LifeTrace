@@ -7,7 +7,6 @@ import {
 	Calendar,
 	ChevronRight,
 	CornerDownRight,
-	Flag,
 	Paperclip,
 	Plus,
 	Sparkles,
@@ -25,7 +24,7 @@ import { usePlanStore } from "@/lib/store/plan-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo, TodoPriority } from "@/lib/types";
-import { cn, getPriorityLabel } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export interface TodoCardProps {
 	todo: Todo;
@@ -48,7 +47,6 @@ export function TodoCard({
 	onSelect,
 	onSelectSingle,
 }: TodoCardProps) {
-	const tCommon = useTranslations("common");
 	const tTodoDetail = useTranslations("todoDetail");
 	// 从 TanStack Query 获取 todos 数据（用于检查是否有子任务）
 	const { data: todos = [] } = useTodos();
@@ -157,16 +155,16 @@ export function TodoCard({
 		[],
 	);
 
-	const getPriorityBgColor = (priority: TodoPriority) => {
+	const getPriorityBorderColor = (priority: TodoPriority) => {
 		switch (priority) {
 			case "high":
-				return "border-destructive/60 bg-destructive/10 text-destructive";
+				return "border-destructive/60";
 			case "medium":
-				return "border-primary/60 bg-primary/10 text-primary";
+				return "border-primary/60";
 			case "low":
-				return "border-secondary/60 bg-secondary/20 text-secondary-foreground";
+				return "border-secondary/60";
 			default:
-				return "border-muted-foreground/40 text-muted-foreground";
+				return "border-muted-foreground/40";
 		}
 	};
 
@@ -280,7 +278,7 @@ export function TodoCard({
 				}
 			}}
 			className={cn(
-				"todo-card group relative flex h-full flex-col gap-3 rounded-xl p-3 cursor-pointer",
+				"todo-card group relative flex h-full flex-col gap-1 rounded-lg px-1 py-2 cursor-pointer",
 				"border border-transparent transition-all duration-200",
 				"bg-card dark:bg-background hover:bg-muted/40",
 				"select-none", // 阻止文本选择
@@ -299,7 +297,7 @@ export function TodoCard({
 							e.stopPropagation();
 							toggleTodoExpanded(todo.id);
 						}}
-						className="shrink-0 flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+						className="shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
 						aria-label={
 							isExpanded
 								? tTodoDetail("collapseSubTasks")
@@ -308,39 +306,46 @@ export function TodoCard({
 					>
 						<ChevronRight
 							className={cn(
-								"h-4 w-4 text-muted-foreground transition-transform duration-200",
+								"h-3 w-3 text-muted-foreground transition-transform duration-200",
 								isExpanded && "rotate-90",
 							)}
 						/>
 					</button>
 				)}
-				{!hasChildren && <div className="w-5 shrink-0" />}
+				{!hasChildren && <div className="w-4 shrink-0" />}
 				<button type="button" onClick={handleToggleStatus} className="shrink-0">
 					{todo.status === "completed" ? (
-						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
-							<span className="text-[10px] text-[oklch(var(--primary-foreground))] font-semibold">
+						<div className="flex h-4 w-4 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
+							<span className="text-[8px] text-[oklch(var(--primary-foreground))] font-semibold">
 								✓
 							</span>
 						</div>
 					) : todo.status === "canceled" ? (
 						<div
 							className={cn(
-								"flex h-5 w-5 items-center justify-center rounded-md border-2",
-								"border-muted-foreground/40 bg-muted/30 text-muted-foreground/70",
+								"flex h-4 w-4 items-center justify-center rounded-md border-2",
+								getPriorityBorderColor(todo.priority ?? "none"),
+								"bg-muted/30 text-muted-foreground/70",
 								"transition-colors",
-								"hover:border-muted-foreground/60 hover:bg-muted/40 hover:text-muted-foreground",
+								"hover:bg-muted/40 hover:text-muted-foreground",
 							)}
 						>
-							<X className="h-3.5 w-3.5" strokeWidth={2.5} />
+							<X className="h-2.5 w-2.5" strokeWidth={2.5} />
 						</div>
 					) : todo.status === "draft" ? (
-						<div className="flex h-5 w-5 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">
-							<span className="text-[12px] text-white dark:text-orange-50 font-semibold">
+						<div className="flex h-4 w-4 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">
+							<span className="text-[10px] text-white dark:text-orange-50 font-semibold">
 								—
 							</span>
 						</div>
 					) : (
-						<div className="h-5 w-5 rounded-md border-2 border-muted-foreground/40 hover:border-foreground transition-colors" />
+						<div
+							className={cn(
+								"h-4 w-4 rounded-md border-2 transition-colors",
+								getPriorityBorderColor(todo.priority ?? "none"),
+								"hover:border-foreground",
+							)}
+						/>
 					)}
 				</button>
 
@@ -358,11 +363,11 @@ export function TodoCard({
 							>
 								{todo.name}
 							</h3>
-							{todo.description && (
+							{/* {todo.description && (
 								<p className="text-xs text-muted-foreground line-clamp-2">
 									{todo.description}
 								</p>
-							)}
+							)} */}
 						</div>
 						{/* AI规划按钮 - hover时显示 */}
 						<button
@@ -371,15 +376,15 @@ export function TodoCard({
 								e.stopPropagation();
 								handleStartPlan();
 							}}
-							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
+							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
 							aria-label={tTodoDetail("useAiPlan")}
 							title={tTodoDetail("useAiPlanTitle")}
 						>
-							<Sparkles className="h-4 w-4 text-primary" />
+							<Sparkles className="h-3 w-3 text-primary" />
 						</button>
 
 						<div className="flex items-center gap-2 shrink-0">
-							{todo.priority && todo.priority !== "none" && (
+							{/* {todo.priority && todo.priority !== "none" && (
 								<div
 									className={cn(
 										"flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
@@ -392,7 +397,7 @@ export function TodoCard({
 									<Flag className="h-3.5 w-3.5" fill="currentColor" />
 									<span>{getPriorityLabel(todo.priority, tCommon)}</span>
 								</div>
-							)}
+							)} */}
 							{todo.attachments && todo.attachments.length > 0 && (
 								<span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground bg-muted/50">
 									<Paperclip className="h-3 w-3" />
@@ -443,7 +448,7 @@ export function TodoCard({
 				<form
 					onSubmit={handleCreateChild}
 					onMouseDown={(e) => e.stopPropagation()}
-					className="mt-3 space-y-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-3"
+					className="mt-2 space-y-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-2"
 				>
 					<input
 						ref={childInputRef}

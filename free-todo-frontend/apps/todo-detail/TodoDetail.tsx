@@ -247,6 +247,8 @@ export function TodoDetail() {
 					allTodos={todos}
 					onSelectTodo={setSelectedTodoId}
 					onCreateChild={handleCreateChild}
+					onToggleStatus={toggleTodoStatus}
+					onUpdateTodo={updateTodo}
 				/>
 			</div>
 		</div>

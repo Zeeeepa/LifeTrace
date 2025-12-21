@@ -1,15 +1,15 @@
 "use client";
 
-import { Calendar, Flag, Plus, Tag as TagIcon } from "lucide-react";
+import { Calendar, Plus, Tag as TagIcon, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TodoContextMenu } from "@/components/common/TodoContextMenu";
-import type { Todo } from "@/lib/types";
-import { getPriorityLabel, sortTodosByOrder } from "@/lib/utils";
+import type { Todo, TodoStatus, UpdateTodoInput } from "@/lib/types";
+import { cn, sortTodosByOrder } from "@/lib/utils";
 import {
 	formatDateTime,
 	getChildProgress,
-	getPriorityIconColor,
+	getPriorityBorderColor,
 } from "../helpers";
 
 interface ChildTodoSectionProps {
@@ -17,6 +17,8 @@ interface ChildTodoSectionProps {
 	allTodos: Todo[];
 	onSelectTodo: (id: number) => void;
 	onCreateChild: (name: string) => void;
+	onToggleStatus: (id: number) => Promise<Todo>;
+	onUpdateTodo: (id: number, input: UpdateTodoInput) => Promise<Todo>;
 }
 
 export function ChildTodoSection({
@@ -24,8 +26,9 @@ export function ChildTodoSection({
 	allTodos,
 	onSelectTodo,
 	onCreateChild,
+	onToggleStatus,
+	onUpdateTodo,
 }: ChildTodoSectionProps) {
-	const tCommon = useTranslations("common");
 	const tTodoDetail = useTranslations("todoDetail");
 	const [isAddingChild, setIsAddingChild] = useState(false);
 	const [childName, setChildName] = useState("");
@@ -54,6 +57,21 @@ export function ChildTodoSection({
 	const handleAddChildFromMenu = () => {
 		setIsAddingChild(true);
 		setChildName("");
+	};
+
+	const handleToggleStatus = async (e: React.MouseEvent, child: Todo) => {
+		e.stopPropagation();
+		try {
+			if (child.status === "canceled") {
+				// 如果是 canceled 状态，点击复选框回到 active 状态
+				await onUpdateTodo(child.id, { status: "active" as TodoStatus });
+			} else {
+				// 其他状态使用通用的切换逻辑
+				await onToggleStatus(child.id);
+			}
+		} catch (err) {
+			console.error("Failed to toggle todo status:", err);
+		}
 	};
 
 	return (
@@ -86,17 +104,45 @@ export function ChildTodoSection({
 							>
 								<div className="flex flex-col gap-1">
 									<div className="flex items-center gap-2">
-										<span className="inline-flex h-4 w-4 items-center justify-center rounded-md border-2 border-muted-foreground/60" />
-										<Flag
-											className={getPriorityIconColor(child.priority ?? "none")}
-											fill="currentColor"
-											aria-label={tTodoDetail("priorityLabel", {
-												priority: getPriorityLabel(
-													child.priority ?? "none",
-													tCommon,
-												),
-											})}
-										/>
+										<button
+											type="button"
+											onClick={(e) => handleToggleStatus(e, child)}
+											className="shrink-0"
+										>
+											{child.status === "completed" ? (
+												<div className="flex h-4 w-4 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
+													<span className="text-[8px] text-[oklch(var(--primary-foreground))] font-semibold">
+														✓
+													</span>
+												</div>
+											) : child.status === "canceled" ? (
+												<div
+													className={cn(
+														"flex h-4 w-4 items-center justify-center rounded-md border-2",
+														getPriorityBorderColor(child.priority ?? "none"),
+														"bg-muted/30 text-muted-foreground/70",
+														"transition-colors",
+														"hover:bg-muted/40 hover:text-muted-foreground",
+													)}
+												>
+													<X className="h-2.5 w-2.5" strokeWidth={2.5} />
+												</div>
+											) : child.status === "draft" ? (
+												<div className="flex h-4 w-4 items-center justify-center rounded-md bg-orange-500 border border-orange-600 dark:border-orange-500 shadow-inner">
+													<span className="text-[10px] text-white dark:text-orange-50 font-semibold">
+														—
+													</span>
+												</div>
+											) : (
+												<div
+													className={cn(
+														"h-4 w-4 rounded-md border-2 transition-colors",
+														getPriorityBorderColor(child.priority ?? "none"),
+														"hover:border-foreground",
+													)}
+												/>
+											)}
+										</button>
 										<span className="text-sm font-semibold text-foreground">
 											{child.name}
 										</span>
