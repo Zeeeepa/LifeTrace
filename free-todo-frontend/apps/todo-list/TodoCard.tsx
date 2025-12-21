@@ -354,7 +354,7 @@ export function TodoCard({
 						<div className="min-w-0 flex-1 space-y-1">
 							<h3
 								className={cn(
-									"text-sm font-semibold text-foreground",
+									"text-sm text-foreground",
 									todo.status === "completed" &&
 										"line-through text-muted-foreground",
 									todo.status === "canceled" &&

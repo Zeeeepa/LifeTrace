@@ -182,7 +182,7 @@ export function ChildTodoSection({
 														/>
 													)}
 												</div>
-												<span className="text-sm font-semibold text-foreground">
+												<span className="text-sm text-foreground">
 													{child.name}
 												</span>
 											</div>

@@ -71,14 +71,14 @@ export function DetailTitle({ name, onNameChange }: DetailTitleProps) {
 					onKeyDown={handleKeyDown}
 					onCompositionStart={() => setIsComposing(true)}
 					onCompositionEnd={() => setIsComposing(false)}
-					className="flex-1 text-xl font-semibold text-foreground bg-transparent border-b-2 border-primary focus:outline-none"
+					className="flex-1 text-xl text-foreground bg-transparent border-b-2 border-primary focus:outline-none"
 				/>
 			) : (
 				<button
 					type="button"
 					onClick={handleStartEdit}
 					aria-label={t("editTitle")}
-					className="text-xl font-semibold text-foreground cursor-pointer hover:text-primary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-sm text-left flex-1"
+					className="text-xl text-foreground cursor-pointer hover:text-primary/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-sm text-left flex-1"
 				>
 					{name}
 				</button>
