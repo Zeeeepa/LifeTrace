@@ -35,6 +35,7 @@ export interface AudioSegment {
   duration: number;             // 时长（ms）
   fileSize: number;             // 文件大小（bytes）
   fileUrl?: string;             // 文件URL
+  audioSource: 'microphone' | 'system'; // 音频来源
   uploadStatus: 'pending' | 'uploading' | 'uploaded' | 'failed';
 }
 

@@ -27,8 +27,11 @@ from lifetrace.routers import (
     time_allocation,
     todo,
     todo_extraction,
+    transcripts,
     vector,
     vision,
+    voice_stream,
+    voice_stream_whisper,  # Faster-Whisper 替代方案
 )
 from lifetrace.routers import config as config_router
 from lifetrace.services.config_service import is_llm_configured
@@ -124,7 +127,22 @@ app.include_router(time_allocation.router)
 app.include_router(todo_extraction.router)
 app.include_router(vision.router)
 app.include_router(audio.router)
+app.include_router(transcripts.router)
 app.include_router(deepseek.router)
+# WebSocket ASR - 优先使用 Faster-Whisper（如果可用），否则使用 FunASR
+try:
+    from lifetrace.routers import voice_stream_whisper
+    # 检查 Faster-Whisper 是否可用
+    try:
+        from faster_whisper import WhisperModel
+        app.include_router(voice_stream_whisper.router)  # Faster-Whisper（推荐）
+        logger.info("✅ 已注册 Faster-Whisper WebSocket 路由（/api/voice/stream）")
+    except ImportError:
+        logger.warning("Faster-Whisper 未安装，尝试使用 FunASR")
+        app.include_router(voice_stream.router)  # FunASR（备用）
+except Exception as e:
+    logger.warning(f"Faster-Whisper 路由注册失败，尝试使用 FunASR: {e}")
+    app.include_router(voice_stream.router)  # FunASR（备用）
 
 
 if __name__ == "__main__":

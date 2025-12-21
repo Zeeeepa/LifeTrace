@@ -87,7 +87,13 @@ export class RecognitionService {
 
       // 处理不同错误类型
       if (event.error === 'no-speech') {
-        // 无语音输入，继续运行
+        // 无语音输入，继续运行（但不要频繁重启）
+        // 如果连续多次 no-speech，可能是系统音频模式，应该停止
+        if (this.retryCount > 3) {
+          console.warn('连续多次 no-speech 错误，可能是系统音频模式，停止识别');
+          this.stop();
+          return;
+        }
         return;
       } else if (event.error === 'audio-capture') {
         const error = new Error('无法访问麦克风');

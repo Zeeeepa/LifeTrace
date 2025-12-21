@@ -1,12 +1,21 @@
 /**
  * 录音服务 - 负责持续录音和音频分段
  */
+export type AudioSource = 'microphone' | 'system';
+
 export class RecordingService {
   private mediaRecorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private pendingRestart: boolean = false;
+  
+  /**
+   * 获取当前音频流（用于 WebSocket 识别）
+   */
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
   
   private segmentDuration = 10 * 60 * 1000; // 10分钟
   private currentSegmentStart: number = 0;
@@ -15,19 +24,40 @@ export class RecordingService {
   
   private isRecording: boolean = false;
   private recordingStartTime: Date | null = null;
+  private audioSource: AudioSource = 'microphone'; // 默认麦克风
   
   // 回调函数
-  private onSegmentReady?: (blob: Blob, startTime: Date, endTime: Date, segmentId: string) => void;
+  private onSegmentReady?: (blob: Blob, startTime: Date, endTime: Date, segmentId: string, audioSource: AudioSource) => void;
   private onError?: (error: Error) => void;
   private onAudioData?: (analyser: AnalyserNode) => void;
   
-  constructor() {}
+  constructor(audioSource: AudioSource = 'microphone') {
+    this.audioSource = audioSource;
+  }
+  
+  /**
+   * 设置音频源
+   */
+  setAudioSource(source: AudioSource): void {
+    if (this.isRecording) {
+      console.warn('Cannot change audio source while recording');
+      return;
+    }
+    this.audioSource = source;
+  }
+  
+  /**
+   * 获取当前音频源
+   */
+  getAudioSource(): AudioSource {
+    return this.audioSource;
+  }
 
   /**
    * 设置回调函数
    */
   setCallbacks(callbacks: {
-    onSegmentReady?: (blob: Blob, startTime: Date, endTime: Date, segmentId: string) => void;
+    onSegmentReady?: (blob: Blob, startTime: Date, endTime: Date, segmentId: string, audioSource: AudioSource) => void;
     onError?: (error: Error) => void;
     onAudioData?: (analyser: AnalyserNode) => void;
   }) {
@@ -46,14 +76,64 @@ export class RecordingService {
     }
 
     try {
-      // 获取麦克风权限
-      this.stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        } 
-      });
+      // 根据音频源选择不同的 API
+      if (this.audioSource === 'system') {
+        // 系统音频：使用 getDisplayMedia（需要用户选择屏幕/窗口）
+        // 注意：大多数浏览器要求同时请求视频和音频，然后我们可以移除视频轨道
+        try {
+          this.stream = await navigator.mediaDevices.getDisplayMedia({
+            audio: {
+              echoCancellation: false, // 系统音频不需要回声消除
+              noiseSuppression: false,
+              autoGainControl: false,
+            } as MediaTrackConstraints,
+            video: {
+              // 请求视频（浏览器要求），但我们会立即停止它
+              displaySurface: 'browser' as any, // 只捕获浏览器标签页
+            },
+          });
+          
+          // 检查是否有音频轨道
+          if (this.stream.getAudioTracks().length === 0) {
+            throw new Error('无法获取系统音频，请确保选择了包含音频的标签页');
+          }
+          
+          // 移除视频轨道（我们只需要音频）
+          this.stream.getVideoTracks().forEach(track => {
+            track.stop(); // 停止视频轨道
+            this.stream!.removeTrack(track); // 从流中移除
+          });
+          
+          // 监听音频轨道结束事件（用户可能停止共享）
+          this.stream.getAudioTracks().forEach(track => {
+            track.onended = () => {
+              console.log('音频轨道已结束（用户可能停止了共享）');
+              if (this.isRecording) {
+                this.stop();
+              }
+            };
+          });
+        } catch (error: any) {
+          // 提供更友好的错误信息
+          if (error.name === 'NotAllowedError') {
+            throw new Error('系统音频权限被拒绝，请允许屏幕共享权限');
+          } else if (error.name === 'NotSupportedError') {
+            throw new Error('您的浏览器不支持系统音频捕获，请使用 Chrome 或 Edge 浏览器');
+          } else if (error.name === 'NotFoundError') {
+            throw new Error('未找到可用的音频源，请确保选择了包含音频的标签页');
+          }
+          throw error;
+        }
+      } else {
+        // 麦克风：使用 getUserMedia
+        this.stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          } 
+        });
+      }
 
       // 创建 AudioContext 用于波形分析
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -229,7 +309,7 @@ export class RecordingService {
     const endTime = new Date();
 
     if (this.onSegmentReady) {
-      this.onSegmentReady(blob, startTime, endTime, this.segmentId);
+      this.onSegmentReady(blob, startTime, endTime, this.segmentId, this.audioSource);
     }
 
     // 重置

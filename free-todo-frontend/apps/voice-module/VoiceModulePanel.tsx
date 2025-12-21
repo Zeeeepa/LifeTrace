@@ -8,6 +8,7 @@ import ChatInterface from './components/ChatInterface';
 import { useAppStore } from './store/useAppStore';
 import { RecordingService } from './services/RecordingService';
 import { RecognitionService } from './services/RecognitionService';
+import { WebSocketRecognitionService } from './services/WebSocketRecognitionService';
 import { OptimizationService } from './services/OptimizationService';
 import { ScheduleExtractionService } from './services/ScheduleExtractionService';
 import { PersistenceService } from './services/PersistenceService';
@@ -43,6 +44,7 @@ export function VoiceModulePanel() {
 
   const recordingServiceRef = useRef<RecordingService | null>(null);
   const recognitionServiceRef = useRef<RecognitionService | null>(null);
+  const websocketRecognitionServiceRef = useRef<WebSocketRecognitionService | null>(null);
   const optimizationServiceRef = useRef<OptimizationService | null>(null);
   const scheduleExtractionServiceRef = useRef<ScheduleExtractionService | null>(null);
   const persistenceServiceRef = useRef<PersistenceService | null>(null);
@@ -60,13 +62,14 @@ export function VoiceModulePanel() {
   const [isApiKeyMissing, setIsApiKeyMissing] = useState(false);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioSource, setAudioSource] = useState<'microphone' | 'system'>('microphone');
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const playbackIntervalRef = useRef<number | null>(null);
 
   // 初始化服务
   useEffect(() => {
-    const recordingService = new RecordingService();
+    const recordingService = new RecordingService(audioSource);
     recordingService.setCallbacks({
       onSegmentReady: handleAudioSegmentReady,
       onError: (err) => {
@@ -80,6 +83,7 @@ export function VoiceModulePanel() {
     });
     recordingServiceRef.current = recordingService;
 
+    // Web Speech API 识别服务（用于麦克风）
     const recognitionService = new RecognitionService();
     recognitionService.setCallbacks({
       onResult: handleRecognitionResult,
@@ -93,6 +97,21 @@ export function VoiceModulePanel() {
       },
     });
     recognitionServiceRef.current = recognitionService;
+    
+    // WebSocket Faster-Whisper 识别服务（用于系统音频和高质量识别）
+    const websocketRecognitionService = new WebSocketRecognitionService();
+    websocketRecognitionService.setCallbacks({
+      onResult: handleRecognitionResult,
+      onError: (err) => {
+        console.error('WebSocket recognition error:', err);
+        setError(err.message);
+        setProcessStatus('recognition', 'error');
+      },
+      onStatusChange: (status) => {
+        setProcessStatus('recognition', status);
+      },
+    });
+    websocketRecognitionServiceRef.current = websocketRecognitionService;
 
     const optimizationService = new OptimizationService();
     optimizationService.setCallbacks({
@@ -164,10 +183,11 @@ export function VoiceModulePanel() {
     return () => {
       recordingService.stop();
       recognitionService.stop();
+      websocketRecognitionService.stop();
       if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
       audio.pause();
     };
-  }, []);
+  }, [audioSource]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -176,13 +196,14 @@ export function VoiceModulePanel() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleAudioSegmentReady = async (blob: Blob, startTime: Date, endTime: Date, segmentId: string) => {
+  const handleAudioSegmentReady = async (blob: Blob, startTime: Date, endTime: Date, segmentId: string, source: 'microphone' | 'system') => {
     const audioSegment: AudioSegment = {
       id: segmentId,
       startTime,
       endTime,
       duration: endTime.getTime() - startTime.getTime(),
       fileSize: blob.size,
+      audioSource: source,
       uploadStatus: 'pending',
     };
     addAudioSegment(audioSegment);
@@ -222,11 +243,19 @@ export function VoiceModulePanel() {
     const transcripts = useAppStore.getState().transcripts;
     
     if (isFinal) {
-      // 最终结果：创建新片段或更新最后一个临时片段
-      const lastInterimSegment = [...transcripts].reverse().find(t => t.isInterim);
+      // 最终结果：总是创建新片段（保留历史记录）
+      // 检查是否与最后一个最终片段内容相同（避免重复）
+      const lastFinalSegment = [...transcripts].reverse().find(t => !t.isInterim);
+      if (lastFinalSegment && lastFinalSegment.rawText === text) {
+        // 内容相同，可能是重复发送，跳过
+        console.log('跳过重复的识别结果:', text);
+        return;
+      }
       
-      if (lastInterimSegment) {
-        // 更新临时片段为最终结果
+      // 如果有临时片段，先将其转为最终结果
+      const lastInterimSegment = [...transcripts].reverse().find(t => t.isInterim);
+      if (lastInterimSegment && lastInterimSegment.interimText === text) {
+        // 临时片段内容与最终结果相同，直接转为最终结果
         updateTranscript(lastInterimSegment.id, {
           rawText: text,
           isInterim: false,
@@ -343,16 +372,45 @@ export function VoiceModulePanel() {
     storeStartRecording();
     try {
       if (recordingServiceRef.current) {
+        // 更新音频源
+        recordingServiceRef.current.setAudioSource(audioSource);
+        
+        // 如果是系统音频，提示用户
+        if (audioSource === 'system') {
+          // 浏览器会自动弹出选择窗口，这里可以添加提示
+          console.log('请在弹出的窗口中选择要共享的标签页（包含音频）');
+        }
+        
         await recordingServiceRef.current.start();
         setProcessStatus('recording', 'running');
       }
-      if (recognitionServiceRef.current) {
+      // 根据音频源选择识别服务
+      if (audioSource === 'microphone') {
+        // 麦克风：使用 Web Speech API（快速、免费）
+        if (recognitionServiceRef.current) {
+          setTimeout(() => {
+            recognitionServiceRef.current?.start();
+          }, 500);
+        }
+      } else if (audioSource === 'system') {
+        // 系统音频：使用 WebSocket Faster-Whisper（支持系统音频，更准确）
+        // 等待录音服务完全启动后再获取流
         setTimeout(() => {
-          recognitionServiceRef.current?.start();
-        }, 500);
+          if (recordingServiceRef.current && websocketRecognitionServiceRef.current) {
+            const stream = recordingServiceRef.current.getStream();
+            if (stream) {
+              console.log('启动 WebSocket Faster-Whisper 识别...');
+              websocketRecognitionServiceRef.current.start(stream);
+            } else {
+              console.warn('无法获取音频流，WebSocket 识别未启动');
+              setError('无法获取音频流，请重试');
+            }
+          }
+        }, 1000); // 等待录音服务完全启动
       }
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to start recording');
+      console.error('Recording error:', error);
       setError(error.message);
       setProcessStatus('recording', 'error');
       storeStopRecording();
@@ -366,6 +424,9 @@ export function VoiceModulePanel() {
     }
     if (recognitionServiceRef.current) {
       recognitionServiceRef.current.stop();
+    }
+    if (websocketRecognitionServiceRef.current) {
+      websocketRecognitionServiceRef.current.stop();
     }
     storeStopRecording();
   };
@@ -559,7 +620,11 @@ export function VoiceModulePanel() {
           </h1>
         </div>
         {error && (
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/10 text-red-600 border border-red-500/20 px-4 py-1 rounded-full text-xs font-medium animate-pulse">
+          <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 rounded-full text-xs font-medium ${
+            error.includes('系统音频模式') 
+              ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' 
+              : 'bg-red-500/10 text-red-600 border border-red-500/20 animate-pulse'
+          }`}>
             {error}
           </div>
         )}
@@ -570,6 +635,17 @@ export function VoiceModulePanel() {
             <span className={`w-2 h-2 rounded-full ${processStatus.recognition === 'running' ? 'bg-green-500' : 'bg-muted'}`}></span>
             <span>识别</span>
           </div>
+          {!isRecording && (
+            <select
+              value={audioSource}
+              onChange={(e) => setAudioSource(e.target.value as 'microphone' | 'system')}
+              className="bg-background border border-input text-foreground text-xs px-2 py-1 rounded focus:outline-none focus:ring-2 focus:ring-primary/50"
+              title="选择音频来源"
+            >
+              <option value="microphone">🎤 麦克风（Web Speech API）</option>
+              <option value="system">🔊 系统音频（Faster-Whisper 实时识别）</option>
+            </select>
+          )}
           {!isRecording ? (
             <button
               onClick={handleStartRecording}
