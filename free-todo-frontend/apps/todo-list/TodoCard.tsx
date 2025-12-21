@@ -278,7 +278,7 @@ export function TodoCard({
 				}
 			}}
 			className={cn(
-				"todo-card group relative flex h-full flex-col gap-1 rounded-lg px-1 py-2 cursor-pointer",
+				"todo-card group relative flex h-full flex-col justify-center gap-1 rounded-lg px-1 py-2 cursor-pointer",
 				"border border-transparent transition-all duration-200",
 				"bg-card dark:bg-background hover:bg-muted/40",
 				"select-none", // 阻止文本选择
@@ -289,7 +289,7 @@ export function TodoCard({
 				isDragging && "ring-2 ring-primary/30",
 			)}
 		>
-			<div className="flex items-start gap-2 justify-center align-middle">
+			<div className="flex items-start gap-2">
 				{hasChildren && (
 					<button
 						type="button"
@@ -349,12 +349,12 @@ export function TodoCard({
 					)}
 				</button>
 
-				<div className="flex-1 min-w-0 space-y-1">
-					<div className="flex items-start justify-between gap-2">
-						<div className="min-w-0 flex-1 space-y-1">
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center justify-between gap-2 h-4">
+						<div className="min-w-0 flex-1 flex items-center h-4">
 							<h3
 								className={cn(
-									"text-sm text-foreground",
+									"text-sm text-foreground leading-4 m-0 h-4 flex items-center",
 									todo.status === "completed" &&
 										"line-through text-muted-foreground",
 									todo.status === "canceled" &&
@@ -407,40 +407,44 @@ export function TodoCard({
 						</div>
 					</div>
 
-					<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-						{todo.deadline && (
-							<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
-								<Calendar className="h-3 w-3" />
-								<span>{formatDate(todo.deadline)}</span>
-							</div>
-						)}
+					{(todo.deadline ||
+						(todo.attachments && todo.attachments.length > 0) ||
+						(todo.tags && todo.tags.length > 0)) && (
+						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
+							{todo.deadline && (
+								<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
+									<Calendar className="h-3 w-3" />
+									<span>{formatDate(todo.deadline)}</span>
+								</div>
+							)}
 
-						{todo.attachments && todo.attachments.length > 0 && (
-							<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
-								<Paperclip className="h-3 w-3" />
-								<span>{todo.attachments.length}</span>
-							</div>
-						)}
+							{todo.attachments && todo.attachments.length > 0 && (
+								<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
+									<Paperclip className="h-3 w-3" />
+									<span>{todo.attachments.length}</span>
+								</div>
+							)}
 
-						{todo.tags && todo.tags.length > 0 && (
-							<div className="flex flex-wrap items-center gap-1">
-								<Tag className="h-3 w-3" />
-								{todo.tags.slice(0, 3).map((tag) => (
-									<span
-										key={tag}
-										className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
-									>
-										{tag}
-									</span>
-								))}
-								{todo.tags.length > 3 && (
-									<span className="text-[11px] text-muted-foreground">
-										+{todo.tags.length - 3}
-									</span>
-								)}
-							</div>
-						)}
-					</div>
+							{todo.tags && todo.tags.length > 0 && (
+								<div className="flex flex-wrap items-center gap-1">
+									<Tag className="h-3 w-3" />
+									{todo.tags.slice(0, 3).map((tag) => (
+										<span
+											key={tag}
+											className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-foreground"
+										>
+											{tag}
+										</span>
+									))}
+									{todo.tags.length > 3 && (
+										<span className="text-[11px] text-muted-foreground">
+											+{todo.tags.length - 3}
+										</span>
+									)}
+								</div>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 
