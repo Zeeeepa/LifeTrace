@@ -334,7 +334,7 @@ export default function HomePage() {
 								height={24}
 								className="shrink-0"
 							/>
-							<h1 className="text-sm font-semibold tracking-tight text-foreground">
+							<h1 className="text-base font-semibold tracking-tight text-foreground">
 								Free Todo
 							</h1>
 						</div>
