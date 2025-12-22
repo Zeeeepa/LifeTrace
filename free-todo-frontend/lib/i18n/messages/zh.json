@@ -281,7 +281,25 @@
 				"label": "Edit 模式",
 				"description": "生成内容追加到待办备注"
 			},
+			"agent": {
+				"label": "智能助手",
+				"description": "AI助手帮你拆解、编辑任务"
+			},
 			"active": "当前"
+		},
+		"agent": {
+			"inputPlaceholder": "和智能助手对话，帮你管理任务...",
+			"confirmEdit": "确认修改",
+			"rejectEdit": "取消",
+			"confirmDecompose": "确认拆解",
+			"rejectDecompose": "取消",
+			"editProposalTitle": "AI建议修改",
+			"decomposeProposalTitle": "AI建议拆解为以下子任务",
+			"questionsTitle": "请回答以下问题",
+			"questionsDesc": "您的回答将帮助AI更好地理解任务需求",
+			"skipQuestion": "跳过此问题",
+			"submitAnswers": "提交回答",
+			"submitting": "提交中..."
 		},
 		"todoContext": {
 			"id": "ID",

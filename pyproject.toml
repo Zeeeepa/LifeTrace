@@ -27,6 +27,8 @@ dependencies = [
     "psutil>=5.9.0",
     # OpenAI API
     "openai>=1.0.0",
+    # PydanticAI Agent Framework
+    "pydantic-ai>=1.37.0",
     # Configuration management with hot reload support (includes yaml support)
     "dynaconf[yaml]>=3.2.0",
     # Logging

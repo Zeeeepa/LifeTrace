@@ -4,55 +4,55 @@ overview: 在现有聊天系统中添加 Agent 模式，使用 PydanticAI 构建
 todos:
   - id: install-pydantic-ai
     content: 在 pyproject.toml 中添加 pydantic-ai 依赖
-    status: pending
+    status: completed
   - id: create-agent-module
     content: 创建 lifetrace/llm/todo_agent.py - Agent 核心模块
-    status: pending
+    status: completed
     dependencies:
       - install-pydantic-ai
   - id: create-agent-router
     content: 创建 lifetrace/routers/agent.py - Agent API 端点
-    status: pending
+    status: completed
     dependencies:
       - create-agent-module
   - id: add-agent-prompts
     content: 在 prompt.yaml 中添加 todo_agent 相关提示词
-    status: pending
+    status: completed
     dependencies:
       - create-agent-module
   - id: extend-frontend-types
     content: 扩展 types.ts 添加 agent 模式类型定义
-    status: pending
+    status: completed
   - id: create-agent-api
     content: 在 api.ts 中添加 Agent 流式 API 函数
-    status: pending
+    status: completed
     dependencies:
       - extend-frontend-types
   - id: create-agent-controller
     content: 创建 useAgentController.ts hook
-    status: pending
+    status: completed
     dependencies:
       - create-agent-api
   - id: create-agent-components
     content: 创建 Agent 专用 UI 组件 (AgentQuestions, AgentEditProposal 等)
-    status: pending
+    status: completed
     dependencies:
       - extend-frontend-types
   - id: update-mode-switcher
     content: 更新 ModeSwitcher.tsx 添加 agent 模式选项
-    status: pending
+    status: completed
     dependencies:
       - extend-frontend-types
   - id: update-chat-panel
     content: 更新 ChatPanel.tsx 集成 Agent 模式
-    status: pending
+    status: completed
     dependencies:
       - create-agent-controller
       - create-agent-components
       - update-mode-switcher
   - id: add-i18n
     content: 添加 Agent 模式的中英文翻译
-    status: pending
+    status: completed
     dependencies:
       - update-mode-switcher
 ---
@@ -333,5 +333,3 @@ sequenceDiagram
 ### 编辑确认机制
 
 Agent 提议编辑时：
-
-1. Agent 返回 `response_type: "edit_proposal"` 和具体提议

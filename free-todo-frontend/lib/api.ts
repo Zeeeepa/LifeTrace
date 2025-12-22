@@ -163,6 +163,130 @@ export async function planSummaryStream(
 }
 
 // ============================================================================
+// Agent 模式 API
+// ============================================================================
+
+export interface AgentChatParams {
+	message: string;
+	todoId?: number;
+	conversationId?: string;
+	conversationHistory?: Array<{ role: string; content: string }>;
+}
+
+/**
+ * Agent 模式：发送消息并流式接收响应
+ */
+export async function sendAgentMessageStream(
+	params: AgentChatParams,
+	onChunk: (chunk: string) => void,
+	onSessionId?: (sessionId: string) => void,
+): Promise<void> {
+	const baseUrl = getStreamApiBaseUrl();
+	const response = await fetch(`${baseUrl}/api/agent/chat/stream`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			message: params.message,
+			todo_id: params.todoId,
+			conversation_id: params.conversationId,
+			conversation_history: params.conversationHistory,
+		}),
+	});
+
+	if (!response.ok) {
+		throw new Error(`Request failed with status ${response.status}`);
+	}
+
+	// 从响应头中获取 session_id
+	const sessionId = response.headers.get("X-Session-Id");
+	if (sessionId && onSessionId) {
+		onSessionId(sessionId);
+	}
+
+	if (!response.body) {
+		throw new Error("ReadableStream is not supported in this environment");
+	}
+
+	const reader = response.body.getReader();
+	const decoder = new TextDecoder();
+
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+
+		if (value) {
+			const chunk = decoder.decode(value, { stream: true });
+			if (chunk) {
+				onChunk(chunk);
+			}
+		}
+	}
+}
+
+/**
+ * Agent 模式：确认编辑提议
+ */
+export async function confirmAgentEdit(
+	todoId: number,
+	field: string,
+	newValue: string,
+): Promise<{ success: boolean; message?: string; error?: string }> {
+	const baseUrl = getStreamApiBaseUrl();
+	const response = await fetch(`${baseUrl}/api/agent/confirm-edit`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			todo_id: todoId,
+			field: field,
+			new_value: newValue,
+		}),
+	});
+
+	if (!response.ok) {
+		const error = await response.text();
+		return { success: false, error };
+	}
+
+	return response.json();
+}
+
+/**
+ * Agent 模式：确认拆解提议
+ */
+export async function confirmAgentDecompose(
+	todoId: number,
+	subtasks: Array<{ name: string; description?: string }>,
+): Promise<{
+	success: boolean;
+	message?: string;
+	error?: string;
+	createdIds?: number[];
+}> {
+	const baseUrl = getStreamApiBaseUrl();
+	const response = await fetch(`${baseUrl}/api/agent/confirm-decompose`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			todo_id: todoId,
+			subtasks: subtasks,
+		}),
+	});
+
+	if (!response.ok) {
+		const error = await response.text();
+		return { success: false, error };
+	}
+
+	return response.json();
+}
+
+// ============================================================================
 // 工具函数
 // ============================================================================
 

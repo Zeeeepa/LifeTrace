@@ -3,9 +3,13 @@
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AgentDecomposeProposal } from "@/apps/chat/AgentDecomposeProposal";
+import { AgentEditProposal } from "@/apps/chat/AgentEditProposal";
+import { AgentQuestions } from "@/apps/chat/AgentQuestions";
 import { HeaderBar } from "@/apps/chat/HeaderBar";
 import { HistoryDrawer } from "@/apps/chat/HistoryDrawer";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
+import { useAgentController } from "@/apps/chat/hooks/useAgentController";
 import { usePlanService } from "@/apps/chat/hooks/usePlanService";
 import { InputBox } from "@/apps/chat/InputBox";
 import { LinkedTodos } from "@/apps/chat/LinkedTodos";
@@ -228,6 +232,18 @@ export function ChatPanel() {
 		createTodo: createTodoWithResult,
 	});
 
+	// Agent 模式控制器
+	const selectedTodoId = selectedTodoIds.length === 1 ? selectedTodoIds[0] : undefined;
+	const agentController = useAgentController({
+		todoId: selectedTodoId,
+		onTodoUpdated: () => {
+			// 刷新 todos 列表
+		},
+	});
+
+	// Agent 模式状态
+	const [agentInputValue, setAgentInputValue] = useState("");
+
 	const typingText = useMemo(() => tChat("aiThinking"), [tChat]);
 
 	const inputPlaceholder =
@@ -235,7 +251,9 @@ export function ChatPanel() {
 			? tChat("planModeInputPlaceholder")
 			: chatMode === "edit"
 				? tChat("editMode.inputPlaceholder")
-				: tPage("chatInputPlaceholder");
+				: chatMode === "agent"
+					? tChat("agent.inputPlaceholder")
+					: tPage("chatInputPlaceholder");
 
 	const formatMessageCount = useCallback(
 		(count?: number) => tPage("messagesCount", { count: count ?? 0 }),
@@ -337,8 +355,61 @@ export function ChatPanel() {
 				/>
 			)}
 
+			{/* Agent 模式 */}
+			{chatMode === "agent" && (stage === "idle" || stage === "completed") && (
+				<>
+					<MessageList
+						messages={agentController.messages}
+						isStreaming={agentController.isStreaming}
+						typingText={typingText}
+						locale={locale}
+						chatMode={chatMode}
+						effectiveTodos={effectiveTodos}
+						onUpdateTodo={updateTodoMutation.mutateAsync}
+						isUpdating={updateTodoMutation.isPending}
+					/>
+
+					{/* Agent 澄清问题 */}
+					{agentController.pendingQuestions && (
+						<div className="px-4 pb-4">
+							<AgentQuestions
+								questions={agentController.pendingQuestions}
+								answers={agentController.questionAnswers}
+								onAnswerChange={agentController.setQuestionAnswer}
+								onSubmit={agentController.submitQuestionAnswers}
+								isSubmitting={agentController.isStreaming}
+							/>
+						</div>
+					)}
+
+					{/* Agent 编辑提议 */}
+					{agentController.pendingEditProposal && selectedTodoId && (
+						<div className="px-4 pb-4">
+							<AgentEditProposal
+								proposal={agentController.pendingEditProposal}
+								onConfirm={agentController.confirmEdit}
+								onReject={agentController.rejectEdit}
+								isLoading={agentController.isStreaming}
+							/>
+						</div>
+					)}
+
+					{/* Agent 拆解提议 */}
+					{agentController.pendingDecomposeProposal && selectedTodoId && (
+						<div className="px-4 pb-4">
+							<AgentDecomposeProposal
+								proposal={agentController.pendingDecomposeProposal}
+								onConfirm={agentController.confirmDecompose}
+								onReject={agentController.rejectDecompose}
+								isLoading={agentController.isStreaming}
+							/>
+						</div>
+					)}
+				</>
+			)}
+
 			{/* 正常聊天模式 */}
-			{(stage === "idle" || stage === "completed") && (
+			{chatMode !== "agent" && (stage === "idle" || stage === "completed") && (
 				<MessageList
 					messages={messages}
 					isStreaming={isStreaming}
@@ -374,18 +445,33 @@ export function ChatPanel() {
 								onChangeMode={(mode) => {
 									setChatMode(mode);
 									setModeMenuOpen(false);
+									// 切换到 agent 模式时清空 agent 消息
+									if (mode === "agent") {
+										agentController.clearMessages();
+									}
 								}}
 								variant="inline"
 							/>
 						</div>
 					}
-					inputValue={inputValue}
+					inputValue={chatMode === "agent" ? agentInputValue : inputValue}
 					placeholder={inputPlaceholder}
-					isStreaming={isStreaming}
+					isStreaming={chatMode === "agent" ? agentController.isStreaming : isStreaming}
 					locale={locale}
-					onChange={setInputValue}
-					onSend={handleSend}
-					onKeyDown={handleKeyDown}
+					onChange={chatMode === "agent" ? setAgentInputValue : setInputValue}
+					onSend={chatMode === "agent" ? () => {
+						if (agentInputValue.trim()) {
+							void agentController.sendMessage(agentInputValue);
+							setAgentInputValue("");
+						}
+					} : handleSend}
+					onKeyDown={chatMode === "agent" ? (e) => {
+						if (e.key === "Enter" && !e.shiftKey && agentInputValue.trim() && !agentController.isStreaming) {
+							e.preventDefault();
+							void agentController.sendMessage(agentInputValue);
+							setAgentInputValue("");
+						}
+					} : handleKeyDown}
 					onCompositionStart={() => setIsComposing(true)}
 					onCompositionEnd={() => setIsComposing(false)}
 				/>

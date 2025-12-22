@@ -281,7 +281,25 @@
 				"label": "Edit",
 				"description": "Generate and append to notes"
 			},
+			"agent": {
+				"label": "Agent",
+				"description": "AI assistant helps manage tasks"
+			},
 			"active": "Active"
+		},
+		"agent": {
+			"inputPlaceholder": "Chat with AI assistant to manage your tasks...",
+			"confirmEdit": "Confirm Edit",
+			"rejectEdit": "Cancel",
+			"confirmDecompose": "Confirm Decompose",
+			"rejectDecompose": "Cancel",
+			"editProposalTitle": "AI Suggests Edit",
+			"decomposeProposalTitle": "AI Suggests Breaking Into Subtasks",
+			"questionsTitle": "Please Answer These Questions",
+			"questionsDesc": "Your answers will help AI better understand your task requirements",
+			"skipQuestion": "Skip this question",
+			"submitAnswers": "Submit Answers",
+			"submitting": "Submitting..."
 		},
 		"todoContext": {
 			"id": "ID",

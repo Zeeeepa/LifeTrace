@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from lifetrace.jobs.job_manager import get_job_manager
 from lifetrace.routers import (
     activity,
+    agent,
     chat,
     context,
     cost_tracking,
@@ -121,6 +122,7 @@ app.include_router(cost_tracking.router)
 app.include_router(time_allocation.router)
 app.include_router(todo_extraction.router)
 app.include_router(vision.router)
+app.include_router(agent.router)
 
 
 if __name__ == "__main__":
