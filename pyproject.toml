@@ -21,6 +21,10 @@ dependencies = [
     "numpy>=1.21.0",
     # Data processing
     "pyyaml>=6.0",
+    "sentence-transformers>=2.2.0",  # 文本嵌入模型
+    "chromadb>=0.4.0",               # 向量数据库
+    "scipy>=1.9.0",                  # 科学计算（用于余弦距离）
+    "hdbscan>=0.8.0",                # 文本聚类算法
     # Scheduler
     "apscheduler>=3.10.0",
     # Utils
@@ -116,14 +120,4 @@ dev = [
     "pre-commit>=4.4.0",
     "ruff>=0.14.4",
     "pyinstaller>=6.0.0",
-]
-
-# 向量数据库和语义搜索功能（可选）
-# 用于：事件摘要聚类、语义搜索、OCR 文本向量化
-# 安装方式：uv sync --group vector
-vector = [
-    "sentence-transformers>=2.2.0",  # 文本嵌入模型
-    "chromadb>=0.4.0",               # 向量数据库
-    "scipy>=1.9.0",                  # 科学计算（用于余弦距离）
-    "hdbscan>=0.8.0",                # 文本聚类算法
 ]
