@@ -139,6 +139,7 @@
 				"task_summary": "Task Summary (Manual)",
 				"activity_summary": "Activity Summary",
 				"vision_assistant": "Auto Todo Detection",
+				"workspace_assistant": "Workspace Assistant",
 				"unknown": "Unknown Feature"
 			}
 		}

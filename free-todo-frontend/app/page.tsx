@@ -324,18 +324,18 @@ export default function HomePage() {
 		<GlobalDndProvider>
 			<main className="relative flex h-screen flex-col overflow-hidden text-foreground">
 				<div className="relative z-10 flex h-full flex-col text-foreground">
-					<header className="relative flex h-12 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
+					<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
 						{/* 左侧：Logo */}
 						<div className="flex items-center gap-2 shrink-0">
 							<Image
 								src="/logo.png"
 								alt="Free Todo Logo"
-								width={24}
-								height={24}
+								width={32}
+								height={32}
 								className="shrink-0"
 							/>
-							<h1 className="text-base font-semibold tracking-tight text-foreground">
-								Free Todo
+							<h1 className="text-lg font-semibold tracking-tight text-foreground">
+								Free Todo: Your AI Secretary
 							</h1>
 						</div>
 

@@ -139,6 +139,7 @@
 				"task_summary": "任务摘要生成（手动）",
 				"activity_summary": "活动总结",
 				"vision_assistant": "自动待办检测",
+				"workspace_assistant": "工作区助手",
 				"unknown": "未知功能"
 			}
 		}

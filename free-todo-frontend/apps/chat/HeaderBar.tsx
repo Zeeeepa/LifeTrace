@@ -2,8 +2,10 @@
 
 import { History, MessageSquare, PlusCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { PanelHeader } from "@/components/common/PanelHeader";
-import { cn } from "@/lib/utils";
+import {
+	PanelActionButton,
+	PanelHeader,
+} from "@/components/common/PanelHeader";
 
 type HeaderBarProps = {
 	chatHistoryLabel: string;
@@ -26,32 +28,19 @@ export function HeaderBar({
 			title={t("chatLabel")}
 			actions={
 				<>
-					<button
-						type="button"
+					<PanelActionButton
+						variant="default"
+						icon={History}
 						onClick={onToggleHistory}
-						className={cn(
-							"flex h-7 w-7 items-center justify-center rounded-md",
-							"text-muted-foreground transition-colors",
-							"hover:bg-muted/50 hover:text-foreground",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
 						aria-label={chatHistoryLabel}
-					>
-						<History className="h-4 w-4" />
-					</button>
-					<button
-						type="button"
+					/>
+					<PanelActionButton
+						variant="primary"
+						icon={PlusCircle}
 						onClick={onNewChat}
-						className={cn(
-							"flex h-7 w-7 items-center justify-center rounded-md",
-							"bg-primary text-primary-foreground transition-colors",
-							"hover:bg-primary/90",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						iconOverrides={{ color: "text-primary-foreground" }}
 						aria-label={newChatLabel}
-					>
-						<PlusCircle className="h-4 w-4" />
-					</button>
+					/>
 				</>
 			}
 		/>
