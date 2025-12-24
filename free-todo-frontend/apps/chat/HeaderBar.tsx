@@ -35,10 +35,9 @@ export function HeaderBar({
 						aria-label={chatHistoryLabel}
 					/>
 					<PanelActionButton
-						variant="primary"
+						variant="default"
 						icon={PlusCircle}
 						onClick={onNewChat}
-						iconOverrides={{ color: "text-primary-foreground" }}
 						aria-label={newChatLabel}
 					/>
 				</>
