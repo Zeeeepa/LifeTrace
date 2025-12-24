@@ -1,9 +1,10 @@
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { EditModeMessage } from "@/apps/chat/EditModeMessage";
+import { PromptSuggestions } from "@/apps/chat/PromptSuggestions";
 import type { ChatMessage, ChatMode } from "@/apps/chat/types";
 import type { Todo, UpdateTodoInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ type MessageListProps = {
 		input: UpdateTodoInput;
 	}) => Promise<Todo>;
 	isUpdating?: boolean;
+	onSelectPrompt?: (prompt: string) => void;
 };
 
 export function MessageList({
@@ -32,6 +34,7 @@ export function MessageList({
 	effectiveTodos = [],
 	onUpdateTodo,
 	isUpdating = false,
+	onSelectPrompt,
 }: MessageListProps) {
 	const t = useTranslations("chat");
 	const messageListRef = useRef<HTMLDivElement>(null);
@@ -39,6 +42,19 @@ export function MessageList({
 	const isAtBottomRef = useRef(true);
 	// 跟踪上一次消息数量，用于检测新消息
 	const prevMessageCountRef = useRef(0);
+
+	// 检查是否应该显示预设按钮：消息为空或只有一条初始assistant消息
+	const shouldShowSuggestions = useMemo(() => {
+		if (messages.length === 0) return true;
+		if (messages.length === 1) {
+			const msg = messages[0];
+			// 如果是assistant消息且内容是初始消息，则显示预设按钮
+			if (msg.role === "assistant" && msg.content === t("initialMessage")) {
+				return true;
+			}
+		}
+		return false;
+	}, [messages, t]);
 
 	// 检查是否在底部（允许 30px 的误差）
 	const checkIsAtBottom = useCallback(() => {
@@ -94,6 +110,15 @@ export function MessageList({
 
 		return () => cancelAnimationFrame(frameId);
 	}, [messages, isStreaming, scrollToBottom]);
+
+	// 如果应该显示预设按钮，则显示预设按钮而不是消息列表
+	if (shouldShowSuggestions && onSelectPrompt) {
+		return (
+			<div className="flex-1 overflow-y-auto" ref={messageListRef}>
+				<PromptSuggestions onSelect={onSelectPrompt} />
+			</div>
+		);
+	}
 
 	return (
 		<div
