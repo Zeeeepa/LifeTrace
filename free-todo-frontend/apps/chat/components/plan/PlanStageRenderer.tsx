@@ -2,9 +2,9 @@
 
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { PlanSummary } from "@/apps/chat/PlanSummary";
-import { Questionnaire } from "@/apps/chat/Questionnaire";
-import { SummaryStreaming } from "@/apps/chat/SummaryStreaming";
+import { SummaryStreaming } from "@/apps/chat/components/message/SummaryStreaming";
+import { PlanSummary } from "@/apps/chat/components/plan/PlanSummary";
+import { Questionnaire } from "@/apps/chat/components/plan/Questionnaire";
 import type { ParsedTodoTree } from "@/apps/chat/types";
 import type { Locale } from "@/lib/store/locale";
 import type { Question } from "@/lib/store/plan-store";

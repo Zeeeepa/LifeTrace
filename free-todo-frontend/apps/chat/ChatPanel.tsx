@@ -2,14 +2,14 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
-import { ChatInputSection } from "@/apps/chat/ChatInputSection";
-import { HeaderBar } from "@/apps/chat/HeaderBar";
-import { HistoryDrawer } from "@/apps/chat/HistoryDrawer";
+import { ChatInputSection } from "@/apps/chat/components/input/ChatInputSection";
+import { HeaderBar } from "@/apps/chat/components/layout/HeaderBar";
+import { HistoryDrawer } from "@/apps/chat/components/layout/HistoryDrawer";
+import { MessageList } from "@/apps/chat/components/message/MessageList";
+import { PlanStageRenderer } from "@/apps/chat/components/plan/PlanStageRenderer";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
 import { usePlanQuestionnaire } from "@/apps/chat/hooks/usePlanQuestionnaire";
 import { usePromptHandlers } from "@/apps/chat/hooks/usePromptHandlers";
-import { MessageList } from "@/apps/chat/MessageList";
-import { PlanStageRenderer } from "@/apps/chat/PlanStageRenderer";
 import { useCreateTodo, useUpdateTodo } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";

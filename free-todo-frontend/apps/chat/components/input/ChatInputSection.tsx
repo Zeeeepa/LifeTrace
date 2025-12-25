@@ -2,9 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
-import { InputBox } from "@/apps/chat/InputBox";
-import { LinkedTodos } from "@/apps/chat/LinkedTodos";
-import { ModeSwitcher } from "@/apps/chat/ModeSwitcher";
+import { InputBox } from "@/apps/chat/components/input/InputBox";
+import { LinkedTodos } from "@/apps/chat/components/input/LinkedTodos";
+import { ModeSwitcher } from "@/apps/chat/components/input/ModeSwitcher";
 import type { ChatMode } from "@/apps/chat/types";
 import type { Todo } from "@/lib/types";
 
