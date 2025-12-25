@@ -399,5 +399,10 @@ export const useChatController = ({
 		handleKeyDown,
 		effectiveTodos,
 		hasSelection,
+		editSystemPrompt,
+		planSystemPrompt,
+		parsePlanTodos,
+		buildTodoPayloads,
+		todos,
 	};
 };
