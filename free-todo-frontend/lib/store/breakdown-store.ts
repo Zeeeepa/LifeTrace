@@ -13,11 +13,11 @@ export interface Question {
 	type?: "single" | "multiple"; // 可选，默认多选
 }
 
-type PlanStage = "idle" | "questionnaire" | "summary" | "completed";
+type BreakdownStage = "idle" | "questionnaire" | "summary" | "completed";
 
-interface PlanStoreState {
-	activePlanTodoId: number | null;
-	stage: PlanStage;
+interface BreakdownStoreState {
+	activeBreakdownTodoId: number | null;
+	stage: BreakdownStage;
 	questions: Question[];
 	answers: Record<string, string[]>;
 	summary: string | null;
@@ -30,7 +30,7 @@ interface PlanStoreState {
 	questionStreamingTitle: string | null; // 当前正在生成的问题标题
 	error: string | null;
 
-	startPlan: (todoId: number) => void;
+	startBreakdown: (todoId: number) => void;
 	setQuestions: (questions: Question[]) => void;
 	setAnswer: (questionId: string, options: string[]) => void;
 	setSummary: (summary: string, subtasks: ParsedTodoTree[]) => void;
@@ -38,12 +38,12 @@ interface PlanStoreState {
 	setIsGeneratingSummary: (isGenerating: boolean) => void; // 设置生成状态
 	setQuestionStreaming: (count: number, title: string | null) => void; // 设置问题流式状态
 	setIsGeneratingQuestions: (isGenerating: boolean) => void; // 设置问题生成状态
-	resetPlan: () => void;
-	applyPlan: () => Promise<void>;
+	resetBreakdown: () => void;
+	applyBreakdown: () => Promise<void>;
 }
 
-export const usePlanStore = create<PlanStoreState>()((set, get) => ({
-	activePlanTodoId: null,
+export const useBreakdownStore = create<BreakdownStoreState>()((set, get) => ({
+	activeBreakdownTodoId: null,
 	stage: "idle",
 	questions: [],
 	answers: {},
@@ -57,9 +57,9 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 	questionStreamingTitle: null,
 	error: null,
 
-	startPlan: (todoId: number) => {
+	startBreakdown: (todoId: number) => {
 		set({
-			activePlanTodoId: todoId,
+			activeBreakdownTodoId: todoId,
 			stage: "questionnaire",
 			questions: [],
 			answers: {},
@@ -120,9 +120,9 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 		});
 	},
 
-	resetPlan: () => {
+	resetBreakdown: () => {
 		set({
-			activePlanTodoId: null,
+			activeBreakdownTodoId: null,
 			stage: "idle",
 			questions: [],
 			answers: {},
@@ -138,9 +138,9 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 		});
 	},
 
-	applyPlan: async () => {
+	applyBreakdown: async () => {
 		const state = get();
-		if (!state.activePlanTodoId || !state.summary || !state.subtasks) {
+		if (!state.activeBreakdownTodoId || !state.summary || !state.subtasks) {
 			return;
 		}
 
@@ -148,7 +148,7 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 
 		try {
 			// 更新任务描述
-			await updateTodoApiTodosTodoIdPut(state.activePlanTodoId, {
+			await updateTodoApiTodosTodoIdPut(state.activeBreakdownTodoId, {
 				description: state.summary,
 			});
 
@@ -175,7 +175,7 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 				}
 			};
 
-			await createSubtasks(state.subtasks, state.activePlanTodoId);
+			await createSubtasks(state.subtasks, state.activeBreakdownTodoId);
 
 			// 使 todos 缓存失效，触发重新获取
 			const queryClient = getQueryClient();
@@ -189,12 +189,12 @@ export const usePlanStore = create<PlanStoreState>()((set, get) => ({
 
 			// 延迟重置，让用户看到完成状态
 			setTimeout(() => {
-				get().resetPlan();
+				get().resetBreakdown();
 			}, 2000);
 		} catch (error) {
-			console.error("Failed to apply plan:", error);
+			console.error("Failed to apply breakdown:", error);
 			set({
-				error: error instanceof Error ? error.message : "应用计划失败，请重试",
+				error: error instanceof Error ? error.message : "应用拆分失败，请重试",
 				isLoading: false,
 			});
 		}

@@ -273,6 +273,15 @@
 		"noResponseReceived": "No response received, please try again.",
 		"addedTodos": "Added {count} todos to the list.",
 		"errorOccurred": "Something went wrong. Please try again.",
+		"breakdownSummary": {
+			"title": "Task Breakdown Result",
+			"description": "Based on your answers, we have broken down the task into the following subtasks:",
+			"taskSummary": "Task Summary",
+			"subtaskList": "Subtask List",
+			"noSubtasks": "No subtasks",
+			"applying": "Applying...",
+			"acceptAndApply": "Accept and Apply"
+		},
 		"planSummary": {
 			"title": "Todo Planning Result",
 			"description": "Please review the AI-generated todo summary and subtask list, then click Accept to confirm",

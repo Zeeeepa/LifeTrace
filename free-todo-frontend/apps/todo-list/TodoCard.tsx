@@ -20,7 +20,7 @@ import { TodoContextMenu } from "@/components/common/TodoContextMenu";
 import type { DragData } from "@/lib/dnd";
 import { useGlobalDndSafe } from "@/lib/dnd";
 import { useTodoMutations, useTodos } from "@/lib/query";
-import { usePlanStore } from "@/lib/store/plan-store";
+import { useBreakdownStore } from "@/lib/store/breakdown-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo, TodoPriority } from "@/lib/types";
@@ -57,7 +57,7 @@ export function TodoCard({
 	// 从 Zustand 获取 UI 状态操作
 	const { toggleTodoExpanded, isTodoExpanded } = useTodoStore();
 
-	const { startPlan } = usePlanStore();
+	const { startBreakdown } = useBreakdownStore();
 	const { setPanelFeature, getFeatureByPosition } = useUiStore();
 	const [isAddingChild, setIsAddingChild] = useState(false);
 	const [childName, setChildName] = useState("");
@@ -196,7 +196,7 @@ export function TodoCard({
 		}
 	};
 
-	const handleStartPlan = () => {
+	const handleStartBreakdown = () => {
 		// 确保聊天Panel打开并切换到聊天功能
 		const chatPosition = getFeatureByPosition("panelA");
 		if (chatPosition !== "chat") {
@@ -233,8 +233,8 @@ export function TodoCard({
 			}
 		}
 
-		// 开始Plan流程
-		startPlan(todo.id);
+		// 开始Breakdown流程
+		startBreakdown(todo.id);
 	};
 
 	const handleToggleStatus = async (e: React.MouseEvent) => {
@@ -378,7 +378,7 @@ export function TodoCard({
 							type="button"
 							onClick={(e) => {
 								e.stopPropagation();
-								handleStartPlan();
+								handleStartBreakdown();
 							}}
 							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-all self-start mt-0.5"
 							aria-label={tTodoDetail("useAiPlan")}

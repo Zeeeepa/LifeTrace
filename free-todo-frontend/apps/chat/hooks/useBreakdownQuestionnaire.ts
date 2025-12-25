@@ -1,31 +1,31 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo } from "react";
-import { usePlanService } from "@/apps/chat/hooks/usePlanService";
+import { useBreakdownService } from "@/apps/chat/hooks/useBreakdownService";
 import { useTodos } from "@/lib/query";
-import { usePlanStore } from "@/lib/store/plan-store";
+import { useBreakdownStore } from "@/lib/store/breakdown-store";
 import type { Todo } from "@/lib/types";
 
-export const usePlanQuestionnaire = () => {
+export const useBreakdownQuestionnaire = () => {
 	const tChat = useTranslations("chat");
 
-	// 从 TanStack Query 获取 todos 数据（用于 Plan 功能）
+	// 从 TanStack Query 获取 todos 数据（用于 Breakdown 功能）
 	const { data: todos = [] } = useTodos();
 
-	// Plan功能相关状态
+	// Breakdown功能相关状态
 	const {
-		activePlanTodoId,
+		activeBreakdownTodoId,
 		stage,
 		questions,
 		answers,
 		summary,
 		subtasks,
-		isLoading: planLoading,
+		isLoading: breakdownLoading,
 		isGeneratingSummary,
 		summaryStreamingText,
 		isGeneratingQuestions,
 		questionStreamingCount,
 		questionStreamingTitle,
-		error: planError,
+		error: breakdownError,
 		setQuestions,
 		setAnswer,
 		setSummary,
@@ -33,38 +33,40 @@ export const usePlanQuestionnaire = () => {
 		setIsGeneratingSummary,
 		setQuestionStreaming,
 		setIsGeneratingQuestions,
-		applyPlan,
-	} = usePlanStore();
+		applyBreakdown,
+	} = useBreakdownStore();
 
-	const { generateQuestions, generateSummary } = usePlanService();
+	const { generateQuestions, generateSummary } = useBreakdownService();
 
-	// 获取当前正在规划的待办
-	const activePlanTodo = useMemo(() => {
-		if (!activePlanTodoId) return null;
-		return todos.find((todo: Todo) => todo.id === activePlanTodoId) || null;
-	}, [activePlanTodoId, todos]);
+	// 获取当前正在拆分的待办
+	const activeBreakdownTodo = useMemo(() => {
+		if (!activeBreakdownTodoId) return null;
+		return (
+			todos.find((todo: Todo) => todo.id === activeBreakdownTodoId) || null
+		);
+	}, [activeBreakdownTodoId, todos]);
 
 	// 当进入questionnaire阶段时，生成选择题
 	useEffect(() => {
 		if (
 			stage === "questionnaire" &&
-			activePlanTodo &&
+			activeBreakdownTodo &&
 			questions.length === 0 &&
-			planLoading
+			breakdownLoading
 		) {
 			let cancelled = false;
 			const generate = async () => {
 				try {
 					console.log(
 						"开始生成选择题，任务名称:",
-						activePlanTodo.name,
+						activeBreakdownTodo.name,
 						"任务ID:",
-						activePlanTodo.id,
+						activeBreakdownTodo.id,
 					);
 					setIsGeneratingQuestions(true);
 					const generatedQuestions = await generateQuestions(
-						activePlanTodo.name,
-						activePlanTodo.id,
+						activeBreakdownTodo.name,
+						activeBreakdownTodo.id,
 						(count, title) => {
 							// 流式更新问题生成进度
 							if (!cancelled) {
@@ -81,7 +83,7 @@ export const usePlanQuestionnaire = () => {
 					if (!cancelled) {
 						console.error("Failed to generate questions:", error);
 						// 错误处理：设置错误状态
-						usePlanStore.setState({
+						useBreakdownStore.setState({
 							error:
 								error instanceof Error
 									? error.message
@@ -99,9 +101,9 @@ export const usePlanQuestionnaire = () => {
 		}
 	}, [
 		stage,
-		activePlanTodo,
+		activeBreakdownTodo,
 		questions.length,
-		planLoading,
+		breakdownLoading,
 		generateQuestions,
 		setQuestions,
 		setQuestionStreaming,
@@ -111,7 +113,7 @@ export const usePlanQuestionnaire = () => {
 
 	// 处理提交回答
 	const handleSubmitAnswers = useCallback(async () => {
-		if (!activePlanTodo) return;
+		if (!activeBreakdownTodo) return;
 
 		try {
 			// 设置生成状态
@@ -120,7 +122,7 @@ export const usePlanQuestionnaire = () => {
 
 			// 流式生成总结
 			const result = await generateSummary(
-				activePlanTodo.name,
+				activeBreakdownTodo.name,
 				answers,
 				(streamingText) => {
 					// 实时更新流式文本
@@ -135,7 +137,7 @@ export const usePlanQuestionnaire = () => {
 			setIsGeneratingSummary(false);
 			setSummaryStreaming(null);
 			// 设置错误状态
-			usePlanStore.setState({
+			useBreakdownStore.setState({
 				error:
 					error instanceof Error
 						? error.message
@@ -143,7 +145,7 @@ export const usePlanQuestionnaire = () => {
 			});
 		}
 	}, [
-		activePlanTodo,
+		activeBreakdownTodo,
 		answers,
 		generateSummary,
 		setSummary,
@@ -152,27 +154,27 @@ export const usePlanQuestionnaire = () => {
 		tChat,
 	]);
 
-	// 处理接收计划
-	const handleAcceptPlan = useCallback(async () => {
-		await applyPlan();
-	}, [applyPlan]);
+	// 处理接收拆分
+	const handleAcceptBreakdown = useCallback(async () => {
+		await applyBreakdown();
+	}, [applyBreakdown]);
 
 	return {
-		activePlanTodo,
+		activeBreakdownTodo,
 		stage,
 		questions,
 		answers,
 		summary,
 		subtasks,
-		planLoading,
+		breakdownLoading,
 		isGeneratingSummary,
 		summaryStreamingText,
 		isGeneratingQuestions,
 		questionStreamingCount,
 		questionStreamingTitle,
-		planError,
+		breakdownError,
 		setAnswer,
 		handleSubmitAnswers,
-		handleAcceptPlan,
+		handleAcceptBreakdown,
 	};
 };

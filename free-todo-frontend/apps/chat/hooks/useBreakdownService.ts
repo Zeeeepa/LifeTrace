@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { ParsedTodoTree } from "@/apps/chat/types";
 import { planQuestionnaireStream, planSummaryStream } from "@/lib/api";
-import type { Question } from "@/lib/store/plan-store";
+import type { Question } from "@/lib/store/breakdown-store";
 
 interface GenerateQuestionsResponse {
 	questions: Question[];
@@ -130,7 +130,7 @@ const tryParseStreamingQuestions = (
 	return { count, title };
 };
 
-export const usePlanService = () => {
+export const useBreakdownService = () => {
 	const generateQuestions = useCallback(
 		async (
 			todoName: string,
@@ -140,7 +140,7 @@ export const usePlanService = () => {
 			let fullResponse = "";
 
 			console.log(
-				"[Plan] 发送问题生成请求，任务名称:",
+				"[Breakdown] 发送问题生成请求，任务名称:",
 				todoName,
 				"任务ID:",
 				todoId,
@@ -159,17 +159,20 @@ export const usePlanService = () => {
 				},
 				todoId,
 			);
-			console.log("[Plan] 收到完整响应，长度:", fullResponse.length);
-			console.log("[Plan] 完整响应内容:", fullResponse);
+			console.log("[Breakdown] 收到完整响应，长度:", fullResponse.length);
+			console.log("[Breakdown] 完整响应内容:", fullResponse);
 
 			const jsonText = findJson(fullResponse);
 			if (!jsonText) {
-				console.error("[Plan] 无法从响应中提取JSON，响应内容:", fullResponse);
+				console.error(
+					"[Breakdown] 无法从响应中提取JSON，响应内容:",
+					fullResponse,
+				);
 				throw new Error(
 					`未找到问题JSON，请重试。响应内容：${fullResponse.substring(0, 200)}`,
 				);
 			}
-			console.log("[Plan] 提取的JSON文本:", jsonText);
+			console.log("[Breakdown] 提取的JSON文本:", jsonText);
 
 			try {
 				// 先尝试直接解析
@@ -178,20 +181,20 @@ export const usePlanService = () => {
 					parsed = JSON.parse(jsonText) as GenerateQuestionsResponse;
 				} catch (parseError) {
 					// 如果解析失败，尝试修复JSON
-					console.warn("[Plan] JSON解析失败，尝试修复:", parseError);
+					console.warn("[Breakdown] JSON解析失败，尝试修复:", parseError);
 					console.warn(
-						"[Plan] 原始JSON文本（前500字符）:",
+						"[Breakdown] 原始JSON文本（前500字符）:",
 						jsonText.substring(0, 500),
 					);
 					const fixedJson = tryFixJson(jsonText);
 					console.log(
-						"[Plan] 修复后的JSON（前500字符）:",
+						"[Breakdown] 修复后的JSON（前500字符）:",
 						fixedJson.substring(0, 500),
 					);
 					try {
 						parsed = JSON.parse(fixedJson) as GenerateQuestionsResponse;
 					} catch (fixError) {
-						console.error("[Plan] 修复后仍然无法解析:", fixError);
+						console.error("[Breakdown] 修复后仍然无法解析:", fixError);
 						// 显示JSON文本的详细位置信息
 						const errorMsg =
 							fixError instanceof Error ? fixError.message : String(fixError);
@@ -201,10 +204,15 @@ export const usePlanService = () => {
 							const start = Math.max(0, pos - 50);
 							const end = Math.min(fixedJson.length, pos + 50);
 							console.error(
-								"[Plan] JSON错误位置附近的文本:",
+								"[Breakdown] JSON错误位置附近的文本:",
 								fixedJson.substring(start, end),
 							);
-							console.error("[Plan] 错误位置:", pos, "字符:", fixedJson[pos]);
+							console.error(
+								"[Breakdown] 错误位置:",
+								pos,
+								"字符:",
+								fixedJson[pos],
+							);
 						}
 						throw new Error(
 							`JSON解析失败：${errorMsg}。请检查LLM返回的JSON格式。`,
@@ -260,7 +268,7 @@ export const usePlanService = () => {
 			let fullResponse = "";
 
 			console.log(
-				"[Plan] 发送总结生成请求，任务名称:",
+				"[Breakdown] 发送总结生成请求，任务名称:",
 				todoName,
 				"回答数量:",
 				Object.keys(answers).length,
@@ -272,17 +280,20 @@ export const usePlanService = () => {
 					onStreaming(fullResponse);
 				}
 			});
-			console.log("[Plan] 收到完整响应，长度:", fullResponse.length);
-			console.log("[Plan] 完整响应内容:", fullResponse);
+			console.log("[Breakdown] 收到完整响应，长度:", fullResponse.length);
+			console.log("[Breakdown] 完整响应内容:", fullResponse);
 
 			const jsonText = findJson(fullResponse);
 			if (!jsonText) {
-				console.error("[Plan] 无法从响应中提取JSON，响应内容:", fullResponse);
+				console.error(
+					"[Breakdown] 无法从响应中提取JSON，响应内容:",
+					fullResponse,
+				);
 				throw new Error(
 					`未找到总结JSON，请重试。响应内容：${fullResponse.substring(0, 200)}`,
 				);
 			}
-			console.log("[Plan] 提取的JSON文本:", jsonText);
+			console.log("[Breakdown] 提取的JSON文本:", jsonText);
 
 			try {
 				// 先尝试直接解析
@@ -291,20 +302,20 @@ export const usePlanService = () => {
 					parsed = JSON.parse(jsonText) as GenerateSummaryResponse;
 				} catch (parseError) {
 					// 如果解析失败，尝试修复JSON
-					console.warn("[Plan] JSON解析失败，尝试修复:", parseError);
+					console.warn("[Breakdown] JSON解析失败，尝试修复:", parseError);
 					console.warn(
-						"[Plan] 原始JSON文本（前500字符）:",
+						"[Breakdown] 原始JSON文本（前500字符）:",
 						jsonText.substring(0, 500),
 					);
 					const fixedJson = tryFixJson(jsonText);
 					console.log(
-						"[Plan] 修复后的JSON（前500字符）:",
+						"[Breakdown] 修复后的JSON（前500字符）:",
 						fixedJson.substring(0, 500),
 					);
 					try {
 						parsed = JSON.parse(fixedJson) as GenerateSummaryResponse;
 					} catch (fixError) {
-						console.error("[Plan] 修复后仍然无法解析:", fixError);
+						console.error("[Breakdown] 修复后仍然无法解析:", fixError);
 						// 显示JSON文本的详细位置信息
 						const errorMsg =
 							fixError instanceof Error ? fixError.message : String(fixError);
@@ -314,10 +325,15 @@ export const usePlanService = () => {
 							const start = Math.max(0, pos - 50);
 							const end = Math.min(fixedJson.length, pos + 50);
 							console.error(
-								"[Plan] JSON错误位置附近的文本:",
+								"[Breakdown] JSON错误位置附近的文本:",
 								fixedJson.substring(start, end),
 							);
-							console.error("[Plan] 错误位置:", pos, "字符:", fixedJson[pos]);
+							console.error(
+								"[Breakdown] 错误位置:",
+								pos,
+								"字符:",
+								fixedJson[pos],
+							);
 						}
 						throw new Error(
 							`JSON解析失败：${errorMsg}。请检查LLM返回的JSON格式。`,

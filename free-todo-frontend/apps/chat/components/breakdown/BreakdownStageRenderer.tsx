@@ -2,53 +2,53 @@
 
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { BreakdownSummary } from "@/apps/chat/components/breakdown/BreakdownSummary";
+import { Questionnaire } from "@/apps/chat/components/breakdown/Questionnaire";
 import { SummaryStreaming } from "@/apps/chat/components/message/SummaryStreaming";
-import { PlanSummary } from "@/apps/chat/components/plan/PlanSummary";
-import { Questionnaire } from "@/apps/chat/components/plan/Questionnaire";
 import type { ParsedTodoTree } from "@/apps/chat/types";
+import type { Question } from "@/lib/store/breakdown-store";
 import type { Locale } from "@/lib/store/locale";
-import type { Question } from "@/lib/store/plan-store";
 
-type PlanStageRendererProps = {
+type BreakdownStageRendererProps = {
 	stage: string;
 	questions: Question[];
 	answers: Record<string, string[]>;
 	summary: string | null;
 	subtasks: ParsedTodoTree[] | null;
-	planLoading: boolean;
+	breakdownLoading: boolean;
 	isGeneratingSummary: boolean;
 	summaryStreamingText: string | null;
 	isGeneratingQuestions: boolean;
 	questionStreamingCount: number;
 	questionStreamingTitle: string | null;
-	planError: string | null;
+	breakdownError: string | null;
 	locale: Locale;
 	onAnswerChange: (questionId: string, options: string[]) => void;
 	onSubmit: () => void;
 	onAccept: () => void;
 };
 
-export function PlanStageRenderer({
+export function BreakdownStageRenderer({
 	stage,
 	questions,
 	answers,
 	summary,
 	subtasks,
-	planLoading,
+	breakdownLoading,
 	isGeneratingSummary,
 	summaryStreamingText,
 	isGeneratingQuestions,
 	questionStreamingCount,
 	questionStreamingTitle,
-	planError,
+	breakdownError,
 	locale,
 	onAnswerChange,
 	onSubmit,
 	onAccept,
-}: PlanStageRendererProps) {
+}: BreakdownStageRendererProps) {
 	const tChat = useTranslations("chat");
 
-	// Plan功能：根据阶段显示不同内容
+	// Breakdown功能：根据阶段显示不同内容
 	if (stage === "questionnaire") {
 		if (questions.length > 0) {
 			return (
@@ -87,8 +87,8 @@ export function PlanStageRenderer({
 							{tChat("generatingQuestions")}
 						</p>
 					)}
-					{planError && (
-						<p className="mt-2 text-sm text-destructive">{planError}</p>
+					{breakdownError && (
+						<p className="mt-2 text-sm text-destructive">{breakdownError}</p>
 					)}
 				</div>
 			</div>
@@ -103,11 +103,11 @@ export function PlanStageRenderer({
 	// 总结展示阶段（生成完成后）
 	if (stage === "summary" && summary && subtasks && !isGeneratingSummary) {
 		return (
-			<PlanSummary
+			<BreakdownSummary
 				summary={summary}
 				subtasks={subtasks}
 				onAccept={onAccept}
-				isApplying={planLoading}
+				isApplying={breakdownLoading}
 				locale={locale}
 			/>
 		);

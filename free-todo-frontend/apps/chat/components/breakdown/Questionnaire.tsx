@@ -3,7 +3,7 @@
 import { Check, Edit2, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
-import type { Question } from "@/lib/store/plan-store";
+import type { Question } from "@/lib/store/breakdown-store";
 import { cn } from "@/lib/utils";
 
 interface QuestionnaireProps {

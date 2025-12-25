@@ -2,13 +2,13 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
+import { BreakdownStageRenderer } from "@/apps/chat/components/breakdown/BreakdownStageRenderer";
 import { ChatInputSection } from "@/apps/chat/components/input/ChatInputSection";
 import { HeaderBar } from "@/apps/chat/components/layout/HeaderBar";
 import { HistoryDrawer } from "@/apps/chat/components/layout/HistoryDrawer";
 import { MessageList } from "@/apps/chat/components/message/MessageList";
-import { PlanStageRenderer } from "@/apps/chat/components/plan/PlanStageRenderer";
+import { useBreakdownQuestionnaire } from "@/apps/chat/hooks/useBreakdownQuestionnaire";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
-import { usePlanQuestionnaire } from "@/apps/chat/hooks/usePlanQuestionnaire";
 import { usePromptHandlers } from "@/apps/chat/hooks/usePromptHandlers";
 import { useCreateTodo, useUpdateTodo } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
@@ -43,8 +43,8 @@ export function ChatPanel() {
 	const { selectedTodoIds, clearTodoSelection, toggleTodoSelection } =
 		useTodoStore();
 
-	// 使用 Plan Questionnaire hook
-	const planQuestionnaire = usePlanQuestionnaire();
+	// 使用 Breakdown Questionnaire hook
+	const breakdownQuestionnaire = useBreakdownQuestionnaire();
 
 	// 使用 Chat Controller hook
 	const chatController = useChatController({
@@ -110,27 +110,27 @@ export function ChatPanel() {
 				/>
 			)}
 
-			<PlanStageRenderer
-				stage={planQuestionnaire.stage}
-				questions={planQuestionnaire.questions}
-				answers={planQuestionnaire.answers}
-				summary={planQuestionnaire.summary}
-				subtasks={planQuestionnaire.subtasks}
-				planLoading={planQuestionnaire.planLoading}
-				isGeneratingSummary={planQuestionnaire.isGeneratingSummary}
-				summaryStreamingText={planQuestionnaire.summaryStreamingText}
-				isGeneratingQuestions={planQuestionnaire.isGeneratingQuestions}
-				questionStreamingCount={planQuestionnaire.questionStreamingCount}
-				questionStreamingTitle={planQuestionnaire.questionStreamingTitle}
-				planError={planQuestionnaire.planError}
+			<BreakdownStageRenderer
+				stage={breakdownQuestionnaire.stage}
+				questions={breakdownQuestionnaire.questions}
+				answers={breakdownQuestionnaire.answers}
+				summary={breakdownQuestionnaire.summary}
+				subtasks={breakdownQuestionnaire.subtasks}
+				breakdownLoading={breakdownQuestionnaire.breakdownLoading}
+				isGeneratingSummary={breakdownQuestionnaire.isGeneratingSummary}
+				summaryStreamingText={breakdownQuestionnaire.summaryStreamingText}
+				isGeneratingQuestions={breakdownQuestionnaire.isGeneratingQuestions}
+				questionStreamingCount={breakdownQuestionnaire.questionStreamingCount}
+				questionStreamingTitle={breakdownQuestionnaire.questionStreamingTitle}
+				breakdownError={breakdownQuestionnaire.breakdownError}
 				locale={locale}
-				onAnswerChange={planQuestionnaire.setAnswer}
-				onSubmit={planQuestionnaire.handleSubmitAnswers}
-				onAccept={planQuestionnaire.handleAcceptPlan}
+				onAnswerChange={breakdownQuestionnaire.setAnswer}
+				onSubmit={breakdownQuestionnaire.handleSubmitAnswers}
+				onAccept={breakdownQuestionnaire.handleAcceptBreakdown}
 			/>
 
-			{(planQuestionnaire.stage === "idle" ||
-				planQuestionnaire.stage === "completed") && (
+			{(breakdownQuestionnaire.stage === "idle" ||
+				breakdownQuestionnaire.stage === "completed") && (
 				<MessageList
 					messages={chatController.messages}
 					isStreaming={chatController.isStreaming}

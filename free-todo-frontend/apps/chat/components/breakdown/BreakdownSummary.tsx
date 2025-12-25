@@ -7,7 +7,7 @@ import type { ParsedTodoTree } from "@/apps/chat/types";
 import type { Locale } from "@/lib/store/locale";
 import { cn } from "@/lib/utils";
 
-interface PlanSummaryProps {
+interface BreakdownSummaryProps {
 	summary: string;
 	subtasks: ParsedTodoTree[];
 	onAccept: () => void;
@@ -46,13 +46,13 @@ function SubtaskTree({
 	);
 }
 
-export function PlanSummary({
+export function BreakdownSummary({
 	summary,
 	subtasks,
 	onAccept,
 	isApplying,
 	locale: _locale,
-}: PlanSummaryProps) {
+}: BreakdownSummaryProps) {
 	const t = useTranslations("chat");
 
 	return (
@@ -60,17 +60,17 @@ export function PlanSummary({
 			<div className="mx-auto max-w-2xl space-y-6">
 				<div className="rounded-lg bg-muted/50 p-4">
 					<h3 className="mb-2 text-lg font-semibold">
-						{t("planSummary.title")}
+						{t("breakdownSummary.title")}
 					</h3>
 					<p className="text-sm text-muted-foreground">
-						{t("planSummary.description")}
+						{t("breakdownSummary.description")}
 					</p>
 				</div>
 
 				{/* 待办总结 */}
 				<div className="rounded-lg border bg-card p-4 shadow-sm">
 					<h4 className="mb-3 text-base font-semibold">
-						{t("planSummary.taskSummary")}
+						{t("breakdownSummary.taskSummary")}
 					</h4>
 					<div className="prose prose-sm max-w-none dark:prose-invert">
 						<ReactMarkdown>{summary}</ReactMarkdown>
@@ -80,13 +80,13 @@ export function PlanSummary({
 				{/* 子待办列表 */}
 				<div className="rounded-lg border bg-card p-4 shadow-sm">
 					<h4 className="mb-3 text-base font-semibold">
-						{t("planSummary.subtaskList")}
+						{t("breakdownSummary.subtaskList")}
 					</h4>
 					{subtasks.length > 0 ? (
 						<SubtaskTree subtasks={subtasks} />
 					) : (
 						<p className="text-sm text-muted-foreground">
-							{t("planSummary.noSubtasks")}
+							{t("breakdownSummary.noSubtasks")}
 						</p>
 					)}
 				</div>
@@ -107,12 +107,12 @@ export function PlanSummary({
 						{isApplying ? (
 							<>
 								<Loader2 className="h-4 w-4 animate-spin" />
-								{t("planSummary.applying")}
+								{t("breakdownSummary.applying")}
 							</>
 						) : (
 							<>
 								<Check className="h-4 w-4" />
-								{t("planSummary.acceptAndApply")}
+								{t("breakdownSummary.acceptAndApply")}
 							</>
 						)}
 					</button>

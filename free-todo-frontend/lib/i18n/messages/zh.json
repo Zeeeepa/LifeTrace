@@ -273,6 +273,15 @@
 		"noResponseReceived": "没有收到回复，请稍后再试。",
 		"addedTodos": "已添加 {count} 条待办到列表。",
 		"errorOccurred": "出错了，请稍后再试。",
+		"breakdownSummary": {
+			"title": "任务拆分结果",
+			"description": "根据您的回答，我们已将任务拆分为以下子任务：",
+			"taskSummary": "任务总结",
+			"subtaskList": "子任务列表",
+			"noSubtasks": "暂无子任务",
+			"applying": "正在应用...",
+			"acceptAndApply": "接受并应用"
+		},
 		"planSummary": {
 			"title": "待办规划结果",
 			"description": "请查看AI生成的待办总结和子待办列表，确认后点击接收",

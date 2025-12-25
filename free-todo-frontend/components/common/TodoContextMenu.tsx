@@ -6,7 +6,7 @@ import type React from "react";
 import { cloneElement, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTodoMutations, useTodos } from "@/lib/query";
-import { usePlanStore } from "@/lib/store/plan-store";
+import { useBreakdownStore } from "@/lib/store/breakdown-store";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo } from "@/lib/types";
@@ -33,7 +33,7 @@ export function TodoContextMenu({
 
 	// 从 Zustand 获取 UI 状态操作
 	const { onTodoDeleted } = useTodoStore();
-	const { startPlan } = usePlanStore();
+	const { startBreakdown } = useBreakdownStore();
 	const { setPanelFeature, getFeatureByPosition } = useUiStore();
 
 	// 右键菜单状态
@@ -136,7 +136,7 @@ export function TodoContextMenu({
 		}
 	};
 
-	const handleStartPlan = () => {
+	const handleStartBreakdown = () => {
 		// 确保聊天Panel打开并切换到聊天功能
 		const chatPosition = getFeatureByPosition("panelA");
 		if (chatPosition !== "chat") {
@@ -173,8 +173,8 @@ export function TodoContextMenu({
 			}
 		}
 
-		// 开始Plan流程
-		startPlan(todoId);
+		// 开始Breakdown流程
+		startBreakdown(todoId);
 		setContextMenu((state) => ({ ...state, open: false }));
 	};
 
@@ -297,7 +297,7 @@ export function TodoContextMenu({
 							<button
 								type="button"
 								className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted/70 transition-colors"
-								onClick={handleStartPlan}
+								onClick={handleStartBreakdown}
 							>
 								<Sparkles className="h-4 w-4" />
 								<span>{t("useAiPlan")}</span>
