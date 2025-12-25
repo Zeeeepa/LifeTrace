@@ -278,7 +278,7 @@ export function TodoCard({
 				}
 			}}
 			className={cn(
-				"todo-card group relative flex h-full flex-col justify-center gap-1 rounded-lg px-1 py-2 cursor-pointer",
+				"todo-card group relative flex max-h-32 flex-col justify-start gap-1 rounded-lg px-1 py-2 cursor-pointer",
 				"border border-transparent transition-all duration-200",
 				"bg-card dark:bg-background hover:bg-muted/40",
 				"select-none", // 阻止文本选择
@@ -289,7 +289,7 @@ export function TodoCard({
 				isDragging && "ring-2 ring-primary/30",
 			)}
 		>
-			<div className="flex items-start gap-2">
+			<div className="flex items-center gap-2">
 				{hasChildren && (
 					<button
 						type="button"
@@ -297,7 +297,7 @@ export function TodoCard({
 							e.stopPropagation();
 							toggleTodoExpanded(todo.id);
 						}}
-						className="shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-colors"
+						className="shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-colors self-start mt-0.5"
 						aria-label={
 							isExpanded
 								? tTodoDetail("collapseSubTasks")
@@ -313,7 +313,11 @@ export function TodoCard({
 					</button>
 				)}
 				{!hasChildren && <div className="w-4 shrink-0" />}
-				<button type="button" onClick={handleToggleStatus} className="shrink-0">
+				<button
+					type="button"
+					onClick={handleToggleStatus}
+					className="shrink-0 self-start mt-0.5"
+				>
 					{todo.status === "completed" ? (
 						<div className="flex h-4 w-4 items-center justify-center rounded-md bg-[oklch(var(--primary))] border border-[oklch(var(--primary))] shadow-inner">
 							<span className="text-[8px] text-[oklch(var(--primary-foreground))] font-semibold">
@@ -350,11 +354,11 @@ export function TodoCard({
 				</button>
 
 				<div className="flex-1 min-w-0">
-					<div className="flex items-center justify-between gap-2 h-4">
-						<div className="min-w-0 flex-1 flex items-center h-4">
+					<div className="flex items-start justify-between gap-2">
+						<div className="min-w-0 flex-1">
 							<h3
 								className={cn(
-									"text-sm text-foreground leading-4 m-0 h-4 flex items-center",
+									"text-sm text-foreground leading-5 m-0 wrap-break-word line-clamp-3",
 									todo.status === "completed" &&
 										"line-through text-muted-foreground",
 									todo.status === "canceled" &&
@@ -376,7 +380,7 @@ export function TodoCard({
 								e.stopPropagation();
 								handleStartPlan();
 							}}
-							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
+							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-all self-start mt-0.5"
 							aria-label={tTodoDetail("useAiPlan")}
 							title={tTodoDetail("useAiPlanTitle")}
 						>
