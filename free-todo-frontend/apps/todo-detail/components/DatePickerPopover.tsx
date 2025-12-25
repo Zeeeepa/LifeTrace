@@ -350,9 +350,10 @@ export function DatePickerPopover({
 	const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
 		if (value) {
 			const d = new Date(value);
-			return Number.isNaN(d.getTime()) ? null : d;
+			return Number.isNaN(d.getTime()) ? new Date() : d;
 		}
-		return null;
+		// 如果没有值，默认选中今天
+		return new Date();
 	});
 	const [selectedTime, setSelectedTime] = useState<string>(() => {
 		if (value) {
@@ -427,13 +428,15 @@ export function DatePickerPopover({
 		}
 
 		const result = new Date(selectedDate);
+		// 如果用户设置了时间，则使用设置的时间；否则不设置时间（保持为0:00:00）
 		if (selectedTime) {
 			const [hh, mm] = selectedTime
 				.split(":")
 				.map((n) => Number.parseInt(n, 10));
 			result.setHours(hh || 0, mm || 0, 0, 0);
 		} else {
-			result.setHours(9, 0, 0, 0);
+			// 用户没有设置时间，只设置日期，时间保持为0:00:00
+			result.setHours(0, 0, 0, 0);
 		}
 
 		onChange(result.toISOString());

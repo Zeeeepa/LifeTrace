@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn, getPriorityLabel, getStatusLabel } from "@/lib/utils";
 import {
-	formatDateTime,
+	formatDeadline,
 	getPriorityClassNames,
 	getStatusClassNames,
 	priorityOptions,
@@ -212,7 +212,7 @@ export function MetaSection({
 						<Calendar className="h-3 w-3" />
 						<span className="truncate">
 							{todo.deadline
-								? formatDateTime(todo.deadline)
+								? formatDeadline(todo.deadline)
 								: tTodoDetail("addDeadline")}
 						</span>
 					</button>

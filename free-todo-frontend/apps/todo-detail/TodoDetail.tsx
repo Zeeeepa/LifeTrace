@@ -218,9 +218,7 @@ export function TodoDetail() {
 					todo={todo}
 					onStatusChange={(status) => updateTodo(todo.id, { status })}
 					onPriorityChange={(priority) => updateTodo(todo.id, { priority })}
-					onDeadlineChange={(deadline) =>
-						updateTodo(todo.id, { deadline: deadline ?? undefined })
-					}
+					onDeadlineChange={(deadline) => updateTodo(todo.id, { deadline })}
 					onTagsChange={(tags) => updateTodo(todo.id, { tags })}
 				/>
 
