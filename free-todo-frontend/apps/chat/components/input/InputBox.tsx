@@ -1,6 +1,7 @@
 import { AtSign, Loader2, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type React from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 type InputBoxProps = {
@@ -16,7 +17,12 @@ type InputBoxProps = {
 	modeSwitcher?: React.ReactNode;
 	onAtClick?: () => void;
 	linkedTodos?: React.ReactNode;
+	/** 最大高度，默认为 "40vh"（视口高度的40%） */
+	maxHeight?: string;
 };
+
+/** textarea 的最小行高（像素） */
+const MIN_TEXTAREA_HEIGHT = 85;
 
 export function InputBox({
 	inputValue,
@@ -30,35 +36,78 @@ export function InputBox({
 	modeSwitcher,
 	onAtClick,
 	linkedTodos,
+	maxHeight = "40vh",
 }: InputBoxProps) {
 	const t = useTranslations("chat");
 	const isSendDisabled = !inputValue.trim() || isStreaming;
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const prevInputValueRef = useRef<string>(inputValue);
+
+	/** 自动调整 textarea 高度 */
+	const adjustHeight = useCallback(() => {
+		const textarea = textareaRef.current;
+		if (!textarea) return;
+
+		// 先重置高度以获取正确的 scrollHeight
+		textarea.style.height = "auto";
+		// 设置新高度，scrollHeight 会给出实际内容需要的高度
+		const newHeight = Math.max(textarea.scrollHeight, MIN_TEXTAREA_HEIGHT);
+		textarea.style.height = `${newHeight}px`;
+	}, []);
+
+	// 当 inputValue 从外部改变时（非用户输入）调整高度
+	useLayoutEffect(() => {
+		if (prevInputValueRef.current !== inputValue) {
+			prevInputValueRef.current = inputValue;
+			adjustHeight();
+		}
+	});
+
+	// 组件挂载时调整高度
+	useEffect(() => {
+		adjustHeight();
+	}, [adjustHeight]);
+
+	// 处理输入变化
+	const handleChange = useCallback(
+		(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+			onChange(e.target.value);
+			// 使用 requestAnimationFrame 确保 DOM 更新后再调整高度
+			requestAnimationFrame(() => {
+				adjustHeight();
+			});
+		},
+		[onChange, adjustHeight],
+	);
 
 	return (
 		<div
 			className={cn(
-				"relative flex flex-col gap-2 rounded-xl border border-border",
-				"bg-background/60 px-3 py-2 min-h-[80px]",
+				"relative flex flex-col rounded-xl border border-border",
+				"bg-background/60 px-3 pt-2 pb-15",
 			)}
 		>
 			{/* 关联待办区域 */}
 			{linkedTodos}
 
 			<textarea
+				ref={textareaRef}
 				value={inputValue}
-				onChange={(e) => onChange(e.target.value)}
+				onChange={handleChange}
 				onCompositionStart={onCompositionStart}
 				onCompositionEnd={onCompositionEnd}
 				onKeyDown={onKeyDown}
 				placeholder={placeholder}
 				rows={2}
+				style={{ maxHeight, minHeight: `${MIN_TEXTAREA_HEIGHT}px` }}
 				className={cn(
-					"flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground",
-					"focus-visible:outline-none pb-8",
+					"w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground",
+					"focus-visible:outline-none overflow-y-auto leading-relaxed",
 				)}
 			/>
 
-			<div className="flex items-center justify-between">
+			{/* 底部工具栏 - 绝对定位在底部 */}
+			<div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
 				{/* 左下角：mode switcher */}
 				<div className="flex items-center">{modeSwitcher}</div>
 
