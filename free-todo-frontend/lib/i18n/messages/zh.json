@@ -261,6 +261,11 @@
 		"userInput": "用户输入",
 		"loadHistoryFailed": "加载历史记录失败",
 		"noTodosAvailable": "当前没有待办，聊天上下文为空。",
+		"noTodosFound": "未发现待办事项",
+		"extractModalDescription": "请选择要添加的待办事项：",
+		"selectedCount": "已选择 {count} 项",
+		"confirmAdd": "确认添加 ({count})",
+		"applying": "正在应用...",
 		"selectedTodo": "【当前选中待办】",
 		"rootParentTodo": "【最高级父待办】",
 		"allSubTodos": "【该父待办下的所有子待办】（共 {count} 条）",
@@ -572,6 +577,7 @@
 		"childNamePlaceholder": "输入子待办名称...",
 		"cancelButton": "取消",
 		"addButton": "添加",
-		"extractButton": "提取待办"
+		"extractButton": "提取待办",
+		"extracting": "正在提取待办事项..."
 	}
 }

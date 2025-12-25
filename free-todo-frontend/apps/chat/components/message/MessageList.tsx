@@ -5,12 +5,16 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PromptSuggestions } from "@/apps/chat/components/input/PromptSuggestions";
 import { EditModeMessage } from "@/apps/chat/components/message/EditModeMessage";
+import { MessageTodoExtractionPanel } from "@/apps/chat/components/message/MessageTodoExtractionPanel";
 import type { ChatMessage, ChatMode } from "@/apps/chat/types";
+import { buildHierarchicalTodoContext } from "@/apps/chat/utils/todoContext";
 import {
 	BaseContextMenu,
 	type MenuItem,
 	useContextMenu,
 } from "@/components/common/context-menu/BaseContextMenu";
+import { useTodos } from "@/lib/query";
+import { toastError } from "@/lib/toast";
 import type { Todo, UpdateTodoInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +46,10 @@ export function MessageList({
 	onSelectPrompt,
 }: MessageListProps) {
 	const t = useTranslations("chat");
+	const tCommon = useTranslations("common");
 	const tContextMenu = useTranslations("contextMenu");
 	const messageListRef = useRef<HTMLDivElement>(null);
+	const { data: allTodos = [] } = useTodos();
 	// 跟踪用户是否在底部（或接近底部）
 	const isAtBottomRef = useRef(true);
 	// 跟踪上一次消息数量，用于检测新消息
@@ -55,6 +61,21 @@ export function MessageList({
 	>(null);
 	const messageMenuRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 	const { contextMenu, openContextMenu, closeContextMenu } = useContextMenu();
+	// 提取待办相关状态 - 按消息ID存储
+	const [extractionStates, setExtractionStates] = useState<
+		Map<
+			string,
+			{
+				isExtracting: boolean;
+				todos: Array<{
+					name: string;
+					description?: string | null;
+					tags: string[];
+				}>;
+				parentTodoId: number | null;
+			}
+		>
+	>(new Map());
 
 	// 检查是否应该显示预设按钮：消息为空或只有一条初始assistant消息
 	const shouldShowSuggestions = useMemo(() => {
@@ -225,8 +246,8 @@ export function MessageList({
 					<div
 						key={msg.id}
 						className={cn(
-							"flex",
-							msg.role === "assistant" ? "justify-start" : "justify-end",
+							"flex flex-col",
+							msg.role === "assistant" ? "items-start" : "items-end",
 						)}
 					>
 						{/* 空的 streaming 消息显示 loading 指示器 */}
@@ -406,6 +427,32 @@ export function MessageList({
 								</div>
 							</div>
 						)}
+						{/* 提取待办面板 - 显示在消息下方 */}
+						{extractionStates.has(msg.id) && (
+							<div
+								className={cn(
+									"w-full",
+									msg.role === "assistant" ? "max-w-[80%]" : "max-w-[80%]",
+								)}
+							>
+								<MessageTodoExtractionPanel
+									todos={extractionStates.get(msg.id)?.todos || []}
+									parentTodoId={
+										extractionStates.get(msg.id)?.parentTodoId || null
+									}
+									isExtracting={
+										extractionStates.get(msg.id)?.isExtracting || false
+									}
+									onComplete={() => {
+										setExtractionStates((prev) => {
+											const newMap = new Map(prev);
+											newMap.delete(msg.id);
+											return newMap;
+										});
+									}}
+								/>
+							</div>
+						)}
 					</div>
 				);
 			})}
@@ -415,13 +462,180 @@ export function MessageList({
 					items={(() => {
 						const msg = messages.find((m) => m.id === menuOpenForMessageId);
 						if (!msg || msg.role !== "assistant" || !msg.content) return [];
+						const extractionState = extractionStates.get(msg.id);
+						const isExtractingForThisMessage =
+							extractionState?.isExtracting ?? false;
 						return [
 							{
-								icon: ListTodo,
-								label: tContextMenu("extractButton"),
-								onClick: () => {
-									// TODO: 实现提取待办功能
-									console.log("提取待办，消息ID:", menuOpenForMessageId);
+								icon: isExtractingForThisMessage ? Loader2 : ListTodo,
+								label: isExtractingForThisMessage
+									? tContextMenu("extracting") || "提取中..."
+									: tContextMenu("extractButton"),
+								onClick: async () => {
+									if (!menuOpenForMessageId) return;
+									const targetMessage = messages.find(
+										(m) => m.id === menuOpenForMessageId,
+									);
+									if (!targetMessage) return;
+
+									const messageId = menuOpenForMessageId;
+									const currentState = extractionStates.get(messageId);
+									if (currentState?.isExtracting) return;
+
+									// 获取目标消息及其之前的所有消息
+									const targetIndex = messages.findIndex(
+										(m) => m.id === messageId,
+									);
+									const messagesForExtraction = messages
+										.slice(0, targetIndex + 1)
+										.map((msg) => ({
+											role: msg.role,
+											content: msg.content,
+										}));
+
+									// 获取父待办ID（使用第一个关联的待办）
+									const parentTodoId =
+										effectiveTodos.length > 0 ? effectiveTodos[0].id : null;
+
+									// 构建待办上下文
+									const todoContext =
+										effectiveTodos.length > 0
+											? buildHierarchicalTodoContext(
+													effectiveTodos,
+													allTodos,
+													t,
+													tCommon,
+												)
+											: null;
+
+									// 设置提取状态
+									setExtractionStates((prev) => {
+										const newMap = new Map(prev);
+										newMap.set(messageId, {
+											isExtracting: true,
+											todos: [],
+											parentTodoId,
+										});
+										return newMap;
+									});
+
+									closeContextMenu();
+									setMenuOpenForMessageId(null);
+
+									try {
+										const apiUrl =
+											process.env.NEXT_PUBLIC_API_URL ||
+											"http://localhost:8000";
+										const response = await fetch(
+											`${apiUrl}/api/chat/extract-todos-from-messages`,
+											{
+												method: "POST",
+												headers: {
+													"Content-Type": "application/json",
+												},
+												body: JSON.stringify({
+													messages: messagesForExtraction,
+													parent_todo_id: parentTodoId,
+													todo_context: todoContext,
+												}),
+											},
+										);
+
+										if (!response.ok) {
+											// 尝试从响应中获取错误信息
+											let errorMessage = `提取待办失败 (${response.status})`;
+											try {
+												const errorData = await response.json();
+												if (errorData.detail) {
+													errorMessage = errorData.detail;
+												} else if (errorData.error_message) {
+													errorMessage = errorData.error_message;
+												} else if (errorData.message) {
+													errorMessage = errorData.message;
+												}
+											} catch {
+												// 如果无法解析 JSON，使用状态文本
+												errorMessage = `提取待办失败: ${response.statusText || response.status}`;
+											}
+											throw new Error(errorMessage);
+										}
+
+										const data = await response.json();
+
+										if (data.error_message) {
+											toastError(data.error_message);
+											setExtractionStates((prev) => {
+												const newMap = new Map(prev);
+												newMap.delete(messageId);
+												return newMap;
+											});
+											return;
+										}
+
+										if (data.todos.length === 0) {
+											toastError(t("noTodosFound") || "未发现待办事项");
+											setExtractionStates((prev) => {
+												const newMap = new Map(prev);
+												newMap.delete(messageId);
+												return newMap;
+											});
+											return;
+										}
+
+										// 转换格式并模拟流式显示
+										const extractedTodos = data.todos.map(
+											(todo: {
+												name: string;
+												description?: string | null;
+												tags?: string[];
+											}) => ({
+												name: todo.name,
+												description: todo.description || null,
+												tags: todo.tags || [],
+											}),
+										);
+
+										// 模拟流式显示：逐个添加待办
+										for (let i = 0; i < extractedTodos.length; i++) {
+											await new Promise((resolve) => setTimeout(resolve, 200));
+											setExtractionStates((prev) => {
+												const newMap = new Map(prev);
+												const current = newMap.get(messageId);
+												if (current) {
+													newMap.set(messageId, {
+														...current,
+														todos: extractedTodos.slice(0, i + 1),
+													});
+												}
+												return newMap;
+											});
+										}
+
+										// 提取完成
+										setExtractionStates((prev) => {
+											const newMap = new Map(prev);
+											const current = newMap.get(messageId);
+											if (current) {
+												newMap.set(messageId, {
+													...current,
+													isExtracting: false,
+												});
+											}
+											return newMap;
+										});
+									} catch (error) {
+										console.error("提取待办失败:", error);
+										toastError(
+											error instanceof Error
+												? error.message
+												: "提取待办失败，请稍后重试",
+										);
+										setExtractionStates((prev) => {
+											const newMap = new Map(prev);
+											newMap.delete(messageId);
+											return newMap;
+										});
+									}
 								},
 								isFirst: true,
 								isLast: true,

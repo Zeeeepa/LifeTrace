@@ -261,6 +261,11 @@
 		"userInput": "User input",
 		"loadHistoryFailed": "Failed to load history",
 		"noTodosAvailable": "No todos available; chat context is empty.",
+		"noTodosFound": "No todos found",
+		"extractModalDescription": "Please select the todos to add:",
+		"selectedCount": "Selected {count} items",
+		"confirmAdd": "Confirm Add ({count})",
+		"applying": "Applying...",
 		"selectedTodo": "[Selected Todo]",
 		"rootParentTodo": "[Root Parent Todo]",
 		"allSubTodos": "[All Sub-todos] (total {count})",
@@ -572,6 +577,7 @@
 		"childNamePlaceholder": "Enter child todo name...",
 		"cancelButton": "Cancel",
 		"addButton": "Add",
-		"extractButton": "Extract Todos"
+		"extractButton": "Extract Todos",
+		"extracting": "Extracting todos..."
 	}
 }
