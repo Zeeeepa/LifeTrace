@@ -20,6 +20,7 @@ type ChatInputSectionProps = {
 	modeMenuOpen: boolean;
 	onInputChange: (value: string) => void;
 	onSend: () => void;
+	onStop?: () => void;
 	onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 	onCompositionStart: () => void;
 	onCompositionEnd: () => void;
@@ -42,6 +43,7 @@ export function ChatInputSection({
 	modeMenuOpen,
 	onInputChange,
 	onSend,
+	onStop,
 	onKeyDown,
 	onCompositionStart,
 	onCompositionEnd,
@@ -110,12 +112,13 @@ export function ChatInputSection({
 				locale={locale}
 				onChange={onInputChange}
 				onSend={onSend}
+				onStop={onStop}
 				onKeyDown={onKeyDown}
 				onCompositionStart={onCompositionStart}
 				onCompositionEnd={onCompositionEnd}
 			/>
 
-			{error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+			{error && <p className="mt-2 text-sm">{error}</p>}
 		</div>
 	);
 }

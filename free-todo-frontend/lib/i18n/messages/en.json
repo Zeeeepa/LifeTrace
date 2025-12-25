@@ -232,7 +232,7 @@
 			"goal": "Set Goals",
 			"goalPrompt": "Help me set some goals",
 			"advice": "Get Advice",
-			"advicePrompt": "Give me some productivity advice"
+			"advicePrompt": "Give me some suggestions for the current to-do"
 		},
 		"assistant": "Assistant",
 		"user": "You",
@@ -240,6 +240,7 @@
 		"toggleMode": "Toggle Ask/Plan/Edit mode",
 		"mentionFileOrTodo": "Mention a file or todo",
 		"send": "Send",
+		"stop": "Stop",
 		"linkedTodos": "Linked todos ({count})",
 		"linkedTodosEn": "Linked todos ({count})",
 		"collapse": "Collapse",

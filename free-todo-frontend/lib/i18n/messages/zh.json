@@ -232,7 +232,7 @@
 			"goal": "目标设定",
 			"goalPrompt": "帮我设定一些目标",
 			"advice": "获取建议",
-			"advicePrompt": "给我一些提高效率的建议"
+			"advicePrompt": "针对目前的待办，给我一些建议"
 		},
 		"assistant": "助理",
 		"user": "我",
@@ -240,6 +240,7 @@
 		"toggleMode": "切换 Ask/Plan/Edit 模式",
 		"mentionFileOrTodo": "提及文件或任务",
 		"send": "发送",
+		"stop": "停止",
 		"linkedTodos": "关联待办（{count}）",
 		"linkedTodosEn": "Linked todos ({count})",
 		"collapse": "收起",

@@ -1,4 +1,4 @@
-import { AtSign, Loader2, Send } from "lucide-react";
+import { AtSign, Send, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type React from "react";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
@@ -11,6 +11,7 @@ type InputBoxProps = {
 	locale: string;
 	onChange: (value: string) => void;
 	onSend: () => void;
+	onStop?: () => void;
 	onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
 	onCompositionStart: () => void;
 	onCompositionEnd: () => void;
@@ -30,6 +31,7 @@ export function InputBox({
 	isStreaming,
 	onChange,
 	onSend,
+	onStop,
 	onKeyDown,
 	onCompositionStart,
 	onCompositionEnd,
@@ -111,7 +113,7 @@ export function InputBox({
 				{/* 左下角：mode switcher */}
 				<div className="flex items-center">{modeSwitcher}</div>
 
-				{/* 右下角：@ 按钮和发送按钮 */}
+				{/* 右下角：@ 按钮和发送/停止按钮 */}
 				<div className="flex items-center gap-1">
 					<button
 						type="button"
@@ -125,25 +127,37 @@ export function InputBox({
 						<AtSign className="h-4 w-4" />
 					</button>
 
-					<button
-						type="button"
-						onClick={onSend}
-						disabled={isSendDisabled}
-						className={cn(
-							"flex h-8 w-8 items-center justify-center rounded-lg",
-							"bg-primary text-primary-foreground transition-colors",
-							"hover:bg-primary/90",
-							"disabled:cursor-not-allowed disabled:opacity-50",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
-						aria-label={t("send")}
-					>
-						{isStreaming ? (
-							<Loader2 className="h-4 w-4 animate-spin" />
-						) : (
+					{isStreaming && onStop ? (
+						<button
+							type="button"
+							onClick={onStop}
+							className={cn(
+								"flex h-8 w-8 items-center justify-center rounded-lg",
+								"bg-primary text-primary-foreground transition-colors",
+								"hover:bg-primary/90",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							)}
+							aria-label={t("stop")}
+						>
+							<Square className="h-4 w-4 fill-current" />
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={onSend}
+							disabled={isSendDisabled}
+							className={cn(
+								"flex h-8 w-8 items-center justify-center rounded-lg",
+								"bg-primary text-primary-foreground transition-colors",
+								"hover:bg-primary/90",
+								"disabled:cursor-not-allowed disabled:opacity-50",
+								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							)}
+							aria-label={t("send")}
+						>
 							<Send className="h-4 w-4" />
-						)}
-					</button>
+						</button>
+					)}
 				</div>
 			</div>
 		</div>

@@ -156,6 +156,7 @@ export function ChatPanel() {
 				modeMenuOpen={modeMenuOpen}
 				onInputChange={chatController.setInputValue}
 				onSend={chatController.handleSend}
+				onStop={chatController.handleStop}
 				onKeyDown={chatController.handleKeyDown}
 				onCompositionStart={() => chatController.setIsComposing(true)}
 				onCompositionEnd={() => chatController.setIsComposing(false)}
