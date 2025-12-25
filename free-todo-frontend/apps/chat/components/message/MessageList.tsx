@@ -61,13 +61,20 @@ export function MessageList({
 		if (messages.length === 0) return true;
 		if (messages.length === 1) {
 			const msg = messages[0];
-			// 如果是assistant消息且内容是初始消息，则显示预设按钮
-			if (msg.role === "assistant" && msg.content === t("initialMessage")) {
+			// 如果是assistant消息，则显示预设按钮（不依赖内容严格匹配，避免语言切换时的问题）
+			if (msg.role === "assistant") {
 				return true;
 			}
 		}
+		// 如果只有assistant消息且没有用户消息，也显示预设按钮
+		if (
+			messages.length > 0 &&
+			messages.every((msg) => msg.role === "assistant")
+		) {
+			return true;
+		}
 		return false;
-	}, [messages, t]);
+	}, [messages]);
 
 	// 检查是否在底部（允许 30px 的误差）
 	const checkIsAtBottom = useCallback(() => {
