@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSaveConfig } from "@/lib/query";
 import type { AppConfig } from "@/lib/query/config";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -35,6 +35,22 @@ export function DifyConfigSection({
 	);
 
 	const isSaving = loading || saveConfigMutation.isPending;
+
+	// 当配置加载完成后，同步本地状态
+	useEffect(() => {
+		if (config) {
+			// 只在配置值存在时更新，避免覆盖用户正在编辑的值
+			if (config.difyEnabled !== undefined) {
+				setEnabled((config.difyEnabled as boolean) ?? true);
+			}
+			if (config.difyApiKey !== undefined) {
+				setApiKey((config.difyApiKey as string) || "");
+			}
+			if (config.difyBaseUrl !== undefined) {
+				setBaseUrl((config.difyBaseUrl as string) || "https://api.dify.ai/v1");
+			}
+		}
+	}, [config]);
 
 	const handleSave = async (
 		partial?: Partial<{ enabled: boolean; apiKey: string; baseUrl: string }>,

@@ -123,6 +123,26 @@ def snake_to_dot_notation(key: str) -> str:
     return key.replace("_", ".")
 
 
+def dot_to_snake_notation(key: str) -> str:
+    """将点分隔格式的键转换为 snake_case 格式
+
+    后端配置文件使用点分隔格式，例如: jobs.recorder.enabled
+    前端 fetcher 需要 snake_case 格式才能转换为 camelCase，例如: jobs_recorder_enabled
+
+    Args:
+        key: 点分隔格式的键，如 "jobs.recorder.enabled" 或 "llm.api_key"
+
+    Returns:
+        snake_case 格式的键，如 "jobs_recorder_enabled" 或 "llm_api_key"
+    """
+    # 如果已经是 snake_case 格式或不包含点，直接返回
+    if "." not in key:
+        return key
+
+    # 简单地将点替换为下划线
+    return key.replace(".", "_")
+
+
 def is_llm_configured() -> bool:
     """检查 LLM 是否已配置
 
@@ -194,12 +214,13 @@ class ConfigService:
         }
 
     def get_config_for_frontend(self) -> dict[str, Any]:
-        """获取配置（后端格式）
+        """获取配置（转换为 snake_case 格式供前端使用）
 
-        前端 fetcher 负责 snake_case 到 camelCase 的转换。
+        前端 fetcher 会将 snake_case 转换为 camelCase。
+        后端配置文件使用点分隔格式，需要转换为 snake_case 格式。
 
         Returns:
-            后端格式的配置字典
+            snake_case 格式的配置字典，前端 fetcher 会自动转换为 camelCase
         """
         # 定义需要获取的配置项（后端格式）
         backend_config_keys = [
@@ -238,7 +259,9 @@ class ConfigService:
         for backend_key in backend_config_keys:
             try:
                 value = settings.get(backend_key)
-                config_dict[backend_key] = value
+                # 将点分隔格式转换为 snake_case 格式，以便前端 fetcher 能正确转换为 camelCase
+                frontend_key = dot_to_snake_notation(backend_key)
+                config_dict[frontend_key] = value
             except KeyError:
                 # 配置项不存在，跳过或使用默认值
                 logger.debug(f"配置项 {backend_key} 不存在，跳过")
