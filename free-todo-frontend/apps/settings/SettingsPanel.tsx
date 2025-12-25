@@ -3,7 +3,7 @@
 import { Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { PanelHeader } from "@/components/common/PanelHeader";
+import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import {
 	ALL_PANEL_FEATURES,
 	FEATURE_ICON_MAP,

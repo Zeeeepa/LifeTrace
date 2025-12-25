@@ -7,7 +7,7 @@ import {
 	PanelActionButton,
 	PanelHeader,
 	usePanelIconStyle,
-} from "@/components/common/PanelHeader";
+} from "@/components/common/layout/PanelHeader";
 import { cn } from "@/lib/utils";
 
 interface ActivityHeaderProps {

@@ -16,7 +16,7 @@ import {
 import { useTranslations } from "next-intl";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TodoContextMenu } from "@/components/common/TodoContextMenu";
+import { TodoContextMenu } from "@/components/common/context-menu/TodoContextMenu";
 import type { DragData } from "@/lib/dnd";
 import { useGlobalDndSafe } from "@/lib/dnd";
 import { useTodoMutations, useTodos } from "@/lib/query";

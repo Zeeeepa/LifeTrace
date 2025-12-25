@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import {
 	PanelActionButton,
 	PanelHeader,
-} from "@/components/common/PanelHeader";
+} from "@/components/common/layout/PanelHeader";
 
 interface DetailHeaderProps {
 	onToggleComplete: () => void;

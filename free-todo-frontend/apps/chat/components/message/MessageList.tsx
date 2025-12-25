@@ -10,7 +10,7 @@ import {
 	BaseContextMenu,
 	type MenuItem,
 	useContextMenu,
-} from "@/components/common/BaseContextMenu";
+} from "@/components/common/context-menu/BaseContextMenu";
 import type { Todo, UpdateTodoInput } from "@/lib/types";
 import { cn } from "@/lib/utils";
 

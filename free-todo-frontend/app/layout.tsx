@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
-import { ScrollbarController } from "@/components/common/ScrollbarController";
-import { ThemeProvider } from "@/components/common/ThemeProvider";
+import { ThemeProvider } from "@/components/common/theme/ThemeProvider";
+import { ScrollbarController } from "@/components/common/ui/ScrollbarController";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
 
