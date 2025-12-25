@@ -114,7 +114,7 @@ export function PromptSuggestions({ onSelect }: PromptSuggestionsProps) {
 								)}
 							>
 								<div className="flex items-center gap-3 w-full">
-									<div className="flex-shrink-0">
+									<div className="shrink-0">
 										<Icon className="h-5 w-5 text-foreground/70" />
 									</div>
 									<div className="flex-1 min-w-0">
