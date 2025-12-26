@@ -18,7 +18,7 @@ dependencies = [
     "imagehash>=4.3.0",
     # OCR processing (rapidocr requires numpy)
     "rapidocr-onnxruntime",
-    "numpy>=1.21.0",
+    "numpy>=1.21.0,<2.0.0",  # 限制到 1.x 版本以确保 PyInstaller 兼容性
     # Data processing
     "pyyaml>=6.0",
     "sentence-transformers>=2.2.0",  # 文本嵌入模型
