@@ -75,14 +75,29 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+def get_cors_origins() -> list[str]:
+    """
+    生成 CORS 允许的来源列表，支持动态端口。
+
+    为了支持 Build 版和开发版同时运行，需要允许端口范围：
+    - 前端端口范围：3000-3099
+    - 后端端口范围：8000-8099（用于 API 测试和跨域请求）
+    """
+    origins = []
+    # 前端端口范围 3000-3099
+    for port in range(3000, 3100):
+        origins.extend([f"http://localhost:{port}", f"http://127.0.0.1:{port}"])
+    # 后端端口范围 8000-8099
+    for port in range(8000, 8100):
+        origins.extend([f"http://localhost:{port}", f"http://127.0.0.1:{port}"])
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,6 +1,7 @@
 import { type ChildProcess, fork, spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 
@@ -13,10 +14,63 @@ let mainWindow: BrowserWindow | null = null;
 let healthCheckInterval: NodeJS.Timeout | null = null;
 let backendHealthCheckInterval: NodeJS.Timeout | null = null;
 
-const PORT = process.env.PORT || "3000";
-const SERVER_URL = `http://localhost:${PORT}`;
-const BACKEND_PORT = process.env.BACKEND_PORT || "8000";
-const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
+// 默认端口配置（从环境变量读取，如果未设置则使用默认值）
+const DEFAULT_FRONTEND_PORT = Number.parseInt(process.env.PORT || "3000", 10);
+const DEFAULT_BACKEND_PORT = Number.parseInt(
+	process.env.BACKEND_PORT || "8000",
+	10,
+);
+
+// 动态端口（运行时确定，支持端口被占用时自动切换）
+let actualFrontendPort: number = DEFAULT_FRONTEND_PORT;
+let actualBackendPort: number = DEFAULT_BACKEND_PORT;
+
+// 动态 URL（基于实际端口）
+function getServerUrl(): string {
+	return `http://localhost:${actualFrontendPort}`;
+}
+
+function getBackendUrl(): string {
+	return `http://localhost:${actualBackendPort}`;
+}
+
+/**
+ * 检查端口是否可用
+ */
+function isPortAvailable(port: number): Promise<boolean> {
+	return new Promise((resolve) => {
+		const server = net.createServer();
+		server.once("error", () => resolve(false));
+		server.once("listening", () => {
+			server.close();
+			resolve(true);
+		});
+		server.listen(port, "127.0.0.1");
+	});
+}
+
+/**
+ * 查找可用端口
+ * 从 startPort 开始，依次尝试直到找到可用端口
+ */
+async function findAvailablePort(
+	startPort: number,
+	maxAttempts = 100,
+): Promise<number> {
+	for (let offset = 0; offset < maxAttempts; offset++) {
+		const port = startPort + offset;
+		if (await isPortAvailable(port)) {
+			if (offset > 0) {
+				logToFile(`Port ${startPort} was occupied, using port ${port} instead`);
+			}
+			return port;
+		}
+		logToFile(`Port ${port} is occupied, trying next...`);
+	}
+	throw new Error(
+		`No available port found in range ${startPort}-${startPort + maxAttempts}`,
+	);
+}
 
 // 日志文件路径
 const logFile = path.join(app.getPath("logs"), "freetodo.log");
@@ -141,7 +195,7 @@ function waitForBackend(url: string, timeout: number): Promise<void> {
 }
 
 /**
- * 启动 Next.js 服务器
+ * 启动 Next.js 服务器（支持动态端口）
  * 在打包的应用中，总是启动内置的生产服务器
  */
 async function startNextServer(): Promise<void> {
@@ -149,7 +203,13 @@ async function startNextServer(): Promise<void> {
 	if (app.isPackaged) {
 		logToFile("App is packaged - starting built-in production server");
 	} else if (isDev) {
-		const msg = `Development mode: expecting Next.js dev server at ${SERVER_URL}`;
+		// 开发模式下，尝试探测可用的前端端口（以防开发服务器未启动）
+		try {
+			actualFrontendPort = await findAvailablePort(DEFAULT_FRONTEND_PORT);
+		} catch {
+			actualFrontendPort = DEFAULT_FRONTEND_PORT;
+		}
+		const msg = `Development mode: expecting Next.js dev server at ${getServerUrl()}`;
 		console.log(msg);
 		logToFile(msg);
 		return;
@@ -157,6 +217,17 @@ async function startNextServer(): Promise<void> {
 		logToFile(
 			"Running in production mode (not packaged) - starting built-in server",
 		);
+	}
+
+	// 动态端口分配：查找可用的前端端口
+	try {
+		actualFrontendPort = await findAvailablePort(DEFAULT_FRONTEND_PORT);
+		logToFile(`Frontend will use port: ${actualFrontendPort}`);
+	} catch (error) {
+		const errorMsg = `Failed to find available frontend port: ${error instanceof Error ? error.message : String(error)}`;
+		logToFile(`ERROR: ${errorMsg}`);
+		dialog.showErrorBox("Port Allocation Error", errorMsg);
+		throw error;
 	}
 
 	const serverPath = path.join(
@@ -185,7 +256,8 @@ async function startNextServer(): Promise<void> {
 
 	logToFile(`Server directory: ${serverDir}`);
 	logToFile(`Server path: ${serverPath}`);
-	logToFile(`PORT: ${PORT}, HOSTNAME: localhost`);
+	logToFile(`PORT: ${actualFrontendPort}, HOSTNAME: localhost`);
+	logToFile(`NEXT_PUBLIC_API_URL: ${getBackendUrl()}`);
 
 	// 检查关键文件是否存在
 	const nextServerDir = path.join(serverDir, ".next", "server");
@@ -207,10 +279,12 @@ async function startNextServer(): Promise<void> {
 		}
 	}
 
-	// 强制设置生产模式环境变量
-	serverEnv.PORT = PORT;
+	// 强制设置生产模式环境变量，使用动态分配的端口
+	serverEnv.PORT = String(actualFrontendPort);
 	serverEnv.HOSTNAME = "localhost";
 	serverEnv.NODE_ENV = "production"; // 强制生产模式
+	// 注入后端 URL，让 Next.js 的 rewrite 和 API 调用使用正确的后端地址
+	serverEnv.NEXT_PUBLIC_API_URL = getBackendUrl();
 
 	// 使用 fork 启动 Node.js 服务器进程
 	// fork 是 spawn 的特殊情况，专门用于 Node.js 脚本，提供更好的 IPC 支持
@@ -342,9 +416,11 @@ async function startNextServer(): Promise<void> {
 }
 
 /**
- * 创建主窗口
+ * 创建主窗口（使用动态 URL）
  */
 function createWindow(): void {
+	const serverUrl = getServerUrl();
+
 	mainWindow = new BrowserWindow({
 		width: 1200,
 		height: 800,
@@ -358,7 +434,8 @@ function createWindow(): void {
 		backgroundColor: "#1a1a1a",
 	});
 
-	mainWindow.loadURL(SERVER_URL);
+	logToFile(`Loading URL: ${serverUrl}`);
+	mainWindow.loadURL(serverUrl);
 
 	mainWindow.once("ready-to-show", () => {
 		mainWindow?.show();
@@ -383,7 +460,7 @@ function createWindow(): void {
 				// ERR_CONNECTION_REFUSED or ERR_NAME_NOT_RESOLVED
 				dialog.showErrorBox(
 					"Connection Error",
-					`Failed to connect to server at ${SERVER_URL}\n\nError: ${errorDescription}\n\nCheck logs at: ${logFile}`,
+					`Failed to connect to server at ${serverUrl}\n\nError: ${errorDescription}\n\nCheck logs at: ${logFile}`,
 				);
 			}
 		},
@@ -419,12 +496,14 @@ function createWindow(): void {
 }
 
 /**
- * 检查服务器健康状态
+ * 检查服务器健康状态（使用动态 URL）
  */
 function startHealthCheck(): void {
 	if (healthCheckInterval) {
 		clearInterval(healthCheckInterval);
 	}
+
+	const serverUrl = getServerUrl();
 
 	healthCheckInterval = setInterval(() => {
 		if (!nextProcess || nextProcess.killed) {
@@ -434,7 +513,7 @@ function startHealthCheck(): void {
 
 		// 检查服务器是否响应
 		http
-			.get(SERVER_URL, (res) => {
+			.get(serverUrl, (res) => {
 				if (res.statusCode !== 200 && res.statusCode !== 304) {
 					logToFile(`WARNING: Server returned status ${res.statusCode}`);
 				}
@@ -453,9 +532,9 @@ function startHealthCheck(): void {
 }
 
 /**
- * 启动后端服务器
+ * 启动后端服务器（支持动态端口）
  */
-function startBackendServer(): void {
+async function startBackendServer(): Promise<void> {
 	if (backendProcess) {
 		logToFile("Backend server is already running");
 		return;
@@ -492,15 +571,29 @@ function startBackendServer(): void {
 	const userDataDir = app.getPath("userData");
 	const dataDir = path.join(userDataDir, "lifetrace-data");
 
+	// 动态端口分配：查找可用的后端端口
+	try {
+		actualBackendPort = await findAvailablePort(DEFAULT_BACKEND_PORT);
+		logToFile(`Backend will use port: ${actualBackendPort}`);
+	} catch (error) {
+		const errorMsg = `Failed to find available backend port: ${error instanceof Error ? error.message : String(error)}`;
+		logToFile(`ERROR: ${errorMsg}`);
+		if (mainWindow) {
+			dialog.showErrorBox("Port Allocation Error", errorMsg);
+		}
+		throw error;
+	}
+
 	logToFile(`Starting backend server...`);
 	logToFile(`Backend path: ${backendPath}`);
 	logToFile(`Backend directory: ${backendDir}`);
 	logToFile(`Data directory: ${dataDir}`);
+	logToFile(`Backend port: ${actualBackendPort}`);
 
-	// 启动后端进程
+	// 启动后端进程，使用动态分配的端口
 	backendProcess = spawn(
 		backendPath,
-		["--port", BACKEND_PORT, "--data-dir", dataDir],
+		["--port", String(actualBackendPort), "--data-dir", dataDir],
 		{
 			cwd: backendDir,
 			env: {
@@ -567,12 +660,14 @@ function stopBackendServer(): void {
 }
 
 /**
- * 启动后端健康检查
+ * 启动后端健康检查（使用动态 URL）
  */
 function startBackendHealthCheck(): void {
 	if (backendHealthCheckInterval) {
 		clearInterval(backendHealthCheckInterval);
 	}
+
+	const backendUrl = getBackendUrl();
 
 	backendHealthCheckInterval = setInterval(() => {
 		if (!backendProcess || backendProcess.killed) {
@@ -581,7 +676,7 @@ function startBackendHealthCheck(): void {
 		}
 
 		http
-			.get(`${BACKEND_URL}/health`, (res) => {
+			.get(`${backendUrl}/health`, (res) => {
 				if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
 					// 健康检查成功，不记录日志（避免日志过多）
 				} else {
@@ -664,32 +759,37 @@ if (gotTheLock) {
 			logToFile(`NODE_ENV: ${process.env.NODE_ENV || "not set"}`);
 			logToFile(`isDev: ${isDev}`);
 			logToFile(`Will start built-in server: ${!isDev || app.isPackaged}`);
+			logToFile(
+				`Default ports: frontend=${DEFAULT_FRONTEND_PORT}, backend=${DEFAULT_BACKEND_PORT}`,
+			);
 
-			// 1. 启动后端服务器
-			startBackendServer();
+			// 1. 启动后端服务器（会自动探测可用端口）
+			await startBackendServer();
 
 			// 2. 等待后端就绪（最多等待 180 秒）
-			const waitBackendMsg = "Waiting for backend server to be ready...";
+			const backendUrl = getBackendUrl();
+			const waitBackendMsg = `Waiting for backend server at ${backendUrl} to be ready...`;
 			console.log(waitBackendMsg);
 			logToFile(waitBackendMsg);
-			await waitForBackend(BACKEND_URL, 180000); // 3 分钟超时
-			const backendReadyMsg = "Backend server is ready!";
+			await waitForBackend(backendUrl, 180000); // 3 分钟超时
+			const backendReadyMsg = `Backend server is ready at ${backendUrl}!`;
 			console.log(backendReadyMsg);
 			logToFile(backendReadyMsg);
 
 			// 3. 启动后端健康检查
 			startBackendHealthCheck();
 
-			// 4. 启动 Next.js 服务器
+			// 4. 启动 Next.js 服务器（会自动探测可用端口）
 			await startNextServer();
 
 			// 5. 等待 Next.js 服务器就绪（最多等待 30 秒）
-			const waitMsg = "Waiting for Next.js server to be ready...";
+			const serverUrl = getServerUrl();
+			const waitMsg = `Waiting for Next.js server at ${serverUrl} to be ready...`;
 			console.log(waitMsg);
 			logToFile(waitMsg);
-			await waitForServer(SERVER_URL, 30000);
+			await waitForServer(serverUrl, 30000);
 
-			const readyMsg = "Next.js server is ready!";
+			const readyMsg = `Next.js server is ready at ${serverUrl}!`;
 			console.log(readyMsg);
 			logToFile(readyMsg);
 
@@ -698,7 +798,9 @@ if (gotTheLock) {
 
 			// 7. 创建窗口
 			createWindow();
-			logToFile("Window created successfully");
+			logToFile(
+				`Window created successfully. Frontend: ${serverUrl}, Backend: ${backendUrl}`,
+			);
 		} catch (error) {
 			const errorMsg = `Failed to start application: ${error instanceof Error ? error.message : String(error)}`;
 			console.error(errorMsg);
@@ -707,12 +809,10 @@ if (gotTheLock) {
 				logToFile(`Stack trace: ${error.stack}`);
 			}
 
-			if (mainWindow) {
-				dialog.showErrorBox(
-					"Startup Error",
-					`Failed to start application:\n${errorMsg}\n\nCheck logs at: ${logFile}`,
-				);
-			}
+			dialog.showErrorBox(
+				"Startup Error",
+				`Failed to start application:\n${errorMsg}\n\nCheck logs at: ${logFile}`,
+			);
 
 			setTimeout(() => {
 				app.quit();
