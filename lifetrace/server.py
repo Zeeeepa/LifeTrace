@@ -138,17 +138,61 @@ app.include_router(todo_extraction.router)
 app.include_router(vision.router)
 
 
+def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
+    """
+    查找可用端口。
+
+    从 start_port 开始，依次尝试直到找到可用端口。
+    支持 Build 版和开发版同时运行，自动避免端口冲突。
+
+    Args:
+        host: 绑定的主机地址
+        start_port: 起始端口号
+        max_attempts: 最大尝试次数
+
+    Returns:
+        可用的端口号
+
+    Raises:
+        RuntimeError: 如果在指定范围内找不到可用端口
+    """
+    import socket
+
+    for offset in range(max_attempts):
+        port = start_port + offset
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind((host, port))
+                if offset > 0:
+                    logger.info(f"端口 {start_port} 已被占用，使用端口 {port}")
+                return port
+        except OSError:
+            continue
+
+    raise RuntimeError(f"无法在 {start_port}-{start_port + max_attempts} 范围内找到可用端口")
+
+
 if __name__ == "__main__":
     server_host = settings.server.host
     server_port = settings.server.port
     server_debug = settings.server.debug
 
-    logger.info(f"启动服务器: http://{server_host}:{server_port}")
+    # 动态端口分配：如果默认端口被占用，自动尝试下一个可用端口
+    try:
+        actual_port = find_available_port(server_host, server_port)
+    except RuntimeError as e:
+        logger.error(f"端口分配失败: {e}")
+        raise
+
+    logger.info(f"启动服务器: http://{server_host}:{actual_port}")
     logger.info(f"调试模式: {'开启' if server_debug else '关闭'}")
+    if actual_port != server_port:
+        logger.info(f"注意: 原始端口 {server_port} 已被占用，已自动切换到 {actual_port}")
+
     uvicorn.run(
         "lifetrace.server:app",
         host=server_host,
-        port=server_port,
+        port=actual_port,
         reload=server_debug,
         access_log=server_debug,
         log_level="debug" if server_debug else "info",
