@@ -316,7 +316,7 @@ export function MessageList({
 								/>
 							</div>
 						) : (
-							<div className="w-full max-w-[80%]">
+							<div className="max-w-[80%]">
 								<div
 									ref={(el) => {
 										if (el) {
