@@ -381,7 +381,8 @@
 		"label": "Layout",
 		"selectLayout": "Select layout",
 		"layouts": {
-			"default": "Todo Mode"
+			"default": "Todo Mode",
+			"lifetrace-dev": "LifeTrace Mode"
 		}
 	},
 	"scheduler": {

@@ -381,7 +381,8 @@
 		"label": "布局",
 		"selectLayout": "选择布局",
 		"layouts": {
-			"default": "待办模式"
+			"default": "待办模式",
+			"lifetrace-dev": "LifeTrace 模式"
 		}
 	},
 	"scheduler": {
