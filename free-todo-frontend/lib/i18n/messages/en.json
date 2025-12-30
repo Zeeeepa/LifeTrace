@@ -329,6 +329,13 @@
 			},
 			"active": "Active"
 		},
+		"webSearch": {
+			"label": "Web Search",
+			"toggle": "Toggle web search",
+			"enabled": "Web search enabled",
+			"disabled": "Web search disabled"
+		},
+		"sources": "Sources",
 		"todoContext": {
 			"id": "ID",
 			"name": "Name",

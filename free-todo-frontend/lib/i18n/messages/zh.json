@@ -329,6 +329,13 @@
 			},
 			"active": "当前"
 		},
+		"webSearch": {
+			"label": "联网搜索",
+			"toggle": "切换联网搜索",
+			"enabled": "联网搜索已启用",
+			"disabled": "联网搜索已禁用"
+		},
+		"sources": "来源",
 		"todoContext": {
 			"id": "ID",
 			"name": "名称",
