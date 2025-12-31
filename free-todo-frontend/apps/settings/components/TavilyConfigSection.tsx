@@ -32,6 +32,11 @@ export function TavilyConfigSection({
 	const [savedApiKey, setSavedApiKey] = useState<string>(
 		(config?.tavilyApiKey as string | undefined) ?? "",
 	);
+	const [isVerifying, setIsVerifying] = useState(false);
+	const [verificationMessage, setVerificationMessage] = useState<{
+		type: "success" | "error";
+		text: string;
+	} | null>(null);
 
 	const isSaving = loading || saveConfigMutation.isPending;
 	const hasChanges = apiKey !== savedApiKey;
@@ -48,6 +53,55 @@ export function TavilyConfigSection({
 		}
 	}, [config]);
 
+	const handleVerify = async (keyToVerify: string) => {
+		if (!keyToVerify.trim()) {
+			setVerificationMessage({
+				type: "error",
+				text: t("apiKeyRequired") || "API Key 不能为空",
+			});
+			return;
+		}
+
+		setIsVerifying(true);
+		setVerificationMessage(null);
+
+		try {
+			const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+			const response = await fetch(`${apiUrl}/api/test-tavily-config`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					tavilyApiKey: keyToVerify,
+				}),
+			});
+
+			const data = await response.json();
+
+			if (data.success) {
+				setVerificationMessage({
+					type: "success",
+					text: t("testSuccess") || "✓ API 配置验证成功！",
+				});
+			} else {
+				setVerificationMessage({
+					type: "error",
+					text: `${t("testFailed") || "✗ API 配置验证失败"}: ${data.error || "Unknown error"}`,
+				});
+			}
+		} catch (error) {
+			console.error("验证 Tavily 配置失败:", error);
+			const errorMsg = error instanceof Error ? error.message : "Network error";
+			setVerificationMessage({
+				type: "error",
+				text: `${t("testFailed") || "✗ API 配置验证失败"}: ${errorMsg}`,
+			});
+		} finally {
+			setIsVerifying(false);
+		}
+	};
+
 	const handleSave = async () => {
 		if (!hasChanges) return;
 
@@ -59,6 +113,11 @@ export function TavilyConfigSection({
 			await saveConfigMutation.mutateAsync({ data: payload });
 			setSavedApiKey(apiKey);
 			toastSuccess(t("tavilySaveSuccess"));
+
+			// 保存成功后立即验证
+			if (apiKey.trim()) {
+				await handleVerify(apiKey);
+			}
 		} catch (error) {
 			console.error("保存 Tavily 配置失败:", error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
@@ -69,6 +128,20 @@ export function TavilyConfigSection({
 	return (
 		<SettingsSection title={t("tavilyConfigTitle")}>
 			<div className="space-y-4">
+				{/* 验证消息提示 */}
+				{verificationMessage && (
+					<div
+						className={cn(
+							"rounded-lg px-3 py-2 text-sm font-medium",
+							verificationMessage.type === "success"
+								? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+								: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+						)}
+					>
+						{verificationMessage.text}
+					</div>
+				)}
+
 				{/* API Key */}
 				<div className="space-y-1">
 					<label
@@ -84,22 +157,28 @@ export function TavilyConfigSection({
 							className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 							placeholder="Tavily API Key"
 							value={apiKey}
-							onChange={(e) => setApiKey(e.target.value)}
+							onChange={(e) => {
+								setApiKey(e.target.value);
+								// 清除之前的验证消息
+								if (verificationMessage) {
+									setVerificationMessage(null);
+								}
+							}}
 							onKeyDown={(e) => {
 								if (e.key === "Enter" && hasChanges) {
 									void handleSave();
 								}
 							}}
-							disabled={isSaving}
+							disabled={isSaving || isVerifying}
 						/>
 						<button
 							type="button"
 							onClick={() => void handleSave()}
-							disabled={isSaving || !hasChanges}
+							disabled={isSaving || isVerifying || !hasChanges}
 							className={cn(
 								"flex items-center justify-center rounded-md border px-3 py-2 text-sm font-medium transition-colors shrink-0",
 								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-								hasChanges && !isSaving
+								hasChanges && !isSaving && !isVerifying
 									? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
 									: "border-input bg-background text-muted-foreground cursor-not-allowed opacity-50",
 							)}
@@ -110,7 +189,7 @@ export function TavilyConfigSection({
 									: t("tavilySaveSuccess") || "Saved"
 							}
 						>
-							{isSaving ? (
+							{isSaving || isVerifying ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
 								<Check className="h-4 w-4" />
