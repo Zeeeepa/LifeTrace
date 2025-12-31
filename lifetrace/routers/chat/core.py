@@ -1,7 +1,5 @@
 """聊天核心路由：基础问答与流式聊天。"""
 
-from datetime import datetime
-
 from fastapi import Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -9,6 +7,7 @@ from lifetrace.core.dependencies import get_chat_service, get_rag_service
 from lifetrace.schemas.chat import ChatMessage, ChatResponse
 from lifetrace.services.chat_service import ChatService
 from lifetrace.services.dify_client import call_dify_chat
+from lifetrace.util.time_utils import get_utc_now
 
 from .base import _create_llm_stream_generator, logger, router
 
@@ -31,7 +30,7 @@ async def chat_with_llm(
             success = True  # noqa: F841
             response = ChatResponse(
                 response=rag_result["response"],
-                timestamp=datetime.now(),
+                timestamp=get_utc_now(),
                 query_info=rag_result.get("query_info"),
                 retrieval_info=rag_result.get("retrieval_info"),
                 performance=rag_result.get("performance"),
@@ -44,7 +43,7 @@ async def chat_with_llm(
 
             return ChatResponse(
                 response=error_msg,
-                timestamp=datetime.now(),
+                timestamp=get_utc_now(),
                 query_info={
                     "original_query": message.message,
                     "error": rag_result.get("error"),
@@ -56,7 +55,7 @@ async def chat_with_llm(
 
         return ChatResponse(
             response="抱歉，系统暂时无法处理您的请求，请稍后重试。",
-            timestamp=datetime.now(),
+            timestamp=get_utc_now(),
             query_info={"original_query": message.message, "error": str(e)},
         )
 

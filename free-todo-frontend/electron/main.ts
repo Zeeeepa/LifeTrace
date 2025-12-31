@@ -17,7 +17,7 @@ let backendHealthCheckInterval: NodeJS.Timeout | null = null;
 // 默认端口配置（从环境变量读取，如果未设置则使用默认值）
 const DEFAULT_FRONTEND_PORT = Number.parseInt(process.env.PORT || "3001", 10);
 const DEFAULT_BACKEND_PORT = Number.parseInt(
-	process.env.BACKEND_PORT || "8001",
+	process.env.BACKEND_PORT || "8000",
 	10,
 );
 
