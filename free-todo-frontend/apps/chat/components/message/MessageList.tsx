@@ -41,7 +41,7 @@ export function MessageList({
 	typingText,
 	locale,
 	chatMode,
-	webSearchEnabled = false,
+	webSearchEnabled: _webSearchEnabled = false,
 	effectiveTodos = [],
 	onUpdateTodo,
 	isUpdating = false,
@@ -358,12 +358,13 @@ export function MessageList({
 												</button>
 											)}
 										{(() => {
-											// 如果启用了联网搜索且是 assistant 消息，解析内容
-											const isWebSearchMode =
-												webSearchEnabled &&
+											// 无论是否启用联网搜索，只要消息内容包含 Sources 标记就解析
+											// 这样可以避免关闭联网搜索后，已包含 Sources 的消息显示异常
+											const hasSourcesMarker =
 												msg.role === "assistant" &&
-												msg.content;
-											const { body, sources } = isWebSearchMode
+												msg.content &&
+												msg.content.includes("\n\nSources:");
+											const { body, sources } = hasSourcesMarker
 												? parseWebSearchMessage(msg.content)
 												: { body: msg.content, sources: [] };
 
@@ -371,7 +372,7 @@ export function MessageList({
 											const processBodyWithCitations = (
 												text: string,
 											): string => {
-												if (!isWebSearchMode || sources.length === 0) {
+												if (!hasSourcesMarker || sources.length === 0) {
 													return text;
 												}
 												// 匹配 [[数字]] 格式的引用，替换为只显示数字的链接
