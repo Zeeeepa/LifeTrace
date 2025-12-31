@@ -211,11 +211,11 @@ export const useChatController = ({
 		const userLabel = t("userInput");
 
 		// Build payload message based on chat mode
-		// 如果启用了联网搜索，优先使用联网搜索，不注入本地 todo 上下文
+		// 如果启用了联网搜索，也要包含待办上下文，以便更好地理解用户意图
 		let payloadMessage: string;
 		if (webSearchEnabled) {
-			// 联网搜索模式：只发送用户自然语言问题，不注入本地 todo 上下文
-			payloadMessage = text;
+			// 联网搜索模式：包含待办上下文，帮助理解用户意图
+			payloadMessage = `${todoContext}\n\n${userLabel}: ${text}`;
 		} else if (chatMode === "plan") {
 			payloadMessage = `${planSystemPrompt}\n\n${userLabel}: ${text}`;
 		} else if (chatMode === "edit") {
