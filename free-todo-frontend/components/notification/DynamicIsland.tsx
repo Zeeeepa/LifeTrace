@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, Clock, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { deleteNotification } from "@/lib/api";
 import { useUpdateTodo } from "@/lib/query";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -107,8 +108,20 @@ export function DynamicIsland() {
 		};
 	}, [isExpanded, currentNotification]);
 
-	const handleClose = (e: React.MouseEvent) => {
+	const handleClose = async (e: React.MouseEvent) => {
 		e.stopPropagation();
+
+		// 如果有通知ID，先尝试删除后端通知
+		if (currentNotification?.id) {
+			try {
+				await deleteNotification(currentNotification.id);
+			} catch (error) {
+				// 静默处理错误，即使删除失败也关闭前端通知
+				console.warn("Failed to delete notification from backend:", error);
+			}
+		}
+
+		// 关闭前端通知显示
 		setNotification(null);
 		setExpanded(false);
 	};
