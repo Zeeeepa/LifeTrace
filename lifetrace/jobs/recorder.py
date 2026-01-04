@@ -5,6 +5,7 @@
 import argparse
 import hashlib
 import os
+import re
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
@@ -36,17 +37,26 @@ UNKNOWN_WINDOW = "未知窗口"
 DEFAULT_SCREEN_ID = 0  # 用于应用使用记录的默认屏幕ID
 
 
-# LifeTrace窗口识别模式
-LIFETRACE_WINDOW_PATTERNS = [
+# LifeTrace窗口识别模式（支持字符串包含匹配和正则表达式）
+# 字符串模式：直接包含匹配
+# 正则表达式模式：用于端口范围匹配（支持动态端口分配）
+LIFETRACE_WINDOW_PATTERNS_STR = [
     "lifetrace",
-    "localhost:8000",
-    "127.0.0.1:8000",
     "lifetrace - intelligent life recording system",
     "lifetrace desktop",
     "lifetrace 智能生活记录系统",
     "lifetrace 桌面版",
     "lifetrace frontend",
     "lifetrace web interface",
+    "freetodo",  # Electron 应用名
+]
+
+# 端口范围模式（支持 8000-8099 和 3000-3099 动态端口）
+LIFETRACE_WINDOW_PATTERNS_REGEX = [
+    re.compile(r"localhost:80\d{2}"),  # 匹配 localhost:8000-8099
+    re.compile(r"127\.0\.0\.1:80\d{2}"),  # 匹配 127.0.0.1:8000-8099
+    re.compile(r"localhost:30\d{2}"),  # 匹配 localhost:3000-3099
+    re.compile(r"127\.0\.0\.1:30\d{2}"),  # 匹配 127.0.0.1:3000-3099
 ]
 
 BROWSER_APPS = ["chrome", "msedge", "firefox", "electron"]
@@ -328,9 +338,15 @@ class ScreenRecorder:
         return False
 
     def _check_window_title_patterns(self, window_title: str) -> bool:
-        """检查窗口标题是否匹配LifeTrace模式"""
+        """检查窗口标题是否匹配LifeTrace模式（支持动态端口）"""
         window_title_lower = window_title.lower()
-        return any(pattern in window_title_lower for pattern in LIFETRACE_WINDOW_PATTERNS)
+        # 检查字符串包含模式
+        if any(pattern in window_title_lower for pattern in LIFETRACE_WINDOW_PATTERNS_STR):
+            return True
+        # 检查正则表达式模式（用于端口范围匹配）
+        return any(
+            pattern.search(window_title_lower) for pattern in LIFETRACE_WINDOW_PATTERNS_REGEX
+        )
 
     def _is_browser_or_python_app(self, app_name_lower: str) -> bool:
         """检查是否为浏览器或Python应用"""

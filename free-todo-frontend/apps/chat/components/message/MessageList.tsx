@@ -696,11 +696,9 @@ export function MessageList({
 									setMenuOpenForMessageId(null);
 
 									try {
-										const apiUrl =
-											process.env.NEXT_PUBLIC_API_URL ||
-											"http://localhost:8000";
+										// 客户端使用相对路径，通过 Next.js rewrites 代理到后端（支持动态端口）
 										const response = await fetch(
-											`${apiUrl}/api/chat/extract-todos-from-messages`,
+											`/api/chat/extract-todos-from-messages`,
 											{
 												method: "POST",
 												headers: {

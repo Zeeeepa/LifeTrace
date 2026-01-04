@@ -39,7 +39,12 @@ export async function customFetcher<T>({
 	signal?: AbortSignal;
 	responseSchema?: ZodType<T>;
 }): Promise<T> {
-	const baseUrl = typeof window !== "undefined" ? "" : "http://localhost:8000";
+	// 客户端使用相对路径（通过 Next.js rewrites 代理）
+	// SSR 环境使用环境变量（由 Electron 启动时注入动态端口）
+	const baseUrl =
+		typeof window !== "undefined"
+			? ""
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 	// 过滤掉 undefined、null 值，防止传递 "undefined" 字符串到后端
 	const filteredParams = params

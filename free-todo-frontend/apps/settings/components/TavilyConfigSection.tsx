@@ -66,8 +66,8 @@ export function TavilyConfigSection({
 		setVerificationMessage(null);
 
 		try {
-			const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-			const response = await fetch(`${apiUrl}/api/test-tavily-config`, {
+			// 客户端使用相对路径，通过 Next.js rewrites 代理到后端（支持动态端口）
+			const response = await fetch(`/api/test-tavily-config`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
