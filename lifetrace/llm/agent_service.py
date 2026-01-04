@@ -69,7 +69,17 @@ class AgentService:
                 tool_name = tool_decision["tool_name"]
                 tool_params = tool_decision.get("tool_params", {})
 
-                yield f"\n[使用工具: {tool_name}]\n\n"
+                # 构建工具调用标记，包含参数信息（特别是搜索关键词）
+                if tool_name == "web_search" and "query" in tool_params:
+                    # 对于 web_search，显示搜索关键词
+                    yield f"\n[使用工具: {tool_name} | 关键词: {tool_params['query']}]\n\n"
+                else:
+                    # 其他工具，显示工具名称和参数（如果有）
+                    params_str = ", ".join([f"{k}: {v}" for k, v in tool_params.items()])
+                    if params_str:
+                        yield f"\n[使用工具: {tool_name} | {params_str}]\n\n"
+                    else:
+                        yield f"\n[使用工具: {tool_name}]\n\n"
 
                 tool_result = self._execute_tool(tool_name, tool_params)
                 tool_call_count += 1
@@ -186,35 +196,10 @@ class AgentService:
 
         # 调用 LLM 进行工具选择
         try:
-            decision_messages = [
-                {"role": "system", "content": tool_selection_prompt},
-                {
-                    "role": "user",
-                    "content": messages[-1]["content"] if messages else "",
-                },
-            ]
+            decision_messages = self._build_tool_decision_messages(messages, tool_selection_prompt)
+            decision = self._call_llm_for_tool_selection(decision_messages)
 
-            response = self.llm_client.client.chat.completions.create(
-                model=self.llm_client.model,
-                messages=decision_messages,
-                temperature=0.1,  # 低温度确保稳定决策
-                max_tokens=200,
-            )
-
-            decision_text = response.choices[0].message.content.strip()
-
-            # 解析 JSON 响应
-            try:
-                # 清理可能的 markdown 代码块
-                clean_text = decision_text.strip()
-                if clean_text.startswith("```json"):
-                    clean_text = clean_text[7:]
-                if clean_text.endswith("```"):
-                    clean_text = clean_text[:-3]
-                clean_text = clean_text.strip()
-
-                decision = json.loads(clean_text)
-
+            if decision:
                 use_tool = decision.get("use_tool", False)
                 tool_name = decision.get("tool_name")
                 tool_params = decision.get("tool_params", {})
@@ -228,15 +213,58 @@ class AgentService:
                         "tool_name": tool_name,
                         "tool_params": tool_params,
                     }
-            except json.JSONDecodeError:
-                logger.warning(
-                    f"[Agent] 工具选择响应解析失败: {decision_text}",
-                )
-
         except Exception as e:
             logger.error(f"[Agent] 工具选择失败: {e}")
 
         return {"use_tool": False, "tool_name": None, "tool_params": None}
+
+    def _build_tool_decision_messages(
+        self, messages: list[dict], tool_selection_prompt: str
+    ) -> list[dict]:
+        """构建工具选择决策消息，包含完整的上下文但排除工具相关消息"""
+        decision_messages = [{"role": "system", "content": tool_selection_prompt}]
+
+        # 添加所有非工具相关的消息（保留待办上下文和对话历史）
+        for msg in messages:
+            # 跳过系统提示词（使用新的工具选择提示词）
+            if msg.get("role") == "system":
+                continue
+            content = msg.get("content", "")
+            # 跳过工具调用和工具结果相关的消息
+            if content.startswith("[工具调用:") or content.startswith("[工具结果]"):
+                continue
+            # 保留待办上下文、对话历史和用户查询
+            decision_messages.append(msg)
+
+        return decision_messages
+
+    def _call_llm_for_tool_selection(self, decision_messages: list[dict]) -> dict[str, Any] | None:
+        """调用 LLM 进行工具选择并解析响应"""
+        response = self.llm_client.client.chat.completions.create(
+            model=self.llm_client.model,
+            messages=decision_messages,
+            temperature=0.1,  # 低温度确保稳定决策
+            max_tokens=200,
+        )
+
+        decision_text = response.choices[0].message.content.strip()
+
+        # 解析 JSON 响应
+        try:
+            # 清理可能的 markdown 代码块
+            clean_text = decision_text.strip()
+            if clean_text.startswith("```json"):
+                clean_text = clean_text[7:]
+            if clean_text.endswith("```"):
+                clean_text = clean_text[:-3]
+            clean_text = clean_text.strip()
+
+            return json.loads(clean_text)
+        except json.JSONDecodeError:
+            logger.warning(
+                f"[Agent] 工具选择响应解析失败: {decision_text}",
+            )
+            return None
 
     def _execute_tool(self, tool_name: str, tool_params: dict) -> ToolResult:
         """执行工具"""
@@ -385,10 +413,18 @@ class AgentService:
             )
         else:
             # 没有工具结果，直接基于原始查询回答
+            # 重要：明确告诉 LLM 不要假装使用工具
             final_messages.append(
                 {
                     "role": "user",
-                    "content": user_query,
+                    "content": (
+                        f"{user_query}\n\n"
+                        "**重要提示：**\n"
+                        "本次回答没有使用任何工具。请直接基于你的知识回答，"
+                        "不要提及'正在搜索'、'使用工具'、'工具执行'、'web_search'等词汇，"
+                        "不要生成工具调用的描述，不要假装使用了工具。"
+                        "如果问题需要最新信息但你无法提供，请诚实说明。"
+                    ),
                 }
             )
 

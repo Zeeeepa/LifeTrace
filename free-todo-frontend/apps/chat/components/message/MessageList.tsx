@@ -64,18 +64,28 @@ export function MessageList({
 	const { contextMenu, openContextMenu, closeContextMenu } = useContextMenu();
 
 	// 工具调用标记检测
-	const TOOL_CALL_PATTERN = /\[使用工具:\s*([^\]]+)\]/g;
+	// 支持格式：[使用工具: tool_name] 或 [使用工具: tool_name | 关键词: query] 或 [使用工具: tool_name | param: value]
+	const TOOL_CALL_PATTERN = /\[使用工具:\s*([^|\]]+)(?:\s*\|\s*([^\]]+))?\]/g;
 
 	// 提取工具调用信息
 	const extractToolCalls = useCallback(
-		(content: string): Array<{ name: string; fullMatch: string }> => {
-			const matches: Array<{ name: string; fullMatch: string }> = [];
+		(
+			content: string,
+		): Array<{ name: string; params?: string; fullMatch: string }> => {
+			const matches: Array<{
+				name: string;
+				params?: string;
+				fullMatch: string;
+			}> = [];
 			// 重置正则表达式的 lastIndex
 			TOOL_CALL_PATTERN.lastIndex = 0;
 			let match: RegExpExecArray | null = TOOL_CALL_PATTERN.exec(content);
 			while (match !== null) {
+				const toolName = match[1].trim();
+				const params = match[2]?.trim();
 				matches.push({
-					name: match[1].trim(),
+					name: toolName,
+					params: params,
 					fullMatch: match[0],
 				});
 				match = TOOL_CALL_PATTERN.exec(content);
@@ -257,10 +267,20 @@ export function MessageList({
 
 				// 如果正在工具调用且没有实际内容，只显示 shimmer-text，不显示消息框
 				if (isToolCallingOnly) {
+					const lastToolCall = toolCalls[toolCalls.length - 1];
+					// 提取搜索关键词（如果参数中包含"关键词:"）
+					let searchQuery: string | undefined;
+					if (lastToolCall.params) {
+						const keywordMatch = lastToolCall.params.match(/关键词:\s*(.+)/);
+						if (keywordMatch) {
+							searchQuery = keywordMatch[1].trim();
+						}
+					}
 					return (
 						<div key={msg.id} className="flex flex-col items-start w-full px-4">
 							<ToolCallLoading
-								toolName={toolCalls[toolCalls.length - 1].name}
+								toolName={lastToolCall.name}
+								searchQuery={searchQuery}
 							/>
 						</div>
 					);
