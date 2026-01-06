@@ -363,7 +363,7 @@ export default function HomePage() {
 
 						{/* 右侧：工具 */}
 						<div className="flex items-center gap-2 shrink-0">
-							<LayoutSelector />
+							<LayoutSelector showChevron={false} />
 							<ThemeToggle />
 							<LanguageToggle />
 							{/* <UserAvatar /> */}

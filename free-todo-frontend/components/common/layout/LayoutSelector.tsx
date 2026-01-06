@@ -7,7 +7,16 @@ import type { PanelFeature } from "@/lib/config/panel-config";
 import { LAYOUT_PRESETS, useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
 
-export function LayoutSelector() {
+interface LayoutSelectorProps {
+	/**
+	 * 是否显示下拉箭头
+	 * 顶部工具栏等紧凑区域可以关闭箭头，只保留图标入口
+	 * @default true
+	 */
+	showChevron?: boolean;
+}
+
+export function LayoutSelector({ showChevron = true }: LayoutSelectorProps) {
 	const { applyLayout, panelFeatureMap, isFeatureEnabled } = useUiStore();
 	const [mounted, setMounted] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
@@ -80,12 +89,14 @@ export function LayoutSelector() {
 				aria-haspopup="listbox"
 			>
 				<LayoutGrid className="h-5 w-5" />
-				<ChevronDown
-					className={cn(
-						"h-3 w-3 transition-transform duration-200",
-						isOpen && "rotate-180",
-					)}
-				/>
+				{showChevron && (
+					<ChevronDown
+						className={cn(
+							"h-3 w-3 transition-transform duration-200",
+							isOpen && "rotate-180",
+						)}
+					/>
+				)}
 			</button>
 
 			{isOpen && (
