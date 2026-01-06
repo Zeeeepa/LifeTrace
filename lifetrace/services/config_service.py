@@ -250,6 +250,7 @@ class ConfigService:
             "chat.history_limit",
             # 自动待办检测配置
             "jobs.auto_todo_detection.enabled",
+            "jobs.auto_todo_detection.params.whitelist.apps",
             # Dify 配置
             "dify.enabled",
             "dify.api_key",

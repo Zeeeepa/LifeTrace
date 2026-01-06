@@ -55,6 +55,9 @@ jobs:
     id: auto_todo_detection # 任务ID
     name: 自动待办检测 # 任务显示名称（中文）
     enabled: false # 是否启用自动待办检测（默认关闭，需用户手动开启）
+    params:
+      whitelist:
+        apps: ['微信', 'WeChat', '飞书', 'Feishu', 'Lark', '钉钉', 'DingTalk'] # 应用白名单，只有这些应用的截图才会触发自动待办检测
   ocr:
     id: ocr # 任务ID
     name: OCR识别 # 任务显示名称（中文）
