@@ -3,6 +3,7 @@
 import { Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { CollapsibleSection } from "@/components/common/layout/CollapsibleSection";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import {
 	ALL_PANEL_FEATURES,
@@ -43,6 +44,7 @@ export function SettingsPanel() {
 	// 状态管理
 	const [autoTodoDetectionEnabled, setAutoTodoDetectionEnabled] =
 		useState(false);
+	const [showDeveloperOptions, setShowDeveloperOptions] = useState(false);
 	const setFeatureEnabled = useUiStore((state) => state.setFeatureEnabled);
 	const isFeatureEnabled = useUiStore((state) => state.isFeatureEnabled);
 	const dockDisplayMode = useUiStore((state) => state.dockDisplayMode);
@@ -146,14 +148,8 @@ export function SettingsPanel() {
 				{/* LLM 配置 */}
 				<LlmConfigSection config={config} loading={loading} />
 
-				{/* Dify 配置 */}
-				<DifyConfigSection config={config} loading={loading} />
-
 				{/* Tavily 配置 */}
 				<TavilyConfigSection config={config} loading={loading} />
-
-				{/* 基础设置（录制配置） */}
-				<RecorderConfigSection config={config} loading={loading} />
 
 				{/* 自动待办检测设置 */}
 				<SettingsSection
@@ -264,6 +260,28 @@ export function SettingsPanel() {
 
 				{/* 定时任务管理 */}
 				<SchedulerSection loading={loading} />
+
+				{/* 开发者选项（整栏可折叠） */}
+				<CollapsibleSection
+					title={tSettings("developerSectionTitle")}
+					show={showDeveloperOptions}
+					onToggle={() => setShowDeveloperOptions((prevShow) => !prevShow)}
+					className="mt-4"
+					contentClassName="mt-3"
+				>
+					<SettingsSection
+						title={tSettings("developerSectionTitle")}
+						description={tSettings("developerSectionDescription")}
+					>
+						{/* Dify 配置（不再单独折叠） */}
+						<DifyConfigSection config={config} loading={loading} />
+
+						{/* 屏幕录制设置（黑名单等） */}
+						<div className="mt-4">
+							<RecorderConfigSection config={config} loading={loading} />
+						</div>
+					</SettingsSection>
+				</CollapsibleSection>
 			</div>
 		</div>
 	);
