@@ -3,11 +3,12 @@
 import { Check, ChevronDown, LayoutGrid } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import type { PanelFeature } from "@/lib/config/panel-config";
 import { LAYOUT_PRESETS, useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
 
 export function LayoutSelector() {
-	const { applyLayout, panelFeatureMap } = useUiStore();
+	const { applyLayout, panelFeatureMap, isFeatureEnabled } = useUiStore();
 	const [mounted, setMounted] = useState(false);
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,14 @@ export function LayoutSelector() {
 
 	const currentLayoutId = getCurrentLayoutId();
 
+	// 过滤掉包含已禁用面板功能的预设布局
+	const availableLayoutPresets = LAYOUT_PRESETS.filter((preset) => {
+		const features = Object.values(preset.panelFeatureMap).filter(
+			(feature): feature is PanelFeature => feature !== null,
+		);
+		return features.every((feature) => isFeatureEnabled(feature));
+	});
+
 	const getLayoutName = (layoutId: string) => {
 		return t(`layouts.${layoutId}`);
 	};
@@ -85,7 +94,7 @@ export function LayoutSelector() {
 					role="listbox"
 					aria-label={t("selectLayout")}
 				>
-					{LAYOUT_PRESETS.map((layout) => (
+					{availableLayoutPresets.map((layout) => (
 						<button
 							key={layout.id}
 							type="button"
