@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useConfig, useSaveConfig } from "@/lib/query";
 import { ContextMenu } from "./ContextMenu";
 import { FloatContent } from "./FloatContent";
+import { PanelContent } from "./PanelContent";
 import { IslandMode } from "./types";
 
 interface DynamicIslandProps {
@@ -258,13 +259,8 @@ export function DynamicIsland({
 								</button>
 							</div>
 						</div>
-						<div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm text-muted-foreground">
-							<div className="rounded-lg border border-dashed border-[oklch(var(--border))]/60 p-4 bg-background/70">
-								<div className="font-medium text-foreground mb-1">灵动岛 Panel 占位</div>
-								<div className="text-xs text-muted-foreground">
-									后续可在此嵌入语音、任务或通知面板内容。
-								</div>
-							</div>
+						<div className="flex-1 min-h-0 overflow-y-auto">
+							<PanelContent />
 						</div>
 					</div>
 				</motion.div>
