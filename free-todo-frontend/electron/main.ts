@@ -198,6 +198,63 @@ function waitForBackend(url: string, timeout: number): Promise<void> {
 }
 
 /**
+ * 检测是否已有后端在运行（通过 /health 并校验 app 标识）
+ * 返回已运行的端口，未找到则返回 null
+ */
+async function detectRunningBackendPort(): Promise<number | null> {
+	const candidatePorts = [DEFAULT_BACKEND_PORT, DEFAULT_BACKEND_PORT + 1];
+
+	const checkPort = (port: number): Promise<boolean> =>
+		new Promise((resolve) => {
+			const req = http.get(
+				{
+					hostname: "127.0.0.1",
+					port,
+					path: "/health",
+					timeout: 2000,
+				},
+				(res) => {
+					let data = "";
+					res.on("data", (chunk) => {
+						data += chunk;
+					});
+					res.on("end", () => {
+						try {
+							const json = JSON.parse(data);
+							resolve(json?.app === "lifetrace");
+						} catch {
+							resolve(false);
+						}
+					});
+				},
+			);
+
+			req.on("error", () => resolve(false));
+			req.on("timeout", () => {
+				req.destroy();
+				resolve(false);
+			});
+		});
+
+	for (const port of candidatePorts) {
+		// eslint-disable-next-line no-await-in-loop
+		if (await checkPort(port)) {
+			return port;
+		}
+	}
+
+	// 扫描更多端口（轻量，不阻塞过久）
+	for (let port = DEFAULT_BACKEND_PORT + 2; port < DEFAULT_BACKEND_PORT + 20; port += 1) {
+		// eslint-disable-next-line no-await-in-loop
+		if (await checkPort(port)) {
+			return port;
+		}
+	}
+
+	return null;
+}
+
+/**
  * 启动 Next.js 服务器（支持动态端口）
  * 在打包的应用中，总是启动内置的生产服务器
  */
@@ -1074,8 +1131,15 @@ if (gotTheLock) {
 			// 请求通知权限（如果需要）
 			await requestNotificationPermission();
 
-			// 1. 启动后端服务器（会自动探测可用端口）
-			await startBackendServer();
+			// 1. 检测已运行的后端，若存在则复用端口，否则启动后端
+			const detectedBackendPort = await detectRunningBackendPort();
+			if (detectedBackendPort) {
+				actualBackendPort = detectedBackendPort;
+				logToFile(`Detected backend running on port: ${detectedBackendPort}, will reuse`);
+			} else {
+				logToFile("No running backend detected, starting backend server...");
+				await startBackendServer();
+			}
 
 			// 2. 等待后端就绪（最多等待 180 秒）
 			const backendUrl = getBackendUrl();
