@@ -4,6 +4,7 @@
  */
 
 import { app, ipcMain, screen } from "electron";
+import { enableDynamicIsland } from "./config";
 import { logger } from "./logger";
 import {
 	type NotificationData,
@@ -230,5 +231,31 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		// 通知窗口管理器透明背景已就绪
 		windowManager.setTransparentBackgroundReady(true);
 		logger.info("Transparent background ready signal received");
+	});
+
+	// 显示窗口（用于全屏模式）
+	ipcMain.on("show-window", () => {
+		const win = windowManager.getWindow();
+		if (win) {
+			win.show();
+			// 全屏模式下，取消点击穿透，确保可以交互
+			win.setIgnoreMouseEvents(false);
+			// 确保窗口在最前面
+			win.focus();
+			logger.info("Window shown (fullscreen mode)");
+		}
+	});
+
+	// 隐藏窗口（用于退出全屏模式）
+	ipcMain.on("hide-window", () => {
+		const win = windowManager.getWindow();
+		if (win) {
+			// 隐藏窗口前，重新启用点击穿透（如果启用灵动岛模式）
+			if (enableDynamicIsland) {
+				win.setIgnoreMouseEvents(true, { forward: true });
+			}
+			win.hide();
+			logger.info("Window hidden (exit fullscreen mode)");
+		}
 	});
 }
