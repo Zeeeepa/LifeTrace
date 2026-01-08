@@ -58,14 +58,14 @@ function waitForServer(url: string, timeout: number): Promise<void> {
 
 let nextProcess: ChildProcess | null = null;
 
-/**
+	/**
  * 获取 Next.js 进程
  */
 export function getNextProcess(): ChildProcess | null {
 	return nextProcess;
-}
+	}
 
-/**
+	/**
  * 设置 Next.js 进程
  */
 export function setNextProcess(proc: ChildProcess | null): void {
@@ -88,7 +88,7 @@ function getActualFrontendPort(): number {
  */
 function setActualFrontendPort(port: number): void {
 	actualFrontendPort = port;
-}
+		}
 
 
 /**
@@ -108,18 +108,18 @@ export function setBackendUrl(url: string): void {
  */
 function getBackendUrl(): string {
 	return backendUrl;
-}
+	}
 
-/**
+	/**
  * 启动 Next.js 服务器（支持动态端口）
  * 在打包的应用中，总是启动内置的生产服务器
- */
+	 */
 export async function startNextServer(): Promise<void> {
 	const isDev = isDevelopment(app.isPackaged);
 
 	// 如果应用已打包，必须启动内置服务器，不允许依赖外部 dev 服务器
-	if (app.isPackaged) {
-		logger.info("App is packaged - starting built-in production server");
+		if (app.isPackaged) {
+			logger.info("App is packaged - starting built-in production server");
 	} else if (isDev) {
 		// 开发模式下，尝试探测可用的前端端口（以防开发服务器未启动）
 		try {
@@ -188,63 +188,63 @@ export async function startNextServer(): Promise<void> {
 		});
 
 		return;
-	} else {
-		logger.info(
-			"Running in production mode (not packaged) - starting built-in server",
-		);
-	}
+		} else {
+			logger.info(
+				"Running in production mode (not packaged) - starting built-in server",
+			);
+		}
 
 	// 动态端口分配：查找可用的前端端口
-	try {
+		try {
 		const port = await portManager.findAvailablePort(
-			PORT_CONFIG.frontend.default,
-		);
+				PORT_CONFIG.frontend.default,
+			);
 		setActualFrontendPort(port);
 		logger.info(`Frontend will use port: ${port}`);
-	} catch (error) {
-		const errorMsg = `Failed to find available frontend port: ${error instanceof Error ? error.message : String(error)}`;
-		logger.error(errorMsg);
-		dialog.showErrorBox("Port Allocation Error", errorMsg);
-		throw error;
-	}
+		} catch (error) {
+			const errorMsg = `Failed to find available frontend port: ${error instanceof Error ? error.message : String(error)}`;
+			logger.error(errorMsg);
+			dialog.showErrorBox("Port Allocation Error", errorMsg);
+			throw error;
+		}
 
-	const serverPath = path.join(
-		process.resourcesPath,
-		"standalone",
-		"server.js",
-	);
+		const serverPath = path.join(
+			process.resourcesPath,
+			"standalone",
+			"server.js",
+		);
 
 	const msg = `Starting Next.js server from: ${serverPath}`;
 	logger.console(msg);
 	logger.info(msg);
 
 	// 检查服务器文件是否存在
-	if (!fs.existsSync(serverPath)) {
-		const errorMsg = `Server file not found: ${serverPath}`;
-		logger.error(errorMsg);
-		dialog.showErrorBox(
-			"Server Not Found",
-			`The Next.js server file was not found at:\n${serverPath}\n\nPlease rebuild the application.`,
-		);
-		throw new Error(errorMsg);
-	}
+		if (!fs.existsSync(serverPath)) {
+			const errorMsg = `Server file not found: ${serverPath}`;
+			logger.error(errorMsg);
+			dialog.showErrorBox(
+				"Server Not Found",
+				`The Next.js server file was not found at:\n${serverPath}\n\nPlease rebuild the application.`,
+			);
+			throw new Error(errorMsg);
+		}
 
 	// 设置工作目录为 standalone 目录，这样相对路径可以正确解析
-	const serverDir = path.dirname(serverPath);
+		const serverDir = path.dirname(serverPath);
 
-	logger.info(`Server directory: ${serverDir}`);
-	logger.info(`Server path: ${serverPath}`);
+		logger.info(`Server directory: ${serverDir}`);
+		logger.info(`Server path: ${serverPath}`);
 	logger.info(`PORT: ${getActualFrontendPort()}, HOSTNAME: localhost`);
 	logger.info(`NEXT_PUBLIC_API_URL: ${getBackendUrl()}`);
 
 	// 检查关键文件是否存在
-	const nextServerDir = path.join(serverDir, ".next", "server");
-	if (!fs.existsSync(nextServerDir)) {
-		const errorMsg = `Required directory not found: ${nextServerDir}`;
-		logger.error(errorMsg);
-		throw new Error(errorMsg);
-	}
-	logger.info("Verified .next/server directory exists");
+		const nextServerDir = path.join(serverDir, ".next", "server");
+		if (!fs.existsSync(nextServerDir)) {
+			const errorMsg = `Required directory not found: ${nextServerDir}`;
+			logger.error(errorMsg);
+			throw new Error(errorMsg);
+		}
+		logger.info("Verified .next/server directory exists");
 
 	// 强制设置生产环境变量，确保服务器以生产模式运行
 	// 创建新的环境对象，避免直接修改 process.env
@@ -259,7 +259,7 @@ export async function startNextServer(): Promise<void> {
 
 	// 强制设置生产模式环境变量，使用动态分配的端口
 	serverEnv.PORT = String(getActualFrontendPort());
-	serverEnv.HOSTNAME = "localhost";
+		serverEnv.HOSTNAME = "localhost";
 	serverEnv.NODE_ENV = "production"; // 强制生产模式
 	// 注入后端 URL，让 Next.js 的 rewrite 和 API 调用使用正确的后端地址
 	serverEnv.NEXT_PUBLIC_API_URL = getBackendUrl();
@@ -269,25 +269,25 @@ export async function startNextServer(): Promise<void> {
 	// 注意：fork 会自动设置 execPath，所以我们只需要传递脚本路径
 	nextProcess = fork(serverPath, [], {
 		cwd: serverDir, // 设置工作目录
-		env: serverEnv as NodeJS.ProcessEnv,
+			env: serverEnv as NodeJS.ProcessEnv,
 		stdio: ["ignore", "pipe", "pipe", "ipc"], // stdin: ignore, stdout/stderr: pipe, ipc channel
 		silent: false, // 不静默，允许输出
-	});
+		});
 	setNextProcessRef(nextProcess);
 
 	logger.info(`Spawned process with PID: ${nextProcess.pid}`);
 
 	// 确保进程引用被保持
 	if (!nextProcess.pid) {
-		const errorMsg = "Failed to spawn process - no PID assigned";
-		logger.error(errorMsg);
-		throw new Error(errorMsg);
-	}
+			const errorMsg = "Failed to spawn process - no PID assigned";
+			logger.error(errorMsg);
+			throw new Error(errorMsg);
+		}
 
 	// 监听进程的 spawn 事件
 	nextProcess.on("spawn", () => {
 		logger.info(`Process spawned successfully with PID: ${nextProcess?.pid}`);
-	});
+		});
 
 	// 收集所有输出用于日志
 	let stdoutBuffer = "";
@@ -327,7 +327,7 @@ export async function startNextServer(): Promise<void> {
 	}
 
 	nextProcess.on("error", (error) => {
-		const errorMsg = `Failed to start Next.js server: ${error.message}`;
+			const errorMsg = `Failed to start Next.js server: ${error.message}`;
 		logger.error(errorMsg);
 		if (error.stack) {
 			logger.error(`Error stack: ${error.stack}`);
@@ -342,19 +342,19 @@ export async function startNextServer(): Promise<void> {
 			);
 		}
 
-		try {
-			console.error(errorMsg, error);
-		} catch {
-			// 忽略 EPIPE 错误
-		}
-	});
+			try {
+				console.error(errorMsg, error);
+			} catch {
+				// 忽略 EPIPE 错误
+			}
+		});
 
 	// 监听未捕获的异常（可能在子进程中）
 	process.on("uncaughtException", (error) => {
 		logger.error(`UNCAUGHT EXCEPTION: ${error.message}`);
 		if (error.stack) {
 			logger.error(`Stack: ${error.stack}`);
-		}
+	}
 	});
 
 	process.on("unhandledRejection", (reason) => {
@@ -391,10 +391,10 @@ export async function startNextServer(): Promise<void> {
 
 		const windows = BrowserWindow.getAllWindows();
 		if (windows.length > 0) {
-			dialog.showErrorBox(
-				"Server Exited Unexpectedly",
+		dialog.showErrorBox(
+			"Server Exited Unexpectedly",
 				`The Next.js server exited unexpectedly.\n\n${errorMsg}\n\nSTDOUT:\n${stdoutBuffer.slice(-LOG_CONFIG.dialogDisplayLimit) || "(empty)"}\n\nSTDERR:\n${stderrBuffer.slice(-LOG_CONFIG.dialogDisplayLimit) || "(empty)"}\n\nCheck logs at: ${logger.getLogFilePath()}`,
-			);
+		);
 		}
 
 		// 延迟退出，让用户看到错误消息
@@ -402,9 +402,9 @@ export async function startNextServer(): Promise<void> {
 			app.quit();
 		}, 3000);
 	});
-}
+	}
 
-/**
+	/**
  * 关闭 Next.js 服务器
  * 注意：这个函数只发送停止信号，不等待进程退出
  * 实际的等待逻辑在 cleanup 函数中处理
@@ -422,17 +422,17 @@ export function stopNextServer(): void {
 			);
 		}
 		// 不立即设置为 null，让 cleanup 函数可以等待进程退出
+		}
 	}
-}
 
-/**
+	/**
  * 获取服务器 URL（用于外部调用）
- */
+	 */
 export function getServerUrl(): string {
 	return `http://localhost:${actualFrontendPort}`;
-}
+	}
 
-/**
+	/**
  * 等待服务器就绪（公共方法）
  */
 export async function waitForServerPublic(

@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
 // import { UserAvatar } from "@/components/common/ui/UserAvatar";
+import { IslandMode } from "@/components/dynamic-island/types";
 import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContainer } from "@/components/layout/PanelContainer";
 import { PanelContent } from "@/components/layout/PanelContent";
@@ -17,10 +18,57 @@ import { GlobalDndProvider } from "@/lib/dnd";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useConfig } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
+import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
 
+/**
+ * Electron 窗口接口扩展
+ */
+interface ElectronWindow extends Window {
+	electronAPI?: Window["electronAPI"];
+	require?: (module: string) => unknown;
+}
+
+/**
+ * 检测是否在 Electron 环境中
+ */
+function isElectronEnvironment(): boolean {
+	if (typeof window === "undefined") return false;
+	const win = window as ElectronWindow;
+	return !!(
+		win.electronAPI ||
+		win.require?.("electron") ||
+		navigator.userAgent.includes("Electron")
+	);
+}
+
+// 可选导入 VoiceModulePanel（如果 voice module 不存在也不会报错）
+let VoiceModulePanel: React.ComponentType | null = null;
+try {
+	const voiceModule = require("@/apps/voice-module/VoiceModulePanel");
+	VoiceModulePanel = voiceModule.VoiceModulePanel;
+} catch (_error) {
+	// voice module 不存在，VoiceModulePanel 保持为 null
+	console.log("[page.tsx] VoiceModulePanel 不可用");
+}
+
 export default function HomePage() {
+	// 所有 hooks 必须在条件返回之前调用（React Hooks 规则）
+	const { mode } = useDynamicIslandStore();
+
+	// 使用 mounted 状态来避免 SSR 水合不匹配
+	// 在服务器端和初始客户端渲染时，始终渲染全屏模式
+	// 只有在水合完成后（mounted 为 true），才根据实际环境决定显示模式
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	// 浏览器模式下始终使用全屏模式（不显示灵动岛）
+	// 在未挂载时（SSR/初始渲染），始终使用全屏模式以避免水合不匹配
+	const isElectron = mounted ? isElectronEnvironment() : false;
+	const isFullscreen = !isElectron || mode === IslandMode.FULLSCREEN;
 	const {
 		isPanelAOpen,
 		isPanelBOpen,
@@ -333,6 +381,36 @@ export default function HomePage() {
 		window.addEventListener("pointerup", handlePointerUp);
 	};
 
+	// 如果不是全屏模式且是 Electron 环境，只显示透明背景（DynamicIsland 会通过 DynamicIslandProvider 显示）
+	// 浏览器模式下始终显示全屏内容
+	// 注意：必须在所有 hooks 调用之后才能条件返回
+	if (!isFullscreen && isElectron) {
+		return (
+			<div
+				className="relative w-full h-full overflow-hidden"
+				style={{ backgroundColor: "transparent", background: "transparent" }}
+			>
+				{/* 透明背景，只显示 DynamicIsland */}
+				{/* 在悬浮模式下也渲染 VoiceModulePanel（隐藏），确保录音服务初始化和事件监听器注册 */}
+				{/* 如果 VoiceModulePanel 可用，则渲染它 */}
+				{VoiceModulePanel && (
+					<div
+						style={{
+							position: "absolute",
+							left: "-9999px",
+							top: "-9999px",
+							width: "1px",
+							height: "1px",
+							overflow: "hidden",
+						}}
+					>
+						<VoiceModulePanel />
+					</div>
+				)}
+			</div>
+		);
+	}
+
 	return (
 		<GlobalDndProvider>
 			<main className="relative flex h-screen flex-col overflow-hidden text-foreground">
@@ -352,8 +430,8 @@ export default function HomePage() {
 							</h1>
 						</div>
 
-						{/* 中间：通知区域（灵动岛） - 只在有通知时显示 */}
-						{currentNotification && (
+						{/* 中间：通知区域（灵动岛） - 只在有通知时且是 Electron 环境时显示 */}
+						{currentNotification && isElectron && (
 							<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
 								<HeaderIsland />
 							</div>

@@ -22,6 +22,13 @@ export class WindowManager {
 	private mainWindow: BrowserWindow | null = null;
 	/** 透明背景就绪标志（仅灵动岛模式） */
 	private transparentBackgroundReady: boolean = false;
+	/** 保存窗口的原始位置和尺寸（用于从全屏模式恢复） */
+	private originalBounds: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	} | null = null;
 
 	/**
 	 * 获取 preload 脚本路径
@@ -71,6 +78,13 @@ export class WindowManager {
 	}
 
 	/**
+	 * 获取原始窗口边界
+	 */
+	getOriginalBounds(): typeof this.originalBounds {
+		return this.originalBounds;
+	}
+
+	/**
 	 * 创建主窗口
 	 * @param serverUrl 前端服务器 URL
 	 */
@@ -81,6 +95,24 @@ export class WindowManager {
 		const primaryDisplay = screen.getPrimaryDisplay();
 		const { width: screenWidth, height: screenHeight } =
 			primaryDisplay.workAreaSize;
+
+		// 保存原始位置和尺寸（用于从全屏模式恢复）
+		if (enableDynamicIsland && !this.originalBounds) {
+			// 窗口初始位置在右下角，但大小是全屏（这样灵动岛可以通过 CSS 定位）
+			this.originalBounds = {
+				x: 0,
+				y: 0,
+				width: screenWidth,
+				height: screenHeight,
+			};
+		} else if (!enableDynamicIsland && !this.originalBounds) {
+			this.originalBounds = {
+				x: 0,
+				y: 0,
+				width: WINDOW_CONFIG.width,
+				height: WINDOW_CONFIG.height,
+			};
+		}
 
 		this.mainWindow = new BrowserWindow({
 			width: enableDynamicIsland ? screenWidth : WINDOW_CONFIG.width,
@@ -223,11 +255,6 @@ export class WindowManager {
 		setTimeout(() => {
 			loadWindow();
 		}, 100);
-
-		// 开发模式下打开开发者工具
-		if (isDevelopment(app.isPackaged)) {
-			this.mainWindow.webContents.openDevTools();
-		}
 	}
 
 	/**
@@ -327,7 +354,7 @@ export class WindowManager {
 				// 非灵动岛模式，直接显示
 				if (this.mainWindow) {
 					this.mainWindow.show();
-					logger.info("Window is ready to show");
+			logger.info("Window is ready to show");
 				}
 			}
 		});

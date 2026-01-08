@@ -41,8 +41,8 @@ if (!gotTheLock) {
 			windowManager.focus();
 		} else if (app.isReady()) {
 			windowManager.create(getServerUrl());
-		} else {
-			app.once("ready", () => {
+			} else {
+				app.once("ready", () => {
 				windowManager.create(getServerUrl());
 			});
 		}
@@ -105,11 +105,11 @@ async function bootstrap(
 		// 记录启动信息
 		logStartupInfo();
 
-		// 设置 IPC 处理器
+			// 设置 IPC 处理器
 		setupIpcHandlers(windowManager);
 
 		// 请求通知权限
-		await requestNotificationPermission();
+			await requestNotificationPermission();
 
 		// 1. 自动检测后端端口（如果后端已运行）
 		logger.info("Detecting running backend server...");
@@ -149,10 +149,10 @@ async function bootstrap(
 		setBackendUrl(backendServer.getUrl());
 
 		// 2. 启动 Next.js 前端服务器
-		await startNextServer();
+			await startNextServer();
 
 		// 3. 等待 Next.js 服务器就绪（最多等待 30 秒）
-		const serverUrl = getServerUrl();
+			const serverUrl = getServerUrl();
 		logger.console(
 			`Waiting for Next.js server at ${serverUrl} to be ready...`,
 		);
@@ -173,8 +173,8 @@ async function bootstrap(
 
 		logger.info(
 			`Window created successfully. Frontend: ${getServerUrl()}, Backend: ${backendServer.getUrl()}`,
-		);
-	} catch (error) {
+			);
+		} catch (error) {
 		handleStartupError(error);
 	}
 }
@@ -194,21 +194,21 @@ function logStartupInfo(): void {
  * 处理启动错误
  */
 function handleStartupError(error: unknown): void {
-	const errorMsg = `Failed to start application: ${error instanceof Error ? error.message : String(error)}`;
-	console.error(errorMsg);
+			const errorMsg = `Failed to start application: ${error instanceof Error ? error.message : String(error)}`;
+			console.error(errorMsg);
 	logger.fatal(errorMsg);
 
-	if (error instanceof Error && error.stack) {
+			if (error instanceof Error && error.stack) {
 		logger.fatal(`Stack trace: ${error.stack}`);
-	}
+			}
 
-	dialog.showErrorBox(
-		"Startup Error",
+			dialog.showErrorBox(
+				"Startup Error",
 		`Failed to start application:\n${errorMsg}\n\nCheck logs at: ${logger.getLogFilePath()}`,
-	);
+			);
 
-	setTimeout(() => {
-		app.quit();
+			setTimeout(() => {
+				app.quit();
 	}, TIMEOUT_CONFIG.quitDelay);
 }
 
