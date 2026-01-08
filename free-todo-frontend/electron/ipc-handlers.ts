@@ -283,7 +283,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 					break;
 			}
 
-			console.log("[main] 调整窗口大小:", {
+			console.log("[main] Resizing window:", {
 				position,
 				deltaX,
 				deltaY,

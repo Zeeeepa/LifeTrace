@@ -43,15 +43,6 @@ function isElectronEnvironment(): boolean {
 	);
 }
 
-// 可选导入 VoiceModulePanel（如果 voice module 不存在也不会报错）
-let VoiceModulePanel: React.ComponentType | null = null;
-try {
-	const voiceModule = require("@/apps/voice-module/VoiceModulePanel");
-	VoiceModulePanel = voiceModule.VoiceModulePanel;
-} catch (_error) {
-	// voice module 不存在，VoiceModulePanel 保持为 null
-	console.log("[page.tsx] VoiceModulePanel 不可用");
-}
 
 export default function HomePage() {
 	// 所有 hooks 必须在条件返回之前调用（React Hooks 规则）
@@ -391,22 +382,6 @@ export default function HomePage() {
 				style={{ backgroundColor: "transparent", background: "transparent" }}
 			>
 				{/* 透明背景，只显示 DynamicIsland */}
-				{/* 在悬浮模式下也渲染 VoiceModulePanel（隐藏），确保录音服务初始化和事件监听器注册 */}
-				{/* 如果 VoiceModulePanel 可用，则渲染它 */}
-				{VoiceModulePanel && (
-					<div
-						style={{
-							position: "absolute",
-							left: "-9999px",
-							top: "-9999px",
-							width: "1px",
-							height: "1px",
-							overflow: "hidden",
-						}}
-					>
-						<VoiceModulePanel />
-					</div>
-				)}
 			</div>
 		);
 	}

@@ -3,6 +3,16 @@
  * 应用启动协调层，负责初始化各模块并管理应用生命周期
  */
 
+// Set console encoding to UTF-8 for Windows
+if (process.platform === "win32") {
+		try {
+			// Try to set console code page to UTF-8
+			require("node:child_process").exec("chcp 65001", () => {});
+		} catch {
+			// Ignore errors
+		}
+}
+
 import { app, dialog } from "electron";
 import { BackendServer } from "./backend-server";
 import { isDevelopment, TIMEOUT_CONFIG } from "./config";
@@ -35,6 +45,72 @@ if (!gotTheLock) {
 	// 设置全局异常处理
 	setupGlobalErrorHandlers();
 
+	// 处理 Ctrl+C (SIGINT) 和 SIGTERM 信号，确保正常退出
+	let isQuitting = false;
+	const gracefulShutdown = async (signal: string) => {
+		if (isQuitting) {
+			console.log(`\nReceived ${signal} signal again, forcing exit...`);
+			process.exit(1);
+			return;
+		}
+
+		isQuitting = true;
+		console.log(`\nReceived ${signal} signal, shutting down gracefully...`);
+
+		try {
+			// Only stop frontend server (Next.js), backend doesn't need to stop
+			console.log("\nStopping Next.js server...");
+			stopNextServer();
+			const { getNextProcess } = await import("./next-server");
+			const nextProcess = getNextProcess();
+			if (nextProcess && !nextProcess.killed) {
+				// Wait for Next.js process to exit (this is critical)
+				await new Promise<void>((resolve) => {
+					const timeout = setTimeout(() => {
+						console.log("Next.js process did not exit within 5 seconds, forcing exit...");
+						if (nextProcess && !nextProcess.killed) {
+							try {
+								// On Windows, use SIGKILL to force kill
+								if (process.platform === "win32") {
+									nextProcess.kill("SIGKILL");
+								} else {
+									nextProcess.kill("SIGKILL");
+								}
+							} catch (err) {
+								console.warn(`Failed to kill Next.js process: ${err instanceof Error ? err.message : String(err)}`);
+							}
+						}
+						resolve();
+					}, 5000);
+
+					nextProcess.once("exit", () => {
+						clearTimeout(timeout);
+						console.log("Next.js process exited successfully");
+						resolve();
+					});
+				});
+			} else {
+				console.log("Next.js process already stopped");
+			}
+
+			console.log("Frontend process stopped, exiting...");
+			// Ensure app exits
+			setTimeout(() => {
+				app.quit();
+				process.exit(0);
+			}, 100);
+		} catch (error) {
+			console.error(
+				`Error during graceful shutdown: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			process.exit(1);
+		}
+	};
+
+	// 监听 SIGINT (Ctrl+C) 和 SIGTERM 信号
+	process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+	process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
 	// 当另一个实例尝试启动时，聚焦到当前窗口
 	app.on("second-instance", () => {
 		if (windowManager.hasWindow()) {
@@ -62,14 +138,14 @@ if (!gotTheLock) {
 		}
 	});
 
-	// 应用退出前清理
+	// 应用退出前清理（不等待，快速退出）
 	app.on("before-quit", () => {
-		cleanup(backendServer);
+		cleanup(backendServer, false);
 	});
 
-	// 应用退出时确保清理
+	// 应用退出时确保清理（不等待，快速退出）
 	app.on("quit", () => {
-		cleanup(backendServer);
+		cleanup(backendServer, false);
 	});
 
 	// 应用准备就绪后启动
@@ -214,8 +290,12 @@ function handleStartupError(error: unknown): void {
 
 /**
  * 清理资源
+ * @param backendServer 后端服务器实例
+ * @param waitForExit 是否等待进程退出（默认 false，用于快速退出）
  */
-function cleanup(backendServer: BackendServer): void {
-	backendServer.stop();
+function cleanup(backendServer: BackendServer, waitForExit = false): void {
+	logger.info("Cleaning up resources...");
+	// 如果 waitForExit 为 false，快速停止（不等待）
+	backendServer.stop(waitForExit);
 	stopNextServer();
 }

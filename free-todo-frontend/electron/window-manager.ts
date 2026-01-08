@@ -19,7 +19,8 @@ import { logger } from "./logger";
 export class WindowManager {
 	/** 主窗口实例 */
 	private mainWindow: BrowserWindow | null = null;
-	/** 透明背景就绪标志（仅灵动岛模式） */
+	/** 透明背景就绪标志（仅灵动岛模式，目前未使用但保留用于未来扩展） */
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	private transparentBackgroundReady: boolean = false;
 	/** 保存窗口的原始位置和尺寸（用于从全屏模式恢复） */
 	private originalBounds: {
@@ -264,17 +265,17 @@ export class WindowManager {
 
 		// 透明背景就绪标志由 setupIpcHandlers 中的监听器更新
 
-		// 窗口准备显示
+		// Window ready to show
 		this.mainWindow.once("ready-to-show", () => {
-			// 如果启用灵动岛模式，窗口始终显示但是透明和点击穿透
-			// 这样只有悬浮按钮可见，不影响其他工作
+			// If Dynamic Island mode is enabled, window is always shown but transparent and click-through
+			// Only the floating button is visible, doesn't interfere with other work
 			if (enableDynamicIsland && this.mainWindow) {
-				// 等待透明背景设置完成后再显示窗口
-				// 这样可以避免 Next.js SSR 导致的窗口显示问题
+				// Wait for transparent background to be set before showing window
+				// This avoids window display issues caused by Next.js SSR
 				const showWindow = () => {
 					if (this.mainWindow) {
 						this.mainWindow.show();
-						// 默认设置点击穿透，直到鼠标悬停在灵动岛上
+						// Set click-through by default until mouse hovers over Dynamic Island
 						this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
 						logger.info(
 							"Dynamic Island mode enabled: window shown, click-through active",
@@ -282,23 +283,23 @@ export class WindowManager {
 					}
 				};
 
-				// 等待透明背景设置完成后再显示窗口
-				// 优先等待 IPC 信号，如果没有收到信号则延迟显示
+				// Wait for transparent background to be set before showing window
+				// Prioritize waiting for IPC signal, if no signal received then delay display
 				const showWindowDelayed = () => {
 					if (!this.mainWindow) return;
 
-					// 如果已经收到透明背景就绪信号，直接显示
+					// If transparent background ready signal already received, show directly
 					if (this.transparentBackgroundReady) {
 						showWindow();
 						return;
 					}
 
-					// 等待页面加载完成
+					// Wait for page to finish loading
 					if (this.mainWindow.webContents.isLoading()) {
 						this.mainWindow.webContents.once("did-finish-load", () => {
-							// 等待透明背景设置完成（preload 脚本会发送信号）
-							// 增加延迟时间，确保 Next.js 的客户端脚本完全执行
-							// 在显示窗口前，再次注入脚本强制设置透明背景
+							// Wait for transparent background to be set (preload script will send signal)
+							// Increase delay to ensure Next.js client scripts fully execute
+							// Before showing window, inject script again to force transparent background
 							if (!this.mainWindow) return;
 							this.mainWindow.webContents
 								.executeJavaScript(`
@@ -325,35 +326,35 @@ export class WindowManager {
 								})();
 							`)
 								.then(() => {
-									// 延迟显示，确保透明背景已应用
+									// Delay display to ensure transparent background is applied
 									setTimeout(() => {
 										showWindow();
 									}, 300);
 								})
 								.catch(() => {
-									// 即使执行失败也显示窗口
+									// Even if execution fails, show window
 									setTimeout(() => {
 										showWindow();
-									}, 500);
+									}, 1000);
 								});
 						});
 					} else {
-						// 页面已加载完成，直接延迟显示
+						// Page already loaded, delay display directly
 						setTimeout(() => {
 							showWindow();
-						}, 300);
+						}, 500);
 					}
 				};
 
-				// 延迟一点，等待透明背景就绪信号
+				// Delay a bit, wait for transparent background ready signal
 				setTimeout(() => {
 					showWindowDelayed();
 				}, 100);
 			} else {
-				// 非灵动岛模式，直接显示
+				// Non-Dynamic Island mode, show directly
 				if (this.mainWindow) {
 					this.mainWindow.show();
-			logger.info("Window is ready to show");
+					logger.info("Window is ready to show");
 				}
 			}
 		});

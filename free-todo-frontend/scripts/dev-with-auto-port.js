@@ -51,13 +51,13 @@ async function findAvailablePort(startPort, maxAttempts = MAX_PORT_ATTEMPTS) {
 		const port = startPort + offset;
 		if (await isPortAvailable(port)) {
 			if (offset > 0) {
-				console.log(`📌 端口 ${startPort} 已被占用，使用端口 ${port}`);
+				console.log(`Port ${startPort} is in use, using port ${port}`);
 			}
 			return port;
 		}
 	}
 	throw new Error(
-		`无法在 ${startPort}-${startPort + maxAttempts} 范围内找到可用端口`,
+		`Cannot find available port in range ${startPort}-${startPort + maxAttempts}`,
 	);
 }
 
@@ -128,36 +128,36 @@ async function findRunningBackendPort() {
 }
 
 async function main() {
-	console.log("🚀 启动开发服务器...\n");
+	console.log("Starting development server...\n");
 
 	try {
-		// 1. 查找可用的前端端口
-		// 如果环境变量 PORT 已设置，优先使用它（Electron 主进程可能已经分配了端口）
+		// 1. Find available frontend port
+		// If PORT env var is set, use it (Electron main process may have allocated a port)
 		let frontendPort;
 		if (process.env.PORT) {
 			frontendPort = Number.parseInt(process.env.PORT, 10);
-			console.log(`✅ 使用环境变量指定的前端端口: ${frontendPort}`);
+			console.log(`Using frontend port from env: ${frontendPort}`);
 		} else {
 			frontendPort = await findAvailablePort(DEFAULT_FRONTEND_PORT);
-			console.log(`✅ 前端端口: ${frontendPort}`);
+			console.log(`Frontend port: ${frontendPort}`);
 		}
 
-		// 2. 查找运行中的 FreeTodo 后端端口（通过 /health 端点验证）
-		console.log(`🔍 正在查找 FreeTodo 后端...`);
+		// 2. Find running FreeTodo backend port (verify via /health endpoint)
+		console.log(`Searching for FreeTodo backend...`);
 		let backendPort = await findRunningBackendPort();
 		if (backendPort) {
-			console.log(`✅ 检测到 FreeTodo 后端运行在端口: ${backendPort}`);
+			console.log(`Detected FreeTodo backend running on port: ${backendPort}`);
 		} else {
-			// 如果后端未运行，假设会使用开发版默认端口
+			// If backend is not running, assume default dev port
 			backendPort = DEFAULT_BACKEND_PORT;
-			console.log(`⚠️  未检测到 FreeTodo 后端（通过 /health 端点验证）`);
-			console.log(`   假设后端将运行在: ${backendPort}`);
-			console.log(`   提示: 请先启动后端 - python -m lifetrace.server`);
+			console.log(`Warning: FreeTodo backend not detected (via /health endpoint)`);
+			console.log(`Assuming backend will run on: ${backendPort}`);
+			console.log(`Hint: Start backend first - python -m lifetrace.server`);
 		}
 
 		const backendUrl = `http://localhost:${backendPort}`;
-		console.log(`\n📡 后端 API: ${backendUrl}`);
-		console.log(`🌐 前端地址: http://localhost:${frontendPort}\n`);
+		console.log(`\nBackend API: ${backendUrl}`);
+		console.log(`Frontend URL: http://localhost:${frontendPort}\n`);
 
 		// 3. 启动 Next.js 开发服务器
 		const nextProcess = spawn(
@@ -189,7 +189,7 @@ async function main() {
 			process.exit(code || 0);
 		});
 	} catch (error) {
-		console.error(`❌ 启动失败: ${error.message}`);
+		console.error(`Failed to start: ${error.message}`);
 		process.exit(1);
 	}
 }

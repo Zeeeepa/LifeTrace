@@ -45,6 +45,28 @@ async function build() {
 	}
 }
 
+// 处理信号，确保正常退出
+let isShuttingDown = false;
+
+const gracefulShutdown = async (signal) => {
+	if (isShuttingDown) {
+		console.log(`Received ${signal} again, forcing exit...`);
+		process.exit(1);
+		return;
+	}
+
+	isShuttingDown = true;
+	console.log(`\nReceived ${signal} signal, shutting down gracefully...`);
+
+	// 等待当前构建完成
+	setTimeout(() => {
+		process.exit(0);
+	}, 1000);
+};
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
 build().catch((err) => {
 	console.error("Build failed:", err);
 	process.exit(1);

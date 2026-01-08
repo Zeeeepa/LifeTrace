@@ -75,13 +75,41 @@ export abstract class ProcessManager {
 
 	/**
 	 * 停止服务器
+	 * @param waitForExit 是否等待进程退出（默认 false）
+	 * @returns Promise，如果 waitForExit 为 true，则等待进程退出后 resolve
 	 */
-	stop(): void {
+	stop(waitForExit = false): Promise<void> | void {
 		this.stopHealthCheck();
 		if (this.process) {
 			logger.info(`Stopping ${this.config.name}...`);
-			this.process.kill("SIGTERM");
-			this.process = null;
+			const proc = this.process;
+			proc.kill("SIGTERM");
+
+			if (waitForExit) {
+				return new Promise((resolve) => {
+					const timeout = setTimeout(() => {
+						logger.warn(`${this.config.name} did not exit within 3 seconds, forcing exit...`);
+						if (proc && !proc.killed) {
+							try {
+								proc.kill("SIGKILL");
+							} catch (err) {
+								logger.warn(`Failed to kill ${this.config.name}: ${err instanceof Error ? err.message : String(err)}`);
+							}
+						}
+						this.process = null;
+						resolve();
+					}, 3000);
+
+					proc.once("exit", () => {
+						clearTimeout(timeout);
+						this.process = null;
+						logger.info(`${this.config.name} exited`);
+						resolve();
+					});
+				});
+			} else {
+				this.process = null;
+			}
 		}
 	}
 

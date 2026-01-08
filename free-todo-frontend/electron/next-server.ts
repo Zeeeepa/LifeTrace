@@ -154,28 +154,57 @@ export async function startNextServer(): Promise<void> {
 		);
 		logger.info(`Working directory: ${path.join(__dirname, "..")}`);
 
+		// Set console encoding to UTF-8 for Windows
+		if (process.platform === "win32") {
+			try {
+				// Try to set console code page to UTF-8
+				require("node:child_process").exec("chcp 65001", () => {});
+			} catch {
+				// Ignore errors
+			}
+		}
+
 		nextProcess = spawn(devCommand, devArgs, {
 			cwd: path.join(__dirname, ".."),
 			env: {
 				...process.env,
 				PORT: String(getActualFrontendPort()),
 				NODE_ENV: "development",
+				// Set UTF-8 encoding for child process
+				...(process.platform === "win32" && { CHCP: "65001" }),
 			},
 			stdio: ["ignore", "pipe", "pipe"],
-			shell: process.platform === "win32", // Windows 上需要 shell
+			shell: process.platform === "win32", // Windows needs shell
+			detached: false, // Ensure child process is part of the same process group
 		});
 		setNextProcessRef(nextProcess);
 
-		// 监听输出
+		// Listen to output - output directly to console, don't log to file (avoid garbled characters)
 		if (nextProcess.stdout) {
+			nextProcess.stdout.setEncoding("utf8");
 			nextProcess.stdout.on("data", (data) => {
-				logger.info(`[Next.js Dev] ${data.toString().trim()}`);
+				const output = String(data);
+				// Output directly to console (just like pnpm dev)
+				// Use Buffer to ensure correct encoding
+				try {
+					process.stdout.write(Buffer.from(output, "utf8"));
+				} catch {
+					process.stdout.write(output);
+				}
 			});
 		}
 
 		if (nextProcess.stderr) {
+			nextProcess.stderr.setEncoding("utf8");
 			nextProcess.stderr.on("data", (data) => {
-				logger.error(`[Next.js Dev Error] ${data.toString().trim()}`);
+				const output = String(data);
+				// Output directly to console (just like pnpm dev)
+				// Use Buffer to ensure correct encoding
+				try {
+					process.stderr.write(Buffer.from(output, "utf8"));
+				} catch {
+					process.stderr.write(output);
+				}
 			});
 		}
 
@@ -294,13 +323,14 @@ export async function startNextServer(): Promise<void> {
 	let stderrBuffer = "";
 
 	// 立即设置数据监听器，避免丢失早期输出
+	// 直接输出到控制台，不记录到日志文件（避免乱码）
 	if (nextProcess.stdout) {
 		nextProcess.stdout.setEncoding("utf8");
 		nextProcess.stdout.on("data", (data) => {
 			const output = String(data);
 			stdoutBuffer += output;
-			// 立即记录到日志文件
-			logger.info(`[Next.js STDOUT] ${output.trim()}`);
+			// 直接输出到控制台
+			process.stdout.write(output);
 		});
 		nextProcess.stdout.on("end", () => {
 			logger.info("[Next.js STDOUT] stream ended");
@@ -315,8 +345,8 @@ export async function startNextServer(): Promise<void> {
 		nextProcess.stderr.on("data", (data) => {
 			const output = String(data);
 			stderrBuffer += output;
-			// 立即记录到日志文件
-			logger.error(`[Next.js STDERR] ${output.trim()}`);
+			// 直接输出到控制台
+			process.stderr.write(output);
 		});
 		nextProcess.stderr.on("end", () => {
 			logger.info("[Next.js STDERR] stream ended");
