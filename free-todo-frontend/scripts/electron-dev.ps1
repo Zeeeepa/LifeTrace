@@ -8,6 +8,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 # Change code page to UTF-8 (65001)
 chcp 65001 | Out-Null
 
-# Run the electron:dev command
+# Build Electron main process and run Electron
 cd $PSScriptRoot/..
-pnpm electron:dev
+pnpm electron:build-main
+electron .

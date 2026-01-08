@@ -5,7 +5,7 @@
 
 import http from "node:http";
 import path from "node:path";
-import { app, BrowserWindow, dialog, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from "electron";
 import {
 	enableDynamicIsland,
 	WINDOW_CONFIG,
@@ -96,6 +96,8 @@ export class WindowManager {
 		const { width: screenWidth, height: screenHeight } =
 			primaryDisplay.workAreaSize;
 
+		// 灵动岛模式：参考 island 的实现，窗口始终是全屏大小
+		// 然后通过 CSS 控制灵动岛的位置和大小（right: 32, bottom: 32, width: 180, height: 48）
 		// 保存原始位置和尺寸（用于从全屏模式恢复）
 		if (enableDynamicIsland && !this.originalBounds) {
 			// 窗口初始位置在右下角，但大小是全屏（这样灵动岛可以通过 CSS 定位）
@@ -115,16 +117,18 @@ export class WindowManager {
 		}
 
 		this.mainWindow = new BrowserWindow({
-			width: enableDynamicIsland ? screenWidth : WINDOW_CONFIG.width,
-			height: enableDynamicIsland ? screenHeight : WINDOW_CONFIG.height,
+			width: enableDynamicIsland ? screenWidth : WINDOW_CONFIG.width, // 灵动岛模式使用全屏宽度（初始）
+			height: enableDynamicIsland ? screenHeight : WINDOW_CONFIG.height, // 灵动岛模式使用全屏高度（初始）
+			x: 0,
+			y: 0,
 			minWidth: enableDynamicIsland ? undefined : WINDOW_CONFIG.minWidth,
 			minHeight: enableDynamicIsland ? undefined : WINDOW_CONFIG.minHeight,
 			frame: !enableDynamicIsland, // 灵动岛模式无边框
 			transparent: !!enableDynamicIsland, // 灵动岛模式透明
 			alwaysOnTop: !!enableDynamicIsland, // 灵动岛模式置顶
 			hasShadow: !enableDynamicIsland, // 灵动岛模式无阴影
-			resizable: !enableDynamicIsland, // 灵动岛模式初始不可调整
-			movable: !enableDynamicIsland, // 灵动岛模式初始不可移动
+			resizable: !enableDynamicIsland, // 灵动岛模式初始不可调整（expand-window 时会设置为可调整）
+			movable: !enableDynamicIsland, // 灵动岛模式初始不可移动（expand-window 时会设置为可移动）
 			skipTaskbar: !!enableDynamicIsland, // 灵动岛模式不显示在任务栏
 			webPreferences: {
 				nodeIntegration: false,
@@ -134,11 +138,14 @@ export class WindowManager {
 			show: false, // 等待内容加载完成再显示
 			backgroundColor: enableDynamicIsland
 				? "#00000000"
-				: WINDOW_CONFIG.backgroundColor,
+				: WINDOW_CONFIG.backgroundColor, // 使用透明色值
 		});
 
-		// 注入透明背景 CSS（如果启用灵动岛）
+		// 方案 1: 使用 insertCSS 在页面加载前注入透明背景 CSS（最有效）
+		// 这个方法会在页面加载前就应用 CSS，避免 SSR 导致的窗口显示问题
+		// 参考 electron-with-nextjs，始终注入透明背景 CSS
 		if (enableDynamicIsland && this.mainWindow) {
+			// 在页面加载前注入 CSS（参考 electron-with-nextjs 的 globals.css）
 			this.mainWindow.webContents.insertCSS(`
 				html, body, #__next, #__next > div, #__next > div > div {
 					background-color: transparent !important;
@@ -147,7 +154,8 @@ export class WindowManager {
 			`);
 			logger.info("Transparent background CSS injected via insertCSS");
 
-			// 监听页面开始加载，尽早注入透明背景脚本
+			// 在加载 URL 前，注入透明背景脚本（在 did-start-loading 时执行）
+			// 这个脚本会在页面加载的早期执行，尽可能早地设置透明背景
 			this.mainWindow.webContents.once("did-start-loading", () => {
 				if (!this.mainWindow) return;
 				// 注入脚本设置透明背景，尽可能早地执行
@@ -228,8 +236,250 @@ export class WindowManager {
 			});
 		}
 
-		// 设置事件监听器
-		this.setupWindowListeners(serverUrl);
+		// 监听透明背景设置完成事件（在 create 方法内部，对齐参考代码）
+		// 注意：参考代码中这个监听器在 createWindow 函数内部，每次创建窗口时都会重新注册
+		// 这里也放在 create 方法内部，确保逻辑一致
+		// 重置标志，因为每次创建窗口时都需要重新等待信号
+		this.transparentBackgroundReady = false;
+		ipcMain.on("transparent-background-ready", () => {
+			this.transparentBackgroundReady = true;
+			logger.info("Transparent background ready signal received");
+		});
+
+		// 监听页面加载完成，检查 preload 脚本是否正确加载
+		this.mainWindow.webContents.once("did-finish-load", () => {
+			logger.info("Page finished loading, checking preload script...");
+			// 注入调试代码检查 electronAPI
+			this.mainWindow?.webContents
+				.executeJavaScript(`
+				(function() {
+					const hasElectronAPI = typeof window.electronAPI !== 'undefined';
+					const result = {
+						hasElectronAPI,
+						electronAPIKeys: hasElectronAPI ? Object.keys(window.electronAPI) : [],
+						userAgent: navigator.userAgent,
+					};
+					console.log('[Electron Main] Preload script check:', result);
+					return result;
+				})();
+			`)
+				.then((result) => {
+					logger.info(
+						`Preload script check result: ${JSON.stringify(result, null, 2)}`,
+					);
+					if (!result.hasElectronAPI) {
+						logger.warn(
+							"WARNING: electronAPI is not available in renderer process!",
+						);
+						console.warn(
+							"[WARN] electronAPI is not available. Check preload script loading.",
+						);
+					} else {
+						logger.info("✅ electronAPI is available in renderer process");
+						logger.info(`Available methods: ${result.electronAPIKeys.join(", ")}`);
+					}
+				})
+				.catch((err) => {
+					logger.error(`Error checking preload script: ${err instanceof Error ? err.message : String(err)}`);
+					console.error("Error checking preload script:", err);
+				});
+		});
+
+		// 设置 ready-to-show 事件监听器
+		this.mainWindow.once("ready-to-show", () => {
+			// 如果启用灵动岛模式，窗口始终显示但是透明和点击穿透
+			// 这样只有悬浮按钮可见，不影响其他工作
+			if (enableDynamicIsland && this.mainWindow) {
+				// 等待透明背景设置完成后再显示窗口
+				// 这样可以避免 Next.js SSR 导致的窗口显示问题
+				const showWindow = () => {
+					if (this.mainWindow) {
+						this.mainWindow.show();
+						// 默认设置点击穿透，直到鼠标悬停在灵动岛上
+						this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
+						logger.info(
+							"Dynamic Island mode enabled: window shown, click-through active",
+						);
+					}
+				};
+
+				// 等待透明背景设置完成后再显示窗口
+				// 优先等待 IPC 信号，如果没有收到信号则延迟显示
+				const showWindowDelayed = () => {
+					if (!this.mainWindow) return;
+
+					// 如果已经收到透明背景就绪信号，直接显示
+					if (this.transparentBackgroundReady) {
+						showWindow();
+						return;
+					}
+
+					// 等待页面加载完成
+					if (this.mainWindow.webContents.isLoading()) {
+						this.mainWindow.webContents.once("did-finish-load", () => {
+							// 等待透明背景设置完成（preload 脚本会发送信号）
+							// 增加延迟时间，确保 Next.js 的客户端脚本完全执行
+							// 在显示窗口前，再次注入脚本强制设置透明背景
+							if (!this.mainWindow) return;
+							this.mainWindow.webContents
+								.executeJavaScript(`
+								(function() {
+									const html = document.documentElement;
+									const body = document.body;
+									const next = document.getElementById('__next');
+
+									if (html) {
+										html.setAttribute('data-electron', 'true');
+										html.style.setProperty('background-color', 'transparent', 'important');
+										html.style.setProperty('background', 'transparent', 'important');
+									}
+
+									if (body) {
+										body.style.setProperty('background-color', 'transparent', 'important');
+										body.style.setProperty('background', 'transparent', 'important');
+									}
+
+									if (next) {
+										next.style.setProperty('background-color', 'transparent', 'important');
+										next.style.setProperty('background', 'transparent', 'important');
+									}
+								})();
+							`)
+								.catch(() => {
+									// 忽略错误
+								});
+
+							setTimeout(() => {
+								const checkTransparent = () => {
+									if (this.transparentBackgroundReady) {
+										showWindow();
+									} else {
+										// 如果 2 秒后还没收到信号，也显示窗口（避免无限等待）
+										setTimeout(() => {
+											if (!this.transparentBackgroundReady) {
+												logger.info(
+													"Warning: Transparent background ready signal not received, showing window anyway",
+												);
+												showWindow();
+											}
+										}, 2000);
+										// 继续等待信号
+										setTimeout(checkTransparent, 100);
+									}
+								};
+								checkTransparent();
+							}, 1000); // 延迟 1 秒，确保 Next.js 客户端脚本完全执行
+						});
+					} else {
+						// 页面已加载，等待透明背景设置完成
+						// 增加延迟时间，确保 Next.js 的客户端脚本完全执行
+						setTimeout(() => {
+							const checkTransparent = () => {
+								if (this.transparentBackgroundReady) {
+									showWindow();
+								} else {
+									setTimeout(() => {
+										if (!this.transparentBackgroundReady) {
+											logger.info(
+												"Warning: Transparent background ready signal not received, showing window anyway",
+											);
+											showWindow();
+										}
+									}, 2000);
+									setTimeout(checkTransparent, 100);
+								}
+							};
+							checkTransparent();
+						}, 500); // 额外延迟 500ms，确保 Next.js 客户端脚本执行
+					}
+				};
+
+				showWindowDelayed();
+			} else {
+				// Non-Dynamic Island mode, show directly
+				if (this.mainWindow) {
+					this.mainWindow.show();
+					logger.info("Window is ready to show");
+				}
+			}
+		});
+
+		// 拦截导航，防止加载到错误的 URL（如 DevTools URL）
+		this.mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+			const parsedUrl = new URL(navigationUrl);
+			// 只允许加载 localhost:PORT 的 URL
+			if (
+				parsedUrl.hostname !== "localhost" &&
+				parsedUrl.hostname !== "127.0.0.1"
+			) {
+				event.preventDefault();
+				logger.info(`Navigation blocked to: ${navigationUrl}`);
+			}
+			// 阻止加载 DevTools URL
+			if (navigationUrl.startsWith("devtools://")) {
+				event.preventDefault();
+				logger.info(`DevTools URL blocked: ${navigationUrl}`);
+			}
+		});
+
+		// 窗口关闭
+		this.mainWindow.on("closed", () => {
+			logger.info("Window closed");
+			this.mainWindow = null;
+		});
+
+		// 处理窗口加载失败
+		this.mainWindow.webContents.on(
+			"did-fail-load",
+			(_event, errorCode, errorDescription) => {
+				const errorMsg = `Window failed to load: ${errorCode} - ${errorDescription}`;
+				logger.error(errorMsg);
+				console.error(errorMsg);
+
+				// 连接被拒绝或名称解析失败
+				if (errorCode === -106 || errorCode === -105) {
+					dialog.showErrorBox(
+						"Connection Error",
+						`Failed to connect to server at ${serverUrl}\n\nError: ${errorDescription}\n\nCheck logs at: ${logger.getLogFilePath()}`,
+					);
+				}
+			},
+		);
+
+		// 处理渲染进程崩溃
+		this.mainWindow.webContents.on("render-process-gone", (_event, details) => {
+			const errorMsg = `Render process crashed: ${details.reason} (exit code: ${details.exitCode})`;
+			logger.fatal(errorMsg);
+			console.error(errorMsg);
+
+			dialog.showErrorBox(
+				"Application Crashed",
+				`The application window crashed:\n${details.reason}\n\nCheck logs at: ${logger.getLogFilePath()}`,
+			);
+		});
+
+		// 处理未捕获的异常
+		this.mainWindow.webContents.on("unresponsive", () => {
+			logger.warn("Window became unresponsive");
+		});
+
+		this.mainWindow.webContents.on("responsive", () => {
+			logger.info("Window became responsive again");
+		});
+
+		// 创建右键菜单（完全照搬 island 实现）
+		if (enableDynamicIsland && this.mainWindow) {
+			this.mainWindow.webContents.on("context-menu", (e, params) => {
+				// 标记参数已使用，避免 TypeScript 未使用警告
+				void e;
+				void params;
+				// Only show context menu if we are interacting with the UI
+				const contextMenu = Menu.buildFromTemplate([
+					{ label: "退出应用", click: () => app.quit() },
+				]);
+				contextMenu.popup();
+			});
+		}
 
 		// 确保服务器已经启动后再加载 URL
 		const loadWindow = async () => {
@@ -257,154 +507,6 @@ export class WindowManager {
 		}, 100);
 	}
 
-	/**
-	 * 设置窗口事件监听器
-	 */
-	private setupWindowListeners(serverUrl: string): void {
-		if (!this.mainWindow) return;
-
-		// 透明背景就绪标志由 setupIpcHandlers 中的监听器更新
-
-		// Window ready to show
-		this.mainWindow.once("ready-to-show", () => {
-			// If Dynamic Island mode is enabled, window is always shown but transparent and click-through
-			// Only the floating button is visible, doesn't interfere with other work
-			if (enableDynamicIsland && this.mainWindow) {
-				// Wait for transparent background to be set before showing window
-				// This avoids window display issues caused by Next.js SSR
-				const showWindow = () => {
-					if (this.mainWindow) {
-						this.mainWindow.show();
-						// Set click-through by default until mouse hovers over Dynamic Island
-						this.mainWindow.setIgnoreMouseEvents(true, { forward: true });
-						logger.info(
-							"Dynamic Island mode enabled: window shown, click-through active",
-						);
-					}
-				};
-
-				// Wait for transparent background to be set before showing window
-				// Prioritize waiting for IPC signal, if no signal received then delay display
-				const showWindowDelayed = () => {
-					if (!this.mainWindow) return;
-
-					// If transparent background ready signal already received, show directly
-					if (this.transparentBackgroundReady) {
-						showWindow();
-						return;
-					}
-
-					// Wait for page to finish loading
-					if (this.mainWindow.webContents.isLoading()) {
-						this.mainWindow.webContents.once("did-finish-load", () => {
-							// Wait for transparent background to be set (preload script will send signal)
-							// Increase delay to ensure Next.js client scripts fully execute
-							// Before showing window, inject script again to force transparent background
-							if (!this.mainWindow) return;
-							this.mainWindow.webContents
-								.executeJavaScript(`
-								(function() {
-									const html = document.documentElement;
-									const body = document.body;
-									const next = document.getElementById('__next');
-
-									if (html) {
-										html.setAttribute('data-electron', 'true');
-										html.style.setProperty('background-color', 'transparent', 'important');
-										html.style.setProperty('background', 'transparent', 'important');
-									}
-
-									if (body) {
-										body.style.setProperty('background-color', 'transparent', 'important');
-										body.style.setProperty('background', 'transparent', 'important');
-									}
-
-									if (next) {
-										next.style.setProperty('background-color', 'transparent', 'important');
-										next.style.setProperty('background', 'transparent', 'important');
-									}
-								})();
-							`)
-								.then(() => {
-									// Delay display to ensure transparent background is applied
-									setTimeout(() => {
-										showWindow();
-									}, 300);
-								})
-								.catch(() => {
-									// Even if execution fails, show window
-									setTimeout(() => {
-										showWindow();
-									}, 1000);
-								});
-						});
-					} else {
-						// Page already loaded, delay display directly
-						setTimeout(() => {
-							showWindow();
-						}, 500);
-					}
-				};
-
-				// Delay a bit, wait for transparent background ready signal
-				setTimeout(() => {
-					showWindowDelayed();
-				}, 100);
-			} else {
-				// Non-Dynamic Island mode, show directly
-				if (this.mainWindow) {
-					this.mainWindow.show();
-					logger.info("Window is ready to show");
-				}
-			}
-		});
-
-		// 窗口关闭
-		this.mainWindow.on("closed", () => {
-			logger.info("Window closed");
-			this.mainWindow = null;
-		});
-
-		// 页面加载失败
-		this.mainWindow.webContents.on(
-			"did-fail-load",
-			(_event, errorCode, errorDescription) => {
-				const errorMsg = `Window failed to load: ${errorCode} - ${errorDescription}`;
-				logger.error(errorMsg);
-				console.error(errorMsg);
-
-				// 连接被拒绝或名称解析失败
-				if (errorCode === -106 || errorCode === -105) {
-					dialog.showErrorBox(
-						"Connection Error",
-						`Failed to connect to server at ${serverUrl}\n\nError: ${errorDescription}\n\nCheck logs at: ${logger.getLogFilePath()}`,
-					);
-				}
-			},
-		);
-
-		// 渲染进程崩溃
-		this.mainWindow.webContents.on("render-process-gone", (_event, details) => {
-			const errorMsg = `Render process crashed: ${details.reason} (exit code: ${details.exitCode})`;
-			logger.fatal(errorMsg);
-			console.error(errorMsg);
-
-			dialog.showErrorBox(
-				"Application Crashed",
-				`The application window crashed:\n${details.reason}\n\nCheck logs at: ${logger.getLogFilePath()}`,
-			);
-		});
-
-		// 窗口无响应
-		this.mainWindow.webContents.on("unresponsive", () => {
-			logger.warn("Window became unresponsive");
-		});
-
-		// 窗口恢复响应
-		this.mainWindow.webContents.on("responsive", () => {
-			logger.info("Window became responsive again");
-		});
-	}
 
 	/**
 	 * 聚焦窗口

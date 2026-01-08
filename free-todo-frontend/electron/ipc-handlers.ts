@@ -326,14 +326,13 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	});
 
 	// 透明背景就绪通知
+	// 注意：这个监听器现在在 window-manager.ts 的 create 方法内部注册，确保每次创建窗口时都重新注册
+	// 这里保留一个全局监听器用于设置窗口背景色（如果需要）
 	ipcMain.on("transparent-background-ready", () => {
 		const win = windowManager.getWindow();
 		if (win) {
 			win.setBackgroundColor("#00000000");
 		}
-		// 通知窗口管理器透明背景已就绪
-		windowManager.setTransparentBackgroundReady(true);
-		logger.info("Transparent background ready signal received");
 	});
 
 	// 显示窗口（用于全屏模式）

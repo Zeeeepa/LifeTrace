@@ -20,7 +20,7 @@
 		"electron:build-main": "node scripts/build-electron.js",
 		"electron:resolve-symlinks": "node scripts/resolve-symlinks.js",
 		"electron:copy-missing-deps": "node scripts/copy-missing-deps.js",
-		"electron:dev": "pnpm electron:build-main && electron .",
+		"electron:dev": "powershell -ExecutionPolicy Bypass -File scripts/electron-dev.ps1",
 		"electron:dev:utf8": "powershell -ExecutionPolicy Bypass -File scripts/electron-dev.ps1",
 		"electron:dev:island": "pnpm electron:build-main && electron .",
 		"electron:build": "pnpm build && pnpm backend:build && pnpm electron:resolve-symlinks && pnpm electron:copy-missing-deps && pnpm electron:build-main && electron-builder",
