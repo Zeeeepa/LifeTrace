@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
 	output: "standalone",
 	reactStrictMode: true,
 	typedRoutes: true,
+	// 增加代理超时时间到 120 秒，避免 LLM 调用超时
+	experimental: {
+		proxyTimeout: 120000, // 120 秒
+	},
 	// 在 Electron 环境中禁用 SSR，避免窗口显示问题
 	// 注意：这会影响 SEO，但对于 Electron 应用来说不是问题
 	...(process.env.ELECTRON === "true"
