@@ -3,9 +3,10 @@ export { DynamicIslandProvider } from "./DynamicIslandProvider";
 export { ElectronTransparentScript } from "./ElectronTransparentScript";
 export { FloatContent } from "./FloatContent";
 export { PanelContent } from "./PanelContent";
+export { PanelFeatureContext, PanelFeatureProvider } from "./PanelFeatureContext";
 export { PanelSelectorMenu } from "./PanelSelectorMenu";
+export { PanelTitleBar } from "./PanelTitleBar";
 export { ResizeHandle } from "./ResizeHandle";
 export { TransparentBody } from "./TransparentBody";
 export type { IslandDimensions } from "./types";
 export { IslandMode } from "./types";
-

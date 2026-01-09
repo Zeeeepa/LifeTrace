@@ -17,7 +17,7 @@ import type { PanelFeature } from "@/lib/config/panel-config";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useUiStore } from "@/lib/store/ui-store/store";
 import { cn } from "@/lib/utils";
-import { PanelFeatureContext } from "./DynamicIsland";
+import { PanelFeatureContext } from "./PanelFeatureContext";
 import { PanelSelectorMenu } from "./PanelSelectorMenu";
 
 // 功能到翻译键的映射 - 完全照搬 BottomDock
