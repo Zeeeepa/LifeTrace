@@ -24,7 +24,7 @@ export function FullscreenControlBar({
 			<div
 				className="flex items-center justify-end px-4 h-15"
 				style={{
-					WebkitAppRegion: "drag",
+					WebkitAppRegion: "no-drag", // FULLSCREEN模式固定窗口，不允许拖动
 					pointerEvents: "auto",
 					zIndex: 100011,
 					position: "relative",

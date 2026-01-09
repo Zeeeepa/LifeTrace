@@ -254,9 +254,9 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 
 		// FULLSCREEN 模式改为使用「最大化」而不是固定宽高
 		// 这样更符合用户预期：占满屏幕，由操作系统负责过渡动画（更自然，不突兀）
-		// 同时保持窗口可调整/可移动，方便从全屏恢复
-		win.setResizable(true);
-		win.setMovable(true);
+		// 固定窗口，不允许拖动和调整大小
+		win.setResizable(false);
+		win.setMovable(false);
 
 		// 使用最大化而不是 setBounds 固定尺寸，避免在不同分辨率下出现黑边或尺寸不一致
 		// 让操作系统来处理过渡动画，会比频繁 setBounds 更平滑

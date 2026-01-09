@@ -6,9 +6,9 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { PanelFeature } from "@/lib/config/panel-config";
 import {
-	ALL_PANEL_FEATURES,
 	FEATURE_ICON_MAP,
 } from "@/lib/config/panel-config";
+import { useUiStore } from "@/lib/store/ui-store/store";
 import { cn } from "@/lib/utils";
 
 interface PanelSelectorMenuProps {
@@ -31,9 +31,14 @@ export function PanelSelectorMenu({
 }: PanelSelectorMenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const t = useTranslations("bottomDock");
+	const { getAvailableFeatures } = useUiStore();
 
-	// 使用 ALL_PANEL_FEATURES 而不是 getAvailableFeatures，确保所有功能都显示
-	const availableFeatures = ALL_PANEL_FEATURES;
+	// 使用 getAvailableFeatures 来同步设置界面的开启/关闭状态
+	// 但是要确保settings始终包含（设置功能一定被包含的）
+	const baseAvailableFeatures = getAvailableFeatures();
+	const availableFeatures: PanelFeature[] = baseAvailableFeatures.includes("settings")
+		? baseAvailableFeatures
+		: [...baseAvailableFeatures, "settings" as PanelFeature];
 
 	// 点击外部关闭菜单
 	useEffect(() => {
@@ -167,5 +172,3 @@ export function PanelSelectorMenu({
 
 	return null;
 }
-
-

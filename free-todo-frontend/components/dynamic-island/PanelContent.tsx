@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
@@ -14,11 +14,10 @@ import { TodoDetail } from "@/apps/todo-detail";
 import { TodoList } from "@/apps/todo-list";
 import { PanelPositionProvider } from "@/components/common/layout/PanelHeader";
 import type { PanelFeature } from "@/lib/config/panel-config";
-import {
-	ALL_PANEL_FEATURES,
-	FEATURE_ICON_MAP,
-} from "@/lib/config/panel-config";
+import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
+import { useUiStore } from "@/lib/store/ui-store/store";
 import { cn } from "@/lib/utils";
+import { PanelFeatureContext } from "./DynamicIsland";
 import { PanelSelectorMenu } from "./PanelSelectorMenu";
 
 // 功能到翻译键的映射 - 完全照搬 BottomDock
@@ -59,7 +58,13 @@ const DOCK_ANIMATION_CONFIG = {
 
 export const PanelContent: React.FC<PanelContentProps> = () => {
 	const t = useTranslations("bottomDock");
-	const [currentFeature, setCurrentFeature] = useState<PanelFeature>("chat");
+	const { getAvailableFeatures } = useUiStore();
+	const context = useContext(PanelFeatureContext);
+	const [localFeature, setLocalFeature] = useState<PanelFeature>("chat");
+
+	// 使用Context中的状态，如果没有Context则使用本地状态
+	const currentFeature = context?.currentFeature ?? localFeature;
+	const setCurrentFeature = context?.setCurrentFeature ?? setLocalFeature;
 	const [isExpanded, setIsExpanded] = useState(true);
 	const [mounted, setMounted] = useState(false);
 	const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,6 +83,20 @@ export const PanelContent: React.FC<PanelContentProps> = () => {
 	useEffect(() => {
 		setMounted(true);
 	}, []);
+
+	// 获取可用功能列表（根据设置过滤）- 与完整页面的BottomDock使用相同的逻辑
+	// 但是要确保settings始终包含（设置功能一定被包含的）
+	const baseAvailableFeatures = getAvailableFeatures();
+	const availableFeatures: PanelFeature[] = baseAvailableFeatures.includes("settings")
+		? baseAvailableFeatures
+		: [...baseAvailableFeatures, "settings" as PanelFeature];
+
+	// 如果当前功能不在可用列表中，自动切换到第一个可用功能
+	useEffect(() => {
+		if (mounted && availableFeatures.length > 0 && !availableFeatures.includes(currentFeature)) {
+			setCurrentFeature(availableFeatures[0]);
+		}
+	}, [mounted, availableFeatures, currentFeature, setCurrentFeature]);
 
 	// 测量 dock 实际高度
 	useEffect(() => {
@@ -223,9 +242,13 @@ export const PanelContent: React.FC<PanelContentProps> = () => {
 						ref={buttonRef}
 						type="button"
 						onClick={() => {
-							const currentIndex = ALL_PANEL_FEATURES.indexOf(currentFeature);
-							const nextIndex = (currentIndex + 1) % ALL_PANEL_FEATURES.length;
-							setCurrentFeature(ALL_PANEL_FEATURES[nextIndex]);
+							// 只在可用功能之间切换（与完整页面的BottomDock使用相同的逻辑）
+							if (availableFeatures.length === 0) return;
+							const currentIndex = availableFeatures.indexOf(currentFeature);
+							const nextIndex = currentIndex >= 0
+								? (currentIndex + 1) % availableFeatures.length
+								: 0;
+							setCurrentFeature(availableFeatures[nextIndex]);
 						}}
 						onContextMenu={(e) => {
 							e.preventDefault();
@@ -264,7 +287,7 @@ export const PanelContent: React.FC<PanelContentProps> = () => {
 				</div>
 			</motion.div>
 
-			{/* 右键菜单 - 选择功能 - 使用 ALL_PANEL_FEATURES 而不是 getAvailableFeatures */}
+			{/* 右键菜单 - 选择功能 - 使用 getAvailableFeatures 来同步设置界面的开启/关闭状态 */}
 			<PanelSelectorMenu
 				isOpen={menuState.isOpen}
 				onClose={() => setMenuState({ isOpen: false, anchorElement: null })}
@@ -277,4 +300,3 @@ export const PanelContent: React.FC<PanelContentProps> = () => {
 		</div>
 	);
 };
-
