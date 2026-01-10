@@ -1,4 +1,4 @@
-![FreeTodo Logo](.github/assets/lifetrace_logo.png)
+![FreeTodo Logo](.github/assets/free_todo_icon_with_name_roundrect.png)
 
 ![GitHub stars](https://img.shields.io/github/stars/FreeU-group/LifeTrace?style=social) ![GitHub forks](https://img.shields.io/github/forks/FreeU-group/LifeTrace?style=social) ![GitHub issues](https://img.shields.io/github/issues/FreeU-group/LifeTrace) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.12-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 
@@ -6,7 +6,7 @@
 
 [📖 文档](https://freeyou.club/lifetrace/introduction.html) • [🚀 快速开始](#快速开始) • [💡 功能特性](#核心功能) • [🔧 开发指南](#开发指南) • [🤝 贡献指南](#贡献)
 
-# FreeTodo - AI 智能待办管理
+# FreeTodo - 放手去做
 
 ## 项目概述
 

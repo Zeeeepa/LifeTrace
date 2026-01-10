@@ -6,7 +6,7 @@
 
 [📖 Documentation](https://freeyou.club/lifetrace/introduction.html) • [🚀 Quick Start](#quick-start) • [💡 Features](#core-features) • [🔧 Development](#development-guide) • [🤝 Contributing](#contributing)
 
-# FreeTodo - Auto-Manage Your Personal Task Context with AI.
+# FreeTodo - Just Do It.
 
 ## Project Overview
 
