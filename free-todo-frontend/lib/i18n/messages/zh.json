@@ -122,7 +122,13 @@
 			"developerSectionTitle": "开发者选项",
 			"developerSectionDescription": "高级和实验性功能配置，仅推荐开发者或高级用户使用。",
 			"devPanelsTitle": "开发中的面板",
-			"devPanelsDescription": "这些面板仍在开发中，默认不会显示在底部 Dock 中，你可以在这里手动开启。"
+			"devPanelsDescription": "这些面板仍在开发中，默认不会显示在底部 Dock 中，你可以在这里手动开启。",
+			"modeSwitcherTitle": "聊天模式切换器",
+			"modeSwitcherDescription": "控制聊天面板是否显示 Ask/Plan/Edit 等模式切换选项",
+			"modeSwitcherLabel": "显示模式切换器",
+			"modeSwitcherHint": "关闭后，聊天面板将只使用 Ask 模式",
+			"modeSwitcherEnabled": "已启用模式切换器",
+			"modeSwitcherDisabled": "已关闭模式切换器"
 		},
 		"costTracking": {
 			"title": "费用统计",

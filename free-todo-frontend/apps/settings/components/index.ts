@@ -2,6 +2,7 @@ export { AutoTodoDetectionSection } from "./AutoTodoDetectionSection";
 export { DifyConfigSection } from "./DifyConfigSection";
 export { DockDisplayModeSection } from "./DockDisplayModeSection";
 export { LlmConfigSection } from "./LlmConfigSection";
+export { ModeSwitcherSection } from "./ModeSwitcherSection";
 export { PanelSwitchesSection } from "./PanelSwitchesSection";
 export { RecorderConfigSection } from "./RecorderConfigSection";
 export { SchedulerSection } from "./SchedulerSection";
