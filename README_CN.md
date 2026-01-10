@@ -1,49 +1,53 @@
-![FreeU Logo](.github/assets/lifetrace_logo.png)
+![FreeTodo Logo](.github/assets/lifetrace_logo.png)
 
-![GitHub stars](https://img.shields.io/github/stars/FreeU-group/LifeTrace?style=social) ![GitHub forks](https://img.shields.io/github/forks/FreeU-group/LifeTrace?style=social) ![GitHub issues](https://img.shields.io/github/issues/FreeU-group/LifeTrace) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.13+-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
+![GitHub stars](https://img.shields.io/github/stars/FreeU-group/LifeTrace?style=social) ![GitHub forks](https://img.shields.io/github/forks/FreeU-group/LifeTrace?style=social) ![GitHub issues](https://img.shields.io/github/issues/FreeU-group/LifeTrace) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![Python version](https://img.shields.io/badge/python-3.12-blue.svg) ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)
 
 **语言**: [English](README.md) | [中文](README_CN.md)
 
 [📖 文档](https://freeyou.club/lifetrace/introduction.html) • [🚀 快速开始](#快速开始) • [💡 功能特性](#核心功能) • [🔧 开发指南](#开发指南) • [🤝 贡献指南](#贡献)
 
-# FreeU - 为您分忧
+# FreeTodo - AI 智能待办管理
 
 ## 项目概述
 
-`FreeU` 是一个基于 AI 的智能个人效率助手，致力于帮助用户更好地管理日常生活和工作。目前已完成两个核心模块：
-
-- **FreeTodo（AI 待办）**：智能任务管理系统，支持 AI 辅助的待办事项创建、分解和跟踪
-- **LifeTrace（活动记录）**：智能生活记录系统，通过自动截图、OCR 识别等技术记录和检索日常活动
+**FreeTodo** 是一款 AI 驱动的智能待办管理应用，帮助您高效管理任务、提升生产力、达成目标。通过对话式 AI 交互和智能任务拆分，FreeTodo 将复杂项目转化为可执行的行动步骤。
 
 ## 核心功能
 
-### FreeTodo - AI 待办
-- **智能任务创建**：AI 辅助创建和分解任务
-- **任务追踪**：实时跟踪任务进度和状态
-- **上下文关联**：自动关联相关截图和活动上下文（正在完善中）
+### 🤖 AI 智能助手
+- **智能任务拆分**：AI 自动将复杂任务分解为可管理的子任务，通过引导式问卷流程完成
+- **智能任务提取**：从 AI 对话响应中提取可执行的待办事项
+- **上下文感知建议**：AI 根据当前待办上下文提供任务建议
 
-### LifeTrace - 活动记录
-- **自动截图记录**：定时自动屏幕捕获，记录用户活动
-- **智能 OCR 识别**：使用 RapidOCR 从截图中提取文本内容
-- **智能事件管理**：基于上下文自动将截图聚合为智能事件
-- **时间分配分析**：可视化展示应用使用时间分布，支持24小时分布图表和应用分类
-- **信息回溯检索**：帮助用户回溯和检索过去重要的信息碎片
+### ✅ 全面的任务管理
+- **层级任务结构**：支持父子任务关系，无限层级嵌套
+- **优先级与状态**：四级优先级（紧急/高/中/低）和多种状态
+- **标签与分类**：使用自定义标签组织待办，便于筛选
+- **截止日期管理**：设置开始时间和截止日期，可视化提醒
+- **丰富备注**：为每个待办添加详细备注和描述
 
-### 通用功能
-- **Web API 服务**：提供完整的 RESTful API 接口
-- **现代化前端**：支持多种主题和布局的 Web 界面
+### 📅 多视图日历
+- **日/周/月视图**：灵活的日历视图，可视化您的日程安排
+- **拖拽排期**：轻松拖拽待办到日历时间槽进行排期
+- **快速创建待办**：直接从日历时间槽创建待办
+
+### 🎨 现代化用户界面
+- **多面板布局**：可自定义的面板排列（待办 + 聊天 + 详情）
+- **深色/浅色主题**：精美主题，多种配色方案
+- **国际化支持**：完整支持中英文
+- **响应式设计**：适配各种屏幕尺寸
+
+### 💻 桌面应用
+- **Electron 应用**：Windows、macOS 和 Linux 原生桌面体验
+- **系统集成**：原生通知和系统托盘支持
 
 ## 系统架构
 
-FreeU 采用**前后端分离**架构：
+FreeTodo 采用**前后端分离**架构：
 
 - **后端**: FastAPI (Python) - 提供 RESTful API（位于 `lifetrace/` 目录）
 - **前端**: Next.js (React + TypeScript) - 现代化 Web 界面（位于 `free-todo-frontend/` 目录）
-- **数据层**: SQLite + ChromaDB
-
-> ⚠️ **注意**: `frontend/` 目录是旧版前端，已弃用。请使用 `free-todo-frontend/` 作为新的前端。
-
-详细架构说明请参考 [ARCHITECTURE.md](ARCHITECTURE.md)
+- **数据层**: SQLite + ChromaDB（用于 AI 功能）
 
 ## 快速开始
 
@@ -51,7 +55,7 @@ FreeU 采用**前后端分离**架构：
 
 **后端**:
 
-- Python 3.13+
+- Python 3.12
 - 支持的操作系统：Windows、macOS
 - 可选：CUDA 支持（用于 GPU 加速）
 
@@ -100,13 +104,14 @@ python -m lifetrace.server
 
 > **自定义提示词**：如果您想修改不同功能的 AI 提示词，可以编辑 `lifetrace/config/prompt.yaml` 文件。
 
-后端服务将在 `http://localhost:8000` 启动。
+后端服务会自动从 `8001` 端口（构建版为 `8100`）开始查找可用端口。如果默认端口被占用，会自动使用下一个可用端口，并在控制台显示实际使用的端口。
 
-- **API 文档**: `http://localhost:8000/docs`
+- **默认后端端口**: `http://localhost:8001`
+- **API 文档**: 实际 API 文档地址会在控制台显示（通常为 `http://localhost:8001/docs`）
 
 ### 启动前端服务
 
-前端是使用 FreeU 的必需组件。启动前端开发服务器：
+前端是使用 FreeTodo 的必需组件。启动前端开发服务器：
 
 ```bash
 cd free-todo-frontend
@@ -115,9 +120,14 @@ pnpm install
 pnpm dev
 ```
 
-前端开发服务器将在 `http://localhost:3000` 启动，API 请求会自动代理到后端 `:8000`。
+前端开发服务器会：
+- 自动从 `3001` 端口（开发版默认端口）开始查找可用端口
+- 通过检查 `/health` 端点自动检测运行中的 FreeTodo 后端端口
+- 自动设置 API 代理指向检测到的后端端口
 
-服务启动后，在浏览器中访问 `http://localhost:3000` 开始使用 FreeU！🎉
+实际的前端地址和后端连接状态会在控制台显示。服务启动后，在浏览器中访问控制台显示的前端地址（通常为 `http://localhost:3001`）开始使用 FreeTodo！🎉
+
+> **注意**：如果端口被占用，前端和后端都会自动查找下一个可用端口。控制台会显示实际使用的端口。
 
 详细说明请参考：[free-todo-frontend/README.md](free-todo-frontend/README.md)
 
@@ -138,8 +148,9 @@ pnpm dev
 
 ### ✅ 最近完成
 
-- ☑ **FreeTodo 模块** - AI 智能待办管理系统
-- ☑ **LifeTrace 模块** - 基础截图记录和 OCR 功能
+- ☑ **AI 任务拆分** - 通过问卷流程实现智能任务分解
+- ☑ **多面板界面** - 可自定义面板的灵活布局
+- ☑ **日历集成** - 支持拖拽的日/周/月视图
 
 ---
 
@@ -164,11 +175,9 @@ pnpm dev
 │   │   ├── prompt.yaml         # AI 提示词模板
 │   │   └── rapidocr_config.yaml# OCR 配置
 │   ├── routers/                # API 路由处理器
-│   │   ├── activity.py         # 活动管理端点
 │   │   ├── chat.py             # 聊天接口端点
 │   │   ├── todo.py             # 待办事项端点
 │   │   ├── task.py             # 任务管理端点
-│   │   ├── screenshot.py       # 截图端点
 │   │   └── ...                 # 其他端点
 │   ├── schemas/                # Pydantic 数据模型
 │   ├── services/               # 业务逻辑服务层
@@ -177,19 +186,16 @@ pnpm dev
 │   ├── llm/                    # LLM 和 AI 服务
 │   ├── jobs/                   # 后台任务
 │   ├── util/                   # 工具函数
-│   ├── models/                 # OCR 模型文件
 │   └── data/                   # 运行时数据（自动生成）
 │       ├── lifetrace.db        # SQLite 数据库
-│       ├── screenshots/        # 截图存储
 │       ├── vector_db/          # 向量数据库存储
 │       └── logs/               # 应用日志
-├── free-todo-frontend/         # 新前端应用 (Next.js) ⭐
+├── free-todo-frontend/         # 前端应用 (Next.js) ⭐
 │   ├── app/                    # Next.js 应用目录
 │   ├── apps/                   # 功能模块
 │   │   ├── todo-list/          # 待办列表模块
 │   │   ├── todo-detail/        # 待办详情模块
 │   │   ├── chat/               # AI 聊天模块
-│   │   ├── activity/           # 活动记录模块
 │   │   ├── calendar/           # 日历模块
 │   │   ├── settings/           # 设置模块
 │   │   └── ...                 # 其他模块
@@ -198,7 +204,6 @@ pnpm dev
 │   ├── electron/               # Electron 桌面应用
 │   ├── package.json            # 前端依赖
 │   └── README.md               # 前端文档
-├── frontend/                   # 旧前端应用（已弃用）⚠️
 ├── pyproject.toml              # Python 项目配置
 ├── uv.lock                     # uv 锁定文件
 ├── LICENSE                     # Apache 2.0 许可证
@@ -208,7 +213,7 @@ pnpm dev
 
 ## 贡献
 
-FreeU 社区的存在离不开像您这样的众多友善志愿者。我们欢迎所有对社区的贡献，并很高兴欢迎您的加入。
+FreeTodo 社区的存在离不开像您这样的众多友善志愿者。我们欢迎所有对社区的贡献，并很高兴欢迎您的加入。
 
 **最近的贡献：**
 
@@ -251,7 +256,7 @@ FreeU 社区的存在离不开像您这样的众多友善志愿者。我们欢�
 
 ## 加入我们的社区
 
-与我们和其他 FreeU 用户联系！扫描下方二维码加入我们的社区群组：
+与我们和其他 FreeTodo 用户联系！扫描下方二维码加入我们的社区群组：
 
 <table>
   <tr>
@@ -288,21 +293,8 @@ FreeU 社区的存在离不开像您这样的众多友善志愿者。我们欢�
 
 ## 许可证
 
-版权所有 © 2025 FreeU.org
+版权所有 © 2026 FreeU.org
 
-本仓库的内容受以下许可证约束：
+FreeTodo 采用 **FreeU Community License** 许可证，该许可证基于 Apache License 2.0，并附加了关于商业使用的条件。
 
-• 计算机软件根据 [Apache License 2.0](LICENSE) 许可。
-• 本项目中学习资源版权所有 © 2025 FreeU.org
-
-### Apache License 2.0
-
-根据 Apache License 2.0 版（"许可证"）授权；
-除非遵守许可证，否则您不得使用此文件。
-您可以在以下位置获取许可证副本：
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-除非适用法律要求或书面同意，否则根据许可证分发的软件是基于
-"按原样"分发的，不附带任何明示或暗示的保证或条件。
-有关许可证下的特定语言管理权限和限制，请参阅许可证。
+有关详细的许可证条款，请参阅 [LICENSE](LICENSE) 文件。
