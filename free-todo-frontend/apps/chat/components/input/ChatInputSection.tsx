@@ -94,23 +94,24 @@ export function ChatInputSection({
 						onToggleTodo={onToggleTodo}
 					/>
 				}
-			modeSwitcher={
-				showModeSwitcher ? (
-					<div className="flex items-center gap-2" ref={modeMenuRef}>
-						<ModeSwitcher
-							chatMode={chatMode}
-							locale={locale}
-							modeMenuOpen={modeMenuOpen}
-							onToggleMenu={onToggleModeMenu}
-							onChangeMode={(mode) => {
-								onChangeMode(mode);
-								onToggleModeMenu();
-							}}
-							variant="inline"
-						/>
-					</div>
-				) : null
-			}
+				modeSwitcher={
+					showModeSwitcher ? (
+						<div className="flex items-center gap-2" ref={modeMenuRef}>
+							<ModeSwitcher
+								chatMode={chatMode}
+								locale={locale}
+								modeMenuOpen={modeMenuOpen}
+								onToggleMenu={onToggleModeMenu}
+								onChangeMode={(mode) => {
+									onChangeMode(mode);
+									onToggleModeMenu();
+								}}
+								variant="inline"
+							/>
+						</div>
+					) : null
+				}
+				modeMenuOpen={modeMenuOpen}
 				inputValue={inputValue}
 				placeholder={inputPlaceholder}
 				isStreaming={isStreaming}
