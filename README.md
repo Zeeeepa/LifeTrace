@@ -133,18 +133,70 @@ For more details, see: [free-todo-frontend/README.md](free-todo-frontend/README.
 
 ## 📋 TODO & Roadmap
 
-### 🚀 High Priority
+> 📖 **Full Roadmap**: Check out the detailed [Project Roadmap](.github/ROADMAP.md) to learn about the complete vision and development plan of the FreeU project.
 
-- ☐ **User Experience Improvements**
-  - ☐ Implement keyboard shortcuts for power users
-  - ☐ Create interactive onboarding tutorial
+### 🎯 FreeU Overall Project Roadmap
 
-### 💡 Future Ideas
+#### 1. LifeTrace (v0.2 Completed)
+- ✓ **Computer Activity Flow Construction**: Generate personal activity flows through screenshots
+- 🔮 **Future Plans**: Audio acquisition, video environment, smart device integration, local LLM optimization
 
-- ☐ **Mobile & Cross-Platform**
-  - ☐ Develop mobile companion app
-  - ☐ Add tablet-optimized interface
-  - ☐ Create web-based version
+#### 2. Free Todo (v0.1 Currently In Progress)
+- 🚧 **Current Focus**: Building the ultimate To-Do List
+- 🎯 **Core Mission**: Fix user intentions, form personal context organization, lay the foundation for proactive services
+
+#### 3. Proactive Service Phase (Future Planning)
+- Provide proactive services based on LifeTrace data and Free Todo intentions
+
+---
+
+### 🚧 Free Todo Recent Plans (Focus on Input Layer)
+
+**Goal**: Collect as much information as possible from users' daily lives and gather it as Todos
+
+- 🎨 **UI Dynamic Island**
+  - ☐ Control voice input and screenshot scheduled task switches
+  - ☐ Provide convenient windows to access Todo list and conversation interface
+
+- 🤖 **Agent Development**
+  - 🚧 Develop AI tool scheduling capability
+  - ☐ Upgrade from basic conversation to intelligent Agent supporting multiple tool calls
+
+---
+
+### 📐 Free Todo Three-Layer Roadmap
+
+#### Input Layer: Reduce Input Burden, Thought-Stream-Like Capture
+- ☐ Voice input (Dynamic Island, hotkey activation)
+- ☐ Multimodal input (text, screenshots, voice)
+- ☑ Social software integration (WeChat, Feishu todo capture)
+- ☑ Intelligent message todo extraction
+
+#### Intermediate Processing Layer: From "Chaos" to "Order"
+- ☑ AI task breakdown ("big rocks" into "small stones")
+- ☑ AI intent completion / task detail completion
+- ☐ Automatic classification and organization
+- ☐ Intelligent task priority planning
+- ☑ Todo context construction
+
+#### Output Layer: Psychological Security + Warm, Reliable Secretary Partner
+- ☐ AI secretary personification
+- ☐ Schedule reminders (currently in progress)
+- ☐ Task focus mode (display only partial tasks)
+- ☐ Completed task reinforcement (merit ledger)
+- ☐ Overdue task re-planning
+
+---
+
+### 🔬 Features in Development
+
+Free Todo's panel switch bar contains some panels that are currently under development. These panels showcase our future feature directions for community reference and understanding.
+
+**🤝 Community Participation**: We warmly welcome community members to participate!
+- 🎨 **Panel Contributions**: Contribute your own panel designs or propose improvement suggestions
+- 🤖 **Agent Algorithm Contributions**: Contribute new Agent algorithms, we actively merge them!
+
+---
 
 ### ✅ Recently Completed
 
