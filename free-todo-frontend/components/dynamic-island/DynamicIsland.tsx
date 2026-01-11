@@ -78,7 +78,7 @@ export function DynamicIsland({
 		position,
 		isHovered,
 	});
-	const { isDragging, handleMouseDown } = useDynamicIslandDrag({
+	const { isDragging, isDragEnding, handleMouseDown } = useDynamicIslandDrag({
 		mode,
 		islandRef,
 		setIgnoreMouse,
@@ -320,13 +320,18 @@ export function DynamicIsland({
 				}}
 				onMouseDown={handleMouseDown}
 				onContextMenu={handleOpenContextMenu}
-				transition={{
-					type: "spring",
-					stiffness: 350,
-					damping: 30,
-					mass: 0.8,
-					restDelta: 0.001,
-				}}
+				transition={
+					// 拖拽时或拖拽刚结束时禁用动画，直接设置位置；非拖拽时使用平滑动画
+					isDragging || isDragEnding
+						? { duration: 0 }
+						: {
+								type: "spring",
+								stiffness: 350,
+								damping: 30,
+								mass: 0.8,
+								restDelta: 0.001,
+							}
+				}
 				className="absolute cursor-grab active:cursor-grabbing overflow-hidden pointer-events-auto"
 				style={
 					{

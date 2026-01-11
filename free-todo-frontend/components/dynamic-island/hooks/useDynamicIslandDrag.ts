@@ -24,6 +24,7 @@ export function useDynamicIslandDrag({
 	setIsHovered,
 }: UseDynamicIslandDragOptions) {
 	const [isDragging, setIsDragging] = useState(false);
+	const [isDragEnding, setIsDragEnding] = useState(false); // 标记拖拽刚结束，需要禁用动画
 	const dragStartPos = useRef<{
 		x: number;
 		y: number;
@@ -117,10 +118,24 @@ export function useDynamicIslandDrag({
 			// 计算吸附位置
 			const snapPos = calculateSnapPosition(currentX, currentY);
 
-			// 更新位置状态，framer-motion 会自动平滑移动到新位置
+			// 标记拖拽结束，禁用动画
+			setIsDragEnding(true);
+
+			// 直接设置最终位置到 DOM，避免动画回放
+			islandRef.current.style.left = `${snapPos.x}px`;
+			islandRef.current.style.top = `${snapPos.y}px`;
+			islandRef.current.style.right = "auto";
+			islandRef.current.style.bottom = "auto";
+
+			// 更新位置状态（用于后续布局计算）
 			setPosition(snapPos);
 			setIsDragging(false);
 			dragStartPos.current = null;
+
+			// 短暂延迟后恢复动画（用于其他非拖拽的位置变化）
+			setTimeout(() => {
+				setIsDragEnding(false);
+			}, 100);
 
 			// 拖拽结束后，检查鼠标是否还在灵动岛区域内
 			// 如果不在，恢复点击穿透；如果在，保持可交互状态
@@ -163,5 +178,5 @@ export function useDynamicIslandDrag({
 		islandRef,
 	]);
 
-	return { isDragging, handleMouseDown };
+	return { isDragging, isDragEnding, handleMouseDown };
 }
