@@ -28,7 +28,7 @@ export function useLlmStatus() {
 			const baseUrl =
 				typeof window !== "undefined"
 					? ""
-					: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+					: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 			const response = await fetch(`${baseUrl}/api/llm-status`);
 			if (!response.ok) {
 				throw new Error("Failed to check LLM status");
