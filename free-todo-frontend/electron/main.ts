@@ -15,7 +15,7 @@ if (process.platform === "win32") {
 
 import { app, dialog } from "electron";
 import { BackendServer } from "./backend-server";
-import { isDevelopment, TIMEOUT_CONFIG } from "./config";
+import { getServerMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
 import { setupIpcHandlers } from "./ipc-handlers";
 import { logger } from "./logger";
 import {
@@ -31,8 +31,14 @@ import { WindowManager } from "./window-manager";
 // 判断是否为开发模式
 const isDev = isDevelopment(app.isPackaged);
 
-// 确保只有一个应用实例运行
-const gotTheLock = app.requestSingleInstanceLock();
+// 获取服务器模式
+const serverMode = getServerMode();
+
+// 确保只有相同模式的应用实例运行
+// DEV 和 Build 版本使用不同的锁名称，允许它们同时运行
+// 但同一模式下只允许一个实例
+const lockName = `lifetrace-${serverMode}`;
+const gotTheLock = app.requestSingleInstanceLock({ lockName } as never);
 
 if (!gotTheLock) {
 	// 如果已经有实例在运行，退出当前实例
@@ -263,6 +269,7 @@ function logStartupInfo(): void {
 	logger.info(`App isPackaged: ${app.isPackaged}`);
 	logger.info(`NODE_ENV: ${process.env.NODE_ENV || "not set"}`);
 	logger.info(`isDev: ${isDev}`);
+	logger.info(`Server mode: ${serverMode}`);
 	logger.info(`Will start built-in server: ${!isDev || app.isPackaged}`);
 }
 

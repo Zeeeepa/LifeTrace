@@ -336,7 +336,8 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	});
 
 	// 调整窗口大小（用于自定义缩放把手）
-	// 所有方向统一处理，直接更新，保持一致的流畅度
+	// 左边伸缩时右边固定，上边伸缩时下边固定，确保流畅不卡顿
+	// 使用窗口对象的自定义属性保存固定边界
 	ipcMain.on(
 		"resize-window",
 		(event, deltaX: number, deltaY: number, position: string) => {
@@ -344,50 +345,95 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			if (!win || !enableDynamicIsland) return;
 
 			const bounds = win.getBounds();
+			// 获取或初始化固定边界（使用窗口对象的自定义属性）
+			const resizeAnchor = (win as unknown as { __resizeAnchor?: { rightEdge?: number; bottomEdge?: number; lastPosition?: string } }).__resizeAnchor;
+
+			// 如果位置改变或没有保存的固定边界，重新初始化固定边界
+			if (!resizeAnchor || resizeAnchor.lastPosition !== position) {
+				(win as unknown as { __resizeAnchor: { rightEdge?: number; bottomEdge?: number; lastPosition?: string } }).__resizeAnchor = {
+					rightEdge: bounds.x + bounds.width, // 右边界（固定点）
+					bottomEdge: bounds.y + bounds.height, // 下边界（固定点）
+					lastPosition: position,
+				};
+			}
+
+			const anchor = (win as unknown as { __resizeAnchor: { rightEdge: number; bottomEdge: number; lastPosition: string } }).__resizeAnchor;
+			const rightEdge = anchor.rightEdge; // 固定的右边界
+			const bottomEdge = anchor.bottomEdge; // 固定的下边界
+
 			let newWidth = bounds.width;
 			let newHeight = bounds.height;
 			let newX = bounds.x;
 			let newY = bounds.y;
 
 			// 根据位置和 delta 计算新尺寸和位置
+			// 关键：左边伸缩时保持右边界固定，上边伸缩时保持下边界固定
 			switch (position) {
 				case "right":
+					// 右边伸缩：左边界固定
 					newWidth = Math.max(200, bounds.width + deltaX);
 					break;
 				case "left":
-					newWidth = Math.max(200, bounds.width - deltaX);
+					// 左边伸缩：右边界固定
 					newX = bounds.x + deltaX;
+					newWidth = Math.max(200, rightEdge - newX);
+					// 如果宽度达到最小值，调整 X 位置以保持右边界固定
+					if (newWidth === 200) {
+						newX = rightEdge - 200;
+					}
 					break;
 				case "bottom":
+					// 下边伸缩：上边界固定
 					newHeight = Math.max(200, bounds.height + deltaY);
 					break;
 				case "top":
-					newHeight = Math.max(200, bounds.height - deltaY);
+					// 上边伸缩：下边界固定
 					newY = bounds.y + deltaY;
+					newHeight = Math.max(200, bottomEdge - newY);
+					// 如果高度达到最小值，调整 Y 位置以保持下边界固定
+					if (newHeight === 200) {
+						newY = bottomEdge - 200;
+					}
 					break;
 				case "top-right":
+					// 右上角：左边界和下边界固定
 					newWidth = Math.max(200, bounds.width + deltaX);
-					newHeight = Math.max(200, bounds.height - deltaY);
 					newY = bounds.y + deltaY;
+					newHeight = Math.max(200, bottomEdge - newY);
+					if (newHeight === 200) {
+						newY = bottomEdge - 200;
+					}
 					break;
 				case "top-left":
-					newWidth = Math.max(200, bounds.width - deltaX);
-					newHeight = Math.max(200, bounds.height - deltaY);
+					// 左上角：右边界和下边界固定
 					newX = bounds.x + deltaX;
+					newWidth = Math.max(200, rightEdge - newX);
 					newY = bounds.y + deltaY;
+					newHeight = Math.max(200, bottomEdge - newY);
+					if (newWidth === 200) {
+						newX = rightEdge - 200;
+					}
+					if (newHeight === 200) {
+						newY = bottomEdge - 200;
+					}
 					break;
 				case "bottom-right":
+					// 右下角：左边界和上边界固定
 					newWidth = Math.max(200, bounds.width + deltaX);
 					newHeight = Math.max(200, bounds.height + deltaY);
 					break;
 				case "bottom-left":
-					newWidth = Math.max(200, bounds.width - deltaX);
-					newHeight = Math.max(200, bounds.height + deltaY);
+					// 左下角：右边界和上边界固定
 					newX = bounds.x + deltaX;
+					newWidth = Math.max(200, rightEdge - newX);
+					newHeight = Math.max(200, bounds.height + deltaY);
+					if (newWidth === 200) {
+						newX = rightEdge - 200;
+					}
 					break;
 			}
 
-			// 所有方向统一直接更新，保持一致的流畅度
+			// 直接更新，保持流畅度
 			win.setBounds({
 				x: newX,
 				y: newY,

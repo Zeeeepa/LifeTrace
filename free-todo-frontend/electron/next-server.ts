@@ -57,6 +57,7 @@ function waitForServer(url: string, timeout: number): Promise<void> {
 }
 
 let nextProcess: ChildProcess | null = null;
+let isStopping = false;
 
 	/**
  * 获取 Next.js 进程
@@ -393,6 +394,14 @@ export async function startNextServer(): Promise<void> {
 
 	nextProcess.on("exit", (code, signal) => {
 		const exitMsg = `Next.js server exited with code ${code}, signal ${signal}`;
+
+		// 如果是主动关闭（调用了 stop() 方法），不显示错误对话框
+		if (isStopping) {
+			logger.info(`${exitMsg} (intentional shutdown)`);
+			isStopping = false; // 重置标志
+			return;
+		}
+
 		logger.error(exitMsg);
 		logger.info(
 			`STDOUT buffer (last ${LOG_CONFIG.bufferDisplayLimit} chars): ${stdoutBuffer.slice(-LOG_CONFIG.bufferDisplayLimit)}`,
@@ -440,6 +449,7 @@ export async function startNextServer(): Promise<void> {
  * 实际的等待逻辑在 cleanup 函数中处理
  */
 export function stopNextServer(): void {
+	isStopping = true;
 	stopHealthCheck();
 	if (nextProcess && !nextProcess.killed) {
 		logger.info("Stopping Next.js server...");

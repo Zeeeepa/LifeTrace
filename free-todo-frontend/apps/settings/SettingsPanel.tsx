@@ -11,6 +11,7 @@ import {
 	DifyConfigSection,
 	DockDisplayModeSection,
 	LlmConfigSection,
+	ModeSwitcherSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
 	SchedulerSection,
@@ -68,10 +69,12 @@ export function SettingsPanel() {
 						title={tSettings("developerSectionTitle")}
 						description={tSettings("developerSectionDescription")}
 					>
-						{/* 定时任务管理（开发者选项中的第一项） */}
-						<SchedulerSection loading={loading} />
+						{/* 定时任务管理 */}
+						<div className="mt-4">
+							<SchedulerSection loading={loading} />
+						</div>
 
-						{/* Dify 配置（不再单独折叠） */}
+						{/* Dify 配置 */}
 						<div className="mt-4">
 							<DifyConfigSection config={config} loading={loading} />
 						</div>
@@ -79,6 +82,11 @@ export function SettingsPanel() {
 						{/* 屏幕录制设置（黑名单等） */}
 						<div className="mt-4">
 							<RecorderConfigSection config={config} loading={loading} />
+						</div>
+
+						{/* 模式切换器设置 */}
+						<div className="mt-4">
+							<ModeSwitcherSection loading={loading} />
 						</div>
 					</SettingsSection>
 				</CollapsibleSection>

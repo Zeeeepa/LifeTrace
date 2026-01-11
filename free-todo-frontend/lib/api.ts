@@ -4,7 +4,7 @@
  */
 function getStreamApiBaseUrl(): string {
 	// 流式请求始终直接调用后端，避免 Next.js 代理导致的缓冲/压缩问题
-	return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+	return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 }
 
 // ============================================================================
@@ -26,6 +26,7 @@ export async function sendChatMessageStream(
 	onChunk: (chunk: string) => void,
 	onSessionId?: (sessionId: string) => void,
 	signal?: AbortSignal,
+	locale?: string,
 ): Promise<void> {
 	// 流式请求直接调用后端 API，绕过 Next.js 代理
 	const baseUrl = getStreamApiBaseUrl();
@@ -36,6 +37,7 @@ export async function sendChatMessageStream(
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
+				"Accept-Language": locale || "en",
 			},
 			body: JSON.stringify({
 				message: params.message,
@@ -211,7 +213,7 @@ export function getScreenshotImage(id: number): string {
 	const baseUrl =
 		typeof window !== "undefined"
 			? ""
-			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+			: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 	return `${baseUrl}/api/screenshots/${id}/image`;
 }
 

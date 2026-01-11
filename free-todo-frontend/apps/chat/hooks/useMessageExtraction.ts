@@ -85,38 +85,38 @@ export function useMessageExtraction({
 				return newMap;
 			});
 
-			try {
-				// 客户端使用相对路径，通过 Next.js rewrites 代理到后端（支持动态端口）
-				const response = await fetch(`/api/chat/extract-todos-from-messages`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						messages: messagesForExtraction,
-						parent_todo_id: parentTodoId,
-						todo_context: todoContext,
-					}),
-				});
+		try {
+			// 客户端使用相对路径，通过 Next.js rewrites 代理到后端（支持动态端口）
+			const response = await fetch(`/api/chat/extract-todos-from-messages`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					messages: messagesForExtraction,
+					parent_todo_id: parentTodoId,
+					todo_context: todoContext,
+				}),
+			});
 
-				if (!response.ok) {
-					// 尝试从响应中获取错误信息
-					let errorMessage = `提取待办失败 (${response.status})`;
-					try {
-						const errorData = await response.json();
-						if (errorData.detail) {
-							errorMessage = errorData.detail;
-						} else if (errorData.error_message) {
-							errorMessage = errorData.error_message;
-						} else if (errorData.message) {
-							errorMessage = errorData.message;
-						}
-					} catch {
-						// 如果无法解析 JSON，使用状态文本
-						errorMessage = `提取待办失败: ${response.statusText || response.status}`;
+			if (!response.ok) {
+				// 尝试从响应中获取错误信息
+				let errorMessage = `提取待办失败 (${response.status})`;
+				try {
+					const errorData = await response.json();
+					if (errorData.detail) {
+						errorMessage = errorData.detail;
+					} else if (errorData.error_message) {
+						errorMessage = errorData.error_message;
+					} else if (errorData.message) {
+						errorMessage = errorData.message;
 					}
-					throw new Error(errorMessage);
+				} catch {
+					// 如果无法解析 JSON，使用状态文本
+					errorMessage = `提取待办失败: ${response.statusText || response.status}`;
 				}
+				throw new Error(errorMessage);
+			}
 
 				const data = await response.json();
 
