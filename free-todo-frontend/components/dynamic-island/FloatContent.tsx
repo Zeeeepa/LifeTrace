@@ -70,9 +70,10 @@ export function FloatContent({
 			initial="initial"
 			animate="animate"
 			exit="exit"
-			className="w-full h-full flex items-center justify-center gap-4 relative group"
+			className="w-full h-full flex items-center justify-between gap-4 relative group px-4"
 			style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
 		>
+			{/* 左：麦克风 */}
 			<div
 				className="flex items-center justify-center cursor-pointer flex-shrink-0"
 				title="麦克风（功能暂未接入）"
@@ -101,6 +102,7 @@ export function FloatContent({
 				</div>
 			</div>
 
+			{/* 中：截图 */}
 			<div
 				className="relative cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
 				onClick={(e) => {
@@ -135,6 +137,7 @@ export function FloatContent({
 				)}
 			</div>
 
+			{/* 右：Hexagon */}
 			<button
 				type="button"
 				className="flex items-center justify-center flex-shrink-0"
@@ -153,5 +156,3 @@ export function FloatContent({
 		</motion.div>
 	);
 }
-
-

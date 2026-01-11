@@ -70,16 +70,16 @@ export function useDynamicIslandLayout({
 
 		switch (mode) {
 			case IslandMode.FLOAT: {
-				// 默认收起状态：只显示小图标（32x32）
-				// 鼠标悬停时展开：显示完整内容（180x48）
+				// 默认收起状态：只显示小图标（36x36）
+				// 鼠标悬停时展开：从左边展开麦克风和截图图标，Hexagon 保持在右边固定位置
 				const collapsedLayout = {
 					width: 36,
 					height: 36,
 					borderRadius: 18,
 				};
 				const expandedLayout = {
-					// 三个图标并列，留点间距：18*3 + 16*2(gap) + 32*2(padding) = 54 + 32 + 64 = 150
-					width: 135,
+					// 三个图标居中排列：18*3 + 16*2(gap) + 24*2(padding) = 54 + 32 + 48 = 134
+					width: 130,
 					height: 48,
 					borderRadius: 24,
 				};
@@ -87,15 +87,20 @@ export function useDynamicIslandLayout({
 				const baseLayout = isHovered ? expandedLayout : collapsedLayout;
 
 				if (position) {
+					// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
+					// 收起状态：width = 36px, left = position.x，右边 = position.x + 36px
+					// 展开状态：width = 134px, left = position.x - (134 - 36) = position.x - 98px，右边 = position.x - 98px + 134px = position.x + 36px（保持不变）
+					const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
 					return {
 						...baseLayout,
-						left: position.x,
+						left: position.x + leftOffset,
 						top: position.y,
 						right: "auto",
 						bottom: "auto",
 					};
 				} else {
 					// 默认位置：右下角
+					// 使用 right 定位，这样当宽度变化时，右边（Hexagon 位置）保持不变
 					return {
 						...baseLayout,
 						right: margin,
