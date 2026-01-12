@@ -20,12 +20,9 @@ export function useOnboardingTour() {
 	const driverRef = useRef<Driver | null>(null);
 
 	/**
-	 * Start the onboarding tour
+	 * Create and start the driver tour
 	 */
-	const startTour = useCallback(() => {
-		// If already completed, don't start
-		if (hasCompletedTour) return;
-
+	const createAndStartTour = useCallback(() => {
 		// Ensure dock is visible during tour
 		setDockDisplayMode("fixed");
 
@@ -127,14 +124,28 @@ export function useOnboardingTour() {
 
 		driverRef.current = driverObj;
 		driverObj.drive();
-	}, [
-		hasCompletedTour,
-		completeTour,
-		setCurrentStep,
-		setDockDisplayMode,
-		openSettings,
-		t,
-	]);
+	}, [completeTour, setCurrentStep, setDockDisplayMode, openSettings, t]);
+
+	/**
+	 * Start the onboarding tour (only if not completed)
+	 */
+	const startTour = useCallback(() => {
+		if (hasCompletedTour) return;
+		createAndStartTour();
+	}, [hasCompletedTour, createAndStartTour]);
+
+	/**
+	 * Restart the tour (reset state and start immediately)
+	 * This is used when the user wants to see the tour again
+	 */
+	const restartTour = useCallback(() => {
+		// Reset the tour state first
+		useOnboardingStore.getState().resetTour();
+		// Start the tour after a short delay to ensure state is updated
+		setTimeout(() => {
+			createAndStartTour();
+		}, 100);
+	}, [createAndStartTour]);
 
 	/**
 	 * Skip the tour without completing it
@@ -147,7 +158,7 @@ export function useOnboardingTour() {
 	}, [completeTour]);
 
 	/**
-	 * Reset the tour to allow re-onboarding
+	 * Reset the tour state to allow re-onboarding
 	 */
 	const resetTour = useCallback(() => {
 		useOnboardingStore.getState().resetTour();
@@ -155,6 +166,7 @@ export function useOnboardingTour() {
 
 	return {
 		startTour,
+		restartTour,
 		skipTour,
 		resetTour,
 		hasCompletedTour,

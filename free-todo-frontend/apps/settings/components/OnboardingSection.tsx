@@ -2,7 +2,7 @@
 
 import { RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useOnboardingStore } from "@/lib/store/onboarding-store";
+import { useOnboardingTour } from "@/lib/hooks/useOnboardingTour";
 import { SettingsSection } from "./SettingsSection";
 
 interface OnboardingSectionProps {
@@ -15,13 +15,7 @@ interface OnboardingSectionProps {
  */
 export function OnboardingSection({ loading = false }: OnboardingSectionProps) {
 	const t = useTranslations("onboarding");
-	const { resetTour, hasCompletedTour } = useOnboardingStore();
-
-	const handleRestartTour = () => {
-		resetTour();
-		// Reload the page to trigger the tour
-		window.location.reload();
-	};
+	const { restartTour, hasCompletedTour } = useOnboardingTour();
 
 	return (
 		<SettingsSection title={t("restartTour")}>
@@ -31,7 +25,7 @@ export function OnboardingSection({ loading = false }: OnboardingSectionProps) {
 				</p>
 				<button
 					type="button"
-					onClick={handleRestartTour}
+					onClick={restartTour}
 					disabled={loading || !hasCompletedTour}
 					className="flex items-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 				>
@@ -40,7 +34,7 @@ export function OnboardingSection({ loading = false }: OnboardingSectionProps) {
 				</button>
 				{!hasCompletedTour && (
 					<p className="text-xs text-muted-foreground italic">
-						引导尚未完成，无需重置
+						{t("tourNotCompleted")}
 					</p>
 				)}
 			</div>
