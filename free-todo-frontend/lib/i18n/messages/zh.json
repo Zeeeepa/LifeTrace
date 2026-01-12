@@ -662,7 +662,6 @@
 		"doneBtn": "开始使用",
 		"skipBtn": "跳过引导",
 		"restartTour": "重新开始引导",
-		"restartTourDescription": "点击此按钮可以重新查看新手引导流程",
-		"tourNotCompleted": "引导尚未完成，无需重置"
+		"restartTourDescription": "点击此按钮可以随时开始或重新查看新手引导流程"
 	}
 }
