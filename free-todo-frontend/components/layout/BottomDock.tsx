@@ -390,18 +390,19 @@ export function BottomDock({ className }: BottomDockProps) {
 			}}
 			transition={DOCK_ANIMATION_CONFIG.spring}
 		>
-			<div
-				ref={dockRef}
-				className={cn(
-					"flex items-center gap-2",
-					"bg-[oklch(var(--card))]/80 dark:bg-background",
-					"backdrop-blur-md",
-					"border border-[oklch(var(--border))]",
-					"shadow-lg",
-					"px-2 py-1.5",
-					"rounded-xl",
-				)}
-			>
+		<div
+			ref={dockRef}
+			data-tour="bottom-dock"
+			className={cn(
+				"flex items-center gap-2",
+				"bg-[oklch(var(--card))]/80 dark:bg-background",
+				"backdrop-blur-md",
+				"border border-[oklch(var(--border))]",
+				"shadow-lg",
+				"px-2 py-1.5",
+				"rounded-xl",
+			)}
+		>
 				{groupEntries.map(([groupName, groupItems], groupIndex) => (
 					<div key={groupName} className="flex items-center gap-2">
 						{groupIndex > 0 && hasMultipleGroups && (

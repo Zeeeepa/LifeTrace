@@ -641,5 +641,23 @@
 		"addButton": "Add",
 		"extractButton": "Extract Todos",
 		"extracting": "Extracting todos..."
+	},
+	"onboarding": {
+		"welcomeTitle": "Welcome to Free Todo",
+		"welcomeDescription": "Let's take a minute to learn how to get started with this AI-powered intelligent todo assistant.",
+		"settingsStepTitle": "Open Settings",
+		"settingsStepDescription": "First, we need to configure the AI assistant. Click this settings button to open the settings panel.",
+		"apiKeyStepTitle": "Configure API Key",
+		"apiKeyStepDescription": "Enter your LLM API Key here. Free Todo uses OpenAI-compatible API, so you can use providers like Aliyun Bailian, OpenAI, and more.",
+		"dockStepTitle": "Bottom Dock",
+		"dockStepDescription": "Use the bottom Dock to quickly switch and combine panels. Click icons to toggle panels, drag to swap positions. Right-click to change the panel's function.",
+		"completeTitle": "You're All Set!",
+		"completeDescription": "Once configured, you can start using Free Todo to manage your tasks. Boost your productivity!",
+		"nextBtn": "Next",
+		"prevBtn": "Previous",
+		"doneBtn": "Get Started",
+		"skipBtn": "Skip Tour",
+		"restartTour": "Restart Tour",
+		"restartTourDescription": "Click this button to restart the onboarding tour"
 	}
 }

@@ -12,6 +12,7 @@ import {
 	DockDisplayModeSection,
 	LlmConfigSection,
 	ModeSwitcherSection,
+	OnboardingSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
 	SchedulerSection,
@@ -57,6 +58,9 @@ export function SettingsPanel() {
 
 				{/* 面板开关 */}
 				<PanelSwitchesSection loading={loading} />
+
+				{/* 用户引导设置 */}
+				<OnboardingSection loading={loading} />
 
 				{/* 开发者选项（整栏可折叠） */}
 				<CollapsibleSection
