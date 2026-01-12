@@ -12,10 +12,16 @@ type TranslationFunction = (
 export const usePlanParser = (locale: string, t: TranslationFunction) => {
 	// 从 API 获取任务规划系统提示词
 	const [planSystemPrompt, setPlanSystemPrompt] = useState<string>("");
+	const enableChatPrompts =
+		process.env.NEXT_PUBLIC_ENABLE_CHAT_PROMPTS === "true";
 
 	useEffect(() => {
 		let cancelled = false;
 		async function loadPrompts() {
+			// 可配置关闭：后端不可用时跳过调用，避免控制台抛 500
+			if (!enableChatPrompts) {
+				return;
+			}
 			try {
 				const response = (await getChatPromptsApiGetChatPromptsGet({
 					locale,
@@ -27,19 +33,21 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 				if (!cancelled && response.success) {
 					setPlanSystemPrompt(response.planSystemPrompt);
 				}
-			} catch (error) {
-				console.error("Failed to load chat prompts:", error);
+			} catch (_error) {
+				// 后端不可用时静默降级，避免控制台报 500
 				// 如果加载失败，使用默认值（向后兼容）
 				if (!cancelled) {
 					setPlanSystemPrompt("");
 				}
 			}
 		}
-		void loadPrompts();
+		if (enableChatPrompts) {
+			void loadPrompts();
+		}
 		return () => {
 			cancelled = true;
 		};
-	}, [locale]);
+	}, [enableChatPrompts, locale]);
 
 	const parsePlanTodos = useCallback(
 		(

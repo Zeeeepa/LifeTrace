@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { DynamicIsland } from "./DynamicIsland";
 import { IslandMode } from "./types";
@@ -22,6 +23,15 @@ export function DynamicIslandProvider() {
 	const allowWebPreview =
 		process.env.NEXT_PUBLIC_ENABLE_DYNAMIC_ISLAND_WEB_PREVIEW === "true";
 
+	// Hydration guard: render only after client mounted to avoid SSR/CSR mismatch
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+	if (!mounted) {
+		return null;
+	}
+
 	if ((!isElectronEnvironment() && !allowWebPreview) || !isEnabled) {
 		return null;
 	}
@@ -34,4 +44,3 @@ export function DynamicIslandProvider() {
 		/>
 	);
 }
-
