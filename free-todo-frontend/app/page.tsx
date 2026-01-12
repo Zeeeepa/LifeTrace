@@ -15,6 +15,7 @@ import { PanelContent } from "@/components/layout/PanelContent";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
 import { GlobalDndProvider } from "@/lib/dnd";
+import { useOnboardingTour } from "@/lib/hooks/useOnboardingTour";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
@@ -37,6 +38,9 @@ export default function HomePage() {
 
 	// 国际化
 	const t = useTranslations("todoExtraction");
+
+	// 用户引导 (Onboarding Tour)
+	const { startTour, hasCompletedTour } = useOnboardingTour();
 
 	// 使用 TanStack Query 获取配置
 	const { data: config } = useConfig();
@@ -79,6 +83,22 @@ export default function HomePage() {
 		// 清理：防止在组件卸载时光标和选择状态残留
 		return () => setGlobalResizeCursor(false);
 	}, [setGlobalResizeCursor]);
+
+	// 用户引导：首次加载且未完成引导时启动 tour
+	// 使用 ref 确保只在组件挂载时检查一次，避免 restartTour 时重复触发
+	const hasCheckedTourRef = useRef(false);
+	useEffect(() => {
+		if (hasCheckedTourRef.current) return;
+		hasCheckedTourRef.current = true;
+
+		if (!hasCompletedTour) {
+			// 延迟启动，确保页面渲染完成
+			const timer = setTimeout(() => {
+				startTour();
+			}, 800);
+			return () => clearTimeout(timer);
+		}
+	}, [hasCompletedTour, startTour]);
 
 	// 初始化并管理轮询
 	useEffect(() => {
@@ -366,15 +386,24 @@ export default function HomePage() {
 			<main className="relative flex h-screen flex-col overflow-hidden text-foreground">
 				<div className="relative z-10 flex h-full flex-col text-foreground">
 					<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
-						{/* 左侧：Logo */}
-						<div className="flex items-center gap-2 shrink-0">
-							<Image
-								src="/free-todo-logos/free_todo_icon_with_grid.png"
-								alt="Free Todo Logo"
-								width={32}
-								height={32}
-								className="shrink-0"
-							/>
+					{/* 左侧：Logo */}
+					<div className="flex items-center gap-2 shrink-0 ">
+						{/* 浅色模式图标 */}
+						<Image
+							src="/free-todo-logos/free_todo_icon_4_dark_with_grid.png"
+							alt="Free Todo Logo"
+							width={32}
+							height={32}
+							className="shrink-0 block dark:hidden"
+						/>
+						{/* 深色模式图标 */}
+						<Image
+							src="/free-todo-logos/free_todo_icon_4_with_grid.png"
+							alt="Free Todo Logo"
+							width={32}
+							height={32}
+							className="shrink-0 hidden dark:block"
+						/>
 							<h1 className="text-lg font-semibold tracking-tight text-foreground">
 								Free Todo: Your AI Secretary
 							</h1>
