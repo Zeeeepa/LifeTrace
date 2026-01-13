@@ -150,6 +150,7 @@ function DockItemButton({
 			ref={setRefs}
 			type="button"
 			style={dragStyle}
+			data-tour={`dock-item-${position}`}
 			{...(mounted ? dragAttributes : {})}
 			{...(mounted ? dragListeners : {})}
 			onClick={item.onClick}
@@ -206,6 +207,7 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 		dockDisplayMode,
 		panelFeatureMap, // ✅ 直接订阅 panelFeatureMap，确保交换位置后能触发重新渲染
 		disabledFeatures, // ✅ 也需要订阅 disabledFeatures，确保禁用功能被正确处理
+		getFeatureByPosition, // ✅ 用于根据位置获取功能（用于引导流程）
 	} = useUiStore();
 	const { locale: _ } = useLocaleStore();
 	const t = useTranslations("bottomDock");
@@ -242,6 +244,57 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 				? ["panelA", "panelB"]
 				: ["panelA", "panelB", "panelC"]; // 默认或 3 个
 	}, [visiblePanelCount]);
+
+	// 监听外部事件以程序化打开右键菜单（用于引导流程）
+	useEffect(() => {
+		const handleOpenMenu = (
+			e: CustomEvent<{ feature?: PanelFeature; position?: PanelPosition }>,
+		) => {
+			const { feature: targetFeature, position: targetPosition } = e.detail;
+
+			// 优先使用 position 参数
+			if (targetPosition) {
+				const anchorEl = itemRefs.current[targetPosition];
+				if (anchorEl) {
+					setMenuState({
+						isOpen: true,
+						position: targetPosition,
+						anchorElement: anchorEl,
+					});
+				}
+				return;
+			}
+
+			// 回退到使用 feature 参数
+			if (targetFeature) {
+				const positions: PanelPosition[] = ["panelA", "panelB", "panelC"];
+				for (const pos of positions) {
+					if (getFeatureByPosition(pos) === targetFeature) {
+						const anchorEl = itemRefs.current[pos];
+						if (anchorEl) {
+							setMenuState({
+								isOpen: true,
+								position: pos,
+								anchorElement: anchorEl,
+							});
+						}
+						break;
+					}
+				}
+			}
+		};
+
+		window.addEventListener(
+			"onboarding:open-dock-menu",
+			handleOpenMenu as EventListener,
+		);
+		return () => {
+			window.removeEventListener(
+				"onboarding:open-dock-menu",
+				handleOpenMenu as EventListener,
+			);
+		};
+	}, [getFeatureByPosition]);
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	// 在 SSR 时使用默认值，避免 hydration 错误
@@ -431,18 +484,19 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 			}
 			transition={DOCK_ANIMATION_CONFIG.spring}
 		>
-			<div
-				ref={dockRef}
-				className={cn(
-					"flex items-center gap-2",
-					"bg-[oklch(var(--card))]/80 dark:bg-background",
-					"backdrop-blur-md",
-					"border border-[oklch(var(--border))]",
-					"shadow-lg",
-					"px-2 py-1.5",
-					"rounded-xl",
-				)}
-			>
+		<div
+			ref={dockRef}
+			data-tour="bottom-dock"
+			className={cn(
+				"flex items-center gap-2",
+				"bg-[oklch(var(--card))]/80 dark:bg-background",
+				"backdrop-blur-md",
+				"border border-[oklch(var(--border))]",
+				"shadow-lg",
+				"px-2 py-1.5",
+				"rounded-xl",
+			)}
+		>
 				{groupEntries.map(([groupName, groupItems], groupIndex) => (
 					<div key={groupName} className="flex items-center gap-2">
 						{groupIndex > 0 && hasMultipleGroups && (
