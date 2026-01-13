@@ -1,7 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+	MouseEvent as ReactMouseEvent,
+	PointerEvent as ReactPointerEvent,
+} from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +36,15 @@ export function ResizeHandle({
 			role="separator"
 			aria-orientation="vertical"
 			onPointerDown={isVisible ? onPointerDown : undefined}
+			// 兼容性更好：同时监听 mouseDown，转交给同一个处理函数
+			onMouseDown={
+				isVisible
+					? (event: ReactMouseEvent<HTMLDivElement>) =>
+							onPointerDown(
+								event as unknown as ReactPointerEvent<HTMLDivElement>,
+							)
+					: undefined
+			}
 			onMouseEnter={() => isVisible && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			initial={false}
@@ -46,7 +58,7 @@ export function ResizeHandle({
 			}}
 			transition={ANIMATION_CONFIG.spring}
 			className={cn(
-				"relative flex h-full items-center justify-center select-none touch-none",
+				"relative z-10 flex h-full items-center justify-center select-none touch-none",
 				isVisible && "cursor-col-resize",
 				isDragging || isHovered ? "bg-foreground/5" : "bg-transparent",
 			)}

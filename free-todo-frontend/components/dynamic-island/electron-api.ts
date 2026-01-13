@@ -13,6 +13,7 @@ export type ElectronAPI = typeof window & {
 		) => void;
 		resizeWindow?: (dx: number, dy: number, pos: string) => void;
 		quit?: () => void;
+		setWindowBackgroundColor?: (color: string) => void;
 	};
 	require?: (module: string) => {
 		ipcRenderer?: { send: (...args: unknown[]) => void };

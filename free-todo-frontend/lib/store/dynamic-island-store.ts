@@ -21,15 +21,36 @@ function isElectronEnvironment(): boolean {
 interface DynamicIslandState {
 	mode: IslandMode;
 	isEnabled: boolean;
+	panelVisible: boolean;
 	setMode: (mode: IslandMode) => void;
 	toggleEnabled: () => void;
+	showPanel: () => void;
+	hidePanel: () => void;
 }
 
-export const useDynamicIslandStore = create<DynamicIslandState>((set) => ({
+export const useDynamicIslandStore = create<DynamicIslandState>((set, get) => ({
 	mode: IslandMode.FLOAT,
 	isEnabled: isElectronEnvironment(),
-	setMode: (mode) => set({ mode }),
+	panelVisible: false,
+	setMode: (mode) =>
+		set(() => ({
+			mode,
+			// PANEL = 显示，其他模式关闭 Panel overlay
+			panelVisible: mode === IslandMode.PANEL,
+		})),
 	toggleEnabled: () => set((state) => ({ isEnabled: !state.isEnabled })),
+	showPanel: () =>
+		set({
+			panelVisible: true,
+			mode:
+				get().mode === IslandMode.FULLSCREEN
+					? IslandMode.FULLSCREEN
+					: IslandMode.PANEL,
+		}),
+	hidePanel: () =>
+		set((state) => ({
+			panelVisible: false,
+			// 如果当前模式是 PANEL，则回到 FLOAT，避免卡在 Panel 模式
+			mode: state.mode === IslandMode.PANEL ? IslandMode.FLOAT : state.mode,
+		})),
 }));
-
-

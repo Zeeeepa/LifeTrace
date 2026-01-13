@@ -122,16 +122,43 @@ export function useDynamicIslandLayout({
 					left: 0,
 					top: 0,
 				};
-			case IslandMode.FULLSCREEN:
-				return {
-					width: "100vw",
-					height: "100vh",
-					borderRadius: 16, // 全屏模式也添加圆角
-					right: 0,
-					bottom: 0,
-					left: 0,
-					top: 0,
+			case IslandMode.FULLSCREEN: {
+				// FULLSCREEN 模式下，和 FLOAT 模式一样，根据 hover 状态展开/收起
+				const collapsedLayout = {
+					width: 36,
+					height: 36,
+					borderRadius: 18,
 				};
+				const expandedLayout = {
+					width: 130,
+					height: 48,
+					borderRadius: 24,
+				};
+
+				const baseLayout = isHovered ? expandedLayout : collapsedLayout;
+
+				if (position) {
+					// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
+					const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
+					return {
+						...baseLayout,
+						left: position.x + leftOffset,
+						top: position.y,
+						right: "auto",
+						bottom: "auto",
+					};
+				} else {
+					// 默认位置：右下角
+					// 使用 right 定位，这样当宽度变化时，右边（Hexagon 位置）保持不变
+					return {
+						...baseLayout,
+						right: margin,
+						bottom: margin,
+						left: "auto",
+						top: "auto",
+					};
+				}
+			}
 			default:
 				return {
 					width: 180,

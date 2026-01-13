@@ -33,19 +33,10 @@ export function useDynamicIslandClickThrough(mode: IslandMode) {
 	}, []);
 
 	useEffect(() => {
-		// If we are in FULLSCREEN mode, we always want to capture mouse
-		if (mode === IslandMode.FULLSCREEN) {
-			// Immediately disable click-through for fullscreen mode
-			setIgnoreMouse(false);
-			console.log("[DynamicIsland] Switched to FULLSCREEN mode, click-through disabled");
-		}
-		// Panel mode: window is interactive, don't ignore mouse
-		else if (mode === IslandMode.PANEL) {
-			setIgnoreMouse(false);
-			console.log("[DynamicIsland] Switched to PANEL mode, click-through disabled");
-		}
-		// FLOAT mode: default ignore mouse (click-through), cancel ignore on hover
-		else {
+		// 注意：点击穿透设置已由 app/page.tsx 统一管理
+		// 这里只在 FLOAT 模式下设置点击穿透，用于 hover 时的临时控制
+		// PANEL 和 FULLSCREEN 模式的点击穿透由 app/page.tsx 控制
+		if (mode === IslandMode.FLOAT) {
 			// Delay setting click-through to ensure window state is updated
 			setTimeout(() => {
 				setIgnoreMouse(true);
@@ -54,6 +45,7 @@ export function useDynamicIslandClickThrough(mode: IslandMode) {
 				"[DynamicIsland] Switched to FLOAT mode, will enable click-through in 100ms",
 			);
 		}
+		// PANEL 和 FULLSCREEN 模式不在这里设置，由 app/page.tsx 统一管理
 	}, [mode, setIgnoreMouse]);
 
 	return setIgnoreMouse;

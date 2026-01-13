@@ -19,6 +19,14 @@
 		"userSettings": "User Settings",
 		"openSettings": "Open Settings"
 	},
+	"dynamicIsland": {
+		"micTooltip": "Microphone (not connected yet)",
+		"screenshotEnabled": "Screenshot on, click to disable",
+		"screenshotDisabled": "Screenshot off, click to enable",
+		"expandPanel": "Expand to Panel",
+		"expandFullscreen": "Expand to fullscreen",
+		"collapseIsland": "Collapse to Dynamic Island"
+	},
 	"page": {
 		"title": "Free Todo Canvas",
 		"subtitle": "Calendar and Todos view side by side. Toggle via bottom dock and resize panels by dragging the handle.",

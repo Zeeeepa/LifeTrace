@@ -35,7 +35,8 @@ export function useDynamicIslandDrag({
 	// 手动拖拽实现（完全控制位置，防止飞出屏幕）
 	const handleMouseDown = useCallback(
 		(e: React.MouseEvent) => {
-			if (mode === IslandMode.FULLSCREEN || mode === IslandMode.PANEL) return;
+			// PANEL 模式不允许拖拽，其它模式允许
+			if (mode === IslandMode.PANEL) return;
 
 			// 如果点击的是按钮或可交互元素，不拖拽
 			const target = e.target as HTMLElement;
@@ -75,8 +76,8 @@ export function useDynamicIslandDrag({
 	// 处理鼠标移动
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		// 只在FLOAT模式下允许拖拽
-		if (mode !== IslandMode.FLOAT) return;
+		// FLOAT 和 FULLSCREEN 模式下都允许拖拽
+		if (mode !== IslandMode.FLOAT && mode !== IslandMode.FULLSCREEN) return;
 		if (!isDragging || !dragStartPos.current) return;
 
 		// 确保在拖拽过程中点击穿透保持被取消状态

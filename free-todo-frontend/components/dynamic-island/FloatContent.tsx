@@ -2,7 +2,9 @@
 
 import { motion } from "framer-motion";
 import { Camera, Hexagon, Mic } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type React from "react";
+import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 
 const fadeVariants = {
 	initial: { opacity: 0, filter: "blur(8px)", scale: 0.98 },
@@ -45,6 +47,8 @@ export function FloatContent({
 	isPaused: _isPaused = false,
 	onOpenPanel,
 }: FloatContentProps) {
+	const t = useTranslations("dynamicIsland");
+	const { showPanel } = useDynamicIslandStore();
 	if (isCollapsed) {
 		return (
 			<motion.div
@@ -76,7 +80,7 @@ export function FloatContent({
 			{/* 左：麦克风 */}
 			<div
 				className="flex items-center justify-center cursor-pointer flex-shrink-0"
-				title="麦克风（功能暂未接入）"
+				title={t("micTooltip")}
 			>
 				<div className="relative flex items-center justify-center">
 					{isRecording ? (
@@ -117,7 +121,11 @@ export function FloatContent({
 				}}
 				role="button"
 				tabIndex={0}
-				title={screenshotEnabled ? "截屏已开启，单击关闭" : "截屏已关闭，单击开启"}
+				title={
+					screenshotEnabled
+						? t("screenshotEnabled")
+						: t("screenshotDisabled")
+				}
 			>
 				<Camera
 					size={18}
@@ -143,9 +151,10 @@ export function FloatContent({
 				className="flex items-center justify-center flex-shrink-0"
 				onClick={(e) => {
 					e.stopPropagation();
+					showPanel();
 					onOpenPanel?.();
 				}}
-				title="展开为 Panel"
+				title={t("expandPanel")}
 			>
 				<Hexagon
 					size={18}

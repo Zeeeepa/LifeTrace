@@ -178,4 +178,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	quit: () => {
 		ipcRenderer.send("app-quit");
 	},
+
+	/**
+	 * 设置窗口背景色（用于 Panel 模式）
+	 */
+	setWindowBackgroundColor: (color: string) => {
+		ipcRenderer.send("set-window-background-color", color);
+	},
 });

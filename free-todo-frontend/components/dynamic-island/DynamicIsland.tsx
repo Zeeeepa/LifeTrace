@@ -4,19 +4,18 @@ import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { useConfig, useSaveConfig } from "@/lib/query";
+import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
+import { useNotificationStore } from "@/lib/store/notification-store";
+import { isElectronEnvironment } from "@/lib/utils/electron";
 import { ContextMenu } from "./ContextMenu";
 import { getElectronAPI } from "./electron-api";
 import { FloatContent } from "./FloatContent";
-import { FullscreenControlBar } from "./FullscreenControlBar";
 import { useDynamicIslandClickThrough } from "./hooks/useDynamicIslandClickThrough";
 import { useDynamicIslandDrag } from "./hooks/useDynamicIslandDrag";
 import { useDynamicIslandHover } from "./hooks/useDynamicIslandHover";
 import { useDynamicIslandLayout } from "./hooks/useDynamicIslandLayout";
-import { PanelContent } from "./PanelContent";
-import { PanelFeatureProvider } from "./PanelFeatureContext";
-import { PanelTitleBar } from "./PanelTitleBar";
-import { ResizeHandle } from "./ResizeHandle";
 import { IslandMode } from "./types";
 
 interface DynamicIslandProps {
@@ -55,6 +54,10 @@ export function DynamicIsland({
 	const saveConfigMutation = useSaveConfig();
 	const recorderEnabled = config?.jobsRecorderEnabled ?? false;
 
+	// 获取通知和 Electron 环境状态
+	const { currentNotification } = useNotificationStore();
+	const isElectron = isElectronEnvironment();
+
 	// 处理录音控制（已移除音频模块）
 	const handleToggleRecording = useCallback(() => {
 		console.log("[DynamicIsland] 麦克风按钮点击（功能已禁用）");
@@ -65,21 +68,24 @@ export function DynamicIsland({
 		console.log("[DynamicIsland] 停止录音按钮点击（功能已禁用）");
 	}, []);
 
+	// Panel 模式下灵动岛保持浮动外观
+	const layoutMode = mode === IslandMode.PANEL ? IslandMode.FLOAT : mode;
+
 	// 使用 hooks 管理各种逻辑
 	const setIgnoreMouse = useDynamicIslandClickThrough(mode);
 	const { isHovered, setIsHovered } = useDynamicIslandHover({
-		mode,
+		mode: layoutMode,
 		islandRef,
 		isDragging: false, // 将在拖拽 hook 中设置
 		setIgnoreMouse,
 	});
 	const { calculateSnapPosition, getLayoutState } = useDynamicIslandLayout({
-		mode,
+		mode: layoutMode,
 		position,
 		isHovered,
 	});
 	const { isDragging, isDragEnding, handleMouseDown } = useDynamicIslandDrag({
-		mode,
+		mode: layoutMode,
 		islandRef,
 		setIgnoreMouse,
 		calculateSnapPosition,
@@ -120,64 +126,30 @@ export function DynamicIsland({
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
 			if (e.key === "1") {
-				const api = getElectronAPI();
-				// 先切换前端状态，再执行窗口动画
 				onModeChange?.(IslandMode.FLOAT);
-				await new Promise((resolve) => setTimeout(resolve, 50));
-				await api.electronAPI?.collapseWindow?.();
-					// 延迟设置点击穿透和恢复透明度，确保窗口动画完全完成
-					// 窗口动画时长是 800ms，加上透明度过渡 350ms，加上等待时间 400ms，总共约 1550ms
-					// 我们等待 1600ms 确保所有动画完成，避免瞬闪
-					setTimeout(() => {
-						api.electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
-						// 恢复透明度
-						const style = document.createElement("style");
-						style.id = "restore-opacity-keyboard";
-						style.textContent = `
-							html, body, #__next, #__next > div {
-								opacity: 1 !important;
-								pointer-events: auto !important;
-							}
-						`;
-						const oldStyle = document.getElementById("restore-opacity-keyboard");
-						if (oldStyle) oldStyle.remove();
-						document.head.appendChild(style);
-					}, 1600);
-			} else if (e.key === "4") {
 				const api = getElectronAPI();
-				// 等待窗口动画完成后再切换状态
-				await api.electronAPI?.expandWindow?.();
+				api.electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
+			} else if (e.key === "4") {
 				onModeChange?.(IslandMode.PANEL);
 			} else if (e.key === "5") {
-				const api = getElectronAPI();
-				// 等待窗口动画完成后再切换状态
-				await api.electronAPI?.expandWindowFull?.();
 				onModeChange?.(IslandMode.FULLSCREEN);
 			} else if (e.key === "Escape") {
-				if (mode === IslandMode.FULLSCREEN || mode === IslandMode.PANEL) {
+				if (mode === IslandMode.FULLSCREEN) {
+					// FULLSCREEN 模式：先恢复窗口状态，再切换模式
 					const api = getElectronAPI();
-					// 先切换前端状态，再执行窗口动画
+					if (api.electronAPI?.collapseWindow) {
+						await api.electronAPI.collapseWindow();
+					}
 					onModeChange?.(IslandMode.FLOAT);
 					onClose?.();
-					await new Promise((resolve) => setTimeout(resolve, 50));
-					await api.electronAPI?.collapseWindow?.();
-					// 延迟设置点击穿透和恢复透明度，确保窗口动画完全完成
-					// 窗口动画时长是 800ms，加上透明度过渡 350ms，加上等待时间 400ms，总共约 1550ms
-					// 我们等待 1600ms 确保所有动画完成，避免瞬闪
-					setTimeout(() => {
-						api.electronAPI?.setIgnoreMouseEvents?.(true, { forward: true });
-						const style = document.createElement("style");
-						style.id = "restore-opacity-escape";
-						style.textContent = `
-							html, body, #__next, #__next > div {
-								opacity: 1 !important;
-								pointer-events: auto !important;
-							}
-						`;
-						const oldStyle = document.getElementById("restore-opacity-escape");
-						if (oldStyle) oldStyle.remove();
-						document.head.appendChild(style);
-					}, 1600);
+				} else if (mode === IslandMode.PANEL) {
+					// PANEL 模式：先恢复窗口状态，再切换模式
+					const api = getElectronAPI();
+					if (api.electronAPI?.collapseWindow) {
+						await api.electronAPI.collapseWindow();
+					}
+					onModeChange?.(IslandMode.FLOAT);
+					onClose?.();
 				}
 			}
 		};
@@ -212,80 +184,67 @@ export function DynamicIsland({
 	}, []);
 
 
-	// 处理窗口缩放（用于自定义缩放把手）
-	const handleResize = useCallback(
-		(deltaX: number, deltaY: number, position: string) => {
-			const api = getElectronAPI();
-			if (api.electronAPI?.resizeWindow) {
-				api.electronAPI.resizeWindow(deltaX, deltaY, position);
-			}
-		},
-		[],
-	);
-
+	const { panelVisible, showPanel } = useDynamicIslandStore();
 	const layoutState = getLayoutState();
 	const isFullscreen = mode === IslandMode.FULLSCREEN;
+	const shouldShowPanelOverlay = panelVisible || mode === IslandMode.PANEL;
 
-	if (mode === IslandMode.FULLSCREEN) {
-		return (
-			<FullscreenControlBar
-				onModeChange={onModeChange}
-				onClose={onClose}
-			/>
-		);
-	}
+	// 注意：点击穿透设置已移到 app/page.tsx 统一管理，这里不再设置
+	// 避免双重点击穿透设置冲突
 
-	if (mode === IslandMode.PANEL) {
-		return (
-			<div className="fixed inset-0 z-[30] pointer-events-none overflow-hidden">
-				<motion.div
-					layout
-					initial={false}
-					animate={layoutState}
-					transition={{
-						type: "spring",
-						stiffness: 340,
-						damping: 28,
-						mass: 0.6,
-						restDelta: 0.001,
-					}}
-					className="absolute pointer-events-auto origin-bottom-right bg-background shadow-2xl border-2 border-[oklch(var(--border))]/80 overflow-hidden"
-					style={
-						{
-							borderRadius: "16px",
-							clipPath: "inset(0 round 16px)",
-						} as React.CSSProperties
-					}
-				>
-					{/* Panel 模式的缩放把手 - 确保在标题栏之上 */}
-					<div className="absolute inset-0 pointer-events-none z-50">
-						<ResizeHandle position="top" onResize={handleResize} />
-						<ResizeHandle position="bottom" onResize={handleResize} />
-						<ResizeHandle position="left" onResize={handleResize} />
-						<ResizeHandle position="right" onResize={handleResize} />
-					</div>
-					<div className="flex flex-col w-full h-full text-[oklch(var(--foreground))] relative z-0">
-						<PanelFeatureProvider>
-							<PanelTitleBar
-								onModeChange={onModeChange}
-								onClose={onClose}
-							/>
-							<div className="flex-1 min-h-0 overflow-y-auto">
-								<PanelContent />
-							</div>
-						</PanelFeatureProvider>
-					</div>
-				</motion.div>
-			</div>
-		);
-	}
+	// 防御：确保在展示 Panel/全屏时恢复任何被主进程注入的透明/禁用样式
+	useEffect(() => {
+		if (!shouldShowPanelOverlay && !isFullscreen) return;
+		const restore = () => {
+			const ids = [
+				"restore-opacity-after-collapse",
+				"restore-opacity-keyboard",
+				"restore-opacity-escape",
+			];
+			ids.forEach((id) => {
+				const el = document.getElementById(id);
+				if (el) el.remove();
+			});
+			const html = document.documentElement;
+			const body = document.body;
+			const next = document.getElementById("__next");
+			const set = (node?: HTMLElement | null) => {
+				if (!node) return;
+				node.style.opacity = "1";
+				node.style.pointerEvents = "auto";
+			};
+			set(html);
+			set(body);
+			set(next as HTMLElement | null);
+		};
+		restore();
+	}, [isFullscreen, shouldShowPanelOverlay]);
 
 	return (
+	<>
+		{/* Panel 右侧窗口覆盖层（完全独立于灵动岛，单独渲染） */}
+		{/* 在使用现有页面布局模式下不再单独渲染 Panel 浮层 */}
+
+		{/* 全屏控制栏（完全独立） - 现在使用 AppHeader */}
+		{isFullscreen ? (
+			<div className="fixed inset-x-0 top-0 z-[32] pointer-events-auto bg-primary-foreground dark:bg-accent">
+				<AppHeader
+					mode={IslandMode.FULLSCREEN}
+					onModeChange={onModeChange}
+					onClose={onClose}
+					isPanelMode={false}
+					currentNotification={currentNotification}
+					isElectron={isElectron}
+				/>
+			</div>
+		) : null}
+
+		{/* 灵动岛（完全独立，永远渲染，不受 Panel 影响） */}
 		<div
-			className="fixed inset-0 pointer-events-none overflow-hidden"
+			className="fixed inset-0 pointer-events-none"
 			suppressHydrationWarning
 			style={{
-				zIndex: 999999, // 使用非常高的 z-index 确保始终置顶
+				zIndex: 999999, // 使用非常高的 z-index 确保始终置顶，但不影响页面交互（因为 pointer-events-none）
 			} as React.CSSProperties}
 		>
 			<motion.div
@@ -294,13 +253,11 @@ export function DynamicIsland({
 				initial={false}
 				animate={layoutState}
 				onMouseEnter={() => {
-					// 只在 FLOAT 模式下处理
+					// 所有模式都允许 hover 展开/收起
+					setIsHovered(true);
+					// 只有 FLOAT 模式需要切换点击穿透
 					if (mode === IslandMode.FLOAT) {
-						setIsHovered(true);
 						setIgnoreMouse(false); // 取消点击穿透，允许交互
-						console.log(
-							"[DynamicIsland] Mouse entered (onMouseEnter), click-through disabled",
-						);
 					}
 				}}
 				onMouseLeave={() => {
@@ -308,14 +265,11 @@ export function DynamicIsland({
 					if (isDragging) {
 						return;
 					}
-
-					// 只在 FLOAT 模式下处理
+					// 所有模式都收起
+					setIsHovered(false);
+					// 只有 FLOAT 模式需要恢复点击穿透
 					if (mode === IslandMode.FLOAT) {
-						setIsHovered(false);
 						setIgnoreMouse(true); // 恢复点击穿透
-						console.log(
-							"[DynamicIsland] Mouse left (onMouseLeave), click-through enabled",
-						);
 					}
 				}}
 				onMouseDown={handleMouseDown}
@@ -344,34 +298,34 @@ export function DynamicIsland({
 					} as React.CSSProperties
 				}
 			>
-					{/* 背景 */}
-					<div
-						className="absolute inset-0 backdrop-blur-[80px] transition-colors duration-700 ease-out"
-						style={{
-							backgroundColor: isDark
-								? "rgba(8, 8, 8, 0.9)"
-								: "oklch(var(--primary-foreground))",
-						}}
-					></div>
-					<div
-						className={`absolute inset-0 transition-opacity duration-1000 ${isFullscreen ? "opacity-100" : "opacity-0"}`}
-					>
-						{isDark ? (
-							<>
-								<div className="absolute top-[-50%] left-[-20%] w-[100%] h-[100%] rounded-full bg-indigo-500/10 blur-[120px] mix-blend-screen"></div>
-								<div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-purple-500/10 blur-[120px] mix-blend-screen"></div>
-							</>
-						) : null}
-					</div>
-					<div
-						className="absolute inset-0 rounded-[inherit] pointer-events-none transition-opacity duration-500"
-						style={{
-							border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)"}`,
-							boxShadow: isDark
-								? "inset 0 0 20px rgba(255,255,255,0.03)"
-								: "inset 0 0 20px rgba(0,0,0,0.02)",
-						}}
-					></div>
+				{/* 背景 */}
+				<div
+					className="absolute inset-0 backdrop-blur-[80px] transition-colors duration-700 ease-out"
+					style={{
+						backgroundColor: isDark
+							? "rgba(8, 8, 8, 0.9)"
+							: "oklch(var(--primary-foreground))",
+					}}
+				></div>
+				<div
+					className={`absolute inset-0 transition-opacity duration-1000 ${isFullscreen ? "opacity-100" : "opacity-0"}`}
+				>
+					{isDark ? (
+						<>
+							<div className="absolute top-[-50%] left-[-20%] w-[100%] h-[100%] rounded-full bg-indigo-500/10 blur-[120px] mix-blend-screen"></div>
+							<div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-purple-500/10 blur-[120px] mix-blend-screen"></div>
+						</>
+					) : null}
+				</div>
+				<div
+					className="absolute inset-0 rounded-[inherit] pointer-events-none transition-opacity duration-500"
+					style={{
+						border: `1px solid ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)"}`,
+						boxShadow: isDark
+							? "inset 0 0 20px rgba(255,255,255,0.03)"
+							: "inset 0 0 20px rgba(0,0,0,0.02)",
+					}}
+				></div>
 
 				{/* 内容区域 */}
 				{/* biome-ignore lint/a11y/noStaticElementInteractions: onContextMenu is not a true interaction, it's for custom context menu */}
@@ -380,71 +334,66 @@ export function DynamicIsland({
 					// 右键打开自定义菜单，屏蔽浏览器/系统默认菜单（包括"退出应用"等文字）
 					onContextMenu={handleOpenContextMenu}
 				>
-					{mode === IslandMode.FLOAT ? (
-						<motion.div
-							key="float"
-							className="absolute inset-0 w-full h-full pointer-events-none"
-							onMouseEnter={() => {
-								// 只在 FLOAT 模式下处理
-								if (mode === IslandMode.FLOAT) {
-									setIsHovered(true);
-									setIgnoreMouse(false);
-								}
-							}}
-							onMouseLeave={() => {
-								if (isDragging) {
+					{/* FULLSCREEN 也保持灵动岛内容可见，行为与 FLOAT/PANEL 一致 */}
+					<motion.div
+						key="float"
+						className="absolute inset-0 w-full h-full pointer-events-none"
+						onMouseEnter={() => {
+							// 所有模式都允许根据 hover 展开/收起
+							setIsHovered(true);
+							// 只有 FLOAT 模式需要切换点击穿透
+							if (mode === IslandMode.FLOAT) {
+								setIgnoreMouse(false);
+							}
+						}}
+						onMouseLeave={() => {
+							if (isDragging) {
+								return;
+							}
+							// hover 离开时统一收起
+							setIsHovered(false);
+							// 只有 FLOAT 模式需要恢复点击穿透
+							if (mode === IslandMode.FLOAT) {
+								setIgnoreMouse(true);
+							}
+						}}
+					>
+						<div
+							className="w-full h-full pointer-events-auto"
+							role="group"
+							onMouseDown={(e) => {
+								// 如果点击的是按钮，阻止拖拽和事件冒泡
+								const target = e.target as HTMLElement;
+								if (
+									target.closest(
+										'button, a, input, select, textarea, [role="button"]',
+									)
+								) {
+									e.stopPropagation();
 									return;
 								}
-								// 只在 FLOAT 模式下处理
-								if (mode === IslandMode.FLOAT) {
-									setIsHovered(false);
-									setIgnoreMouse(true);
-								}
+								// 如果不是按钮，让事件继续冒泡到外层的 handleMouseDown
+								// 不要阻止默认行为，让拖拽可以正常工作
 							}}
 						>
-							<div
-								className="w-full h-full pointer-events-auto"
-								role="group"
-								onMouseDown={(e) => {
-									// 如果点击的是按钮，阻止拖拽和事件冒泡
-									const target = e.target as HTMLElement;
-									if (
-										target.closest(
-											'button, a, input, select, textarea, [role="button"]',
-										)
-									) {
-										e.stopPropagation();
-										return;
-									}
-									// 如果不是按钮，让事件继续冒泡到外层的 handleMouseDown
-									// 不要阻止默认行为，让拖拽可以正常工作
-								}}
-							>
 								<FloatContent
-									onToggleRecording={handleToggleRecording}
-									onStopRecording={handleStopRecording}
-									onScreenshot={handleToggleScreenshot}
-									screenshotEnabled={recorderEnabled}
-									isCollapsed={!isHovered}
-									isRecording={isRecording}
-									isPaused={isPaused}
-									onOpenPanel={async () => {
-										// 完全按照"4键"的逻辑：切换到Panel模式（使用默认位置，简单可靠）
-										const api = getElectronAPI();
-										if (api.electronAPI?.expandWindow) {
-											// 等待窗口动画完成后再切换状态
-											await api.electronAPI.expandWindow();
-										}
-										// 窗口动画完成后，再切换前端状态
-										onModeChange?.(IslandMode.PANEL);
-									}}
-								/>
-							</div>
-						</motion.div>
-					) : (
-						// 全屏模式下，显示完整内容
-						<div className="w-full h-full">{/* 内容由 page.tsx 渲染 */}</div>
-					)}
+								onToggleRecording={handleToggleRecording}
+								onStopRecording={handleStopRecording}
+								onScreenshot={handleToggleScreenshot}
+								screenshotEnabled={recorderEnabled}
+								// 所有模式都根据 isHovered 决定展开/收起
+								isCollapsed={!isHovered}
+								isRecording={isRecording}
+								isPaused={isPaused}
+								onOpenPanel={() => {
+									// 直接开启 Panel 显示，并显式切换模式为 PANEL，不改变灵动岛外观
+									// 点击穿透设置由 app/page.tsx 统一管理
+									showPanel();
+									onModeChange?.(IslandMode.PANEL);
+								}}
+							/>
+						</div>
+					</motion.div>
 				</div>
 			</motion.div>
 
@@ -458,5 +407,6 @@ export function DynamicIsland({
 				}}
 			/>
 		</div>
-	);
+	</>
+);
 }

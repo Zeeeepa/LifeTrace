@@ -277,6 +277,9 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		`)
 			.catch(() => {});
 
+		// ✅ 恢复窗口背景色为透明（Panel 模式需要透明背景）
+		win.setBackgroundColor("#00000000");
+
 		// 禁用点击穿透
 		win.setIgnoreMouseEvents(false);
 	});
@@ -299,6 +302,8 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			win.maximize();
 		}
 
+		// ✅ FULLSCREEN 模式下，移除圆角和透明背景，让前端通过 CSS 变量控制背景色
+		// 注意：窗口背景色由前端通过 setWindowBackgroundColor 动态设置，不在这里硬编码
 		// FULLSCREEN 模式下不需要任何圆角或 clip-path，恢复为真正的全屏矩形窗口
 		// 这里重置 html/body/#__next 上的圆角样式，避免从 PANEL 切到 FULLSCREEN 时残留 16px 圆角
 		win.webContents
@@ -312,13 +317,11 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 				border-radius: 0 !important;
 				clip-path: none !important;
 				overflow: visible !important;
-				background-color: transparent !important;
 			}
 			#__next {
 				border-radius: 0 !important;
 				clip-path: none !important;
 				overflow: visible !important;
-				background-color: transparent !important;
 			}
 			#__next > div {
 				border-radius: 0 !important;
@@ -465,6 +468,15 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		const win = windowManager.getWindow();
 		if (win) {
 			win.setBackgroundColor("#00000000");
+		}
+	});
+
+	// 设置窗口背景色（用于 Panel 模式）
+	ipcMain.on("set-window-background-color", (event, color: string) => {
+		const win = BrowserWindow.fromWebContents(event.sender);
+		if (win) {
+			win.setBackgroundColor(color);
+			logger.info(`Window background color set to: ${color}`);
 		}
 	});
 

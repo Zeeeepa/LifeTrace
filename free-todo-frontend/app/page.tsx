@@ -1,53 +1,42 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslations } from "next-intl";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
-import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
-import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
-import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
-// import { UserAvatar } from "@/components/common/ui/UserAvatar";
 import { IslandMode } from "@/components/dynamic-island/types";
-import { BottomDock } from "@/components/layout/BottomDock";
-import { PanelContainer } from "@/components/layout/PanelContainer";
-import { PanelContent } from "@/components/layout/PanelContent";
-import { ResizeHandle } from "@/components/layout/ResizeHandle";
-import { HeaderIsland } from "@/components/notification/HeaderIsland";
+import { AppHeader } from "@/components/layout/AppHeader";
+import { PanelRegion } from "@/components/layout/PanelRegion";
+import { PanelWindow } from "@/components/panel/PanelWindow";
 import { GlobalDndProvider } from "@/lib/dnd";
+import { useElectronClickThrough } from "@/lib/hooks/useElectronClickThrough";
+import { usePanelResize } from "@/lib/hooks/usePanelResize";
+import { usePanelWindowDrag } from "@/lib/hooks/usePanelWindowDrag";
+import { usePanelWindowResize } from "@/lib/hooks/usePanelWindowResize";
+import { usePanelWindowStyles } from "@/lib/hooks/usePanelWindowStyles";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
 import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
-
-/**
- * Electron 窗口接口扩展
- */
-interface ElectronWindow extends Window {
-	electronAPI?: Window["electronAPI"];
-	require?: (module: string) => unknown;
-}
-
-/**
- * 检测是否在 Electron 环境中
- */
-function isElectronEnvironment(): boolean {
-	if (typeof window === "undefined") return false;
-	const win = window as ElectronWindow;
-	return !!(
-		win.electronAPI ||
-		win.require?.("electron") ||
-		navigator.userAgent.includes("Electron")
-	);
-}
+import { isElectronEnvironment } from "@/lib/utils/electron";
 
 
 export default function HomePage() {
 	// 所有 hooks 必须在条件返回之前调用（React Hooks 规则）
-	const { mode } = useDynamicIslandStore();
+	const { mode, setMode, hidePanel } = useDynamicIslandStore();
+
+	// Panel 模式切换函数
+	const onModeChange = useCallback((newMode: IslandMode) => {
+		console.log(`[HomePage] onModeChange called: ${newMode}, current mode: ${mode}`);
+		if (newMode === IslandMode.FULLSCREEN) {
+			setMode(IslandMode.FULLSCREEN);
+		} else if (newMode === IslandMode.FLOAT) {
+			// 切换到 FLOAT 模式时，确保 Panel 关闭
+			hidePanel();
+		} else {
+			setMode(newMode);
+		}
+	}, [setMode, mode, hidePanel]);
 
 	// 使用 mounted 状态来避免 SSR 水合不匹配
 	// 在服务器端和初始客户端渲染时，始终渲染全屏模式
@@ -55,17 +44,43 @@ export default function HomePage() {
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => {
 		setMounted(true);
+
+		// 清理可能残留的蓝色调试框
+		const debugDiv = document.getElementById('panel-drag-debug');
+		if (debugDiv) {
+			debugDiv.remove();
+		}
+
+		return () => {
+			// 组件卸载时也清理
+			const debugDivOnUnmount = document.getElementById('panel-drag-debug');
+			if (debugDivOnUnmount) {
+				debugDivOnUnmount.remove();
+			}
+		};
 	}, []);
+
+	// FULLSCREEN 进入时，默认打开三列（仍允许用户通过 BottomDock 控制）
+	useEffect(() => {
+		if (mode !== IslandMode.FULLSCREEN) return;
+		const state = useUiStore.getState();
+		const next: Partial<typeof state> = {};
+		if (!state.isPanelAOpen) next.isPanelAOpen = true;
+		if (!state.isPanelBOpen) next.isPanelBOpen = true;
+		if (!state.isPanelCOpen) next.isPanelCOpen = true;
+		if (Object.keys(next).length > 0) {
+			useUiStore.setState(next);
+		}
+	}, [mode]);
 
 	// 浏览器模式下始终使用全屏模式（不显示灵动岛）
 	// 在未挂载时（SSR/初始渲染），始终使用全屏模式以避免水合不匹配
 	const isElectron = mounted ? isElectronEnvironment() : false;
-	const isFullscreen = !isElectron || mode === IslandMode.FULLSCREEN;
+	// Panel 模式显示右侧 Panel，FULLSCREEN 显示完整页面；FLOAT 仅悬浮层
+	const shouldShowPage = !isElectron || mode === IslandMode.PANEL || mode === IslandMode.FULLSCREEN;
+	const isPanelMode = isElectron && mode === IslandMode.PANEL;
 	const {
-		isPanelAOpen,
-		isPanelBOpen,
 		isPanelCOpen,
-		panelAWidth,
 		panelCWidth,
 		setPanelAWidth,
 		setPanelCWidth,
@@ -73,6 +88,21 @@ export default function HomePage() {
 	const { currentNotification, setNotification } = useNotificationStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
+
+	// Panel 窗口状态（需要在 useEffect 之前定义）
+	const [panelWindowWidth, setPanelWindowWidth] = useState(480); // 初始宽度
+	const [panelWindowHeight, setPanelWindowHeight] = useState(0); // 0 表示使用默认高度（calc(100vh - 80px)）
+	const [isResizingPanel, setIsResizingPanel] = useState(false);
+	const [panelWindowPosition, setPanelWindowPosition] = useState({ x: 0, y: 0 });
+	const [isDraggingPanel, setIsDraggingPanel] = useState(false);
+	const [isUserInteracting, setIsUserInteracting] = useState(false); // 用户交互标志，防止定时器干扰
+
+	// ✅ 计算 Panel 窗口的 right 值，确保不会移出视口
+	const panelWindowRight = useMemo(() => {
+		if (panelWindowPosition.x === 0) return 16;
+		// 使用 Math.max 确保 right 值不会变成负数
+		return Math.max(16, (typeof window !== 'undefined' ? window.innerWidth : 1920) - panelWindowPosition.x - panelWindowWidth);
+	}, [panelWindowPosition.x, panelWindowWidth]);
 
 	// 国际化
 	const t = useTranslations("todoExtraction");
@@ -111,7 +141,7 @@ export default function HomePage() {
 		document.body.style.userSelect = enabled ? "none" : "";
 	}, []);
 
-	// 窗口自适应panel管理
+	// 窗口自适应panel管理（用于完整页面模式）
 	useWindowAdaptivePanels(containerRef);
 
 	useEffect(() => {
@@ -189,322 +219,159 @@ export default function HomePage() {
 		};
 	}, [config]);
 
-	const layoutState = useMemo(() => {
-		// 计算基础宽度（不包括 panelC）
-		const baseWidth = isPanelCOpen ? 1 - panelCWidth : 1;
-		const actualPanelCWidth = isPanelCOpen ? panelCWidth : 0;
+	// 使用自定义 hooks 管理 Panel 调整大小
+	// 注意：layoutState 由 PanelRegion 内部计算，这里不需要
 
-		// 所有面板都关闭的情况
-		if (!isPanelAOpen && !isPanelBOpen && !isPanelCOpen) {
-			return {
-				showPanelA: false,
-				showPanelB: false,
-				showPanelC: false,
-				panelAWidth: 0,
-				panelBWidth: 0,
-				panelCWidth: 0,
-				showPanelAResizeHandle: false,
-				showPanelCResizeHandle: false,
-			};
-		}
+	const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } = usePanelResize({
+		containerRef,
+		isPanelCOpen,
+		panelCWidth,
+		setPanelAWidth,
+		setPanelCWidth,
+		setIsDraggingPanelA,
+		setIsDraggingPanelC,
+		setGlobalResizeCursor,
+	});
 
-		if (isPanelAOpen && isPanelBOpen && isPanelCOpen) {
-			// 三个面板都打开
-			return {
-				showPanelA: true,
-				showPanelB: true,
-				showPanelC: true,
-				panelAWidth: panelAWidth * baseWidth,
-				panelBWidth: (1 - panelAWidth) * baseWidth,
-				panelCWidth: actualPanelCWidth,
-				showPanelAResizeHandle: true,
-				showPanelCResizeHandle: true,
-			};
-		}
+	// Panel 窗口尺寸常量
+	const MIN_PANEL_WIDTH = 400;
+	const MAX_PANEL_WIDTH = 1500;
+	const MIN_PANEL_HEIGHT = 250; // PanelRegion 最小高度（包括 Panels 容器 + BottomDock 60px）
+	const MAX_PANEL_HEIGHT = typeof window !== 'undefined' ? window.innerHeight - 40 - 48 : 1000; // PanelRegion 最大高度（窗口高度 - 顶部偏移40px - 标题栏48px）
 
-		if (isPanelAOpen && isPanelBOpen) {
-			// 只有 panelA 和 panelB 打开
-			return {
-				showPanelA: true,
-				showPanelB: true,
-				showPanelC: false,
-				panelAWidth: panelAWidth,
-				panelBWidth: 1 - panelAWidth,
-				panelCWidth: 0,
-				showPanelAResizeHandle: true,
-				showPanelCResizeHandle: false,
-			};
-		}
+	// 使用自定义 hooks 管理 Panel 窗口功能
+	useElectronClickThrough({
+		mounted,
+		isElectron,
+		mode,
+		isUserInteracting,
+	});
 
-		if (isPanelBOpen && isPanelCOpen) {
-			// 只有 panelB 和 panelC 打开
-			return {
-				showPanelA: false,
-				showPanelB: true,
-				showPanelC: true,
-				panelAWidth: 0,
-				panelBWidth: baseWidth,
-				panelCWidth: actualPanelCWidth,
-				showPanelAResizeHandle: false,
-				showPanelCResizeHandle: true,
-			};
-		}
+	usePanelWindowStyles({
+		isPanelMode,
+		panelWindowHeight,
+	});
 
-		if (isPanelAOpen && isPanelCOpen) {
-			// 只有 panelA 和 panelC 打开
-			return {
-				showPanelA: true,
-				showPanelB: false,
-				showPanelC: true,
-				panelAWidth: baseWidth,
-				panelBWidth: 0,
-				panelCWidth: actualPanelCWidth,
-				showPanelAResizeHandle: false,
-				showPanelCResizeHandle: true,
-			};
-		}
+	const { handlePanelDragStart } = usePanelWindowDrag({
+		panelWindowWidth,
+		isElectron,
+		mode,
+		shouldShowPage,
+		setPanelWindowPosition,
+		setIsDraggingPanel,
+		setIsUserInteracting,
+	});
 
-		if (isPanelAOpen && !isPanelBOpen) {
-			// 只有 panelA 打开
-			return {
-				showPanelA: true,
-				showPanelB: false,
-				showPanelC: isPanelCOpen,
-				panelAWidth: baseWidth,
-				panelBWidth: 0,
-				panelCWidth: actualPanelCWidth,
-				showPanelAResizeHandle: false,
-				showPanelCResizeHandle: isPanelCOpen,
-			};
-		}
+	const { handlePanelResizeStart } = usePanelWindowResize({
+		panelWindowWidth,
+		panelWindowPosition,
+		panelWindowHeight,
+		isElectron,
+		MIN_PANEL_WIDTH,
+		MAX_PANEL_WIDTH,
+		MIN_PANEL_HEIGHT,
+		MAX_PANEL_HEIGHT,
+		setPanelWindowWidth,
+		setPanelWindowPosition,
+		setPanelWindowHeight,
+		setIsResizingPanel,
+		setIsUserInteracting,
+	});
 
-		if (!isPanelAOpen && isPanelBOpen) {
-			// 只有 panelB 打开
-			return {
-				showPanelA: false,
-				showPanelB: true,
-				showPanelC: isPanelCOpen,
-				panelAWidth: 0,
-				panelBWidth: baseWidth,
-				panelCWidth: actualPanelCWidth,
-				showPanelAResizeHandle: false,
-				showPanelCResizeHandle: isPanelCOpen,
-			};
-		}
-
-		// 只有 panelC 打开
-		return {
-			showPanelA: false,
-			showPanelB: false,
-			showPanelC: true,
-			panelAWidth: 0,
-			panelBWidth: 0,
-			panelCWidth: actualPanelCWidth,
-			showPanelAResizeHandle: false,
-			showPanelCResizeHandle: false,
-		};
-	}, [isPanelAOpen, isPanelBOpen, isPanelCOpen, panelAWidth, panelCWidth]);
-
-	const handlePanelADragAtClientX = useCallback(
-		(clientX: number) => {
-			const container = containerRef.current;
-			if (!container) return;
-
-			const rect = container.getBoundingClientRect();
-			if (rect.width <= 0) return;
-
-			const relativeX = clientX - rect.left;
-			const ratio = relativeX / rect.width;
-
-			// 当 panelC 打开时，panelA 的宽度是相对于 baseWidth 的比例
-			// baseWidth = 1 - panelCWidth
-			// 所以需要将 ratio 转换为相对于 baseWidth 的比例
-			if (isPanelCOpen) {
-				const baseWidth = 1 - panelCWidth;
-				if (baseWidth > 0) {
-					const adjustedRatio = ratio / baseWidth;
-					setPanelAWidth(adjustedRatio);
-				} else {
-					setPanelAWidth(0.5);
-				}
-			} else {
-				setPanelAWidth(ratio);
-			}
-		},
-		[setPanelAWidth, isPanelCOpen, panelCWidth],
-	);
-
-	const handlePanelCDragAtClientX = useCallback(
-		(clientX: number) => {
-			const container = containerRef.current;
-			if (!container) return;
-
-			const rect = container.getBoundingClientRect();
-			if (rect.width <= 0) return;
-
-			const relativeX = clientX - rect.left;
-			const ratio = relativeX / rect.width;
-			// panelCWidth 是从右侧开始计算的，所以是 1 - ratio
-			setPanelCWidth(1 - ratio);
-		},
-		[setPanelCWidth],
-	);
-
-	const handlePanelAResizePointerDown = (
-		event: ReactPointerEvent<HTMLDivElement>,
-	) => {
-		event.preventDefault();
-		event.stopPropagation();
-
-		setIsDraggingPanelA(true);
-		setGlobalResizeCursor(true);
-		handlePanelADragAtClientX(event.clientX);
-
-		const handlePointerMove = (moveEvent: PointerEvent) => {
-			handlePanelADragAtClientX(moveEvent.clientX);
-		};
-
-		const handlePointerUp = () => {
-			setIsDraggingPanelA(false);
-			setGlobalResizeCursor(false);
-			window.removeEventListener("pointermove", handlePointerMove);
-			window.removeEventListener("pointerup", handlePointerUp);
-		};
-
-		window.addEventListener("pointermove", handlePointerMove);
-		window.addEventListener("pointerup", handlePointerUp);
-	};
-
-	const handlePanelCResizePointerDown = (
-		event: ReactPointerEvent<HTMLDivElement>,
-	) => {
-		event.preventDefault();
-		event.stopPropagation();
-
-		setIsDraggingPanelC(true);
-		setGlobalResizeCursor(true);
-		handlePanelCDragAtClientX(event.clientX);
-
-		const handlePointerMove = (moveEvent: PointerEvent) => {
-			handlePanelCDragAtClientX(moveEvent.clientX);
-		};
-
-		const handlePointerUp = () => {
-			setIsDraggingPanelC(false);
-			setGlobalResizeCursor(false);
-			window.removeEventListener("pointermove", handlePointerMove);
-			window.removeEventListener("pointerup", handlePointerUp);
-		};
-
-		window.addEventListener("pointermove", handlePointerMove);
-		window.addEventListener("pointerup", handlePointerUp);
-	};
-
-	// 如果不是全屏模式且是 Electron 环境，只显示透明背景（DynamicIsland 会通过 DynamicIslandProvider 显示）
-	// 浏览器模式下始终显示全屏内容
-	// 注意：必须在所有 hooks 调用之后才能条件返回
-	if (!isFullscreen && isElectron) {
-		return (
-			<div
-				className="relative w-full h-full overflow-hidden"
-				style={{ backgroundColor: "transparent", background: "transparent" }}
-			>
-				{/* 透明背景，只显示 DynamicIsland */}
-			</div>
-		);
-	}
+	const showContent = shouldShowPage;
 
 	return (
 		<GlobalDndProvider>
-			<main className="relative flex h-screen flex-col overflow-hidden text-foreground">
-				<div className="relative z-10 flex h-full flex-col text-foreground">
-					<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
-						{/* 左侧：Logo */}
-						<div className="flex items-center gap-2 shrink-0">
-							<Image
-								src="/free-todo-logos/free_todo_icon_with_grid.png"
-								alt="Free Todo Logo"
-								width={32}
-								height={32}
-								className="shrink-0"
-							/>
-							<h1 className="text-lg font-semibold tracking-tight text-foreground">
-								Free Todo: Your AI Secretary
-							</h1>
-						</div>
-
-						{/* 中间：通知区域（灵动岛） - 只在有通知时且是 Electron 环境时显示 */}
-						{currentNotification && isElectron && (
-							<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
-								<HeaderIsland />
-							</div>
-						)}
-
-						{/* 占位符：当没有通知时保持布局平衡 */}
-						{!currentNotification && <div className="flex-1" />}
-
-						{/* 右侧：工具 */}
-						<div className="flex items-center gap-2 shrink-0">
-							<LayoutSelector showChevron={false} />
-							<ThemeToggle />
-							<LanguageToggle />
-							<SettingsToggle />
-							{/* <UserAvatar /> */}
-						</div>
-					</header>
-
-					<div
-						ref={containerRef}
-						className="relative bg-primary-foreground dark:bg-accent flex min-h-0 flex-1 overflow-hidden px-3 pb-7"
-					>
-						{/* 始终渲染所有面板和 ResizeHandle，通过 isVisible 控制动画，避免 DOM 移除导致的布局跳跃 */}
-						<PanelContainer
-							key="panelA"
-							position="panelA"
-							isVisible={layoutState.showPanelA}
-							width={layoutState.showPanelA ? layoutState.panelAWidth : 0}
-							isDragging={isDraggingPanelA || isDraggingPanelC}
-						>
-							<PanelContent position="panelA" />
-						</PanelContainer>
-
-						<ResizeHandle
-							key="panelA-resize-handle"
-							onPointerDown={handlePanelAResizePointerDown}
-							isDragging={isDraggingPanelA}
-							isVisible={layoutState.showPanelAResizeHandle}
+			<main
+				className="relative flex h-screen flex-col overflow-hidden text-foreground"
+				style={{
+					pointerEvents: showContent ? "auto" : "none",
+					// ✅ Panel 模式下，main 背景必须是透明的（左侧需要穿透）
+					// FULLSCREEN 模式下，设置背景色确保内容可见
+					background: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
+					backgroundColor: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
+					// ✅ FULLSCREEN 模式下，确保 main 元素在最上层
+					zIndex: isPanelMode ? 1 : (showContent ? 10 : 0),
+					// ✅ Panel 模式下，main 本身应该是透明的，但内容不透明
+					opacity: isPanelMode ? 1 : (showContent ? 1 : undefined),
+					// ✅ FULLSCREEN 模式下，确保可见性
+					visibility: isPanelMode ? "visible" : (showContent ? "visible" : "hidden"),
+				}}
+			>
+				{showContent ? (
+					isPanelMode ? (
+						<PanelWindow
+							panelWindowWidth={panelWindowWidth}
+							panelWindowHeight={panelWindowHeight}
+							panelWindowPosition={panelWindowPosition}
+							panelWindowRight={panelWindowRight}
+							isDraggingPanel={isDraggingPanel}
+							isDraggingPanelA={isDraggingPanelA}
+							isDraggingPanelC={isDraggingPanelC}
+							isResizingPanel={isResizingPanel}
+							onModeChange={onModeChange}
+							onHidePanel={hidePanel}
+							onPanelDragStart={handlePanelDragStart}
+							onPanelResizeStart={handlePanelResizeStart}
+							onPanelAResizePointerDown={handlePanelAResizePointerDown}
+							onPanelCResizePointerDown={handlePanelCResizePointerDown}
+							containerRef={containerRef}
 						/>
-
-						<PanelContainer
-							key="panelB"
-							position="panelB"
-							isVisible={layoutState.showPanelB}
-							width={layoutState.showPanelB ? layoutState.panelBWidth : 0}
-							isDragging={isDraggingPanelA || isDraggingPanelC}
+					) : (
+						// FULLSCREEN 或浏览器模式：原有全页面布局
+						<div
+							className="relative flex h-screen flex-col text-foreground"
+							style={{
+								backgroundColor: "oklch(var(--background))",
+								background: "oklch(var(--background))",
+								height: "100vh",
+								width: "100vw",
+								overflow: "hidden",
+								opacity: 1,
+								visibility: "visible",
+								zIndex: 1, // 页面内容的 z-index，灵动岛容器使用 pointer-events-none，只有灵动岛本身可交互
+								position: "relative",
+							}}
 						>
-							<PanelContent position="panelB" />
-						</PanelContainer>
-
-						<ResizeHandle
-							key="panelC-resize-handle"
-							onPointerDown={handlePanelCResizePointerDown}
-							isDragging={isDraggingPanelC}
-							isVisible={layoutState.showPanelCResizeHandle}
+							<AppHeader
+								mode={mode === IslandMode.FULLSCREEN ? IslandMode.FULLSCREEN : IslandMode.PANEL}
+								onModeChange={onModeChange}
+								onClose={() => {
+									if (mode === IslandMode.FULLSCREEN) {
+										onModeChange(IslandMode.FLOAT);
+									}
+								}}
+								isPanelMode={false}
+								currentNotification={currentNotification}
+								isElectron={isElectron}
 						/>
-
-						<PanelContainer
-							key="panelC"
-							position="panelC"
-							isVisible={layoutState.showPanelC}
-							width={layoutState.showPanelC ? layoutState.panelCWidth : 0}
-							isDragging={isDraggingPanelA || isDraggingPanelC}
-						>
-							<PanelContent position="panelC" />
-						</PanelContainer>
+							<div
+								className="flex-1 min-h-0 overflow-hidden"
+								style={{
+									backgroundColor: "oklch(var(--background))",
+									background: "oklch(var(--background))",
+									height: "calc(100vh - 80px)",
+									opacity: 1,
+									visibility: "visible",
+									position: "relative",
+									zIndex: 1,
+								}}
+							>
+								<PanelRegion
+									width={typeof window !== "undefined" ? window.innerWidth : 1920}
+									isFullscreenMode={mode === IslandMode.FULLSCREEN}
+									isInPanelMode={false}
+									isDraggingPanelA={isDraggingPanelA}
+									isDraggingPanelC={isDraggingPanelC}
+									isResizingPanel={false}
+									onPanelAResizePointerDown={handlePanelAResizePointerDown}
+									onPanelCResizePointerDown={handlePanelCResizePointerDown}
+									containerRef={containerRef}
+								/>
 					</div>
 				</div>
-
-				<BottomDock />
+					)
+				) : null}
 			</main>
 		</GlobalDndProvider>
 	);
