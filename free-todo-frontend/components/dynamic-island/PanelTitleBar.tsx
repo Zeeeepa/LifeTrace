@@ -63,7 +63,7 @@ export function PanelTitleBar({
 					title={tIsland("expandFullscreen")}
 					onClick={async (e) => {
 						e.stopPropagation();
-						onModeChange?.(IslandMode.FULLSCREEN);
+							onModeChange?.(IslandMode.FULLSCREEN);
 					}}
 				>
 					<Maximize2 size={14} />
@@ -74,8 +74,8 @@ export function PanelTitleBar({
 					title={tIsland("collapseIsland")}
 					onClick={async (e) => {
 						e.stopPropagation();
-						onModeChange?.(IslandMode.FLOAT);
-						onClose?.();
+							onModeChange?.(IslandMode.FLOAT);
+							onClose?.();
 					}}
 				>
 					<ChevronsUpDown size={14} />

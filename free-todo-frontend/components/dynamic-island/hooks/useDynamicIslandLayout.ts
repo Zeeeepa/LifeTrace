@@ -150,13 +150,13 @@ export function useDynamicIslandLayout({
 				} else {
 					// 默认位置：右下角
 					// 使用 right 定位，这样当宽度变化时，右边（Hexagon 位置）保持不变
-					return {
+				return {
 						...baseLayout,
 						right: margin,
 						bottom: margin,
 						left: "auto",
 						top: "auto",
-					};
+				};
 				}
 			}
 			default:
