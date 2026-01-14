@@ -16,7 +16,7 @@ export function useDynamicIslandLayout({
 	position,
 	isHovered,
 }: UseDynamicIslandLayoutOptions) {
-	const calculateSnapPosition = useCallback(
+		const calculateSnapPosition = useCallback(
 		(x: number, y: number): { x: number; y: number } => {
 			if (typeof window === "undefined") {
 				return { x, y };
@@ -26,19 +26,27 @@ export function useDynamicIslandLayout({
 			const windowHeight = window.innerHeight;
 			const islandWidth = 150; // 更新为新的宽度
 			const islandHeight = 48;
-			const margin = 32;
+			const margin = 0; // ✅ 修复：使用0 margin，确保在最右边时紧贴边缘
 			const snapThreshold = 50; // 吸附阈值：50px
 
 			let snapX = x;
 			let snapY = y;
 
-			// 检查是否靠近左边缘
-			if (x <= margin + snapThreshold) {
-				snapX = margin;
-			}
-			// 检查是否靠近右边缘
-			else if (x >= windowWidth - islandWidth - margin - snapThreshold) {
+			// ✅ 修复：检查是否在右边区域（距离右边小于100px认为是右边）
+			const isOnRight = x > windowWidth - islandWidth - 100;
+
+			if (isOnRight) {
+				// 如果在右边，固定X位置为最右边（margin=0）
 				snapX = windowWidth - islandWidth - margin;
+			} else {
+				// 检查是否靠近左边缘
+				if (x <= margin + snapThreshold) {
+					snapX = margin;
+				}
+				// 检查是否靠近右边缘
+				else if (x >= windowWidth - islandWidth - margin - snapThreshold) {
+					snapX = windowWidth - islandWidth - margin;
+				}
 			}
 
 			// 检查是否靠近上边缘
@@ -51,10 +59,12 @@ export function useDynamicIslandLayout({
 			}
 
 			// 限制在屏幕范围内
-			snapX = Math.max(
-				margin,
-				Math.min(snapX, windowWidth - islandWidth - margin),
-			);
+			if (!isOnRight) {
+				snapX = Math.max(
+					margin,
+					Math.min(snapX, windowWidth - islandWidth - margin),
+				);
+			}
 			snapY = Math.max(
 				margin,
 				Math.min(snapY, windowHeight - islandHeight - margin),
@@ -87,23 +97,42 @@ export function useDynamicIslandLayout({
 				const baseLayout = isHovered ? expandedLayout : collapsedLayout;
 
 				if (position) {
-					// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
-					// 收起状态：width = 36px, left = position.x，右边 = position.x + 36px
-					// 展开状态：width = 134px, left = position.x - (134 - 36) = position.x - 98px，右边 = position.x - 98px + 134px = position.x + 36px（保持不变）
-					const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
-					return {
-						...baseLayout,
-						left: position.x + leftOffset,
-						top: position.y,
-						right: "auto",
-						bottom: "auto",
-					};
+					// ✅ 修复：检查是否在右边区域（距离右边小于100px认为是右边）
+					// 使用更宽松的判断条件，确保在右边时始终使用 right: 2 定位
+					const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1920;
+					const islandWidth = isHovered ? expandedLayout.width : collapsedLayout.width;
+					// ✅ 修复：使用更宽松的判断，只要 position.x 接近右边就使用 right: 2
+					// 这样可以避免因为窗口大小变化或计算误差导致的"弹开"问题
+					const isOnRight = position.x >= windowWidth - islandWidth - 150;
+
+					if (isOnRight) {
+						// ✅ 如果在右边，使用 right: 2 定位，确保贴近最右边
+						return {
+							...baseLayout,
+							right: 7,
+							top: position.y,
+							left: "auto",
+							bottom: "auto",
+						};
+					} else {
+						// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
+						// 收起状态：width = 36px, left = position.x，右边 = position.x + 36px
+						// 展开状态：width = 134px, left = position.x - (134 - 36) = position.x - 98px，右边 = position.x - 98px + 134px = position.x + 36px（保持不变）
+						const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
+						return {
+							...baseLayout,
+							left: position.x + leftOffset,
+							top: position.y,
+							right: "auto",
+							bottom: "auto",
+						};
+					}
 				} else {
 					// 默认位置：右下角
-					// 使用 right 定位，这样当宽度变化时，右边（Hexagon 位置）保持不变
+					// ✅ 修复：使用 right: 2 定位，确保贴近最右边
 					return {
 						...baseLayout,
-						right: margin,
+						right: 2,
 						bottom: margin,
 						left: "auto",
 						top: "auto",
@@ -138,25 +167,44 @@ export function useDynamicIslandLayout({
 				const baseLayout = isHovered ? expandedLayout : collapsedLayout;
 
 				if (position) {
-					// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
-					const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
-					return {
-						...baseLayout,
-						left: position.x + leftOffset,
-						top: position.y,
-						right: "auto",
-						bottom: "auto",
-					};
+					// ✅ 修复：检查是否在右边区域（距离右边小于150px认为是右边）
+					// 使用更宽松的判断条件，确保在右边时始终使用 right: 0 定位
+					const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1920;
+					const islandWidth = isHovered ? expandedLayout.width : collapsedLayout.width;
+					// ✅ 修复：使用更宽松的判断，只要 position.x 接近右边就使用 right: 0
+					// 这样可以避免因为窗口大小变化或计算误差导致的"弹开"问题
+					const isOnRight = position.x >= windowWidth - islandWidth - 150;
+
+					if (isOnRight) {
+						// ✅ 如果在右边，使用 right: 0 定位，确保紧贴最右边
+						return {
+							...baseLayout,
+							right: 2,
+							top: position.y,
+							left: "auto",
+							bottom: "auto",
+						};
+					} else {
+						// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
+						const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
+						return {
+							...baseLayout,
+							left: position.x + leftOffset,
+							top: position.y,
+							right: "auto",
+							bottom: "auto",
+						};
+					}
 				} else {
 					// 默认位置：右下角
-					// 使用 right 定位，这样当宽度变化时，右边（Hexagon 位置）保持不变
-				return {
+					// ✅ 修复：使用 right: 2 定位，确保贴近最右边
+					return {
 						...baseLayout,
-						right: margin,
+						right: 2,
 						bottom: margin,
 						left: "auto",
 						top: "auto",
-				};
+					};
 				}
 			}
 			default:

@@ -51,10 +51,10 @@ export function ResizeHandle({
 			animate={{
 				opacity: isVisible ? 1 : 0,
 				scaleX: isVisible ? 1 : 0,
-				width: isVisible ? 4 : 0,
+				width: isVisible ? 2 : 0,
 				// 当可见时添加左右 margin 来创建间距（替代 container 的 gap）
-				marginLeft: isVisible ? 3 : 0,
-				marginRight: isVisible ? 3 : 0,
+				marginLeft: isVisible ? 1 : 0,
+				marginRight: isVisible ? 1 : 0,
 			}}
 			transition={ANIMATION_CONFIG.spring}
 			className={cn(

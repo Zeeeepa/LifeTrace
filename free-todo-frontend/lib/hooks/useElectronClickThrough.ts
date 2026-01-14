@@ -209,6 +209,8 @@ export function useElectronClickThrough({
 				const rect = panelEl.getBoundingClientRect();
 				const x = event.clientX;
 				const y = event.clientY;
+				// ✅ 修复：确保顶部区域也被识别为 panel 内部（包括顶部调整区域）
+				// 使用 <= 和 >= 确保边界也被包含
 				const inside =
 					x >= rect.left &&
 					x <= rect.right &&
@@ -222,7 +224,8 @@ export function useElectronClickThrough({
 				if (!api.electronAPI?.setIgnoreMouseEvents) return;
 				try {
 					if (inside) {
-						// 鼠标在 Panel 上：允许 Electron 窗口接收点击
+						// ✅ 鼠标在 Panel 上（包括顶部区域）：允许 Electron 窗口接收点击
+						// 确保顶部区域不会点击穿透
 						api.electronAPI.setIgnoreMouseEvents(false);
 					} else {
 						// 鼠标不在 Panel 上：窗口点击穿透，转发到底层系统

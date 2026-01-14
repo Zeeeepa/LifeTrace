@@ -229,25 +229,50 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		const margin = 24;
 		const top = Math.round((screenHeight - expandedHeight) / 2);
 
-		// 必须设置可调整和可移动（因为创建时是 false）
+		// ✅ 修复：如果窗口是最大化状态，先取消最大化，然后平滑过渡到 Panel 尺寸
+		if (win.isMaximized()) {
+			// 取消最大化，但保持内容透明
+			// 注意：unmaximize() 有系统动画，我们需要等待它完成
+			win.unmaximize();
+			// 等待取消最大化完成，获取实际的窗口尺寸
+			// 系统取消最大化的动画通常需要 200-300ms，我们等待 300ms 确保完成
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			// 重新获取当前边界，因为取消最大化后尺寸可能变化
+			const unmaximizedBounds = win.getBounds();
+			// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
+			const endBounds = {
+				x: screenWidth - expandedWidth - margin,
+				y: top,
+				width: expandedWidth,
+				height: expandedHeight,
+			};
+			await animateWindowBounds(win, unmaximizedBounds, endBounds, 800, true);
+		} else {
+			// 必须设置可调整和可移动（因为创建时是 false）
+			win.setResizable(true);
+			win.setMovable(true);
+
+			// 确保窗口仍然置顶
+			win.setAlwaysOnTop(true);
+
+			// 获取当前窗口边界，用于平滑过渡
+			const currentBounds = win.getBounds();
+			const endBounds = {
+				x: screenWidth - expandedWidth - margin,
+				y: top,
+				width: expandedWidth,
+				height: expandedHeight,
+			};
+
+			// 使用动画平滑过渡，避免瞬闪
+			// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
+			await animateWindowBounds(win, currentBounds, endBounds, 800, true);
+		}
+
+		// ✅ 确保窗口属性正确设置（无论是否从最大化切换）
 		win.setResizable(true);
 		win.setMovable(true);
-
-		// 确保窗口仍然置顶
 		win.setAlwaysOnTop(true);
-
-		// 获取当前窗口边界，用于平滑过渡
-		const currentBounds = win.getBounds();
-		const endBounds = {
-			x: screenWidth - expandedWidth - margin,
-			y: top,
-			width: expandedWidth,
-			height: expandedHeight,
-		};
-
-		// 使用动画平滑过渡，避免瞬闪
-		// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
-		await animateWindowBounds(win, currentBounds, endBounds, 800, true);
 
 		// 注入窗口圆角 CSS（Panel 模式，增大到16px），使用 clip-path 实现完美圆角
 		win.webContents

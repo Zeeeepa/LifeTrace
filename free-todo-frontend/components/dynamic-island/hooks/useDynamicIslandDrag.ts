@@ -89,23 +89,42 @@ export function useDynamicIslandDrag({
 			const deltaX = e.clientX - dragStartPos.current.x;
 			const deltaY = e.clientY - dragStartPos.current.y;
 
-			// 计算新位置
-			let newX = dragStartPos.current.startX + deltaX;
-			let newY = dragStartPos.current.startY + deltaY;
-
-			// 限制在屏幕范围内
+			// ✅ 修复：如果灵动岛在右边，只允许上下拖动，不允许左右移动
+			// 检查初始位置是否在右边（距离右边小于100px认为是右边）
 			const windowWidth = window.innerWidth;
 			const windowHeight = window.innerHeight;
 			const islandWidth = 150; // 更新为新的宽度
 			const islandHeight = 48;
+			const isOnRight = dragStartPos.current.startX > windowWidth - islandWidth - 100;
 
-			newX = Math.max(0, Math.min(newX, windowWidth - islandWidth));
+			// 计算新位置
+			let newX = dragStartPos.current.startX;
+			let newY = dragStartPos.current.startY + deltaY;
+
+			// 如果在右边，保持X位置不变（只允许上下拖动）
+			if (isOnRight) {
+				// 保持右边位置，使用 right 定位
+				const margin = 0; // ✅ 修复：使用0 margin，确保在最右边
+				newX = windowWidth - islandWidth - margin;
+			} else {
+				// 不在右边时，允许左右移动
+				newX = dragStartPos.current.startX + deltaX;
+				newX = Math.max(0, Math.min(newX, windowWidth - islandWidth));
+			}
+
+			// 限制Y在屏幕范围内
 			newY = Math.max(0, Math.min(newY, windowHeight - islandHeight));
 
 			// 更新位置（临时位置，不更新 corner）
-			islandRef.current.style.left = `${newX}px`;
+			if (isOnRight) {
+				// 使用 right 定位，确保在最右边
+				islandRef.current.style.right = "2px";
+				islandRef.current.style.left = "auto";
+			} else {
+				islandRef.current.style.left = `${newX}px`;
+				islandRef.current.style.right = "auto";
+			}
 			islandRef.current.style.top = `${newY}px`;
-			islandRef.current.style.right = "auto";
 			islandRef.current.style.bottom = "auto";
 		};
 
@@ -116,16 +135,27 @@ export function useDynamicIslandDrag({
 			const currentX = rect.left;
 			const currentY = rect.top;
 
+			// ✅ 修复：检查是否在右边，如果是则使用 right 定位
+			const windowWidth = window.innerWidth;
+			const islandWidth = 150;
+			const isOnRight = currentX > windowWidth - islandWidth - 100;
+
 			// 计算吸附位置
 			const snapPos = calculateSnapPosition(currentX, currentY);
 
 			// 标记拖拽结束，禁用动画
 			setIsDragEnding(true);
 
-			// 直接设置最终位置到 DOM，避免动画回放
-			islandRef.current.style.left = `${snapPos.x}px`;
+			// ✅ 修复：直接设置最终位置到 DOM，避免动画回放
+			// 如果在右边，使用 right 定位；否则使用 left 定位
+			if (isOnRight || snapPos.x > windowWidth - islandWidth - 100) {
+				islandRef.current.style.right = "2px";
+				islandRef.current.style.left = "auto";
+			} else {
+				islandRef.current.style.left = `${snapPos.x}px`;
+				islandRef.current.style.right = "auto";
+			}
 			islandRef.current.style.top = `${snapPos.y}px`;
-			islandRef.current.style.right = "auto";
 			islandRef.current.style.bottom = "auto";
 
 			// 更新位置状态（用于后续布局计算）
