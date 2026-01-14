@@ -299,6 +299,28 @@ export class WindowManager {
 				const showWindow = () => {
 					if (this.mainWindow) {
 						this.mainWindow.show();
+
+						// ✅ 修复：macOS 可能在 show() 后自动居中窗口，需要强制设置位置到 (0, 0)
+						// 获取主显示器的实际位置（考虑多显示器情况）
+						const primaryDisplay = screen.getPrimaryDisplay();
+						const primaryBounds = primaryDisplay.bounds;
+						const targetX = primaryBounds.x;
+						const targetY = primaryBounds.y;
+
+						this.mainWindow.setPosition(targetX, targetY);
+
+						// macOS 有时需要延迟后再次设置位置（系统可能在 show() 后异步调整位置）
+						setTimeout(() => {
+							if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+								const currentBounds = this.mainWindow.getBounds();
+
+								// 如果位置被系统改变，再次强制设置
+								if (currentBounds.x !== targetX || currentBounds.y !== targetY) {
+									this.mainWindow.setPosition(targetX, targetY);
+								}
+							}
+						}, 100);
+
 						// 默认设置点击穿透，直到鼠标悬停在灵动岛上
 						this.mainWindow.setIgnoreMouseEvents(true, {
 							forward: true,
