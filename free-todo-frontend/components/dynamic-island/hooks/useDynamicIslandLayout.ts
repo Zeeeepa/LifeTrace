@@ -98,15 +98,15 @@ export function useDynamicIslandLayout({
 
 				if (position) {
 					// ✅ 修复：检查是否在右边区域（距离右边小于100px认为是右边）
-					// 使用更宽松的判断条件，确保在右边时始终使用 right: 2 定位
+					// 使用更宽松的判断条件，确保在右边时始终使用 right: 7 定位
 					const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1920;
 					const islandWidth = isHovered ? expandedLayout.width : collapsedLayout.width;
-					// ✅ 修复：使用更宽松的判断，只要 position.x 接近右边就使用 right: 2
+					// ✅ 修复：使用更宽松的判断，只要 position.x 接近右边就使用 right: 7
 					// 这样可以避免因为窗口大小变化或计算误差导致的"弹开"问题
 					const isOnRight = position.x >= windowWidth - islandWidth - 150;
 
 					if (isOnRight) {
-						// ✅ 如果在右边，使用 right: 2 定位，确保贴近最右边
+						// ✅ 如果在右边，使用 right: 7 定位，确保贴近最右边
 						return {
 							...baseLayout,
 							right: 7,
@@ -129,10 +129,10 @@ export function useDynamicIslandLayout({
 					}
 				} else {
 					// 默认位置：右下角
-					// ✅ 修复：使用 right: 2 定位，确保贴近最右边
+					// ✅ 修复：使用 right: 7 定位，确保贴近最右边
 					return {
 						...baseLayout,
-						right: 2,
+						right: 7,
 						bottom: margin,
 						left: "auto",
 						top: "auto",

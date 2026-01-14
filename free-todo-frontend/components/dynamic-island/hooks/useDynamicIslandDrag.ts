@@ -118,7 +118,7 @@ export function useDynamicIslandDrag({
 			// 更新位置（临时位置，不更新 corner）
 			if (isOnRight) {
 				// 使用 right 定位，确保在最右边
-				islandRef.current.style.right = "2px";
+				islandRef.current.style.right = "7px";
 				islandRef.current.style.left = "auto";
 			} else {
 				islandRef.current.style.left = `${newX}px`;
