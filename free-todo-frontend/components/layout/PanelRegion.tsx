@@ -119,10 +119,10 @@ export function PanelRegion({
 	const panelBVisible = isPanelBOpen;
 	const panelCVisible = isPanelCOpen;
 
-	// ✅ 计算 Panels 容器的固定高度：PanelRegion 总高度 - BottomDock 高度(60px)
+	// ✅ 计算 Panels 容器的固定高度：PanelRegion 总高度 - BottomDock 高度(60px) - Dock 上方间距(6px)
 	const panelsContainerHeight = useMemo(() => {
 		if (height && height > 0) {
-			return height - 60; // PanelRegion 高度 - BottomDock 60px
+			return height - 60 - 8; // PanelRegion 高度 - BottomDock 60px - Dock 上方间距 6px
 		}
 		return undefined; // 如果没有提供 height，使用 flex-1 自适应（兼容完整页面模式）
 	}, [height]);
@@ -165,7 +165,7 @@ export function PanelRegion({
 	}, [panelsContainerHeight]); // 只在高度变化时重新设置
 
 	return (
-		<div className="flex flex-col h-full w-full" style={{ opacity: 1 }}>
+		<div className="flex flex-col h-full w-full bg-primary-foreground dark:bg-accent" style={{ opacity: 1 }}>
 			{/* Panels 容器：固定高度 = PanelRegion 总高度 - BottomDock 60px */}
 			<div
 				ref={containerRef}
@@ -250,7 +250,7 @@ export function PanelRegion({
 				)}
 			</div>
 
-			{/* BottomDock：整条 60px 底部区域与 dock UI 对齐（颜色与顶部 Header 一致） */}
+			{/* BottomDock：整条 60px 底部区域（Dock 与 Panels 之间留 6px 间距） */}
 			{/* ✅ 保持单个 panel 时的逻辑：始终只显示 panelA 的 dock item，不受宽度变化影响 */}
 			<div
 				ref={(el) => {
@@ -269,6 +269,7 @@ export function PanelRegion({
 				className="relative flex h-[60px] shrink-0 items-center justify-center bg-primary-foreground dark:bg-accent"
 				style={{
 					pointerEvents: "auto",
+					marginTop: "6px", // ✅ Dock 到 Panel 内容区的间距（6px）
 				}}
 			>
 				<BottomDock

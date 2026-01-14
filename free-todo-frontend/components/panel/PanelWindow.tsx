@@ -65,15 +65,15 @@ export function PanelWindow({
 					right: `${panelWindowRight}px`,
 					top: panelWindowPosition.y === 0 ? 40 : `${40 + panelWindowPosition.y}px`,
 					// ✅ 使用 panelWindowHeight，如果为 0 则使用默认高度
-					// ✅ 修复：panelWindowHeight 是 PanelRegion 的高度（包括 Panels 容器 + BottomDock 60px）
+					// ✅ 修复：panelWindowHeight 是 PanelRegion 的高度（包括 Panels 容器 + BottomDock 60px + Dock 上方间距 6px）
 					// PanelWindow 结构：标题栏(48px) + PanelRegion(panelWindowHeight)
-					// PanelRegion 结构：Panels容器(flex-1) + BottomDock(60px)
+					// PanelRegion 结构：Panels容器(flex-1) + Dock 上方间距(6px) + BottomDock(60px)
 					// 窗口总高度 = 标题栏(48px) + PanelRegion(panelWindowHeight)
-					// 默认情况下，PanelRegion 高度 = 100vh - 顶部偏移(40px) - 标题栏(48px) = 100vh - 88px
-					// 窗口总高度 = 48px + (100vh - 88px) = 100vh - 40px
+					// 默认情况下，PanelRegion 高度 = 100vh - 顶部偏移(40px) - 标题栏(48px) - Dock 上方间距(6px) = 100vh - 94px
+					// 窗口总高度 = 48px + (100vh - 94px) = 100vh - 46px
 					height: panelWindowHeight > 0
 						? `${panelWindowHeight + 48}px`
-						: `calc(100vh - 40px)`, // 默认窗口总高度（标题栏48px + PanelRegion）
+						: `calc(100vh - 48px)`, // 默认窗口总高度（标题栏48px + PanelRegion，降低高度）
 					pointerEvents: "auto",
 					borderRadius: "16px",
 					zIndex: 999999, // ✅ 修复：降低 z-index，确保 BottomDock (z-50) 可以显示在上面

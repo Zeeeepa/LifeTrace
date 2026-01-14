@@ -91,12 +91,29 @@ export default function HomePage() {
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
 	// Panel 窗口状态（需要在 useEffect 之前定义）
-	const [panelWindowWidth, setPanelWindowWidth] = useState(480); // 初始宽度
-	const [panelWindowHeight, setPanelWindowHeight] = useState(0); // 0 表示使用默认高度（calc(100vh - 80px)）
+	const [panelWindowWidth, setPanelWindowWidth] = useState(520); // 初始宽度（从 480 增加到 520）
+	const [panelWindowHeight, setPanelWindowHeight] = useState(0); // 初始会在 mounted 后设置一个更低的默认高度
 	const [isResizingPanel, setIsResizingPanel] = useState(false);
 	const [panelWindowPosition, setPanelWindowPosition] = useState({ x: 0, y: 0 });
 	const [isDraggingPanel, setIsDraggingPanel] = useState(false);
 	const [isUserInteracting, setIsUserInteracting] = useState(false); // 用户交互标志，防止定时器干扰
+
+	// ✅ Panel 模式：设置一个更合理的“初始高度”（不要默认接近满屏）
+	// panelWindowHeight 表示 PanelRegion 的高度（不含标题栏 48px）
+	useEffect(() => {
+		if (!mounted) return;
+		if (!isElectron) return;
+		// 只在第一次初始化（避免用户手动调整后被覆盖）
+		if (panelWindowHeight > 0) return;
+		if (typeof window === "undefined") return;
+
+		const headerHeight = 48;
+		const topOffset = 40;
+		const desiredTotal = Math.round(window.innerHeight * 0.8); // 窗口总高度目标
+		const desiredRegion = Math.max(250, desiredTotal - headerHeight);
+		const maxRegion = window.innerHeight - topOffset - headerHeight;
+		setPanelWindowHeight(Math.min(desiredRegion, maxRegion));
+	}, [mounted, isElectron, panelWindowHeight]);
 
 	// ✅ 计算 Panel 窗口的 right 值，确保不会移出视口
 	const panelWindowRight = useMemo(() => {
@@ -256,8 +273,8 @@ export default function HomePage() {
 	// Panel 窗口尺寸常量
 	const MIN_PANEL_WIDTH = 400;
 	const MAX_PANEL_WIDTH = 1500;
-	const MIN_PANEL_HEIGHT = 250; // PanelRegion 最小高度（包括 Panels 容器 + BottomDock 60px）
-	const MAX_PANEL_HEIGHT = typeof window !== 'undefined' ? window.innerHeight - 40 - 48 : 1000; // PanelRegion 最大高度（窗口高度 - 顶部偏移40px - 标题栏48px）
+	const MIN_PANEL_HEIGHT = 250; // PanelRegion 最小高度（包括 Panels 容器 + BottomDock 60px + Dock 上方间距 6px）
+	const MAX_PANEL_HEIGHT = typeof window !== 'undefined' ? window.innerHeight - 40 - 48 - 8 : 1000; // PanelRegion 最大高度（窗口高度 - 顶部偏移40px - 标题栏48px - Dock 上方间距6px）
 
 	// 使用自定义 hooks 管理 Panel 窗口功能
 	useElectronClickThrough({
@@ -364,7 +381,7 @@ export default function HomePage() {
 								isPanelMode={false}
 								currentNotification={currentNotification}
 								isElectron={isElectron}
-							/>
+						/>
 							<div
 								className="flex-1 min-h-0 overflow-hidden"
 								style={{
@@ -388,8 +405,8 @@ export default function HomePage() {
 									onPanelCResizePointerDown={handlePanelCResizePointerDown}
 									containerRef={containerRef}
 								/>
-							</div>
-						</div>
+					</div>
+				</div>
 					)
 				) : null}
 			</main>
