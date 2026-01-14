@@ -34,10 +34,59 @@ export function DynamicIsland({
 	const [isPaused] = useState(false);
 
 	// 拖拽状态（完全手动实现，支持任意位置放置，吸附到最近的边缘）
+	// ✅ 修复：position 状态应该持久化，不受模式切换影响
 	const [position, setPosition] = useState<{ x: number; y: number } | null>(
 		null,
 	);
 	const islandRef = useRef<HTMLDivElement>(null);
+
+	// ✅ 修复：监听模式切换，确保全局组件（灵动岛和N徽章）不受影响
+	// 关键：position 是相对于屏幕的绝对位置，不应该受模式切换影响
+	// 但是，我们需要确保在模式切换时，DOM 样式不会被意外修改
+	// ✅ 修复：监听模式切换，确保全局组件（灵动岛和N徽章）不受影响
+	// 关键：position 是相对于屏幕的绝对位置，不应该受模式切换影响
+	// 但是，我们需要确保在模式切换时，DOM 样式不会被意外修改
+	useEffect(() => {
+		// 当模式切换时，确保灵动岛容器的样式不会被其他逻辑覆盖
+		// 特别是从 FULLSCREEN 切换到 PANEL 时，useElectronClickThrough 可能会修改 DOM
+		// 我们需要确保灵动岛容器的 fixed 定位和 z-index 不被影响
+		const ensureContainerStyle = () => {
+			if (islandRef.current) {
+				const container = islandRef.current.parentElement;
+				if (container) {
+					// 强制设置所有关键样式，确保容器始终可见且在最上层
+					container.style.setProperty('position', 'fixed', 'important');
+					container.style.setProperty('z-index', '1000002', 'important');
+					container.style.setProperty('pointer-events', 'none', 'important');
+					container.style.setProperty('top', '0', 'important');
+					container.style.setProperty('left', '0', 'important');
+					container.style.setProperty('right', '0', 'important');
+					container.style.setProperty('bottom', '0', 'important');
+					container.style.setProperty('opacity', '1', 'important');
+					container.style.setProperty('visibility', 'visible', 'important');
+				}
+			}
+		};
+
+		// 立即执行一次
+		ensureContainerStyle();
+
+		// 使用多个 requestAnimationFrame 确保在所有 DOM 操作之后执行
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				ensureContainerStyle();
+			});
+		});
+
+		// 延迟执行，确保在 useElectronClickThrough 之后执行
+		const timeoutId = setTimeout(() => {
+			ensureContainerStyle();
+		}, 100);
+
+		return () => {
+			clearTimeout(timeoutId);
+		};
+	}, []);
 
 	// 右键菜单状态（仅 FLOAT 模式下使用）
 	const [contextMenuOpen, setContextMenuOpen] = useState(false);
@@ -68,10 +117,12 @@ export function DynamicIsland({
 		console.log("[DynamicIsland] 停止录音按钮点击（功能已禁用）");
 	}, []);
 
-	// Panel 模式下灵动岛保持浮动外观
-	const layoutMode = mode === IslandMode.PANEL ? IslandMode.FLOAT : mode;
+	// ✅ 修复：灵动岛和左下角N是全局的，不受模式切换影响
+	// 始终使用 FLOAT 模式的布局逻辑，确保在所有模式下保持一致的外观和行为
+	const layoutMode = IslandMode.FLOAT;
 
 	// 使用 hooks 管理各种逻辑
+	// ✅ 修复：点击穿透逻辑仍然需要根据实际模式来决定，但布局始终使用 FLOAT
 	const setIgnoreMouse = useDynamicIslandClickThrough(mode);
 	const { isHovered, setIsHovered } = useDynamicIslandHover({
 		mode: layoutMode,
@@ -240,11 +291,39 @@ export function DynamicIsland({
 		) : null}
 
 		{/* 灵动岛（完全独立，永远渲染，不受 Panel 影响） */}
+		{/* ✅ 修复：z-index 必须比 PanelWindow (1000001) 更高，确保始终在最上层 */}
+		{/* ✅ 修复：使用 ref 回调强制设置样式，防止被其他逻辑覆盖 */}
 		<div
+			ref={(el) => {
+				// ✅ 关键修复：使用 ref 回调强制设置样式，确保容器始终可见且在最上层
+				if (el) {
+					requestAnimationFrame(() => {
+						if (el) {
+							el.style.setProperty('position', 'fixed', 'important');
+							el.style.setProperty('z-index', '1000002', 'important');
+							el.style.setProperty('pointer-events', 'none', 'important');
+							el.style.setProperty('top', '0', 'important');
+							el.style.setProperty('left', '0', 'important');
+							el.style.setProperty('right', '0', 'important');
+							el.style.setProperty('bottom', '0', 'important');
+							el.style.setProperty('opacity', '1', 'important');
+							el.style.setProperty('visibility', 'visible', 'important');
+						}
+					});
+				}
+			}}
 			className="fixed inset-0 pointer-events-none"
 			suppressHydrationWarning
 			style={{
-				zIndex: 999999, // 使用非常高的 z-index 确保始终置顶，但不影响页面交互（因为 pointer-events-none）
+				position: 'fixed',
+				zIndex: 1000002, // ✅ 修复：使用比 PanelWindow (1000001) 更高的 z-index，确保始终置顶
+				pointerEvents: 'none',
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				opacity: 1,
+				visibility: 'visible',
 			} as React.CSSProperties}
 		>
 			<motion.div
@@ -255,7 +334,7 @@ export function DynamicIsland({
 				onMouseEnter={() => {
 					// 所有模式都允许 hover 展开/收起
 					setIsHovered(true);
-					// 只有 FLOAT 模式需要切换点击穿透
+					// ✅ 修复：点击穿透逻辑仍然需要根据实际模式来决定
 					if (mode === IslandMode.FLOAT) {
 						setIgnoreMouse(false); // 取消点击穿透，允许交互
 					}
@@ -267,7 +346,7 @@ export function DynamicIsland({
 					}
 					// 所有模式都收起
 					setIsHovered(false);
-					// 只有 FLOAT 模式需要恢复点击穿透
+					// ✅ 修复：点击穿透逻辑仍然需要根据实际模式来决定
 					if (mode === IslandMode.FLOAT) {
 						setIgnoreMouse(true); // 恢复点击穿透
 					}
@@ -341,7 +420,7 @@ export function DynamicIsland({
 						onMouseEnter={() => {
 							// 所有模式都允许根据 hover 展开/收起
 							setIsHovered(true);
-							// 只有 FLOAT 模式需要切换点击穿透
+							// ✅ 修复：点击穿透逻辑仍然需要根据实际模式来决定
 							if (mode === IslandMode.FLOAT) {
 								setIgnoreMouse(false);
 							}
@@ -352,7 +431,7 @@ export function DynamicIsland({
 							}
 							// hover 离开时统一收起
 							setIsHovered(false);
-							// 只有 FLOAT 模式需要恢复点击穿透
+							// ✅ 修复：点击穿透逻辑仍然需要根据实际模式来决定
 							if (mode === IslandMode.FLOAT) {
 								setIgnoreMouse(true);
 							}

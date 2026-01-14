@@ -50,26 +50,9 @@ export function FullscreenControlBar({
 						onClick={async (e) => {
 							e.stopPropagation();
 							console.log("[FullscreenControlBar] Exit fullscreen button clicked");
-							try {
-								const w = window as typeof window & {
-									electronAPI?: {
-										expandWindow?: () => Promise<void> | void;
-										setIgnoreMouseEvents?: (
-											ignore: boolean,
-											options?: { forward?: boolean },
-										) => void;
-									};
-								};
-								if (w.electronAPI?.expandWindow) {
-									// 等待窗口动画完成后再切换状态
-									await w.electronAPI.expandWindow();
-								}
-								w.electronAPI?.setIgnoreMouseEvents?.(false);
-								// 窗口动画完成后，再切换前端状态
-								onModeChange?.(IslandMode.PANEL);
-							} catch (error) {
-								console.error("[DynamicIsland] Failed to exit fullscreen:", error);
-							}
+							// ✅ 关键改动：从 FULLSCREEN 退到 PANEL 时不再缩小 Electron 窗口，只切换前端模式
+							// 这样灵动岛和左下角 N 徽章的屏幕绝对位置保持不变
+							onModeChange?.(IslandMode.PANEL);
 						}}
 					>
 						<Minimize2 size={15} />

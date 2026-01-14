@@ -47,14 +47,14 @@ export default function HomePage() {
 		setMounted(true);
 
 		// 清理可能残留的蓝色调试框
-		const debugDiv = document.getElementById('panel-drag-debug');
+		const debugDiv = document.getElementById("panel-drag-debug");
 		if (debugDiv) {
 			debugDiv.remove();
 		}
 
 		return () => {
 			// 组件卸载时也清理
-			const debugDivOnUnmount = document.getElementById('panel-drag-debug');
+			const debugDivOnUnmount = document.getElementById("panel-drag-debug");
 			if (debugDivOnUnmount) {
 				debugDivOnUnmount.remove();
 			}

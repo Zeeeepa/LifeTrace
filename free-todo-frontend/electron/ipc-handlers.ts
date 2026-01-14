@@ -222,59 +222,42 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		const win = windowManager.getWindow();
 		if (!win || !enableDynamicIsland) return;
 
+		// ✅ 修复 FULLSCREEN → PANEL：如果窗口是最大化状态，先恢复
+		if (win.isMaximized()) {
+			win.unmaximize();
+			// 等待窗口恢复完成（系统级动画通常很快，但需要等待）
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+
 		const { width: screenWidth, height: screenHeight } =
 			screen.getPrimaryDisplay().workAreaSize;
-		const expandedWidth = 500;
+		// ✅ 关键：PANEL 模式窗口需要“比 Panel 本身更宽”，才能给全局悬浮层（灵动岛/N 徽章等）留出透明区域
+		// 否则窗口宽度≈Panel宽度时，任何“全局”元素都会视觉上被挤进 Panel 内部（因为它们仍然在同一个 BrowserWindow 里）
+		const panelWidth = 500;
+		const overlayGutter = 420; // 给灵动岛/徽章留的左侧透明区域（可按需调大/调小）
+		const expandedWidth = Math.min(screenWidth, panelWidth + overlayGutter);
 		const expandedHeight = Math.round(screenHeight * 0.8);
 		const margin = 24;
 		const top = Math.round((screenHeight - expandedHeight) / 2);
 
-		// ✅ 修复：如果窗口是最大化状态，先取消最大化，然后平滑过渡到 Panel 尺寸
-		if (win.isMaximized()) {
-			// 取消最大化，但保持内容透明
-			// 注意：unmaximize() 有系统动画，我们需要等待它完成
-			win.unmaximize();
-			// 等待取消最大化完成，获取实际的窗口尺寸
-			// 系统取消最大化的动画通常需要 200-300ms，我们等待 300ms 确保完成
-			await new Promise((resolve) => setTimeout(resolve, 300));
-			// 重新获取当前边界，因为取消最大化后尺寸可能变化
-			const unmaximizedBounds = win.getBounds();
-			// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
-			const endBounds = {
-				x: screenWidth - expandedWidth - margin,
-				y: top,
-				width: expandedWidth,
-				height: expandedHeight,
-			};
-			await animateWindowBounds(win, unmaximizedBounds, endBounds, 800, true);
-		} else {
-			// 必须设置可调整和可移动（因为创建时是 false）
-			win.setResizable(true);
-			win.setMovable(true);
-
-			// 确保窗口仍然置顶
-			win.setAlwaysOnTop(true);
-
-			// 获取当前窗口边界，用于平滑过渡
-			const currentBounds = win.getBounds();
-			const endBounds = {
-				x: screenWidth - expandedWidth - margin,
-				y: top,
-				width: expandedWidth,
-				height: expandedHeight,
-			};
-
-			// 使用动画平滑过渡，避免瞬闪
-			// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
-			await animateWindowBounds(win, currentBounds, endBounds, 800, true);
-		}
-
-		// ✅ 确保窗口属性正确设置（无论是否从最大化切换）
+		// 必须设置可调整和可移动（因为创建时是 false）
 		win.setResizable(true);
 		win.setMovable(true);
+
+		// 确保窗口仍然置顶
 		win.setAlwaysOnTop(true);
 
-		// 注入窗口圆角 CSS（Panel 模式，增大到16px），使用 clip-path 实现完美圆角
+		// 获取当前窗口边界，用于平滑过渡
+		const currentBounds = win.getBounds();
+		const endBounds = {
+			x: screenWidth - expandedWidth - margin,
+			y: top,
+			width: expandedWidth,
+			height: expandedHeight,
+		};
+
+		// ✅ 修复 FULLSCREEN → PANEL：先清理 FULLSCREEN 注入的 CSS
+		// 先注入覆盖 CSS，确保 FULLSCREEN 的样式被清理
 		win.webContents
 			.insertCSS(`
 			html {
@@ -287,12 +270,14 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 				overflow: hidden !important;
 				clip-path: inset(0 round 16px) !important;
 				background-color: transparent !important;
+				background: transparent !important;
 			}
 			#__next {
 				border-radius: 16px !important;
 				overflow: hidden !important;
 				clip-path: inset(0 round 16px) !important;
 				background-color: transparent !important;
+				background: transparent !important;
 			}
 			#__next > div {
 				border-radius: 16px !important;
@@ -301,6 +286,10 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			}
 		`)
 			.catch(() => {});
+
+		// 使用动画平滑过渡，避免瞬闪
+		// 使用与 Panel→Float 相同的动画时长（800ms）和缓动函数，保持一致的过渡体验
+		await animateWindowBounds(win, currentBounds, endBounds, 800, true);
 
 		// ✅ 恢复窗口背景色为透明（Panel 模式需要透明背景）
 		win.setBackgroundColor("#00000000");

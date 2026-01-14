@@ -103,10 +103,12 @@ export function useDynamicIslandLayout({
 					const islandWidth = isHovered ? expandedLayout.width : collapsedLayout.width;
 					// ✅ 修复：使用更宽松的判断，只要 position.x 接近右边就使用 right: 7
 					// 这样可以避免因为窗口大小变化或计算误差导致的"弹开"问题
+					// 关键：使用相对判断，而不是绝对判断，避免模式切换时窗口大小变化导致位置错误
 					const isOnRight = position.x >= windowWidth - islandWidth - 150;
 
 					if (isOnRight) {
 						// ✅ 如果在右边，使用 right: 7 定位，确保贴近最右边
+						// 关键：使用 right 定位，不依赖 position.x 的绝对值，避免窗口大小变化时位置错误
 						return {
 							...baseLayout,
 							right: 7,
@@ -118,10 +120,13 @@ export function useDynamicIslandLayout({
 						// 当使用 left 定位时，需要调整 left 值，使得右边（Hexagon 位置）保持不变
 						// 收起状态：width = 36px, left = position.x，右边 = position.x + 36px
 						// 展开状态：width = 134px, left = position.x - (134 - 36) = position.x - 98px，右边 = position.x - 98px + 134px = position.x + 36px（保持不变）
+						// ✅ 修复：确保 position.x 不会超出窗口范围
+						const maxLeft = windowWidth - islandWidth;
+						const clampedX = Math.max(0, Math.min(position.x, maxLeft));
 						const leftOffset = isHovered ? -(expandedLayout.width - collapsedLayout.width) : 0;
 						return {
 							...baseLayout,
-							left: position.x + leftOffset,
+							left: clampedX + leftOffset,
 							top: position.y,
 							right: "auto",
 							bottom: "auto",

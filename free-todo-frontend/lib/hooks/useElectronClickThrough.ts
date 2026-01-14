@@ -71,6 +71,27 @@ export function useElectronClickThrough({
 
 		// Panel 模式下，强制设置窗口和内容不透明
 		if (mode === IslandMode.PANEL) {
+			// ✅ 修复 FULLSCREEN → PANEL：先清理 FULLSCREEN 设置的背景色样式
+			if (typeof document !== "undefined") {
+				const html = document.documentElement;
+				const body = document.body;
+				const next = document.getElementById("__next");
+
+				// 先移除 FULLSCREEN 模式下设置的背景色（oklch(var(--background))）
+				if (html) {
+					html.style.removeProperty("background-color");
+					html.style.removeProperty("background");
+				}
+				if (body) {
+					body.style.removeProperty("background-color");
+					body.style.removeProperty("background");
+				}
+				if (next) {
+					next.style.removeProperty("background-color");
+					next.style.removeProperty("background");
+				}
+			}
+
 			const panelOpacityStyleId = "panel-mode-opacity-fix";
 			let panelOpacityStyle = document.getElementById(panelOpacityStyleId);
 			if (!panelOpacityStyle) {
@@ -79,6 +100,7 @@ export function useElectronClickThrough({
 				document.head.appendChild(panelOpacityStyle);
 			}
 			// ✅ 只设置 Panel 窗口不透明，main/body/html 保持透明
+			// ✅ 修复：确保不影响全局组件（DynamicIsland等）的定位
 			panelOpacityStyle.textContent = `
 				html, body, #__next {
 					opacity: 1 !important;
@@ -91,6 +113,13 @@ export function useElectronClickThrough({
 					background: white !important;
 					visibility: visible !important;
 				}
+				/* ✅ 修复：确保全局组件（DynamicIsland等）不受影响 */
+				[data-panel-window] ~ *,
+				body > [style*="z-index: 1000002"],
+				body > [style*="z-index: 999999"] {
+					position: fixed !important;
+					z-index: inherit !important;
+				}
 			`;
 
 			// 直接设置 DOM 样式，确保立即生效
@@ -100,20 +129,24 @@ export function useElectronClickThrough({
 				const next = document.getElementById("__next");
 
 				// ✅ main 和 body 保持透明，只有 Panel 窗口有背景
+				// ✅ 修复：不修改 position 相关样式，避免影响全局组件
 				if (html) {
 					html.style.setProperty("opacity", "1", "important");
 					html.style.setProperty("background-color", "transparent", "important");
 					html.style.setProperty("background", "transparent", "important");
+					// 不修改 position，避免影响 fixed 定位的全局组件
 				}
 				if (body) {
 					body.style.setProperty("opacity", "1", "important");
 					body.style.setProperty("background-color", "transparent", "important");
 					body.style.setProperty("background", "transparent", "important");
+					// 不修改 position，避免影响 fixed 定位的全局组件
 				}
 				if (next) {
 					next.style.setProperty("opacity", "1", "important");
 					next.style.setProperty("background-color", "transparent", "important");
 					next.style.setProperty("background", "transparent", "important");
+					// 不修改 position，避免影响 fixed 定位的全局组件
 				}
 
 				// ✅ 强制设置 Panel 窗口不透明

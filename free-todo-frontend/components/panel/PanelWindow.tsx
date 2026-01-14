@@ -112,11 +112,11 @@ export function PanelWindow({
 					}
 				}}
 			>
-				{/* 顶部高度调整区域 - 使用 h-0.5 (2px) 更小的区域，避免拖动时误触 */}
+				{/* 顶部高度调整区域 - 参考左右调整区域，使用 w-1 (4px) */}
 				<div
 					role="button"
 					tabIndex={-1}
-					className="resize-handle absolute top-0 left-0 right-0 h-0.5 cursor-ns-resize bg-primary-foreground dark:bg-accent hover:bg-[oklch(var(--primary))]/20 transition-colors z-50"
+					className="resize-handle absolute top-0 left-0 right-0 h-1 cursor-ns-resize bg-primary-foreground dark:bg-accent hover:bg-[oklch(var(--primary))]/20 transition-colors z-50"
 					onPointerDown={(e: React.PointerEvent<HTMLDivElement>) => {
 						e.stopPropagation();
 						onPanelResizeStart(e, 'top');
@@ -138,15 +138,13 @@ export function PanelWindow({
 						if (target.closest("button") || target.closest(".flex.items-center.gap-1")) {
 							return;
 						}
-						// ✅ 修复：检查是否在顶部调整区域内，如果是则不触发拖动
-						// 顶部调整区域是 h-0.5 (2px)，所以检查前2px
+						// 检查是否在顶部2px区域内
 						const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 						const relativeY = e.clientY - rect.top;
 						if (relativeY <= 2) {
 							// 在顶部2px区域内，不触发拖动（应该触发高度调整）
 							return;
 						}
-						// ✅ 确保拖动时不会触发高度调整
 						onPanelDragStart(e);
 					}}
 				>
