@@ -24,7 +24,7 @@
 		"screenshotEnabled": "截屏已开启，单击关闭",
 		"screenshotDisabled": "截屏已关闭，单击开启",
 		"expandPanel": "展开为 Panel",
-		"expandFullscreen": "展开为全屏",
+		"expandMaximize": "展开为最大化",
 		"collapseIsland": "折叠到灵动岛"
 	},
 	"page": {

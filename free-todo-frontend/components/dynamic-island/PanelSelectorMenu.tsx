@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { PanelFeature } from "@/lib/config/panel-config";
 import {
@@ -36,17 +36,21 @@ export function PanelSelectorMenu({
 	const t = useTranslations("bottomDock");
 	const { getAvailableFeatures } = useUiStore();
 
-	// 使用 getAvailableFeatures 来同步设置界面的开启/关闭状态
-	// 但是要确保settings始终包含（设置功能一定被包含的）
-	const baseAvailableFeatures = getAvailableFeatures();
-	const allAvailableFeatures: PanelFeature[] = baseAvailableFeatures.includes("settings")
-		? baseAvailableFeatures
-		: [...baseAvailableFeatures, "settings" as PanelFeature];
+	// ✅ 修复：订阅 disabledFeatures 状态，确保与设置页面同步
+	// 使用 useMemo 确保当 disabledFeatures 变化时，可用功能列表会重新计算
+	const availableFeatures = useMemo(() => {
+		// 使用 getAvailableFeatures 来同步设置界面的开启/关闭状态
+		// 但是要确保settings始终包含（设置功能一定被包含的）
+		const baseAvailableFeatures = getAvailableFeatures();
+		const allAvailableFeatures: PanelFeature[] = baseAvailableFeatures.includes("settings")
+			? baseAvailableFeatures
+			: [...baseAvailableFeatures, "settings" as PanelFeature];
 
-	// 在 Panel 模式下右键时，排除当前功能本身（例如当前是日历，就不再显示“日历”）
-	const availableFeatures = currentFeature
-		? allAvailableFeatures.filter((feature) => feature !== currentFeature)
-		: allAvailableFeatures;
+		// 在 Panel 模式下右键时，排除当前功能本身（例如当前是日历，就不再显示"日历"）
+		return currentFeature
+			? allAvailableFeatures.filter((feature) => feature !== currentFeature)
+			: allAvailableFeatures;
+	}, [getAvailableFeatures, currentFeature]);
 
 	// 点击外部关闭菜单
 	useEffect(() => {

@@ -1,7 +1,7 @@
 /**
  * 可复用的应用 Header 组件
  * 左侧：Logo + 应用名称
- * 中间：通知区域（可选，仅在 Fullscreen 模式下显示）
+ * 中间：通知区域（可选，仅在 Maximize 模式下显示）
  * 右侧：工具按钮（LayoutSelector, ThemeToggle, LanguageToggle, SettingsToggle）+ 根据模式显示不同的控制按钮
  */
 
@@ -25,7 +25,7 @@ interface AppHeaderProps {
 	onClose?: () => void;
 	/** 是否在 Panel 模式下 */
 	isPanelMode?: boolean;
-	/** 当前通知（可选，仅在 Fullscreen 模式下显示） */
+	/** 当前通知（可选，仅在 Maximize 模式下显示） */
 	currentNotification?: { id: string; title: string; content: string; timestamp: string; source?: string } | null;
 	/** 是否是 Electron 环境 */
 	isElectron?: boolean;
@@ -41,12 +41,12 @@ export function AppHeader({
 }: AppHeaderProps) {
 	// Panel 模式：最大化按钮 + 关闭 Panel 按钮
 	// 全屏模式：切换回 Panel 按钮 + 关闭全屏按钮
-	const isFullscreenMode = mode === IslandMode.FULLSCREEN;
-	const showNotification = isFullscreenMode && currentNotification && isElectron;
+	const isMaximizeMode = mode === IslandMode.MAXIMIZE;
+	const showNotification = isMaximizeMode && currentNotification && isElectron;
 
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
-			{/* 左侧：Logo + 应用名称（复用 FullscreenHeader 的样式） */}
+			{/* 左侧：Logo + 应用名称（复用 MaximizeHeader 的样式） */}
 			<div className="flex items-center gap-2 shrink-0">
 				<div className="relative h-8 w-8 shrink-0">
 					{/* 浅色模式图标 */}
@@ -111,7 +111,7 @@ export function AppHeader({
 									await w.electronAPI.expandWindowFull();
 								}
 								// 然后切换前端状态
-								onModeChange?.(IslandMode.FULLSCREEN);
+								onModeChange?.(IslandMode.MAXIMIZE);
 							}}
 							style={{ pointerEvents: "auto" }}
 						>
@@ -134,18 +134,18 @@ export function AppHeader({
 							<X size={14} />
 						</button>
 					</>
-				) : isFullscreenMode ? (
+				) : isMaximizeMode ? (
 					<>
 						{/* 全屏模式：切换回 Panel 按钮 */}
 						<button
 							type="button"
 							className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-[oklch(var(--muted))]/40 hover:text-[oklch(var(--foreground))] transition-colors"
-							title="Exit fullscreen"
+							title="Exit maximize"
 							onMouseDown={(e) => e.stopPropagation()}
 							onClick={async (e) => {
 								e.stopPropagation();
-								console.log("[AppHeader] Exit fullscreen button clicked");
-								// ✅ 关键改动：从 FULLSCREEN 退到 PANEL 时不再缩小 Electron 窗口，只切换前端模式
+								console.log("[AppHeader] Exit maximize button clicked");
+								// ✅ 关键改动：从 MAXIMIZE 退到 PANEL 时不再缩小 Electron 窗口，只切换前端模式
 								// 这样灵动岛和左下角 N 徽章的屏幕绝对位置保持不变
 								onModeChange?.(IslandMode.PANEL);
 							}}
@@ -185,14 +185,14 @@ export function AppHeader({
 											forward: true,
 										});
 										const style = document.createElement("style");
-										style.id = "restore-opacity-fullscreen-collapse";
+										style.id = "restore-opacity-maximize-collapse";
 										style.textContent = `
 											html, body, #__next, #__next > div {
 												opacity: 1 !important;
 												pointer-events: auto !important;
 											}
 										`;
-										const oldStyle = document.getElementById("restore-opacity-fullscreen-collapse");
+										const oldStyle = document.getElementById("restore-opacity-maximize-collapse");
 										if (oldStyle) oldStyle.remove();
 										document.head.appendChild(style);
 									}, 1600);

@@ -5,7 +5,7 @@
 灵动岛是一个悬浮 UI 组件，为 Electron 应用提供三种交互模式：
 - **FLOAT 模式**：小型悬浮岛，可拖拽，悬停时展开
 - **PANEL 模式**：可调整大小的面板窗口，显示单个功能
-- **FULLSCREEN 模式**：全屏工作台，显示完整的应用功能
+- **MAXIMIZE 模式**：最大化工作台，显示完整的应用功能
 
 ---
 
@@ -24,7 +24,7 @@
 - 灵动岛现在作为一个**全局常驻 overlay 层**存在：
   - 最外层容器始终是 `position: fixed; inset: 0; pointer-events: none; z-index: 1000002`。
   - 通过 `ref` 回调 + `requestAnimationFrame` 连续调用 `style.setProperty(..., 'important')`，确保上述属性不会被其他样式覆盖。
-- 三种模式（FLOAT / PANEL / FULLSCREEN）只是改变「内容层」（PanelWindow / 全屏页面）的布局和 Electron 窗口策略：
+- 三种模式（FLOAT / PANEL / MAXIMIZE）只是改变「内容层」（PanelWindow / 最大化页面）的布局和 Electron 窗口策略：
   - 灵动岛的布局计算固定使用 `layoutMode = IslandMode.FLOAT`，保证拖拽位置和吸边逻辑在所有模式下统一。
   - N 徽章等全局元素也应放在这一 overlay 层内，确保不会因为窗口变窄而被“挤进 Panel”。
 
@@ -41,7 +41,7 @@
 - **渲染进程 → 主进程**：通过 `ipcRenderer.send()` 或 `ipcRenderer.invoke()` 发送请求
   - `collapse-window`：请求折叠窗口到 FLOAT 模式
   - `expand-window`：请求展开窗口到 PANEL 模式
-  - `expand-window-full`：请求展开窗口到 FULLSCREEN 模式
+  - `expand-window-full`：请求展开窗口到 MAXIMIZE 模式
   - `set-ignore-mouse-events`：请求设置点击穿透
   - `move-window`：请求移动窗口位置
 - **主进程处理**：在 `electron/ipc-handlers.ts` 中注册处理器，执行实际的窗口操作
@@ -97,7 +97,7 @@ ipcMain.handle("collapse-window", async () => {
   - 监听全局 `mousemove`，根据 `[data-panel-window]` 的 `getBoundingClientRect()`：
     - 鼠标在 panel 内部（含顶部 8px 扩展区域）→ `setIgnoreMouseEvents(false)`。
     - 鼠标在 panel 外部透明区域 → `setIgnoreMouseEvents(true, { forward: true })`。
-- **FULLSCREEN 模式**：
+- **MAXIMIZE 模式**：
   - 始终 `setIgnoreMouseEvents(false)`，整窗可交互。
 
 #### 2. 窗口动画过渡
@@ -158,7 +158,7 @@ const throttledHandleMouseMove = (e: MouseEvent) => {
 
 #### 5. 透明度与可见性恢复（配合全局 overlay）
 
-**问题**：从 PANEL/FULLSCREEN 折叠到 FLOAT 时，如果主进程仍保留 `opacity: 0` 等样式，灵动岛窗口可能出现“看不见但还在”的状态。
+**问题**：从 PANEL/MAXIMIZE 折叠到 FLOAT 时，如果主进程仍保留 `opacity: 0` 等样式，灵动岛窗口可能出现“看不见但还在”的状态。
 
 **解决方案（新实现）**：
 
@@ -192,14 +192,14 @@ win.webContents.insertCSS(`
 
 **实现方式（全局常驻后）**：
 
-- 核心思路：**无论外部 mode 是 FLOAT / PANEL / FULLSCREEN，布局计算统一使用 FLOAT 语义**。
+- 核心思路：**无论外部 mode 是 FLOAT / PANEL / MAXIMIZE，布局计算统一使用 FLOAT 语义**。
   - 在 `DynamicIsland` 内部固定 `const layoutMode = IslandMode.FLOAT;`。
   - 通过 `useDynamicIslandLayout` 只根据拖拽位置/吸边状态计算 `left/right/top/bottom` 和收起/展开尺寸。
 - 尺寸语义：
   - 收起：约 36x36px。
   - 展开：约 135x48px。
-- PANEL / FULLSCREEN 模式时：
-  - 灵动岛仍按 FLOAT 语义布局，只是背景内容从桌面 → PanelWindow / 全屏工作台。
+- PANEL / MAXIMIZE 模式时：
+  - 灵动岛仍按 FLOAT 语义布局，只是背景内容从桌面 → PanelWindow / 最大化工作台。
 
 **代码位置**：`components/dynamic-island/hooks/useDynamicIslandLayout.ts`
 
@@ -246,11 +246,11 @@ win.webContents.insertCSS(`
    - 主进程注入 `opacity: 0`，动画回到小岛尺寸，动画结束后启用整窗点击穿透。
    - 前端通过 overlay 样式修复确保灵动岛重新可见，并将模式切回 `FLOAT`。
 
-3. **PANEL → FULLSCREEN**：
+3. **PANEL → MAXIMIZE**：
    - 前端调用 `expandWindowFull()` IPC。
    - 主进程最大化窗口，清理 panel 圆角/clip-path。
    - 始终禁用整窗穿透。
-   - 前端切换模式状态为 `FULLSCREEN`，`FullscreenControlBar` 渲染。
+   - 前端切换模式状态为 `MAXIMIZE`，`MaximizeControlBar` 渲染。
 
 ---
 
@@ -267,7 +267,7 @@ components/dynamic-island/
 ├── PanelContent.tsx                  # Panel 模式内容区域（包含 BottomDock）
 ├── PanelSelectorMenu.tsx             # Panel 模式右键菜单
 ├── FloatContent.tsx                  # FLOAT 模式内容（收起/展开）
-├── FullscreenControlBar.tsx          # FULLSCREEN 模式顶部控制栏
+├── MaximizeControlBar.tsx            # MAXIMIZE 模式顶部控制栏
 ├── ContextMenu.tsx                   # FLOAT 模式右键上下文菜单
 ├── ResizeHandle.tsx                  # PANEL 模式自定义缩放把手
 ├── electron-api.ts                   # 前端使用的 Electron API 封装
@@ -302,7 +302,7 @@ electron/
 
 ```
 DynamicIslandProvider
-  └── DynamicIsland (mode: FLOAT | PANEL | FULLSCREEN)
+  └── DynamicIsland (mode: FLOAT | PANEL | MAXIMIZE)
       ├── FLOAT 模式:
       │   ├── FloatContent (收起/展开)
       │   └── ContextMenu (右键菜单)
@@ -312,8 +312,8 @@ DynamicIslandProvider
       │   │   └── PanelContent
       │   │       └── PanelSelectorMenu (右键菜单)
       │   └── ResizeHandle (8 个缩放把手)
-      └── FULLSCREEN 模式:
-          └── FullscreenControlBar
+      └── MAXIMIZE 模式:
+          └── MaximizeControlBar
 ```
 
 ---
@@ -325,7 +325,7 @@ DynamicIslandProvider
 **用途**：主组件，协调所有三种模式。
 
 **主要职责**：
-- 模式切换逻辑（FLOAT ↔ PANEL ↔ FULLSCREEN）
+- 模式切换逻辑（FLOAT ↔ PANEL ↔ MAXIMIZE）
 - Electron API 集成（窗口缩放、折叠、展开）
 - 模式转换后恢复透明度
 - 键盘快捷键（1、4、5、Escape）
@@ -355,7 +355,7 @@ DynamicIslandProvider
 
 **特性**：
 - 显示当前功能图标和名称
-- 全屏和折叠按钮
+- 最大化和折叠按钮
 - 支持 WebkitAppRegion 拖拽
 - 与 PanelFeatureContext 同步
 
@@ -378,12 +378,12 @@ DynamicIslandProvider
 - **收起**：小图标（36x36px）
 - **展开**：完整内容带按钮（135x48px）
 
-### FullscreenControlBar.tsx
+### MaximizeControlBar.tsx
 
-**用途**：FULLSCREEN 模式的顶部控制栏。
+**用途**：MAXIMIZE 模式的顶部控制栏。
 
 **特性**：
-- 退出全屏按钮
+- 退出最大化按钮
 - 折叠到灵动岛按钮
 - 固定窗口（不可拖拽、不可调整大小）
 
@@ -400,7 +400,7 @@ DynamicIslandProvider
 - FLOAT 模式：
   - 配合窗口层的 `setIgnoreMouseEvents(true, { forward: true })`，通过局部 `pointer-events` 控制实际可点击区域。
   - 悬停/拖拽时打开交互，离开时恢复为只展示但不阻挡桌面。
-- PANEL / FULLSCREEN 模式：
+- PANEL / MAXIMIZE 模式：
   - 主要交由 `useElectronClickThrough` 控制整窗行为，本 hook 只做必要的样式修复。
 
 ### useDynamicIslandDrag
@@ -430,7 +430,7 @@ DynamicIslandProvider
 **布局**：
 - **FLOAT**：收起（36x36）或展开（135x48），定位在边缘
 - **PANEL**：全窗口（100% x 100%），圆角（16px）
-- **FULLSCREEN**：全视口（100vw x 100vh）
+- **MAXIMIZE**：全视口（100vw x 100vh）
 
 ---
 
@@ -449,7 +449,7 @@ DynamicIslandProvider
   - 计算 `expandedWidth = panelWidth + overlayGutter`，将 PanelWindow 固定在右侧，左侧保留透明区域给全局 overlay。
   - 注入圆角与透明背景 CSS。
   - 窗口级点击穿透由 `useElectronClickThrough` 按鼠标位置实时切换。
-- `expand-window-full`：展开到 FULLSCREEN 模式
+- `expand-window-full`：展开到 MAXIMIZE 模式
   - 最大化窗口。
   - 清理 Panel 模式的圆角/clip-path。
   - 设置 `resizable=false`、`movable=false`，并禁用点击穿透。
@@ -468,7 +468,7 @@ DynamicIslandProvider
 - `movable: true`
 - `ignoreMouseEvents`：由 `useElectronClickThrough` 根据鼠标是否在 PanelWindow 内部动态切换。
 
-**FULLSCREEN 模式**：
+**MAXIMIZE 模式**：
 - `alwaysOnTop: true`
 - `resizable: false`
 - `movable: false`
@@ -481,7 +481,7 @@ DynamicIslandProvider
 ### 模式状态
 
 由 `lib/store/dynamic-island-store.ts` 管理：
-- `mode: IslandMode` - 当前模式（FLOAT、PANEL、FULLSCREEN）
+- `mode: IslandMode` - 当前模式（FLOAT、PANEL、MAXIMIZE）
 - `isEnabled: boolean` - 是否启用灵动岛
 - `setMode(mode)` - 切换模式
 
@@ -509,12 +509,12 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 3. 窗口动画到目标 bounds，右侧显示 PanelWindow，左侧留出透明区。
 4. 模式切换到 `PANEL`，`PanelContent` 渲染当前功能。
 
-### PANEL → FULLSCREEN
+### PANEL → MAXIMIZE
 
-1. 用户点击全屏按钮。
+1. 用户点击最大化按钮。
 2. 前端调用 `expandWindowFull()` IPC。
 3. 窗口最大化并清理 Panel 圆角/clip-path。
-4. 模式切换到 `FULLSCREEN`，`FullscreenControlBar` 渲染。
+4. 模式切换到 `MAXIMIZE`，`MaximizeControlBar` 渲染。
 
 ### PANEL → FLOAT
 
@@ -523,13 +523,13 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 3. 主进程动画窗口到小岛尺寸并重新开启整窗点击穿透。
 4. 前端通过 overlay 样式修复恢复灵动岛可见性，并将模式切换到 `FLOAT`。
 
-### FULLSCREEN → PANEL
+### MAXIMIZE → PANEL
 
-1. 用户点击退出全屏按钮。
+1. 用户点击退出最大化按钮。
 2. **不再主动调用 `expandWindow()`**，只切换前端模式为 `PANEL`，保持窗口仍为最大化宽度。
 3. Panel 模式的 PanelWindow 使用右侧布局呈现，灵动岛等全局 overlay 依然按照 fixed 坐标保持在原位置。
 
-### FULLSCREEN → FLOAT
+### MAXIMIZE → FLOAT
 
 1. 用户点击折叠按钮或按 Escape 键。
 2. 调用 `collapseWindow()` IPC。
@@ -541,8 +541,8 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 
 - **1**：折叠到 FLOAT 模式
 - **4**：展开到 PANEL 模式
-- **5**：展开到 FULLSCREEN 模式
-- **Escape**：从 PANEL/FULLSCREEN 折叠到 FLOAT
+- **5**：展开到 MAXIMIZE 模式
+- **Escape**：从 PANEL/MAXIMIZE 折叠到 FLOAT
 
 ---
 
@@ -552,7 +552,7 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 
 - 全局 overlay 容器（灵动岛 + N 徽章等）：`z-index: 1000002`
 - PanelWindow 主容器：`z-index: 1000001`
-- FULLSCREEN 控制栏：`z-index: 100010+`（在内容层之上，但仍低于全局 overlay）
+- MAXIMIZE 控制栏：`z-index: 100010+`（在内容层之上，但仍低于全局 overlay）
 - Panel 模式缩放把手：`z-index: 50`
 - 上下文菜单：`z-index: 100-101`
 
@@ -655,7 +655,7 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 
 #### 2. 闪现其他尺寸的页面
 - **现象**：在模式切换过程中，会短暂显示其他尺寸的页面内容
-- **影响**：特别是从 PANEL 模式切换到 FLOAT 模式时，会先闪现全屏画面，然后才缩小到 FLOAT 尺寸
+- **影响**：特别是从 PANEL 模式切换到 FLOAT 模式时，会先闪现最大化画面，然后才缩小到 FLOAT 尺寸
 - **原因分析**：
   - 窗口尺寸变化和内容渲染不同步
   - CSS 注入时机不当，导致在窗口尺寸变化过程中内容可见
@@ -692,7 +692,7 @@ Panel 模式底部 Dock 通过以下方式与设置同步：
 5. **处理 PANEL → FLOAT 的特殊情况**
    - 这是最明显的问题场景，需要特别处理
    - 在折叠动画开始前，确保内容已透明
-   - 避免在窗口缩小过程中显示全屏内容
+   - 避免在窗口缩小过程中显示最大化内容
    - 可以考虑使用截图或遮罩层，在动画期间显示当前窗口的静态图像
 
 ### 技术实现要点

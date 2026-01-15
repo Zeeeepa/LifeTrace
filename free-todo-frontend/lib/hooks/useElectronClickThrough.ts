@@ -1,6 +1,6 @@
 /**
  * Electron 点击穿透管理 Hook
- * 管理 Electron 窗口的点击穿透状态，确保 Panel 和 FULLSCREEN 模式下可以交互
+ * 管理 Electron 窗口的点击穿透状态，确保 Panel 和 MAXIMIZE 模式下可以交互
  */
 
 import { useEffect } from "react";
@@ -27,8 +27,8 @@ export function useElectronClickThrough({
 			return;
 		}
 
-		// FULLSCREEN 模式下，确保内容可见（移除透明样式，设置可见背景）
-		if (mode === IslandMode.FULLSCREEN) {
+		// MAXIMIZE 模式下，确保内容可见（移除透明样式，设置可见背景）
+		if (mode === IslandMode.MAXIMIZE) {
 			// 移除 Panel 模式的透明样式
 			const panelOpacityStyle = document.getElementById("panel-mode-opacity-fix");
 			if (panelOpacityStyle) {
@@ -71,13 +71,13 @@ export function useElectronClickThrough({
 
 		// Panel 模式下，强制设置窗口和内容不透明
 		if (mode === IslandMode.PANEL) {
-			// ✅ 修复 FULLSCREEN → PANEL：先清理 FULLSCREEN 设置的背景色样式
+			// ✅ 修复 MAXIMIZE → PANEL：先清理 MAXIMIZE 设置的背景色样式
 			if (typeof document !== "undefined") {
 				const html = document.documentElement;
 				const body = document.body;
 				const next = document.getElementById("__next");
 
-				// 先移除 FULLSCREEN 模式下设置的背景色（oklch(var(--background))）
+				// 先移除 MAXIMIZE 模式下设置的背景色（oklch(var(--background))）
 				if (html) {
 					html.style.removeProperty("background-color");
 					html.style.removeProperty("background");
@@ -196,21 +196,31 @@ export function useElectronClickThrough({
 		// ====== 点击穿透逻辑重写 ======
 		// 目标：
 		// - FLOAT：整个窗口点击穿透（保持不变）
-		// - FULLSCREEN：整个窗口可交互（保持不变）
+		// - MAXIMIZE：整个窗口可交互（保持不变）
 		// - PANEL：只有 Panel 窗口区域可交互，其它透明区域点击透传到系统
 
 		// FLOAT 模式：整窗点击穿透
 		if (mode === IslandMode.FLOAT) {
-			try {
-				api.electronAPI.setIgnoreMouseEvents(true, { forward: true });
-			} catch {
-				// ignore
-			}
-			return;
+			// ✅ 修复：延迟启用点击穿透，给 hover 检测一些时间
+			// 这样如果鼠标已经在灵动岛区域内，hover 检测可以先禁用点击穿透
+			// 延迟时间设置为 100ms，足以让 hover 检测完成初始检查
+			const timeoutId = setTimeout(() => {
+				try {
+					if (api.electronAPI?.setIgnoreMouseEvents) {
+						api.electronAPI.setIgnoreMouseEvents(true, { forward: true });
+					}
+				} catch {
+					// ignore
+				}
+			}, 100);
+
+			return () => {
+				clearTimeout(timeoutId);
+			};
 		}
 
-		// FULLSCREEN 模式：整窗始终可交互
-		if (mode === IslandMode.FULLSCREEN) {
+		// MAXIMIZE 模式：整窗始终可交互
+		if (mode === IslandMode.MAXIMIZE) {
 			const setInteractive = () => {
 				if (isUserInteracting) return;
 				if (!api.electronAPI?.setIgnoreMouseEvents) return;
@@ -230,9 +240,12 @@ export function useElectronClickThrough({
 
 		// PANEL 模式：根据鼠标是否在 panel-window 区域内，动态切换点击穿透
 		if (mode === IslandMode.PANEL) {
-			// 进入 PANEL 模式时，先确保窗口默认是可交互的
+			// ✅ 修复：进入 PANEL 模式时，立即确保窗口是可交互的
+			// 不要等待任何延迟，立即禁用点击穿透
 			try {
-				api.electronAPI.setIgnoreMouseEvents(false);
+				if (api.electronAPI?.setIgnoreMouseEvents) {
+					api.electronAPI.setIgnoreMouseEvents(false);
+				}
 			} catch {
 				// ignore
 			}
@@ -285,19 +298,21 @@ export function useElectronClickThrough({
 
 			window.addEventListener("mousemove", handleMouseMove);
 
-			// 初始化：根据当前 panel 实际位置，在 panel 内部触发一次 mousemove
-			// 避免从 FLOAT → PANEL 时，刚出现 panel 的短时间内是“穿透”的
+			// ✅ 修复：初始化时，如果 panel 已存在，立即触发一次检测
+			// 避免从 FLOAT → PANEL 时，刚出现 panel 的短时间内是"穿透"的
 			requestAnimationFrame(() => {
 				const panelEl = document.querySelector(
 					"[data-panel-window]",
 				) as HTMLElement | null;
-				if (!panelEl) return;
-				const rect = panelEl.getBoundingClientRect();
-				const initEvent = new MouseEvent("mousemove", {
-					clientX: rect.left + Math.max(1, rect.width / 2),
-					clientY: rect.top + Math.max(1, rect.height / 2),
-				});
-				handleMouseMove(initEvent);
+				if (panelEl) {
+					const rect = panelEl.getBoundingClientRect();
+					const centerX = rect.left + Math.max(1, rect.width / 2);
+					const centerY = rect.top + Math.max(1, rect.height / 2);
+					handleMouseMove({
+						clientX: centerX,
+						clientY: centerY,
+					} as MouseEvent);
+				}
 			});
 
 			return () => {

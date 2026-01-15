@@ -156,8 +156,8 @@ export function useDynamicIslandLayout({
 					left: 0,
 					top: 0,
 				};
-			case IslandMode.FULLSCREEN: {
-				// FULLSCREEN 模式下，和 FLOAT 模式一样，根据 hover 状态展开/收起
+			case IslandMode.MAXIMIZE: {
+				// MAXIMIZE 模式下，和 FLOAT 模式一样，根据 hover 状态展开/收起
 				const collapsedLayout = {
 					width: 36,
 					height: 36,

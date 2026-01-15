@@ -60,10 +60,10 @@ export function PanelTitleBar({
 				<button
 					type="button"
 					className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-[oklch(var(--muted))]/40 hover:text-[oklch(var(--foreground))] transition-colors"
-					title={tIsland("expandFullscreen")}
+					title={tIsland("expandMaximize")}
 					onClick={async (e) => {
 						e.stopPropagation();
-							onModeChange?.(IslandMode.FULLSCREEN);
+							onModeChange?.(IslandMode.MAXIMIZE);
 					}}
 				>
 					<Maximize2 size={14} />
