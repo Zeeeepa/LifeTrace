@@ -1,5 +1,5 @@
 /**
- * Fullscreen 模式 Header 组件
+ * Maximize 模式 Header 组件
  */
 
 "use client";
@@ -11,12 +11,12 @@ import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
 
-interface FullscreenHeaderProps {
+interface MaximizeHeaderProps {
 	currentNotification: { id: string; title: string; content: string; timestamp: string; source?: string } | null;
 	isElectron: boolean;
 }
 
-export function FullscreenHeader({ currentNotification, isElectron }: FullscreenHeaderProps) {
+export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHeaderProps) {
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
 			{/* 左侧：Logo */}

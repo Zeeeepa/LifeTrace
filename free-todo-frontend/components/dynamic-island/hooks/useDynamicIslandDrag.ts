@@ -76,8 +76,8 @@ export function useDynamicIslandDrag({
 	// 处理鼠标移动
 	useEffect(() => {
 		if (typeof window === "undefined") return;
-		// FLOAT 和 FULLSCREEN 模式下都允许拖拽
-		if (mode !== IslandMode.FLOAT && mode !== IslandMode.FULLSCREEN) return;
+		// FLOAT 和 MAXIMIZE 模式下都允许拖拽
+		if (mode !== IslandMode.FLOAT && mode !== IslandMode.MAXIMIZE) return;
 		if (!isDragging || !dragStartPos.current) return;
 
 		// 确保在拖拽过程中点击穿透保持被取消状态

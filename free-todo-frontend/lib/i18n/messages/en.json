@@ -24,7 +24,7 @@
 		"screenshotEnabled": "Screenshot on, click to disable",
 		"screenshotDisabled": "Screenshot off, click to enable",
 		"expandPanel": "Expand to Panel",
-		"expandFullscreen": "Expand to fullscreen",
+		"expandMaximize": "Expand to maximize",
 		"collapseIsland": "Collapse to Dynamic Island"
 	},
 	"page": {

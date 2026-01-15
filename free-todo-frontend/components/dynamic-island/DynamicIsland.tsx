@@ -48,7 +48,7 @@ export function DynamicIsland({
 	// 但是，我们需要确保在模式切换时，DOM 样式不会被意外修改
 	useEffect(() => {
 		// 当模式切换时，确保灵动岛容器的样式不会被其他逻辑覆盖
-		// 特别是从 FULLSCREEN 切换到 PANEL 时，useElectronClickThrough 可能会修改 DOM
+		// 特别是从 MAXIMIZE 切换到 PANEL 时，useElectronClickThrough 可能会修改 DOM
 		// 我们需要确保灵动岛容器的 fixed 定位和 z-index 不被影响
 		const ensureContainerStyle = () => {
 			if (islandRef.current) {
@@ -183,10 +183,10 @@ export function DynamicIsland({
 			} else if (e.key === "4") {
 				onModeChange?.(IslandMode.PANEL);
 			} else if (e.key === "5") {
-				onModeChange?.(IslandMode.FULLSCREEN);
+					onModeChange?.(IslandMode.MAXIMIZE);
 			} else if (e.key === "Escape") {
-				if (mode === IslandMode.FULLSCREEN) {
-					// FULLSCREEN 模式：先恢复窗口状态，再切换模式
+				if (mode === IslandMode.MAXIMIZE) {
+					// MAXIMIZE 模式：先恢复窗口状态，再切换模式
 					const api = getElectronAPI();
 					if (api.electronAPI?.collapseWindow) {
 						await api.electronAPI.collapseWindow();
@@ -237,15 +237,15 @@ export function DynamicIsland({
 
 	const { panelVisible, showPanel } = useDynamicIslandStore();
 	const layoutState = getLayoutState();
-	const isFullscreen = mode === IslandMode.FULLSCREEN;
+	const isMaximize = mode === IslandMode.MAXIMIZE;
 	const shouldShowPanelOverlay = panelVisible || mode === IslandMode.PANEL;
 
 	// 注意：点击穿透设置已移到 app/page.tsx 统一管理，这里不再设置
 	// 避免双重点击穿透设置冲突
 
-	// 防御：确保在展示 Panel/全屏时恢复任何被主进程注入的透明/禁用样式
+	// 防御：确保在展示 Panel/最大化时恢复任何被主进程注入的透明/禁用样式
 	useEffect(() => {
-		if (!shouldShowPanelOverlay && !isFullscreen) return;
+		if (!shouldShowPanelOverlay && !isMaximize) return;
 		const restore = () => {
 			const ids = [
 				"restore-opacity-after-collapse",
@@ -269,18 +269,18 @@ export function DynamicIsland({
 			set(next as HTMLElement | null);
 		};
 		restore();
-	}, [isFullscreen, shouldShowPanelOverlay]);
+	}, [isMaximize, shouldShowPanelOverlay]);
 
 	return (
 	<>
 		{/* Panel 右侧窗口覆盖层（完全独立于灵动岛，单独渲染） */}
 		{/* 在使用现有页面布局模式下不再单独渲染 Panel 浮层 */}
 
-		{/* 全屏控制栏（完全独立） - 现在使用 AppHeader */}
-		{isFullscreen ? (
+		{/* 最大化控制栏（完全独立） - 现在使用 AppHeader */}
+		{isMaximize ? (
 			<div className="fixed inset-x-0 top-0 z-[32] pointer-events-auto bg-primary-foreground dark:bg-accent">
 				<AppHeader
-					mode={IslandMode.FULLSCREEN}
+					mode={IslandMode.MAXIMIZE}
 					onModeChange={onModeChange}
 					onClose={onClose}
 					isPanelMode={false}
@@ -387,7 +387,7 @@ export function DynamicIsland({
 					}}
 				></div>
 				<div
-					className={`absolute inset-0 transition-opacity duration-1000 ${isFullscreen ? "opacity-100" : "opacity-0"}`}
+					className={`absolute inset-0 transition-opacity duration-1000 ${isMaximize ? "opacity-100" : "opacity-0"}`}
 				>
 					{isDark ? (
 						<>
@@ -413,7 +413,7 @@ export function DynamicIsland({
 					// 右键打开自定义菜单，屏蔽浏览器/系统默认菜单（包括"退出应用"等文字）
 					onContextMenu={handleOpenContextMenu}
 				>
-					{/* FULLSCREEN 也保持灵动岛内容可见，行为与 FLOAT/PANEL 一致 */}
+					{/* MAXIMIZE 也保持灵动岛内容可见，行为与 FLOAT/PANEL 一致 */}
 					<motion.div
 						key="float"
 						className="absolute inset-0 w-full h-full pointer-events-none"

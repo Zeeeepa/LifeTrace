@@ -4,15 +4,15 @@ import { ChevronsUpDown, Minimize2 } from "lucide-react";
 import type React from "react";
 import { IslandMode } from "./types";
 
-interface FullscreenControlBarProps {
+interface MaximizeControlBarProps {
 	onModeChange?: (mode: IslandMode) => void;
 	onClose?: () => void;
 }
 
-export function FullscreenControlBar({
+export function MaximizeControlBar({
 	onModeChange,
 	onClose,
-}: FullscreenControlBarProps) {
+}: MaximizeControlBarProps) {
 	return (
 		<div
 			className="fixed inset-x-0 top-0 z-[100010] pointer-events-none"
@@ -24,7 +24,7 @@ export function FullscreenControlBar({
 			<div
 				className="flex items-center justify-end px-4 h-15"
 				style={{
-					WebkitAppRegion: "no-drag", // FULLSCREEN模式固定窗口，不允许拖动
+					WebkitAppRegion: "no-drag", // MAXIMIZE模式固定窗口，不允许拖动
 					pointerEvents: "auto",
 					zIndex: 100011,
 					position: "relative",
@@ -49,8 +49,8 @@ export function FullscreenControlBar({
 						}}
 						onClick={async (e) => {
 							e.stopPropagation();
-							console.log("[FullscreenControlBar] Exit fullscreen button clicked");
-							// ✅ 关键改动：从 FULLSCREEN 退到 PANEL 时不再缩小 Electron 窗口，只切换前端模式
+							console.log("[MaximizeControlBar] Exit maximize button clicked");
+							// ✅ 关键改动：从 MAXIMIZE 退到 PANEL 时不再缩小 Electron 窗口，只切换前端模式
 							// 这样灵动岛和左下角 N 徽章的屏幕绝对位置保持不变
 							onModeChange?.(IslandMode.PANEL);
 						}}
@@ -67,7 +67,7 @@ export function FullscreenControlBar({
 						}}
 						onClick={async (e) => {
 							e.stopPropagation();
-							console.log("[FullscreenControlBar] Collapse button clicked");
+							console.log("[MaximizeControlBar] Collapse button clicked");
 							try {
 								const w = window as typeof window & {
 									electronAPI?: {
@@ -90,28 +90,26 @@ export function FullscreenControlBar({
 									await w.electronAPI.collapseWindow();
 								}
 
-								// 延迟设置点击穿透和恢复透明度，确保窗口动画完全完成
+								// ✅ 修复：移除这里的点击穿透设置，由 hook 统一管理
+								// 只负责恢复透明度，确保窗口动画完全完成
 								// 窗口动画时长是 800ms，加上透明度过渡 350ms，加上等待时间 400ms，总共约 1550ms
 								// 我们等待 1600ms 确保所有动画完成，避免瞬闪
 								setTimeout(() => {
-									w.electronAPI?.setIgnoreMouseEvents?.(true, {
-										forward: true,
-									});
 									// 恢复透明度
 									const style = document.createElement("style");
-									style.id = "restore-opacity-fullscreen-collapse";
+									style.id = "restore-opacity-maximize-collapse";
 									style.textContent = `
 										html, body, #__next, #__next > div {
 											opacity: 1 !important;
 											pointer-events: auto !important;
 										}
 									`;
-									const oldStyle = document.getElementById("restore-opacity-fullscreen-collapse");
+									const oldStyle = document.getElementById("restore-opacity-maximize-collapse");
 									if (oldStyle) oldStyle.remove();
 									document.head.appendChild(style);
 								}, 1600);
 							} catch (error) {
-								console.error("[FullscreenControlBar] 折叠失败:", error);
+								console.error("[MaximizeControlBar] 折叠失败:", error);
 								// 即使失败也切换状态，避免卡住
 								onModeChange?.(IslandMode.FLOAT);
 								onClose?.();

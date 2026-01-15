@@ -14,8 +14,8 @@ interface PanelRegionProps {
 	width: number;
 	/** PanelRegion 的总高度（包括 Panels 容器 + BottomDock 60px），用于计算 Panels 容器固定高度 */
 	height?: number;
-	/** 是否在 FULLSCREEN 模式下（FULLSCREEN 模式下始终显示 3 个 panel，PANEL 模式下根据宽度显示） */
-	isFullscreenMode?: boolean;
+	/** 是否在 MAXIMIZE 模式下（MAXIMIZE 模式下始终显示 3 个 panel，PANEL 模式下根据宽度显示） */
+	isMaximizeMode?: boolean;
 	/** 是否在 PANEL 模式下（用于 BottomDock 的显示逻辑） */
 	isInPanelMode?: boolean;
 	/** 是否正在拖拽 Panel A */
@@ -40,7 +40,7 @@ interface PanelRegionProps {
 export function PanelRegion({
 	width,
 	height, // PanelRegion 总高度（包括 Panels 容器 + BottomDock 60px）
-	// isFullscreenMode 目前仅用于 props 兼容，逻辑上宽度规则一致，故不再解构使用
+	// isMaximizeMode 目前仅用于 props 兼容，逻辑上宽度规则一致，故不再解构使用
 	isInPanelMode = true,
 	isDraggingPanelA = false,
 	isDraggingPanelC = false,
@@ -62,7 +62,7 @@ export function PanelRegion({
 	useWindowAdaptivePanels(containerRef);
 
 	// 根据宽度决定显示哪些 Panel 槽位（只受宽度影响）
-	// 无论 FULLSCREEN 还是 PANEL 模式，都按统一阈值：
+	// 无论 MAXIMIZE 还是 PANEL 模式，都按统一阈值：
 	// - width < 800：只显示 A
 	// - 800 <= width < 1200：显示 A / B
 	// - width >= 1200：显示 A / B / C
@@ -71,7 +71,7 @@ export function PanelRegion({
 	const shouldShowPanelB = width >= PANEL_DUAL_THRESHOLD;
 	const shouldShowPanelC = width >= PANEL_TRIPLE_THRESHOLD;
 
-	// 面板可见性：由 store 控制（在 FULLSCREEN 入口处会确保三者默认打开）
+	// 面板可见性：由 store 控制（在 MAXIMIZE 入口处会确保三者默认打开）
 	const panelAVisible = isPanelAOpen;
 	const panelBVisible = isPanelBOpen;
 	const panelCVisible = isPanelCOpen;

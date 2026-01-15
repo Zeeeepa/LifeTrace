@@ -9,7 +9,7 @@ import { IslandMode } from "./types";
  */
 export function TransparentBody() {
 	const { mode } = useDynamicIslandStore();
-	const isFullscreen = mode === IslandMode.FULLSCREEN;
+	const isMaximize = mode === IslandMode.MAXIMIZE;
 
 	useEffect(() => {
 		if (typeof document === "undefined") return;
@@ -31,7 +31,7 @@ export function TransparentBody() {
 
 		html.setAttribute("data-electron", "true");
 
-		if (!isFullscreen) {
+		if (!isMaximize) {
 			html.style.setProperty("background-color", "transparent", "important");
 			html.style.setProperty("background", "transparent", "important");
 			body.style.setProperty("background-color", "transparent", "important");
@@ -68,9 +68,7 @@ export function TransparentBody() {
 			html.style.background = "";
 			body.style.background = "";
 		};
-	}, [isFullscreen]);
+	}, [isMaximize]);
 
 	return null;
 }
-
-

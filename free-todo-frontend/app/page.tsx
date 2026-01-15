@@ -29,8 +29,8 @@ export default function HomePage() {
 	// Panel 模式切换函数
 	const onModeChange = useCallback((newMode: IslandMode) => {
 		console.log(`[HomePage] onModeChange called: ${newMode}, current mode: ${mode}`);
-		if (newMode === IslandMode.FULLSCREEN) {
-			setMode(IslandMode.FULLSCREEN);
+		if (newMode === IslandMode.MAXIMIZE) {
+			setMode(IslandMode.MAXIMIZE);
 		} else if (newMode === IslandMode.FLOAT) {
 			// 切换到 FLOAT 模式时，确保 Panel 关闭
 			hidePanel();
@@ -40,7 +40,7 @@ export default function HomePage() {
 	}, [setMode, mode, hidePanel]);
 
 	// 使用 mounted 状态来避免 SSR 水合不匹配
-	// 在服务器端和初始客户端渲染时，始终渲染全屏模式
+	// 在服务器端和初始客户端渲染时，始终渲染最大化模式
 	// 只有在水合完成后（mounted 为 true），才根据实际环境决定显示模式
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => {
@@ -61,9 +61,9 @@ export default function HomePage() {
 		};
 	}, []);
 
-	// FULLSCREEN 进入时，默认打开三列（仍允许用户通过 BottomDock 控制）
+	// MAXIMIZE 进入时，默认打开三列（仍允许用户通过 BottomDock 控制）
 	useEffect(() => {
-		if (mode !== IslandMode.FULLSCREEN) return;
+		if (mode !== IslandMode.MAXIMIZE) return;
 		const state = useUiStore.getState();
 		const next: Partial<typeof state> = {};
 		if (!state.isPanelAOpen) next.isPanelAOpen = true;
@@ -74,11 +74,11 @@ export default function HomePage() {
 		}
 	}, [mode]);
 
-	// 浏览器模式下始终使用全屏模式（不显示灵动岛）
-	// 在未挂载时（SSR/初始渲染），始终使用全屏模式以避免水合不匹配
+	// 浏览器模式下始终使用最大化模式（不显示灵动岛）
+	// 在未挂载时（SSR/初始渲染），始终使用最大化模式以避免水合不匹配
 	const isElectron = mounted ? isElectronEnvironment() : false;
-	// Panel 模式显示右侧 Panel，FULLSCREEN 显示完整页面；FLOAT 仅悬浮层
-	const shouldShowPage = !isElectron || mode === IslandMode.PANEL || mode === IslandMode.FULLSCREEN;
+	// Panel 模式显示右侧 Panel，MAXIMIZE 显示完整页面；FLOAT 仅悬浮层
+	const shouldShowPage = !isElectron || mode === IslandMode.PANEL || mode === IslandMode.MAXIMIZE;
 	const isPanelMode = isElectron && mode === IslandMode.PANEL;
 	const {
 		isPanelCOpen,
@@ -326,14 +326,14 @@ export default function HomePage() {
 				style={{
 					pointerEvents: showContent ? "auto" : "none",
 					// ✅ Panel 模式下，main 背景必须是透明的（左侧需要穿透）
-					// FULLSCREEN 模式下，设置背景色确保内容可见
+					// MAXIMIZE 模式下，设置背景色确保内容可见
 					background: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
 					backgroundColor: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
-					// ✅ FULLSCREEN 模式下，确保 main 元素在最上层
+					// ✅ MAXIMIZE 模式下，确保 main 元素在最上层
 					zIndex: isPanelMode ? 1 : (showContent ? 10 : 0),
 					// ✅ Panel 模式下，main 本身应该是透明的，但内容不透明
 					opacity: isPanelMode ? 1 : (showContent ? 1 : undefined),
-					// ✅ FULLSCREEN 模式下，确保可见性
+					// ✅ MAXIMIZE 模式下，确保可见性
 					visibility: isPanelMode ? "visible" : (showContent ? "visible" : "hidden"),
 				}}
 			>
@@ -357,7 +357,7 @@ export default function HomePage() {
 							containerRef={containerRef}
 						/>
 					) : (
-						// FULLSCREEN 或浏览器模式：原有全页面布局
+						// MAXIMIZE 或浏览器模式：原有全页面布局
 						<div
 							className="relative flex h-screen flex-col text-foreground"
 							style={{
@@ -373,10 +373,10 @@ export default function HomePage() {
 							}}
 						>
 							<AppHeader
-								mode={mode === IslandMode.FULLSCREEN ? IslandMode.FULLSCREEN : IslandMode.PANEL}
+								mode={mode === IslandMode.MAXIMIZE ? IslandMode.MAXIMIZE : IslandMode.PANEL}
 								onModeChange={onModeChange}
 								onClose={() => {
-									if (mode === IslandMode.FULLSCREEN) {
+									if (mode === IslandMode.MAXIMIZE) {
 										onModeChange(IslandMode.FLOAT);
 									}
 								}}
@@ -398,7 +398,7 @@ export default function HomePage() {
 							>
 								<PanelRegion
 									width={typeof window !== "undefined" ? window.innerWidth : 1920}
-									isFullscreenMode={mode === IslandMode.FULLSCREEN}
+									isMaximizeMode={mode === IslandMode.MAXIMIZE}
 									isInPanelMode={false}
 									isDraggingPanelA={isDraggingPanelA}
 									isDraggingPanelC={isDraggingPanelC}

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
@@ -33,7 +33,17 @@ export function PanelSelectorMenu({
 	const { getAvailableFeatures } = useUiStore();
 	const t = useTranslations("bottomDock");
 
-	const availableFeatures = getAvailableFeatures();
+	// ✅ 修复：订阅 disabledFeatures 状态，确保与设置页面同步
+	// 使用 useMemo 确保当 disabledFeatures 变化时，可用功能列表会重新计算
+	const availableFeatures = useMemo(() => {
+		// 使用 getAvailableFeatures 来同步设置界面的开启/关闭状态
+		// 但是要确保settings始终包含（设置功能一定被包含的）
+		const baseAvailableFeatures = getAvailableFeatures();
+		const allAvailableFeatures: PanelFeature[] = baseAvailableFeatures.includes("settings")
+			? baseAvailableFeatures
+			: [...baseAvailableFeatures, "settings" as PanelFeature];
+		return allAvailableFeatures;
+	}, [getAvailableFeatures]);
 
 	// 点击外部关闭菜单
 	useEffect(() => {

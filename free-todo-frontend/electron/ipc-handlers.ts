@@ -187,8 +187,8 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		// 等待时间要大于透明度过渡时间（0.35s），确保透明度完全过渡完成，避免瞬闪
 		await new Promise((resolve) => setTimeout(resolve, 400));
 
-		// 从 PANEL/FULLSCREEN 模式切换到 FLOAT 模式：
-		// - currentBounds: 当前窗口尺寸（PANEL 或 FULLSCREEN）
+		// 从 PANEL/MAXIMIZE 模式切换到 FLOAT 模式：
+		// - currentBounds: 当前窗口尺寸（PANEL 或 MAXIMIZE）
 		// - originalBounds: FLOAT 模式的全屏尺寸（screenWidth x screenHeight）
 		// - 如果窗口是最大化状态，先取消最大化，然后平滑过渡到 FLOAT 尺寸
 		if (win.isMaximized()) {
@@ -222,7 +222,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		const win = windowManager.getWindow();
 		if (!win || !enableDynamicIsland) return;
 
-		// ✅ 修复 FULLSCREEN → PANEL：如果窗口是最大化状态，先恢复
+		// ✅ 修复 MAXIMIZE → PANEL：如果窗口是最大化状态，先恢复
 		if (win.isMaximized()) {
 			win.unmaximize();
 			// 等待窗口恢复完成（系统级动画通常很快，但需要等待）
@@ -256,8 +256,8 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			height: expandedHeight,
 		};
 
-		// ✅ 修复 FULLSCREEN → PANEL：先清理 FULLSCREEN 注入的 CSS
-		// 先注入覆盖 CSS，确保 FULLSCREEN 的样式被清理
+		// ✅ 修复 MAXIMIZE → PANEL：先清理 MAXIMIZE 注入的 CSS
+		// 先注入覆盖 CSS，确保 MAXIMIZE 的样式被清理
 		win.webContents
 			.insertCSS(`
 			html {
@@ -298,12 +298,12 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		win.setIgnoreMouseEvents(false);
 	});
 
-	// 展开窗口到全屏模式（FULLSCREEN 模式）
+	// 展开窗口到最大化模式（MAXIMIZE 模式）
 	ipcMain.handle("expand-window-full", async () => {
 		const win = windowManager.getWindow();
 		if (!win || !enableDynamicIsland) return;
 
-		// FULLSCREEN 模式改为使用「最大化」而不是固定宽高
+		// MAXIMIZE 模式改为使用「最大化」而不是固定宽高
 		// 这样更符合用户预期：占满屏幕，由操作系统负责过渡动画（更自然，不突兀）
 		// 固定窗口，不允许拖动和调整大小
 		win.setResizable(false);
@@ -316,10 +316,10 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			win.maximize();
 		}
 
-		// ✅ FULLSCREEN 模式下，移除圆角和透明背景，让前端通过 CSS 变量控制背景色
+		// ✅ MAXIMIZE 模式下，移除圆角和透明背景，让前端通过 CSS 变量控制背景色
 		// 注意：窗口背景色由前端通过 setWindowBackgroundColor 动态设置，不在这里硬编码
-		// FULLSCREEN 模式下不需要任何圆角或 clip-path，恢复为真正的全屏矩形窗口
-		// 这里重置 html/body/#__next 上的圆角样式，避免从 PANEL 切到 FULLSCREEN 时残留 16px 圆角
+		// MAXIMIZE 模式下不需要任何圆角或 clip-path，恢复为真正的最大化矩形窗口
+		// 这里重置 html/body/#__next 上的圆角样式，避免从 PANEL 切到 MAXIMIZE 时残留 16px 圆角
 		win.webContents
 			.insertCSS(`
 			html {
@@ -345,7 +345,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		`)
 			.catch(() => {});
 
-		// FULLSCREEN 下仍然保持窗口置顶，确保在所有窗口之上
+		// MAXIMIZE 下仍然保持窗口置顶，确保在所有窗口之上
 		win.setAlwaysOnTop(true);
 
 		// 禁用点击穿透
@@ -503,7 +503,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			win.setIgnoreMouseEvents(false);
 			// 确保窗口在最前面
 			win.focus();
-			logger.info("Window shown (fullscreen mode)");
+			logger.info("Window shown (maximize mode)");
 		}
 	});
 
@@ -516,7 +516,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 				win.setIgnoreMouseEvents(true, { forward: true });
 			}
 			win.hide();
-			logger.info("Window hidden (exit fullscreen mode)");
+			logger.info("Window hidden (exit maximize mode)");
 		}
 	});
 }

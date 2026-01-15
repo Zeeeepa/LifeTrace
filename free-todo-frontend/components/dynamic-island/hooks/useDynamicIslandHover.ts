@@ -13,6 +13,9 @@ interface UseDynamicIslandHoverOptions {
 	setIgnoreMouse: (ignore: boolean) => void;
 }
 
+// 全局变量：跟踪最后已知的鼠标位置（用于模式切换时立即检测）
+let lastKnownMousePosition: { x: number; y: number } | null = null;
+
 export function useDynamicIslandHover({
 	mode,
 	islandRef,
@@ -23,27 +26,35 @@ export function useDynamicIslandHover({
 
 	// 全局鼠标移动监听器：检测鼠标是否在灵动岛区域内
 	useEffect(() => {
-		// 只在 FLOAT 模式下运行，PANEL 和 FULLSCREEN 模式都不需要
+		// 只在 FLOAT 模式下运行，PANEL 和 MAXIMIZE 模式都不需要
 		if (
-			mode === IslandMode.FULLSCREEN ||
+			mode === IslandMode.MAXIMIZE ||
 			mode === IslandMode.PANEL ||
 			typeof window === "undefined"
 		)
 			return;
 
-		const handleGlobalMouseMove = (e: MouseEvent) => {
-			if (!islandRef.current) return;
+		const checkMousePosition = (clientX: number, clientY: number) => {
+			if (!islandRef.current) return false;
 
 			const rect = islandRef.current.getBoundingClientRect();
-			const { clientX, clientY } = e;
-
 			// 检查鼠标是否在灵动岛区域内（包括一些容差，避免边缘抖动）
 			const padding = 10; // 容差：10px
-			const isInside =
+			return (
 				clientX >= rect.left - padding &&
 				clientX <= rect.right + padding &&
 				clientY >= rect.top - padding &&
-				clientY <= rect.bottom + padding;
+				clientY <= rect.bottom + padding
+			);
+		};
+
+		const handleMousePositionUpdate = (clientX: number, clientY: number) => {
+			// 更新最后已知的鼠标位置
+			lastKnownMousePosition = { x: clientX, y: clientY };
+
+			if (!islandRef.current) return;
+
+			const isInside = checkMousePosition(clientX, clientY);
 
 			if (isInside && !isHovered) {
 				// 鼠标进入区域，展开
@@ -62,6 +73,23 @@ export function useDynamicIslandHover({
 			}
 		};
 
+		// ✅ 修复：模式切换到FLOAT时，检查最后已知的鼠标位置
+		// 如果鼠标已经在灵动岛区域内，立即禁用点击穿透
+		if (lastKnownMousePosition && islandRef.current) {
+			const isInside = checkMousePosition(
+				lastKnownMousePosition.x,
+				lastKnownMousePosition.y,
+			);
+			if (isInside) {
+				setIsHovered(true);
+				setIgnoreMouse(false);
+			}
+		}
+
+		const handleGlobalMouseMove = (e: MouseEvent) => {
+			handleMousePositionUpdate(e.clientX, e.clientY);
+		};
+
 		// 使用 requestAnimationFrame 优化性能
 		let rafId: number | null = null;
 		const throttledHandleMouseMove = (e: MouseEvent) => {
@@ -72,11 +100,17 @@ export function useDynamicIslandHover({
 			});
 		};
 
+		// 同时监听 pointermove 和 mousemove，确保即使鼠标不动也能检测到位置
+		// pointermove 在某些情况下比 mousemove 更可靠
+		window.addEventListener("pointermove", handleGlobalMouseMove, {
+			passive: true,
+		});
 		window.addEventListener("mousemove", throttledHandleMouseMove, {
 			passive: true,
 		});
 
 		return () => {
+			window.removeEventListener("pointermove", handleGlobalMouseMove);
 			window.removeEventListener("mousemove", throttledHandleMouseMove);
 			if (rafId) {
 				cancelAnimationFrame(rafId);
