@@ -31,6 +31,7 @@ export interface FloatContentProps {
 	isRecording?: boolean;
 	isPaused?: boolean;
 	onOpenPanel?: () => void;
+	isCapturing?: boolean;
 }
 
 /**
@@ -46,6 +47,7 @@ export function FloatContent({
 	isRecording = false,
 	isPaused: _isPaused = false,
 	onOpenPanel,
+	isCapturing = false,
 }: FloatContentProps) {
 	const t = useTranslations("dynamicIsland");
 	const { showPanel } = useDynamicIslandStore();
@@ -122,23 +124,25 @@ export function FloatContent({
 				role="button"
 				tabIndex={0}
 				title={
-					screenshotEnabled
-						? t("screenshotEnabled")
-						: t("screenshotDisabled")
+					isCapturing !== undefined && isCapturing
+						? "正在提取待办..."
+						: "点击截图并提取待办事项"
 				}
 			>
 				<Camera
 					size={18}
 					strokeWidth={2.5}
 					className={
-						screenshotEnabled
-							? "text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)] transition-all hover:scale-110"
-							: "text-green-400/60 drop-shadow-[0_0_4px_rgba(34,197,94,0.2)] transition-all hover:scale-110"
+						isCapturing
+							? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.4)] transition-all animate-pulse"
+							: screenshotEnabled
+								? "text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.4)] transition-all hover:scale-110"
+								: "text-green-400/60 drop-shadow-[0_0_4px_rgba(34,197,94,0.2)] transition-all hover:scale-110"
 					}
 				/>
-				{screenshotEnabled && (
+				{isCapturing && (
 					<motion.div
-						className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full"
+						className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-500 rounded-full"
 						animate={{ scale: [1, 1.2, 1], opacity: [1, 0.7, 1] }}
 						transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
 					/>

@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { useConfig, useSaveConfig } from "@/lib/query";
+import { useTodoCapture } from "@/lib/hooks/useTodoCapture";
 import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { isElectronEnvironment } from "@/lib/utils/electron";
@@ -99,9 +99,8 @@ export function DynamicIsland({
 	const currentTheme = theme === "system" ? systemTheme : theme;
 	const isDark = currentTheme === "dark";
 
-	const { data: config } = useConfig();
-	const saveConfigMutation = useSaveConfig();
-	const recorderEnabled = config?.jobsRecorderEnabled ?? false;
+	// 待办提取相关状态
+	const { isCapturing, captureAndExtract } = useTodoCapture();
 
 	// 获取通知和 Electron 环境状态
 	const { currentNotification } = useNotificationStore();
@@ -210,15 +209,11 @@ export function DynamicIsland({
 	}, [mode, onClose, onModeChange]);
 
 
-	const handleToggleScreenshot = useCallback(async () => {
-		try {
-			await saveConfigMutation.mutateAsync({
-				data: { jobsRecorderEnabled: !recorderEnabled },
-			});
-		} catch (error) {
-			console.error("[DynamicIsland] toggle screenshot failed", error);
-		}
-	}, [recorderEnabled, saveConfigMutation]);
+	// 处理截图并提取待办（直接创建，不显示模态框）
+	const handleCaptureAndExtract = useCallback(async () => {
+		await captureAndExtract();
+		// 待办已由后端直接创建为 draft 状态，前端只需显示成功消息
+	}, [captureAndExtract]);
 
 	const handleOpenContextMenu = useCallback(
 		(event: React.MouseEvent) => {
@@ -458,8 +453,9 @@ export function DynamicIsland({
 								<FloatContent
 								onToggleRecording={handleToggleRecording}
 								onStopRecording={handleStopRecording}
-								onScreenshot={handleToggleScreenshot}
-								screenshotEnabled={recorderEnabled}
+								onScreenshot={handleCaptureAndExtract}
+								screenshotEnabled={!isCapturing}
+								isCapturing={isCapturing}
 								// 所有模式都根据 isHovered 决定展开/收起
 								isCollapsed={!isHovered}
 								isRecording={isRecording}

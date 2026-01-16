@@ -107,9 +107,9 @@ export function setBackendUrl(url: string): void {
 /**
  * 获取后端服务器 URL
  */
-function getBackendUrl(): string {
+export function getBackendUrl(): string {
 	return backendUrl;
-	}
+}
 
 	/**
  * 启动 Next.js 服务器（支持动态端口）

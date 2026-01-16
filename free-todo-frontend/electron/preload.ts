@@ -185,4 +185,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setWindowBackgroundColor: (color: string) => {
 		ipcRenderer.send("set-window-background-color", color);
 	},
+
+	/**
+	 * 截图并提取待办事项
+	 */
+	captureAndExtractTodos: async (): Promise<{
+		success: boolean;
+		message: string;
+		extractedTodos: Array<{
+			title: string;
+			description?: string;
+			time_info?: Record<string, unknown>;
+			source_text?: string;
+			confidence: number;
+		}>;
+		createdCount: number;
+	}> => {
+		return await ipcRenderer.invoke("capture-and-extract-todos");
+	},
 });

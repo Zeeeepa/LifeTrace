@@ -14,6 +14,18 @@ export type ElectronAPI = typeof window & {
 		resizeWindow?: (dx: number, dy: number, pos: string) => void;
 		quit?: () => void;
 		setWindowBackgroundColor?: (color: string) => void;
+		captureAndExtractTodos?: () => Promise<{
+			success: boolean;
+			message: string;
+			extractedTodos: Array<{
+				title: string;
+				description?: string;
+				time_info?: Record<string, unknown>;
+				source_text?: string;
+				confidence: number;
+			}>;
+			createdCount: number;
+		}>;
 	};
 	require?: (module: string) => {
 		ipcRenderer?: { send: (...args: unknown[]) => void };

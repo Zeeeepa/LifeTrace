@@ -5,6 +5,7 @@
 
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { enableDynamicIsland } from "./config";
+import { setupTodoCaptureIpcHandlers } from "./ipc-handlers-todo-capture";
 import { logger } from "./logger";
 import {
 	type NotificationData,
@@ -519,4 +520,8 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 			logger.info("Window hidden (exit maximize mode)");
 		}
 	});
+
+	// ========== 待办提取相关 IPC 处理器 ==========
+	// 已提取到 ipc-handlers-todo-capture.ts 以保持文件大小
+	setupTodoCaptureIpcHandlers(windowManager);
 }

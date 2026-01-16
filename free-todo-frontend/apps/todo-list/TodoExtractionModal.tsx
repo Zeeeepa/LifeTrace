@@ -13,7 +13,7 @@ interface TodoExtractionModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	todos: ExtractedTodo[];
-	eventId: number;
+	eventId?: number; // 可选，手动截图可能没有 event_id
 	appName?: string | null;
 }
 
@@ -61,12 +61,18 @@ export function TodoExtractionModal({
 		const createPromises = Array.from(selectedTodos).map(async (index) => {
 			const todo = todos[index];
 			try {
+				const userNotesParts = [
+					todo.source_text ? `${t("source")}: ${todo.source_text}` : "",
+					todo.time_info?.raw_text ? `${t("time")}: ${todo.time_info.raw_text}` : "",
+					eventId !== undefined ? `${t("eventId")}: ${eventId}` : "",
+				].filter(Boolean);
+
 				const todoInput: CreateTodoInput = {
 					name: todo.title,
-					description: todo.description || todo.source_text,
+					description: todo.description || todo.source_text || undefined,
 					deadline: todo.scheduled_time || undefined,
 					tags: [t("autoExtracted")],
-					userNotes: `${t("source")}: ${todo.source_text}\n${t("time")}: ${todo.time_info.raw_text}\n${t("eventId")}: ${eventId}`,
+					userNotes: userNotesParts.length > 0 ? userNotesParts.join("\n") : undefined,
 				};
 
 				await createTodoMutation.mutateAsync(todoInput);
@@ -138,7 +144,12 @@ export function TodoExtractionModal({
 						<h2 className="text-lg font-semibold">{t("modalTitle")}</h2>
 						{appName && (
 							<p className="text-sm text-muted-foreground mt-1">
-								事件 #{eventId} - {appName}
+								{eventId !== undefined ? `事件 #${eventId} - ` : ""}{appName}
+							</p>
+						)}
+						{!appName && eventId !== undefined && (
+							<p className="text-sm text-muted-foreground mt-1">
+								事件 #{eventId}
 							</p>
 						)}
 					</div>
