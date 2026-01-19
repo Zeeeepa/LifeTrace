@@ -12,6 +12,7 @@ import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContent } from "@/components/layout/PanelContent";
 import { GlobalDndProvider } from "@/lib/dnd";
 import { IslandMode } from "@/lib/island/types";
+import { type DockDisplayMode, useUiStore } from "@/lib/store/ui-store";
 
 interface IslandSidebarContentProps {
   onModeChange: (mode: IslandMode) => void;
@@ -20,10 +21,28 @@ interface IslandSidebarContentProps {
 export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const { isPanelAOpen, dockDisplayMode, setDockDisplayMode } = useUiStore();
+  const previousDockModeRef = useRef<DockDisplayMode | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    // Save current dock mode only on first mount (when ref is null)
+    if (previousDockModeRef.current === null) {
+      previousDockModeRef.current = dockDisplayMode;
+    }
+    // Force dock to be always visible in Island sidebar mode
+    setDockDisplayMode("fixed");
+
+    // Restore previous dock mode on unmount
+    return () => {
+      if (previousDockModeRef.current !== null) {
+        setDockDisplayMode(previousDockModeRef.current);
+      }
+    };
+  }, [dockDisplayMode, setDockDisplayMode]);
 
   if (!mounted) {
     return (
@@ -45,7 +64,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
 
         {/* 单栏面板内容 - 使用 Panel A 的位置 */}
         <div className="flex-1 min-h-0 overflow-hidden p-2">
-          <PanelContent position="panelA" />
+          {isPanelAOpen && <PanelContent position="panelA" />}
         </div>
 
         {/* 底部 Dock - 用于切换面板 */}
