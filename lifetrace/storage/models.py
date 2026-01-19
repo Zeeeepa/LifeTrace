@@ -301,6 +301,11 @@ class AudioRecording(TimestampMixin, table=True):
     end_time: datetime | None = None  # 结束时间
     status: str = Field(default="recording", max_length=20)  # 状态：recording, completed, failed
     is_24x7: bool = False  # 是否为7x24小时录制
+    is_transcribed: bool = False  # 是否已完成转录
+    is_extracted: bool = False  # 是否已完成待办/日程提取
+    is_summarized: bool = False  # 是否已完成摘要
+    is_full_audio: bool = False  # 是否为完整音频
+    is_segment_audio: bool = False  # 是否为分段音频（用于句子级回放/定位）
     transcription_status: str = Field(
         default="pending", max_length=20
     )  # 转录状态：pending, processing, completed, failed

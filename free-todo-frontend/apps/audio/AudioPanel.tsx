@@ -1,50 +1,50 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { AudioHeader } from "./components/AudioHeader";
-import { AudioList } from "./components/AudioList";
 import { AudioPlayer } from "./components/AudioPlayer";
 import { RecordingStatus } from "./components/RecordingStatus";
 import { TranscriptionView } from "./components/TranscriptionView";
 import { useAudioRecording } from "./hooks/useAudioRecording";
-
-interface AudioRecording {
-	id: number;
-	date: string;
-	time: string;
-	duration: string;
-	size: string;
-	isCurrent?: boolean;
-}
 
 export function AudioPanel() {
 	const t = useTranslations("page");
 	const [is24x7Enabled, setIs24x7Enabled] = useState(true);
 	const [activeTab, setActiveTab] = useState<"original" | "optimized">("original");
 	const [transcriptionText, setTranscriptionText] = useState("");
+	const [partialText, setPartialText] = useState("");
 	const [optimizedText, setOptimizedText] = useState("");
-	const [audioList, setAudioList] = useState<AudioRecording[]>([]);
 	const [selectedDate, setSelectedDate] = useState(new Date());
 	const [selectedRecordingId, setSelectedRecordingId] = useState<number | null>(null);
 	const [todos, setTodos] = useState<Array<{ title: string; description?: string; deadline?: string }>>([]);
 	const [schedules, setSchedules] = useState<Array<{ title: string; time?: string; description?: string }>>([]);
 
 	const { isRecording, startRecording, stopRecording } = useAudioRecording();
+	const audioRef = useRef<HTMLAudioElement | null>(null);
+	const [isPlaying, setIsPlaying] = useState(false);
+	const [currentTime, setCurrentTime] = useState(0);
+	const [duration, setDuration] = useState(0);
 
-	const loadRecordings = useCallback(async () => {
+	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
 		try {
 			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 			const dateStr = selectedDate.toISOString().split("T")[0];
 			const response = await fetch(`${apiBaseUrl}/api/audio/recordings?date=${dateStr}`);
 			const data = await response.json();
 			if (data.recordings) {
-				setAudioList(data.recordings);
-				// 自动选择第一个录音
-				if (data.recordings.length > 0 && !selectedRecordingId) {
-					setSelectedRecordingId(data.recordings[0].id);
+				const recordings: Array<{ id: number }> = data.recordings;
+				if (recordings.length > 0) {
+					// 默认：如果未选中则选第一个；停止录音后：强制选最新一个
+					if (opts?.forceSelectLatest) {
+						setSelectedRecordingId(recordings[recordings.length - 1].id);
+					} else if (!selectedRecordingId) {
+						setSelectedRecordingId(recordings[0].id);
+					}
+				} else if (opts?.forceSelectLatest) {
+					setSelectedRecordingId(null);
 				}
 			}
 		} catch (error) {
@@ -111,23 +111,32 @@ export function AudioPanel() {
 	const handleToggleRecording = async () => {
 		if (isRecording) {
 			stopRecording();
+			// 停止后后端才会落库录音记录：稍等一下再刷新列表并选中最新录音，确保播放器出现
+			setTimeout(() => {
+				loadRecordings({ forceSelectLatest: true });
+			}, 600);
 		} else {
+			// 重置文本
+			setTranscriptionText("");
+			setPartialText("");
+			setOptimizedText("");
 			await startRecording(
 				(text, isFinal) => {
-					// 自动分段：如果是句子结束，添加换行符
+					// 规则：
+					// - final=false：作为“未完成文本”斜体显示（不落盘）
+					// - final=true：替换掉未完成文本，并把最终句追加到正文
 					if (isFinal) {
-						setTranscriptionText((prev) => {
-							// 如果上一段没有换行符，添加换行
-							const lastChar = prev.slice(-1);
-							if (lastChar && !["\n", "。", "！", "？", ".", "!", "?"].includes(lastChar)) {
-								return `${prev}${text}\n`;
-							}
-							return `${prev}${text}\n`;
-						});
-						// 注意：优化和提取会在后端自动进行，不需要前端手动触发
+						setTranscriptionText((prev) => `${prev}${text}\n`);
+						setPartialText("");
 					} else {
-						setTranscriptionText((prev) => prev + text);
+						setPartialText(text);
 					}
+				},
+				(data) => {
+					// 录制中实时优化/提取推送
+					if (typeof data.optimizedText === "string") setOptimizedText(data.optimizedText);
+					if (Array.isArray(data.todos)) setTodos(data.todos);
+					if (Array.isArray(data.schedules)) setSchedules(data.schedules);
 				},
 				(error) => {
 					console.error("Recording error:", error);
@@ -154,6 +163,56 @@ export function AudioPanel() {
 
 	const Icon = FEATURE_ICON_MAP.audio;
 
+	const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
+
+	const handlePlayFromTranscription = useCallback(() => {
+		if (!selectedRecordingId) return;
+		const audioUrl = `${apiBaseUrl}/api/audio/recording/${selectedRecordingId}/file`;
+		if (!audioRef.current) {
+			const audio = new Audio(audioUrl);
+			audio.addEventListener("loadedmetadata", () => {
+				setDuration(audio.duration);
+			});
+			audio.addEventListener("timeupdate", () => {
+				setCurrentTime(audio.currentTime);
+			});
+			audio.addEventListener("ended", () => {
+				setIsPlaying(false);
+				setCurrentTime(0);
+			});
+			audio.addEventListener("play", () => setIsPlaying(true));
+			audio.addEventListener("pause", () => setIsPlaying(false));
+			audioRef.current = audio;
+		} else if (audioRef.current.src !== audioUrl) {
+			audioRef.current.src = audioUrl;
+			audioRef.current.load();
+		}
+
+		if (audioRef.current.paused) {
+			audioRef.current.play().catch((e) => console.error("Failed to play audio:", e));
+		} else {
+			audioRef.current.pause();
+		}
+	}, [apiBaseUrl, selectedRecordingId]);
+
+	const handlePlayPause = useCallback(() => {
+		if (!audioRef.current) {
+			handlePlayFromTranscription();
+		} else {
+			if (audioRef.current.paused) {
+				audioRef.current.play().catch((e) => console.error("Failed to play audio:", e));
+			} else {
+				audioRef.current.pause();
+			}
+		}
+	}, [handlePlayFromTranscription]);
+
+	const formatTime = useCallback((seconds: number) => {
+		const mins = Math.floor(seconds / 60);
+		const secs = Math.floor(seconds % 60);
+		return `${mins}:${secs.toString().padStart(2, "0")}`;
+	}, []);
+
 	return (
 		<div className="flex h-full flex-col bg-[oklch(var(--background))] overflow-hidden">
 			<PanelHeader icon={Icon} title={t("audioLabel")} />
@@ -178,14 +237,16 @@ export function AudioPanel() {
 				</label>
 			</div>
 
-			{/* 转录内容区域 */}
+			{/* 转录内容区域（回看模式下点击即可播放对应录音） */}
 			<TranscriptionView
 				originalText={transcriptionText}
+				partialText={isRecording ? partialText : ""}
 				optimizedText={optimizedText}
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
 				todos={todos}
 				schedules={schedules}
+				onContentClick={isRecording ? undefined : handlePlayFromTranscription}
 			/>
 
 			{/* 底部：根据录音状态切换显示 */}
@@ -193,21 +254,17 @@ export function AudioPanel() {
 				/* 录音模式：显示录音状态指示器 */
 				<RecordingStatus isRecording={isRecording} />
 			) : (
-				/* 回看模式：显示音频列表和播放器 */
-				<div className="border-t border-[oklch(var(--border))] bg-[oklch(var(--muted))]/30">
-					<AudioList
-						recordings={audioList}
-						onPlay={(id) => {
-							setSelectedRecordingId(id);
-							loadTranscription(id);
-						}}
-					/>
-
+				/* 回看模式：显示播放器 */
+				selectedRecordingId && (
 					<AudioPlayer
 						title={formatDate(selectedDate)}
-						date={`${formatFullDate(selectedDate)} 00:00`}
+						date={formatFullDate(selectedDate)}
+						currentTime={formatTime(currentTime)}
+						totalTime={formatTime(duration)}
+						isPlaying={isPlaying}
+						onPlay={handlePlayPause}
 					/>
-				</div>
+				)
 			)}
 		</div>
 	);

@@ -1,6 +1,7 @@
 "use client";
 
 import { Calendar, ChevronLeft, ChevronRight, Download, Edit, Mic, Upload } from "lucide-react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 
 interface AudioHeaderProps {
@@ -22,6 +23,8 @@ export function AudioHeader({
 	onExport,
 	onUpload,
 }: AudioHeaderProps) {
+	const dateInputRef = useRef<HTMLInputElement | null>(null);
+
 	const formatDate = (date: Date) => {
 		const month = date.getMonth() + 1;
 		const day = date.getDate();
@@ -41,12 +44,28 @@ export function AudioHeader({
 	};
 
 	const handleToday = () => {
-		onDateChange(new Date());
+		// 点击“今天”弹出日历选择器（同时可快速选回今天）
+		if (dateInputRef.current) {
+			dateInputRef.current.showPicker?.();
+			dateInputRef.current.click();
+		} else {
+			onDateChange(new Date());
+		}
 	};
 
 	return (
 		<div className="flex items-center justify-between px-4 py-3 border-b border-[oklch(var(--border))]">
 			<div className="flex items-center gap-2">
+				<input
+					ref={dateInputRef}
+					type="date"
+					className="sr-only"
+					value={selectedDate.toISOString().slice(0, 10)}
+					onChange={(e) => {
+						const v = e.target.value; // YYYY-MM-DD
+						if (v) onDateChange(new Date(`${v}T00:00:00`));
+					}}
+				/>
 				<button
 					type="button"
 					className="p-1.5 rounded hover:bg-[oklch(var(--muted))] transition-colors"
@@ -56,7 +75,7 @@ export function AudioHeader({
 				</button>
 				<button
 					type="button"
-					className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-[oklch(var(--muted))] transition-colors"
+					className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-[oklch(var(--muted))] transition-colors mt-1"
 					onClick={handleToday}
 				>
 					<Calendar className="h-4 w-4" />

@@ -113,6 +113,7 @@ class ASRClient:
         task_started_ref: list[bool],
     ) -> bool:
         """处理ASR事件，返回是否应该继续"""
+        logger.debug(f"ASR event received: {event}, data keys: {list(data.keys())}")
         if event == "task-started":
             task_started_ref[0] = True
             logger.info("ASR任务已启动")
@@ -123,6 +124,8 @@ class ASRClient:
             sentence = output.get("sentence", {})
             text = sentence.get("text", "")
             is_final = sentence.get("sentence_end", False)
+            if text:
+                logger.info(f"ASR partial result: {text} (final={is_final})")
             if text and on_result:
                 on_result(text, is_final)
             return True

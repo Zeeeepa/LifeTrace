@@ -3,9 +3,11 @@
 import asyncio
 import json
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from lifetrace.services.asr_client import ASRClient
 from lifetrace.services.audio_service import AudioService
@@ -54,6 +56,95 @@ def _create_result_callback(
                 logger.debug(f"Failed to send result to client (connection may be closed): {e}")
 
     return on_result
+
+
+def _create_realtime_nlp_handler(  # noqa: C901, PLR0915
+    websocket: WebSocket,
+    is_connected_ref: list[bool],
+    *,
+    throttle_seconds: float = 8.0,
+):
+    """
+    录制中实时优化/提取（仅对 final=true 的新句子累加，节流触发）。
+
+    推送事件：
+    - OptimizedTextChanged: payload { text }
+    - ExtractionChanged: payload { todos, schedules }
+    """
+
+    class _RealtimeNlpThrottler:
+        def __init__(self):
+            self._buffer = ""
+            self._last_emit = 0.0
+            self._pending: asyncio.Task | None = None
+
+        async def _send(self, name: str, payload: dict[str, Any]) -> None:
+            try:
+                if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+                    await websocket.send_json({"header": {"name": name}, "payload": payload})
+            except Exception as e:
+                is_connected_ref[0] = False
+                logger.debug(f"Failed to send {name} (connection may be closed): {e}")
+
+        async def _compute(self, text_snapshot: str) -> tuple[str, dict[str, Any]]:
+            optimized = text_snapshot
+            extracted: dict[str, Any] = {"todos": [], "schedules": []}
+            try:
+                optimized = await audio_service.optimize_transcription_text(text_snapshot)
+            except Exception as e:
+                logger.error(f"实时优化失败: {e}")
+            try:
+                extracted = await audio_service.extract_todos_and_schedules(text_snapshot)
+            except Exception as e:
+                logger.error(f"实时提取失败: {e}")
+            return optimized, extracted
+
+        async def _run_once(self) -> None:
+            text_snapshot = self._buffer.strip()
+            if not text_snapshot:
+                return
+            optimized, extracted = await self._compute(text_snapshot)
+            await self._send("OptimizedTextChanged", {"text": optimized})
+            await self._send(
+                "ExtractionChanged",
+                {
+                    "todos": extracted.get("todos", []),
+                    "schedules": extracted.get("schedules", []),
+                },
+            )
+
+        async def _debounced_run(self, delay: float) -> None:
+            try:
+                await asyncio.sleep(delay)
+                await self._run_once()
+            finally:
+                self._pending = None
+
+        def on_final_sentence(self, text: str) -> None:
+            if not text:
+                return
+            if self._buffer:
+                self._buffer += "\n"
+            self._buffer += text.strip()
+
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self._last_emit
+            if elapsed >= throttle_seconds:
+                self._last_emit = now
+                asyncio.create_task(self._run_once())
+                return
+
+            if self._pending is None:
+                delay = max(0.0, throttle_seconds - elapsed)
+                self._pending = asyncio.create_task(self._debounced_run(delay))
+
+        def cancel(self) -> None:
+            if self._pending and not self._pending.done():
+                self._pending.cancel()
+            self._pending = None
+
+    throttler = _RealtimeNlpThrottler()
+    return throttler.on_final_sentence, throttler.cancel
 
 
 def _create_error_callback(websocket: WebSocket, is_connected_ref: list[bool]):
@@ -119,15 +210,19 @@ async def _audio_stream_generator(websocket: WebSocket, audio_chunks: list[bytes
 
 
 @router.websocket("/transcribe")
-async def websocket_transcribe(websocket: WebSocket):
+async def websocket_transcribe(websocket: WebSocket):  # noqa: C901, PLR0915
     """WebSocket接口，用于实时语音转录"""
     await websocket.accept()
     logger.info("WebSocket client connected")
 
     recording_id: int | None = None
+    recording_started_at: datetime | None = None
     transcription_text_ref: list[str] = [""]
     audio_chunks: list[bytes] = []
     is_connected_ref: list[bool] = [True]  # 连接状态标志
+    on_final_sentence, cancel_realtime_nlp = _create_realtime_nlp_handler(
+        websocket, is_connected_ref, throttle_seconds=8.0
+    )
 
     try:
         # 接收初始化消息（支持两种格式）
@@ -136,12 +231,24 @@ async def websocket_transcribe(websocket: WebSocket):
         # 支持 { type: "start", is_24x7: ... } 或 { is_24x7: ... }
         _is_24x7 = init_message.get("is_24x7", False)  # 保留用于未来扩展
 
+        # 记录开始时间用于计算时长
+        recording_started_at = datetime.utcnow()
+
         # 创建录音记录
         # TODO: 实际应该从上传的音频文件创建记录
         # 这里暂时跳过，实际实现时需要先上传音频文件
 
         # 创建回调函数
-        on_result = _create_result_callback(websocket, transcription_text_ref, is_connected_ref)
+        on_result_base = _create_result_callback(
+            websocket, transcription_text_ref, is_connected_ref
+        )
+
+        def on_result(text: str, is_final: bool):
+            on_result_base(text, is_final)
+            # 录制中：只在 final=true 时触发实时优化/提取
+            if is_final:
+                on_final_sentence(text)
+
         on_error = _create_error_callback(websocket, is_connected_ref)
 
         # 启动ASR转录
@@ -150,6 +257,31 @@ async def websocket_transcribe(websocket: WebSocket):
             on_result=on_result,
             on_error=on_error,
         )
+
+        # 在流结束后持久化录音文件，并创建/更新录音记录
+        if audio_chunks and recording_started_at:
+            try:
+                file_bytes = b"".join(audio_chunks)
+                duration = (datetime.utcnow() - recording_started_at).total_seconds()
+                file_path = audio_service.generate_audio_file_path(
+                    recording_started_at, filename=f"{recording_started_at.strftime('%H%M%S')}.webm"
+                )
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_bytes(file_bytes)
+
+                # 如果尚未有记录，则创建
+                if not recording_id:
+                    recording_id = audio_service.create_recording(
+                        file_path=str(file_path),
+                        file_size=len(file_bytes),
+                        duration=duration,
+                        is_24x7=_is_24x7,
+                    )
+                # 标记录音完成
+                if recording_id:
+                    audio_service.complete_recording(recording_id)
+            except Exception as e:
+                logger.error(f"Failed to save recording file: {e}")
 
         # 转录完成后保存（自动优化和提取）
         if transcription_text_ref[0] and recording_id:
@@ -179,6 +311,7 @@ async def websocket_transcribe(websocket: WebSocket):
     finally:
         # 确保连接状态标志被设置为False
         is_connected_ref[0] = False
+        cancel_realtime_nlp()
 
 
 @router.get("/recordings")
@@ -224,6 +357,27 @@ async def get_recordings(date: str | None = Query(None)):
         return JSONResponse({"recordings": result})
     except Exception as e:
         logger.error(f"获取录音列表失败: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.get("/recording/{recording_id}/file")
+async def get_recording_file(recording_id: int):
+    """获取录音文件（用于前端播放）"""
+    try:
+        from lifetrace.storage import get_session
+        from lifetrace.storage.models import AudioRecording
+
+        with get_session() as session:
+            rec = session.get(AudioRecording, recording_id)
+            if not rec or not rec.file_path:
+                return JSONResponse({"error": "录音不存在"}, status_code=404)
+            return FileResponse(
+                path=rec.file_path,
+                media_type="audio/webm",
+                filename=Path(rec.file_path).name,
+            )
+    except Exception as e:
+        logger.error(f"获取录音文件失败: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 

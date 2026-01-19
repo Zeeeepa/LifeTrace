@@ -72,7 +72,7 @@ class AudioService:
         file_size: int,
         duration: float,
         is_24x7: bool = False,
-    ) -> AudioRecording:
+    ) -> int:
         """创建录音记录
 
         Args:
@@ -84,6 +84,10 @@ class AudioService:
         Returns:
             创建的AudioRecording对象
         """
+        # 注意：不要把 ORM 实例（AudioRecording）跨 session 返回到路由层；
+        # SQLAlchemy 默认会在 commit 后过期属性，session 关闭后再访问会触发 refresh，
+        # 从而报 “Instance ... is not bound to a Session”。
+        # 这里只返回 recording_id，路由层需要对象时再用新的 session 查询。
         with get_session() as session:
             recording = AudioRecording(
                 file_path=file_path,
@@ -92,12 +96,17 @@ class AudioService:
                 start_time=datetime.utcnow(),
                 status="recording",
                 is_24x7=is_24x7,
+                is_transcribed=False,
+                is_extracted=False,
+                is_summarized=False,
+                is_full_audio=False,
+                is_segment_audio=False,
                 transcription_status="pending",
             )
             session.add(recording)
             session.commit()
             session.refresh(recording)
-            return recording
+            return int(recording.id)
 
     def complete_recording(self, recording_id: int) -> AudioRecording | None:
         """完成录音

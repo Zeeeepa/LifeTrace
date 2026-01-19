@@ -59,6 +59,11 @@ def fix_audio_recordings_table():
             "end_time": "DATETIME",
             "status": "VARCHAR(20)",
             "is_24x7": "BOOLEAN",
+            "is_transcribed": "BOOLEAN",
+            "is_extracted": "BOOLEAN",
+            "is_summarized": "BOOLEAN",
+            "is_full_audio": "BOOLEAN",
+            "is_segment_audio": "BOOLEAN",
             "transcription_status": "VARCHAR(20)",
             "created_at": "DATETIME",
             "updated_at": "DATETIME",
@@ -82,6 +87,21 @@ def fix_audio_recordings_table():
             cursor.execute("UPDATE audio_recordings SET duration = 0 WHERE duration IS NULL")
             cursor.execute("UPDATE audio_recordings SET status = 'recording' WHERE status IS NULL")
             cursor.execute("UPDATE audio_recordings SET is_24x7 = 0 WHERE is_24x7 IS NULL")
+            cursor.execute(
+                "UPDATE audio_recordings SET is_transcribed = 0 WHERE is_transcribed IS NULL"
+            )
+            cursor.execute(
+                "UPDATE audio_recordings SET is_extracted = 0 WHERE is_extracted IS NULL"
+            )
+            cursor.execute(
+                "UPDATE audio_recordings SET is_summarized = 0 WHERE is_summarized IS NULL"
+            )
+            cursor.execute(
+                "UPDATE audio_recordings SET is_full_audio = 0 WHERE is_full_audio IS NULL"
+            )
+            cursor.execute(
+                "UPDATE audio_recordings SET is_segment_audio = 0 WHERE is_segment_audio IS NULL"
+            )
             cursor.execute(
                 "UPDATE audio_recordings SET transcription_status = 'pending' WHERE transcription_status IS NULL"
             )

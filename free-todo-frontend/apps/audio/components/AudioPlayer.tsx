@@ -1,24 +1,25 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 
 interface AudioPlayerProps {
 	title: string;
 	date: string;
 	currentTime?: string;
 	totalTime?: string;
+	isPlaying?: boolean;
 	onPlay?: () => void;
 }
 
-export function AudioPlayer({ title, date, currentTime = "0:00", totalTime = "0:00", onPlay }: AudioPlayerProps) {
+export function AudioPlayer({ title, date, currentTime = "0:00", totalTime = "0:00", isPlaying = false, onPlay }: AudioPlayerProps) {
 	return (
-		<div className="px-4 py-2 flex items-center gap-3">
+		<div className="px-4 py-2 flex items-center gap-3 border-t border-[oklch(var(--border))] bg-[oklch(var(--muted))]/30">
 			<button
 				type="button"
 				className="p-1.5 rounded-full bg-[oklch(var(--primary))] text-white hover:bg-[oklch(var(--primary-hover))]"
 				onClick={onPlay}
 			>
-				<Play className="h-4 w-4" />
+				{isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
 			</button>
 			<div className="flex-1">
 				<div className="text-xs font-medium">{title}</div>

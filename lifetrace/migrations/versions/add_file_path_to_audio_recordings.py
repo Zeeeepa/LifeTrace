@@ -41,6 +41,9 @@ def upgrade() -> None:
             sa.Column("end_time", sa.DateTime(), nullable=True),
             sa.Column("status", sa.String(length=20), nullable=False, server_default="recording"),
             sa.Column("is_24x7", sa.Boolean(), nullable=False, server_default="0"),
+            sa.Column("is_transcribed", sa.Boolean(), nullable=False, server_default="0"),
+            sa.Column("is_extracted", sa.Boolean(), nullable=False, server_default="0"),
+            sa.Column("is_summarized", sa.Boolean(), nullable=False, server_default="0"),
             sa.Column(
                 "transcription_status",
                 sa.String(length=20),
@@ -64,6 +67,13 @@ def upgrade() -> None:
             "status", sa.String(length=20), nullable=True, server_default="recording"
         ),
         "is_24x7": sa.Column("is_24x7", sa.Boolean(), nullable=True, server_default="0"),
+        "is_transcribed": sa.Column(
+            "is_transcribed", sa.Boolean(), nullable=True, server_default="0"
+        ),
+        "is_extracted": sa.Column("is_extracted", sa.Boolean(), nullable=True, server_default="0"),
+        "is_summarized": sa.Column(
+            "is_summarized", sa.Boolean(), nullable=True, server_default="0"
+        ),
         "transcription_status": sa.Column(
             "transcription_status", sa.String(length=20), nullable=True, server_default="pending"
         ),
@@ -83,6 +93,9 @@ def upgrade() -> None:
     op.execute("UPDATE audio_recordings SET duration = 0 WHERE duration IS NULL")
     op.execute("UPDATE audio_recordings SET status = 'recording' WHERE status IS NULL")
     op.execute("UPDATE audio_recordings SET is_24x7 = 0 WHERE is_24x7 IS NULL")
+    op.execute("UPDATE audio_recordings SET is_transcribed = 0 WHERE is_transcribed IS NULL")
+    op.execute("UPDATE audio_recordings SET is_extracted = 0 WHERE is_extracted IS NULL")
+    op.execute("UPDATE audio_recordings SET is_summarized = 0 WHERE is_summarized IS NULL")
     op.execute(
         "UPDATE audio_recordings SET transcription_status = 'pending' WHERE transcription_status IS NULL"
     )

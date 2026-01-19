@@ -6,10 +6,12 @@ import { cn } from "@/lib/utils";
 interface TranscriptionViewProps {
 	originalText: string;
 	optimizedText: string;
+	partialText?: string;
 	activeTab: "original" | "optimized";
 	onTabChange: (tab: "original" | "optimized") => void;
 	todos?: Array<{ title: string; description?: string; deadline?: string }>;
 	schedules?: Array<{ title: string; time?: string; description?: string }>;
+	onContentClick?: () => void;
 }
 
 interface TextSegment {
@@ -20,10 +22,12 @@ interface TextSegment {
 export function TranscriptionView({
 	originalText,
 	optimizedText,
+	partialText = "",
 	activeTab,
 	onTabChange,
 	todos = [],
 	schedules = [],
+	onContentClick,
 }: TranscriptionViewProps) {
 	const transcriptionRef = useRef<HTMLDivElement>(null);
 
@@ -120,7 +124,7 @@ export function TranscriptionView({
 	});
 
 	const currentText = activeTab === "original" ? originalText : optimizedText;
-	const hasContent = currentText.length > 0;
+	const hasContent = currentText.length > 0 || (activeTab === "original" && partialText.length > 0);
 
 	return (
 		<div className="flex-1 flex flex-col min-h-0">
@@ -153,9 +157,16 @@ export function TranscriptionView({
 			</div>
 
 			{/* 转录内容区域 */}
-			<div className="flex-1 overflow-auto p-4">
+			<div ref={transcriptionRef} className="flex-1 overflow-auto p-4">
 				{hasContent ? (
-					<div ref={transcriptionRef} className="h-full text-sm leading-relaxed">
+					<button
+						type="button"
+						className={cn(
+							"h-full w-full text-left text-sm leading-relaxed bg-transparent border-none outline-none",
+							onContentClick ? "cursor-pointer" : "",
+						)}
+						onClick={onContentClick}
+					>
 						{highlightedContent.map((paragraph, paragraphIndex) => {
 							const paragraphKey = `${paragraphIndex}-${paragraph.map((s) => s.text).join("").slice(0, 20)}`;
 							return (
@@ -178,7 +189,13 @@ export function TranscriptionView({
 								</p>
 							);
 						})}
-					</div>
+						{/* 实时未完成文本：用斜体/弱化显示，仅在原文页显示 */}
+						{activeTab === "original" && partialText ? (
+							<p className="mb-2 text-[oklch(var(--muted-foreground))] italic">
+								{partialText}
+							</p>
+						) : null}
+					</button>
 				) : (
 					<div className="flex flex-col items-center justify-center h-full text-center">
 						<div className="mb-4 text-[oklch(var(--muted-foreground))]">
