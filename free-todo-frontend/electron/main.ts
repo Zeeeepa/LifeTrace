@@ -17,6 +17,7 @@ import { app, dialog } from "electron";
 import { BackendServer } from "./backend-server";
 import { getServerMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
 import { setupIpcHandlers } from "./ipc-handlers";
+import { IslandWindowManager } from "./island-window-manager";
 import { logger } from "./logger";
 import {
 	getServerUrl,
@@ -47,6 +48,7 @@ if (!gotTheLock) {
 	// 初始化各管理器实例
 	const backendServer = new BackendServer();
 	const windowManager = new WindowManager();
+	const islandWindowManager = new IslandWindowManager();
 
 	// 设置全局异常处理
 	setupGlobalErrorHandlers();
@@ -156,7 +158,7 @@ if (!gotTheLock) {
 
 	// 应用准备就绪后启动
 	app.whenReady().then(async () => {
-		await bootstrap(backendServer, windowManager);
+		await bootstrap(backendServer, windowManager, islandWindowManager);
 	});
 }
 
@@ -182,13 +184,14 @@ function setupGlobalErrorHandlers(): void {
 async function bootstrap(
 	backendServer: BackendServer,
 	windowManager: WindowManager,
+	islandWindowManager: IslandWindowManager,
 ): Promise<void> {
 	try {
 		// 记录启动信息
 		logStartupInfo();
 
-			// 设置 IPC 处理器
-		setupIpcHandlers(windowManager);
+			// 设置 IPC 处理器（包含 Island 相关）
+		setupIpcHandlers(windowManager, islandWindowManager);
 
 		// 请求通知权限
 			await requestNotificationPermission();
@@ -252,6 +255,14 @@ async function bootstrap(
 
 		// 4. 创建窗口
 		windowManager.create(serverUrl);
+
+		// 5. 创建 Island 悬浮窗口（可选，默认启用）
+		// TODO: 从设置中读取是否启用 Island
+		const enableIsland = true; // 暂时默认启用
+		if (enableIsland) {
+			islandWindowManager.create(serverUrl);
+			logger.info("Island window created");
+		}
 
 		logger.info(
 			`Window created successfully. Frontend: ${getServerUrl()}, Backend: ${backendServer.getUrl()}`,

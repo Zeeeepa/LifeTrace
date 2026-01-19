@@ -159,4 +159,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	}> => {
 		return await ipcRenderer.invoke("capture-and-extract-todos", panelBounds);
 	},
+
+	// ========== Island 动态岛相关 API ==========
+
+	/**
+	 * 调整 Island 窗口大小（切换模式）
+	 * @param mode Island 模式: "FLOAT" | "POPUP" | "SIDEBAR" | "FULLSCREEN"
+	 */
+	islandResizeWindow: (mode: string) => {
+		ipcRenderer.send("island:resize-window", mode);
+	},
+
+	/**
+	 * 显示 Island 窗口
+	 */
+	islandShow: () => {
+		ipcRenderer.send("island:show");
+	},
+
+	/**
+	 * 隐藏 Island 窗口
+	 */
+	islandHide: () => {
+		ipcRenderer.send("island:hide");
+	},
+
+	/**
+	 * 切换 Island 窗口显示/隐藏
+	 */
+	islandToggle: () => {
+		ipcRenderer.send("island:toggle");
+	},
 });

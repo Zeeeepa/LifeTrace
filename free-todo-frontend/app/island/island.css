@@ -1,0 +1,119 @@
+/* Island 页面专用样式 */
+
+/* 确保透明背景 */
+html,
+body,
+.island-body {
+  height: 100%;
+  background: transparent !important;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.island-body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: white;
+}
+
+/* 隐藏滚动条但保留滚动功能 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Island 容器 */
+.island-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ========== Island 主题覆盖 ========== */
+/* 为 Island 窗口中的 FreeTodo 组件提供深色透明主题 */
+
+.island-sidebar-theme,
+.island-fullscreen-theme {
+  /* 覆盖背景色为透明 */
+  --background: 0 0% 0% / 0;
+  --card: 0 0% 100% / 0.03;
+  --card-foreground: 0 0% 100% / 0.9;
+  --popover: 0 0% 8% / 0.95;
+  --popover-foreground: 0 0% 100% / 0.9;
+  --primary: 199 89% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 100% / 0.1;
+  --secondary-foreground: 0 0% 100% / 0.8;
+  --muted: 0 0% 100% / 0.05;
+  --muted-foreground: 0 0% 100% / 0.5;
+  --accent: 0 0% 100% / 0.1;
+  --accent-foreground: 0 0% 100% / 0.9;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 100% / 0.1;
+  --input: 0 0% 100% / 0.1;
+  --ring: 199 89% 48%;
+  --radius: 1rem;
+
+  color-scheme: dark;
+}
+
+/* Island 中的卡片样式 */
+.island-sidebar-theme [data-slot="card"],
+.island-fullscreen-theme [data-slot="card"] {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(20px);
+}
+
+/* Island 中的面板背景 */
+.island-sidebar-theme .bg-background,
+.island-fullscreen-theme .bg-background {
+  background: transparent !important;
+}
+
+/* Island 中的文字颜色 */
+.island-sidebar-theme .text-foreground,
+.island-fullscreen-theme .text-foreground {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.island-sidebar-theme .text-muted-foreground,
+.island-fullscreen-theme .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Island 中的输入框样式 */
+.island-sidebar-theme input,
+.island-fullscreen-theme input {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+}
+
+.island-sidebar-theme input::placeholder,
+.island-fullscreen-theme input::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Island 中的按钮样式 */
+.island-sidebar-theme button,
+.island-fullscreen-theme button {
+  transition: all 0.2s ease;
+}
+
+.island-sidebar-theme button:hover,
+.island-fullscreen-theme button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 隐藏 Island 中不需要的元素 */
+.island-sidebar-theme .bottom-dock,
+.island-fullscreen-theme .bottom-dock {
+  display: none !important;
+}

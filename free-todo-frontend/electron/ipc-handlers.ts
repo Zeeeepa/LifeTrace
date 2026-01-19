@@ -5,6 +5,7 @@
 
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { setupTodoCaptureIpcHandlers } from "./ipc-handlers-todo-capture";
+import type { IslandWindowManager } from "./island-window-manager";
 import { logger } from "./logger";
 import {
 	type NotificationData,
@@ -15,8 +16,12 @@ import type { WindowManager } from "./window-manager";
 /**
  * 设置所有 IPC 处理器
  * @param windowManager 窗口管理器实例
+ * @param islandWindowManager Island 窗口管理器实例（可选）
  */
-export function setupIpcHandlers(windowManager: WindowManager): void {
+export function setupIpcHandlers(
+	windowManager: WindowManager,
+	islandWindowManager?: IslandWindowManager,
+): void {
 	// 处理来自渲染进程的通知请求
 	ipcMain.handle(
 		"show-notification",
@@ -94,4 +99,36 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	// ========== 待办提取相关 IPC 处理器 ==========
 	// 已提取到 ipc-handlers-todo-capture.ts 以保持文件大小
 	setupTodoCaptureIpcHandlers(windowManager);
+
+	// ========== Island 动态岛相关 IPC 处理器 ==========
+	if (islandWindowManager) {
+		setupIslandIpcHandlers(islandWindowManager);
+	}
+}
+
+/**
+ * 设置 Island 相关的 IPC 处理器
+ * @param islandWindowManager Island 窗口管理器实例
+ */
+function setupIslandIpcHandlers(islandWindowManager: IslandWindowManager): void {
+	// 显示 Island 窗口
+	ipcMain.on("island:show", () => {
+		islandWindowManager.show();
+		logger.info("Island window shown via IPC");
+	});
+
+	// 隐藏 Island 窗口
+	ipcMain.on("island:hide", () => {
+		islandWindowManager.hide();
+		logger.info("Island window hidden via IPC");
+	});
+
+	// 切换 Island 窗口显示/隐藏
+	ipcMain.on("island:toggle", () => {
+		islandWindowManager.toggle();
+		logger.info("Island window toggled via IPC");
+	});
+
+	// 调整 Island 窗口大小（切换模式）
+	// 注意：island:resize-window 在 island-window-manager.ts 中已处理
 }
