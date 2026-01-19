@@ -10,6 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 import websockets
+from websockets import protocol
 from websockets.exceptions import ConnectionClosed
 
 from lifetrace.util.logging_config import get_logger
@@ -166,19 +167,36 @@ class ASRClient:
         self, ws: Any, audio_stream: Any, task_id: str, task_started_ref: list[bool]
     ) -> None:
         """发送音频数据"""
-        if not task_started_ref[0]:
-            await asyncio.sleep(0.1)  # 等待任务启动
+        # 等待任务启动
+        max_wait_time = 5.0  # 最多等待5秒
+        wait_interval = 0.1
+        waited_time = 0.0
+        while not task_started_ref[0] and waited_time < max_wait_time:
+            await asyncio.sleep(wait_interval)
+            waited_time += wait_interval
 
-        async for chunk in audio_stream:
-            if ws.open:
-                await ws.send(chunk)
-            else:
-                break
+        if not task_started_ref[0]:
+            logger.warning("ASR task did not start within timeout, continuing anyway")
+
+        try:
+            async for chunk in audio_stream:
+                # websockets库使用state属性检查连接状态
+                if ws.state == protocol.State.OPEN and chunk:
+                    await ws.send(chunk)
+                elif ws.state in (protocol.State.CLOSED, protocol.State.CLOSING):
+                    logger.info("WebSocket closed, stopping audio stream")
+                    break
+        except Exception as e:
+            logger.error(f"Error sending audio stream: {e}")
 
         # 发送finish-task指令
         finish_task_message = self._build_finish_task_message(task_id)
-        if ws.open:
-            await ws.send(json.dumps(finish_task_message))
+        if ws.state == protocol.State.OPEN:
+            try:
+                await ws.send(json.dumps(finish_task_message))
+                logger.info("Sent finish-task message")
+            except Exception as e:
+                logger.error(f"Failed to send finish-task message: {e}")
 
     async def transcribe_stream(
         self,
@@ -194,15 +212,28 @@ class ASRClient:
             on_error: 错误回调函数，接收 (error: Exception) 参数
         """
         task_id = uuid.uuid4().hex[:32]  # 生成32位随机ID
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-        }
+        # websockets库的additional_headers需要使用列表格式，每个元素是(name, value)元组
+        headers = [
+            ("Authorization", f"Bearer {self.api_key}"),
+        ]
 
         try:
-            async with websockets.connect(self.base_url, extra_headers=headers) as ws:
+            # 检查API Key是否配置
+            invalid_values = ["xxx", "YOUR_API_KEY_HERE", "YOUR_ASR_KEY_HERE"]
+            if not self.api_key or self.api_key in invalid_values:
+                error_msg = "ASR API Key未配置，请先配置API Key"
+                logger.error(error_msg)
+                if on_error:
+                    on_error(Exception(error_msg))
+                return
+
+            # websockets库使用additional_headers参数（接受列表格式）
+            async with websockets.connect(self.base_url, additional_headers=headers) as ws:
+                logger.info("Connected to ASR WebSocket")
                 # 发送run-task指令
                 run_task_message = self._build_run_task_message(task_id)
                 await ws.send(json.dumps(run_task_message))
+                logger.info("Sent run-task message")
 
                 task_started_ref: list[bool] = [False]
 
@@ -215,6 +246,6 @@ class ASRClient:
         except ConnectionClosed:
             logger.info("ASR WebSocket连接已关闭")
         except Exception as e:
-            logger.error(f"ASR转录失败: {e}")
+            logger.error(f"ASR转录失败: {e}", exc_info=True)
             if on_error:
                 on_error(e)

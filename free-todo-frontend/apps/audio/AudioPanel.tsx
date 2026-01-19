@@ -7,6 +7,7 @@ import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { AudioHeader } from "./components/AudioHeader";
 import { AudioList } from "./components/AudioList";
 import { AudioPlayer } from "./components/AudioPlayer";
+import { RecordingStatus } from "./components/RecordingStatus";
 import { TranscriptionView } from "./components/TranscriptionView";
 import { useAudioRecording } from "./hooks/useAudioRecording";
 
@@ -177,6 +178,7 @@ export function AudioPanel() {
 				</label>
 			</div>
 
+			{/* 转录内容区域 */}
 			<TranscriptionView
 				originalText={transcriptionText}
 				optimizedText={optimizedText}
@@ -186,21 +188,27 @@ export function AudioPanel() {
 				schedules={schedules}
 			/>
 
-			{/* 底部音频列表和播放器 */}
-			<div className="border-t border-[oklch(var(--border))] bg-[oklch(var(--muted))]/30">
-				<AudioList
-					recordings={audioList}
-					onPlay={(id) => {
-						setSelectedRecordingId(id);
-						loadTranscription(id);
-					}}
-				/>
+			{/* 底部：根据录音状态切换显示 */}
+			{isRecording ? (
+				/* 录音模式：显示录音状态指示器 */
+				<RecordingStatus isRecording={isRecording} />
+			) : (
+				/* 回看模式：显示音频列表和播放器 */
+				<div className="border-t border-[oklch(var(--border))] bg-[oklch(var(--muted))]/30">
+					<AudioList
+						recordings={audioList}
+						onPlay={(id) => {
+							setSelectedRecordingId(id);
+							loadTranscription(id);
+						}}
+					/>
 
-				<AudioPlayer
-					title={formatDate(selectedDate)}
-					date={`${formatFullDate(selectedDate)} 00:00`}
-				/>
-			</div>
+					<AudioPlayer
+						title={formatDate(selectedDate)}
+						date={`${formatFullDate(selectedDate)} 00:00`}
+					/>
+				</div>
+			)}
 		</div>
 	);
 }

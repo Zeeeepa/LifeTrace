@@ -49,14 +49,18 @@ export function useAudioRecording() {
 
 				ws.onmessage = (event) => {
 					try {
-						const data = JSON.parse(event.data);
-						if (data.header?.name === "TranscriptionResultChanged") {
-							const text = data.payload?.result;
-							const isFinal = data.payload?.is_final || false;
-							if (text) {
-								onTranscription(text, isFinal);
+						// 处理文本消息（JSON）
+						if (typeof event.data === "string") {
+							const data = JSON.parse(event.data);
+							if (data.header?.name === "TranscriptionResultChanged") {
+								const text = data.payload?.result;
+								const isFinal = data.payload?.is_final || false;
+								if (text) {
+									onTranscription(text, isFinal);
+								}
 							}
 						}
+						// 二进制消息由后端处理，前端不需要处理
 					} catch (error) {
 						console.error("Failed to parse transcription data:", error);
 					}
@@ -73,9 +77,21 @@ export function useAudioRecording() {
 					}
 				};
 
-				ws.onclose = () => {
-					console.log("WebSocket closed");
+				ws.onclose = (event) => {
+					console.log("[useAudioRecording] WebSocket closed", {
+						code: event.code,
+						reason: event.reason,
+						wasClean: event.wasClean,
+					});
 					setIsRecording(false);
+					// 如果不是正常关闭，触发错误回调
+					if (!event.wasClean && onError) {
+						onError(
+							new Error(
+								`WebSocket连接异常关闭: ${event.reason || `代码 ${event.code}`}`
+							)
+						);
+					}
 				};
 
 				mediaRecorderRef.current = mediaRecorder;

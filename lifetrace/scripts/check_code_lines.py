@@ -112,15 +112,16 @@ def should_check_file(
     except ValueError:
         return False
 
-    rel_path_str = str(rel_path)
+    # 统一使用正斜杠，避免Windows路径分隔符问题
+    rel_path_str = str(rel_path).replace("\\", "/")
 
     # 检查是否在包含目录中
-    in_include = any(rel_path_str.startswith(inc) for inc in include_dirs)
+    in_include = any(rel_path_str.startswith(inc.replace("\\", "/")) for inc in include_dirs)
     if not in_include:
         return False
 
     # 检查是否在排除目录中
-    in_exclude = any(rel_path_str.startswith(exc) for exc in exclude_dirs)
+    in_exclude = any(rel_path_str.startswith(exc.replace("\\", "/")) for exc in exclude_dirs)
     if in_exclude:
         return False
 
@@ -201,13 +202,15 @@ def main() -> int:
 
     # 输出结果
     if violations:
-        print(f"❌ 以下文件代码行数超过 {max_lines} 行：")
+        # 使用ASCII字符避免编码问题
+        print(f"[ERROR] 以下文件代码行数超过 {max_lines} 行：")
         for path, lines in sorted(violations):
             print(f"  {path} -> {lines} 行")
         return 1
     else:
         mode_desc = f"检查了 {len(files_to_check)} 个文件，" if args.files else ""
-        print(f"✓ {mode_desc}所有 Python 文件代码行数均不超过 {max_lines} 行")
+        # 使用ASCII字符避免编码问题
+        print(f"[OK] {mode_desc}所有 Python 文件代码行数均不超过 {max_lines} 行")
         return 0
 
 

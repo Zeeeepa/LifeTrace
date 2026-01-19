@@ -20,64 +20,101 @@ asr_client = ASRClient()
 audio_service = AudioService()
 
 
-def _create_result_callback(websocket: WebSocket, transcription_text_ref: list[str]):
+def _create_result_callback(
+    websocket: WebSocket, transcription_text_ref: list[str], is_connected_ref: list[bool]
+):
     """创建识别结果回调函数"""
 
-    def on_result(text: str, is_final: bool):
-        """处理识别结果"""
-        if text:
-            transcription_text_ref[0] += text
-            # 发送给前端
-            asyncio.create_task(
-                websocket.send_json(
+    async def _send_result(text: str, is_final: bool):
+        """异步发送结果"""
+        try:
+            # 检查连接状态标志和WebSocket状态
+            if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+                await websocket.send_json(
                     {
                         "header": {"name": "TranscriptionResultChanged"},
                         "payload": {"result": text, "is_final": is_final},
                     }
                 )
-            )
+        except (RuntimeError, Exception) as e:
+            # RuntimeError 可能表示连接已关闭
+            is_connected_ref[0] = False
+            logger.debug(f"Failed to send result to client (connection may be closed): {e}")
+
+    def on_result(text: str, is_final: bool):
+        """处理识别结果"""
+        if text and is_connected_ref[0]:
+            transcription_text_ref[0] += text
+            # 发送给前端（检查连接状态）
+            # 使用 create_task 但捕获异常，避免在连接关闭后发送
+            try:
+                if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+                    asyncio.create_task(_send_result(text, is_final))
+            except Exception as e:
+                logger.debug(f"Failed to send result to client (connection may be closed): {e}")
 
     return on_result
 
 
-def _create_error_callback(websocket: WebSocket):
+def _create_error_callback(websocket: WebSocket, is_connected_ref: list[bool]):
     """创建错误回调函数"""
+
+    async def _send_error(error: Exception):
+        """异步发送错误"""
+        try:
+            # 检查连接状态标志和WebSocket状态
+            if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+                await websocket.send_json(
+                    {
+                        "header": {"name": "TaskFailed"},
+                        "payload": {"error": str(error)},
+                    }
+                )
+        except (RuntimeError, Exception) as e:
+            # RuntimeError 可能表示连接已关闭
+            is_connected_ref[0] = False
+            logger.debug(f"Failed to send error to client (connection may be closed): {e}")
 
     def on_error(error: Exception):
         """处理错误"""
         logger.error(f"ASR转录错误: {error}")
-        asyncio.create_task(
-            websocket.send_json(
-                {
-                    "header": {"name": "TaskFailed"},
-                    "payload": {"error": str(error)},
-                }
-            )
-        )
+        # 使用 create_task 但捕获异常，避免在连接关闭后发送
+        if is_connected_ref[0]:
+            try:
+                if websocket.client_state.name == "CONNECTED":
+                    asyncio.create_task(_send_error(error))
+            except Exception as e:
+                logger.debug(f"Failed to send error to client (connection may be closed): {e}")
 
     return on_error
 
 
 async def _audio_stream_generator(websocket: WebSocket, audio_chunks: list[bytes]):
-    """生成音频流"""
+    """生成音频流（初始化消息已在外部处理）"""
     while True:
         try:
             data = await websocket.receive()
             if "bytes" in data:
                 # 接收音频二进制数据
                 chunk = data["bytes"]
-                audio_chunks.append(chunk)
-                yield chunk
+                if chunk:
+                    audio_chunks.append(chunk)
+                    yield chunk
             elif "text" in data:
                 # 处理文本消息（如停止信号）
                 try:
                     message = json.loads(data["text"])
                     if message.get("type") == "stop":
+                        logger.info("Received stop signal from client")
                         break
                 except json.JSONDecodeError:
                     # 如果不是JSON，忽略（可能是其他文本消息）
-                    pass
+                    logger.debug(f"Ignoring non-JSON text message: {data.get('text', '')[:50]}")
         except WebSocketDisconnect:
+            logger.info("WebSocket disconnected in audio stream generator")
+            break
+        except Exception as e:
+            logger.error(f"Error in audio stream generator: {e}")
             break
 
 
@@ -90,6 +127,7 @@ async def websocket_transcribe(websocket: WebSocket):
     recording_id: int | None = None
     transcription_text_ref: list[str] = [""]
     audio_chunks: list[bytes] = []
+    is_connected_ref: list[bool] = [True]  # 连接状态标志
 
     try:
         # 接收初始化消息（支持两种格式）
@@ -103,8 +141,8 @@ async def websocket_transcribe(websocket: WebSocket):
         # 这里暂时跳过，实际实现时需要先上传音频文件
 
         # 创建回调函数
-        on_result = _create_result_callback(websocket, transcription_text_ref)
-        on_error = _create_error_callback(websocket)
+        on_result = _create_result_callback(websocket, transcription_text_ref, is_connected_ref)
+        on_error = _create_error_callback(websocket, is_connected_ref)
 
         # 启动ASR转录
         await asr_client.transcribe_stream(
@@ -123,18 +161,24 @@ async def websocket_transcribe(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
+        is_connected_ref[0] = False
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse WebSocket message: {e}")
+        is_connected_ref[0] = False
         try:
             await websocket.close(code=1003, reason="Invalid message format")
         except Exception:
             pass
     except Exception as e:
         logger.error(f"WebSocket error: {e}", exc_info=True)
+        is_connected_ref[0] = False
         try:
             await websocket.close(code=1011, reason=str(e))
         except Exception:
             pass
+    finally:
+        # 确保连接状态标志被设置为False
+        is_connected_ref[0] = False
 
 
 @router.get("/recordings")
@@ -142,7 +186,20 @@ async def get_recordings(date: str | None = Query(None)):
     """获取录音列表"""
     try:
         if date:
-            target_date = datetime.fromisoformat(date.replace("Z", "+00:00"))
+            # 处理日期字符串，支持多种格式
+            try:
+                # 尝试解析ISO格式
+                if "T" in date or "Z" in date:
+                    target_date = datetime.fromisoformat(date.replace("Z", "+00:00"))
+                else:
+                    # 处理 YYYY-MM-DD 格式
+                    from datetime import date as date_type
+
+                    date_obj = date_type.fromisoformat(date)
+                    target_date = datetime.combine(date_obj, datetime.min.time())
+            except ValueError as e:
+                logger.error(f"日期格式错误: {date}, {e}")
+                return JSONResponse({"error": f"无效的日期格式: {date}"}, status_code=400)
         else:
             target_date = datetime.utcnow()
 
@@ -150,6 +207,8 @@ async def get_recordings(date: str | None = Query(None)):
 
         result = []
         for rec in recordings:
+            if not rec:
+                continue
             start_time = rec.start_time
             result.append(
                 {
@@ -164,7 +223,7 @@ async def get_recordings(date: str | None = Query(None)):
 
         return JSONResponse({"recordings": result})
     except Exception as e:
-        logger.error(f"获取录音列表失败: {e}")
+        logger.error(f"获取录音列表失败: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
