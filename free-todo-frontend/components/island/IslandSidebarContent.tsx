@@ -49,7 +49,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
         </div>
 
         {/* 底部 Dock - 用于切换面板 */}
-        <div className="shrink-0 px-2 pb-2">
+        <div className="shrink-0 flex justify-center px-2 pb-2">
           <BottomDock
             isInPanelMode={true}
             panelContainerRef={containerRef}
