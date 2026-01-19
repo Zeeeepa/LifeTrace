@@ -21,9 +21,9 @@ export enum IslandMode {
  * 各模式对应的窗口尺寸
  */
 const ISLAND_SIZES: Record<IslandMode, { width: number; height: number }> = {
-  [IslandMode.FLOAT]: { width: 180, height: 48 },
-  [IslandMode.POPUP]: { width: 340, height: 110 },
-  [IslandMode.SIDEBAR]: { width: 400, height: 500 },
+  [IslandMode.FLOAT]: { width: 200, height: 56 },
+  [IslandMode.POPUP]: { width: 380, height: 120 },
+  [IslandMode.SIDEBAR]: { width: 420, height: 700 },
   [IslandMode.FULLSCREEN]: { width: 0, height: 0 }, // 动态计算
 };
 
@@ -130,6 +130,10 @@ export class IslandWindowManager {
     this.islandWindow.on("closed", () => {
       this.islandWindow = null;
       logger.info("Island window closed");
+      // Island 是主窗口，关闭时退出应用（macOS 除外）
+      if (process.platform !== "darwin") {
+        app.quit();
+      }
     });
 
     // 设置 IPC 处理器
@@ -172,12 +176,30 @@ export class IslandWindowManager {
     this.currentMode = mode;
     const { width, height } = this.getSizeForMode(mode);
 
+    // 形态3/4 使用正常窗口样式，形态1/2 使用透明悬浮窗样式
+    const isExpandedMode = mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN;
+
+    // 设置窗口属性
+    this.islandWindow.setAlwaysOnTop(!isExpandedMode, isExpandedMode ? "normal" : "floating");
+    this.islandWindow.setSkipTaskbar(!isExpandedMode);
+
+    // macOS 特定：展开模式下不在所有工作区显示
+    if (process.platform === "darwin") {
+      this.islandWindow.setVisibleOnAllWorkspaces(!isExpandedMode, { visibleOnFullScreen: !isExpandedMode });
+    }
+
     if (mode === IslandMode.FULLSCREEN) {
       // 全屏模式：覆盖整个工作区
       const { x: screenX, y: screenY } = screen.getPrimaryDisplay().workArea;
       this.islandWindow.setBounds({ x: screenX, y: screenY, width, height });
+    } else if (mode === IslandMode.SIDEBAR) {
+      // 侧边栏模式：居中显示
+      const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+      const x = Math.floor((screenWidth - width) / 2);
+      const y = Math.floor((screenHeight - height) / 2);
+      this.islandWindow.setBounds({ x, y, width, height });
     } else {
-      // 非全屏模式：定位到右上角
+      // 悬浮模式：定位到右上角
       const { x, y } = this.calculateWindowPosition(width, height);
       this.islandWindow.setBounds({ x, y, width, height });
     }
@@ -198,7 +220,7 @@ export class IslandWindowManager {
    * 隐藏 Island 窗口
    */
   hide(): void {
-    if (this.islandWindow && this.islandWindow.isVisible()) {
+    if (this.islandWindow?.isVisible()) {
       this.islandWindow.hide();
     }
   }

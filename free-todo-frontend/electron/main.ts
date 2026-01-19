@@ -119,23 +119,26 @@ if (!gotTheLock) {
 	process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 	process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-	// 当另一个实例尝试启动时，聚焦到当前窗口
+	// 当另一个实例尝试启动时，聚焦到 Island 窗口
 	app.on("second-instance", () => {
-		if (windowManager.hasWindow()) {
-			windowManager.focus();
+		if (islandWindowManager.hasWindow()) {
+			islandWindowManager.show();
+			islandWindowManager.getWindow()?.focus();
 		} else if (app.isReady()) {
-			windowManager.create(getServerUrl());
-			} else {
-				app.once("ready", () => {
-				windowManager.create(getServerUrl());
+			islandWindowManager.create(getServerUrl());
+		} else {
+			app.once("ready", () => {
+				islandWindowManager.create(getServerUrl());
 			});
 		}
 	});
 
-	// macOS: 点击 dock 图标时重新创建窗口
+	// macOS: 点击 dock 图标时显示或重建 Island 窗口
 	app.on("activate", () => {
-		if (!WindowManager.hasAnyWindows()) {
-			windowManager.create(getServerUrl());
+		if (islandWindowManager.hasWindow()) {
+			islandWindowManager.show();
+		} else {
+			islandWindowManager.create(getServerUrl());
 		}
 	});
 
@@ -253,16 +256,9 @@ async function bootstrap(
 			}
 		}
 
-		// 4. 创建窗口
-		windowManager.create(serverUrl);
-
-		// 5. 创建 Island 悬浮窗口（可选，默认启用）
-		// TODO: 从设置中读取是否启用 Island
-		const enableIsland = true; // 暂时默认启用
-		if (enableIsland) {
-			islandWindowManager.create(serverUrl);
-			logger.info("Island window created");
-		}
+		// 4. 创建 Island 主窗口
+		islandWindowManager.create(serverUrl);
+		logger.info("Island main window created");
 
 		logger.info(
 			`Window created successfully. Frontend: ${getServerUrl()}, Backend: ${backendServer.getUrl()}`,

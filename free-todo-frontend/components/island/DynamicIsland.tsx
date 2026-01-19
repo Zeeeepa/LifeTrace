@@ -1,23 +1,20 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Minimize2, X } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef } from "react";
 import { IslandMode } from "@/lib/island/types";
 import {
   FloatContent,
-  FullScreenContent,
   PopupContent,
-  SidebarContent,
 } from "./IslandContent";
 
 interface DynamicIslandProps {
   mode: IslandMode;
-  onClose?: () => void;
+  onModeChange?: (mode: IslandMode) => void;
 }
 
-const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onClose }) => {
+const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => {
   const prevModeRef = useRef<IslandMode | null>(null);
 
   // Electron Click-Through Handling & Window Resizing
@@ -167,55 +164,17 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onClose }) => {
           }`}
         />
 
-        {/* 关闭/最小化按钮 */}
-        <AnimatePresence>
-          {(mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN) && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.5, rotate: -45 }}
-              className={`absolute z-[60] w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all backdrop-blur-md cursor-pointer border border-white/5
-                ${isFullscreen ? "top-8 right-8" : "top-6 right-6"}
-              `}
-              style={{
-                // @ts-expect-error - WebkitAppRegion is a valid CSS property in Electron
-                WebkitAppRegion: "no-drag",
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose?.();
-              }}
-            >
-              {mode === IslandMode.FULLSCREEN ? (
-                <Minimize2 size={18} />
-              ) : (
-                <X size={18} />
-              )}
-            </motion.button>
-          )}
-        </AnimatePresence>
-
         {/* 内容区域 */}
         <div className="absolute inset-0 w-full h-full text-white font-sans antialiased overflow-hidden">
           <AnimatePresence>
             {mode === IslandMode.FLOAT && (
               <motion.div key="float" className="absolute inset-0 w-full h-full">
-                <FloatContent />
+                <FloatContent onModeChange={onModeChange} />
               </motion.div>
             )}
             {mode === IslandMode.POPUP && (
               <motion.div key="popup" className="absolute inset-0 w-full h-full">
                 <PopupContent />
-              </motion.div>
-            )}
-            {mode === IslandMode.SIDEBAR && (
-              <motion.div key="sidebar" className="absolute inset-0 w-full h-full">
-                <SidebarContent />
-              </motion.div>
-            )}
-            {mode === IslandMode.FULLSCREEN && (
-              <motion.div key="fullscreen" className="absolute inset-0 w-full h-full">
-                <FullScreenContent />
               </motion.div>
             )}
           </AnimatePresence>

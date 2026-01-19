@@ -2,56 +2,61 @@
 
 /**
  * Island 侧边栏内容组件
- * 在 SIDEBAR 模式下显示 FreeTodo 的待办列表
+ * 在 SIDEBAR 模式下显示单栏面板 + 底部 Dock 切换
+ * 直接使用 FreeTodo 原有的样式，保持一致性
  */
 
-import { MoreHorizontal, Search } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { TodoList } from "@/apps/todo-list";
+import { useEffect, useRef, useState } from "react";
+import { IslandHeader } from "@/components/island/IslandHeader";
+import { BottomDock } from "@/components/layout/BottomDock";
+import { PanelContent } from "@/components/layout/PanelContent";
 import { GlobalDndProvider } from "@/lib/dnd";
+import { IslandMode } from "@/lib/island/types";
 
-export function IslandSidebarContent() {
-  const t = useTranslations("page");
+interface IslandSidebarContentProps {
+  onModeChange: (mode: IslandMode) => void;
+}
+
+export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="w-full h-full flex flex-col overflow-hidden bg-background">
+        <div className="h-12 shrink-0 bg-primary-foreground dark:bg-accent" />
+        <div className="flex-1" />
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden island-sidebar-theme">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
-        <div className="flex flex-col">
-          <h2 className="text-2xl font-light text-white tracking-tight">
-            {t("todosLabel")}
-          </h2>
-          <span className="text-xs text-white/40 uppercase tracking-widest font-medium mt-0.5">
-            FreeTodo
-          </span>
-        </div>
-        <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer">
-          <MoreHorizontal size={18} className="text-white/60" />
-        </div>
-      </div>
+    <GlobalDndProvider>
+      <div
+        ref={containerRef}
+        className="w-full h-full flex flex-col overflow-hidden bg-background"
+      >
+        {/* Island 专用 Header */}
+        <IslandHeader mode={IslandMode.SIDEBAR} onModeChange={onModeChange} />
 
-      {/* Todo List Content */}
-      <div className="flex-1 min-h-0 overflow-hidden px-2">
-        <GlobalDndProvider>
-          <div className="h-full overflow-y-auto scrollbar-hide">
-            <TodoList />
-          </div>
-        </GlobalDndProvider>
-      </div>
+        {/* 单栏面板内容 - 使用 Panel A 的位置 */}
+        <div className="flex-1 min-h-0 overflow-hidden p-2">
+          <PanelContent position="panelA" />
+        </div>
 
-      {/* Bottom Search/Input */}
-      <div className="px-4 py-4 shrink-0">
-        <div className="w-full h-12 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 flex items-center px-2 gap-2 hover:border-white/20 transition-colors">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white/40">
-            <Search size={16} />
-          </div>
-          <input
-            type="text"
-            placeholder="搜索待办..."
-            className="flex-1 bg-transparent border-none outline-none text-white text-sm placeholder:text-white/30"
+        {/* 底部 Dock - 用于切换面板 */}
+        <div className="shrink-0 px-2 pb-2">
+          <BottomDock
+            isInPanelMode={true}
+            panelContainerRef={containerRef}
+            visiblePanelCount={1}
           />
         </div>
       </div>
-    </div>
+    </GlobalDndProvider>
   );
 }

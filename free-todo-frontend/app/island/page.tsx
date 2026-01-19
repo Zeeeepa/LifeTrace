@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DynamicIsland from "@/components/island/DynamicIsland";
+import { IslandFullscreenContent } from "@/components/island/IslandFullscreenContent";
+import { IslandSidebarContent } from "@/components/island/IslandSidebarContent";
 import { IslandMode } from "@/lib/island/types";
 
 /**
  * Island 页面组件
  * 作为 Dynamic Island 窗口的入口点
+ *
+ * 形态1/2: 使用 DynamicIsland 动画组件
+ * 形态3/4: 直接渲染面板内容，保持与原 FreeTodo 一致的外观
  */
 export default function IslandPage() {
   const [mode, setMode] = useState<IslandMode>(IslandMode.FLOAT);
+
+  // 模式切换处理函数（供子组件调用）
+  const handleModeChange = useCallback((newMode: IslandMode) => {
+    setMode(newMode);
+  }, []);
 
   // 键盘快捷键监听
   useEffect(() => {
@@ -44,6 +54,13 @@ export default function IslandPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mode]);
 
+  // 模式变化时通知 Electron 调整窗口大小
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.electronAPI?.islandResizeWindow) {
+      window.electronAPI.islandResizeWindow(mode);
+    }
+  }, [mode]);
+
   // 监听来自主窗口的模式切换消息
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -59,9 +76,31 @@ export default function IslandPage() {
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
+  // 形态3: 侧边栏模式 - 直接渲染面板内容
+  if (mode === IslandMode.SIDEBAR) {
+    return (
+      <div className="w-full h-full bg-background">
+        <IslandSidebarContent onModeChange={handleModeChange} />
+      </div>
+    );
+  }
+
+  // 形态4: 全屏模式 - 直接渲染完整面板布局
+  if (mode === IslandMode.FULLSCREEN) {
+    return (
+      <div className="w-full h-full bg-background">
+        <IslandFullscreenContent onModeChange={handleModeChange} />
+      </div>
+    );
+  }
+
+  // 形态1/2: 悬浮/弹出模式 - 使用 DynamicIsland 动画组件
   return (
     <div className="island-container">
-      <DynamicIsland mode={mode} onClose={() => setMode(IslandMode.FLOAT)} />
+      <DynamicIsland
+        mode={mode}
+        onModeChange={handleModeChange}
+      />
     </div>
   );
 }
