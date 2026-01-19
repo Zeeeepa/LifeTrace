@@ -6,6 +6,7 @@ import type React from "react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
+import { AudioPanel } from "@/apps/audio/AudioPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
 import { ChatPanel } from "@/apps/chat/ChatPanel";
 import { CostTrackingPanel } from "@/apps/cost-tracking";
@@ -179,6 +180,8 @@ export const PanelContent: React.FC<PanelContentProps> = () => {
 					return <AchievementsPanel />;
 				case "costTracking":
 					return <CostTrackingPanel />;
+				case "audio":
+					return <AudioPanel />;
 				default:
 					return <ChatPanel />;
 			}

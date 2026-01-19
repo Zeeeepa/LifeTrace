@@ -69,6 +69,8 @@
 		"screenshotsPlaceholder": "Event timeline with screenshots (dev mode only)",
 		"debugShotsLabel": "Debug Shots",
 		"debugShotsPlaceholder": "Placeholder: manage debugging screenshots (dev mode only)",
+		"audioLabel": "Audio Recording",
+		"audioPlaceholder": "Placeholder: plug an audio recording component here",
 		"settings": {
 			"autoTodoDetectionTitle": "Auto Todo Detection",
 			"autoTodoDetectionDescription": "Automatically detect todos from screenshots of whitelisted apps and create draft todos for confirmation",
@@ -191,6 +193,7 @@
 		"achievements": "Achievements",
 		"screenshots": "Screenshots",
 		"debugShots": "Debug Shots",
+		"audio": "Audio",
 		"unassigned": "Unassigned"
 	},
 	"todoExtraction": {

@@ -47,6 +47,10 @@ dependencies = [
     "psutil>=5.9.0",
     # OpenAI API
     "openai>=1.0.0",
+    # DashScope API (阿里云百炼)
+    "dashscope>=1.17.0",
+    # PyAudio for microphone input
+    "pyaudio>=0.2.14",
     # Tavily API for web search
     "tavily-python>=0.5.0",
     # Configuration management with hot reload support (includes yaml support)

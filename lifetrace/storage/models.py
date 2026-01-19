@@ -288,6 +288,50 @@ class ActivityEventRelation(SQLModel, table=True):
         return f"<ActivityEventRelation(id={self.id}, activity_id={self.activity_id})>"
 
 
+class AudioRecording(TimestampMixin, table=True):
+    """音频录制记录模型"""
+
+    __tablename__ = "audio_recordings"
+
+    id: int | None = Field(default=None, primary_key=True)
+    file_path: str = Field(max_length=500)  # 音频文件路径
+    file_size: int  # 文件大小（字节）
+    duration: float  # 录音时长（秒）
+    start_time: datetime = Field(default_factory=get_utc_time)  # 开始时间
+    end_time: datetime | None = None  # 结束时间
+    status: str = Field(default="recording", max_length=20)  # 状态：recording, completed, failed
+    is_24x7: bool = False  # 是否为7x24小时录制
+    transcription_status: str = Field(
+        default="pending", max_length=20
+    )  # 转录状态：pending, processing, completed, failed
+
+    def __repr__(self):
+        return f"<AudioRecording(id={self.id}, duration={self.duration}s)>"
+
+
+class Transcription(TimestampMixin, table=True):
+    """转录文本模型"""
+
+    __tablename__ = "transcriptions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    audio_recording_id: int  # 关联音频录制ID
+    original_text: str | None = Field(default=None, sa_column=Column(Text))  # 原始转录文本
+    optimized_text: str | None = Field(default=None, sa_column=Column(Text))  # 优化后的文本
+    extraction_status: str = Field(
+        default="pending", max_length=20
+    )  # 提取状态：pending, processing, completed, failed
+    extracted_todos: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 提取的待办事项（JSON格式）
+    extracted_schedules: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 提取的日程安排（JSON格式）
+
+    def __repr__(self):
+        return f"<Transcription(id={self.id}, audio_recording_id={self.audio_recording_id})>"
+
+
 # 为兼容旧代码，保留 Base 引用（指向 SQLModel.metadata）
 # 这样现有的 Base.metadata.create_all() 调用仍然有效
 Base = SQLModel

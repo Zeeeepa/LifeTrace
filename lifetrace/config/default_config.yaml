@@ -161,3 +161,18 @@ tavily:
   max_results: 5 # 最大返回结果数
   include_domains: [] # 包含的域名列表（可选）
   exclude_domains: [] # 排除的域名列表（可选）
+
+# 音频识别配置（阿里云Fun-ASR）
+audio:
+  asr:
+    api_key: sk-628836258f014665b8096e988d7c522c # 阿里云百炼API Key
+    base_url: wss://dashscope.aliyuncs.com/api-ws/v1/inference/ # WebSocket地址
+    model: fun-asr-realtime # 使用的模型名称
+    sample_rate: 16000 # 采样率（Hz）
+    format: pcm # 音频格式：pcm, wav, mp3, opus, speex, aac, amr
+    semantic_punctuation_enabled: false # 是否开启语义断句
+    max_sentence_silence: 1300 # VAD静音时长阈值（毫秒）
+    heartbeat: false # 是否开启长连接保持
+  storage:
+    audio_dir: audio/ # 音频文件存储目录
+    temp_audio_dir: temp_audio/ # 临时音频文件目录

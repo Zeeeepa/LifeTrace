@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from lifetrace.jobs.job_manager import get_job_manager
 from lifetrace.routers import (
     activity,
+    audio,
     chat,
     cost_tracking,
     event,
@@ -134,6 +135,7 @@ app.include_router(todo_extraction.router)
 app.include_router(vision.router)
 app.include_router(notification.router)
 app.include_router(floating_capture.router)
+app.include_router(audio.router)
 
 
 def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
