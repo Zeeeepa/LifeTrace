@@ -2,9 +2,9 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
 import { queryKeys } from "@/lib/query/keys";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getElectronAPI } from "@/lib/utils/electron-api";
 
 interface ExtractedTodoResponse {
 	title: string;

@@ -4,8 +4,8 @@
  */
 
 import { useEffect } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
-import { IslandMode } from "@/components/dynamic-island/types";
+import { IslandMode } from "@/lib/types/window-mode";
+import { getElectronAPI } from "@/lib/utils/electron-api";
 
 interface UseElectronClickThroughOptions {
 	mounted: boolean;

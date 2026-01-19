@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { IslandMode } from "@/components/dynamic-island";
+import { IslandMode } from "@/lib/types/window-mode";
 
 function isElectronEnvironment(): boolean {
 	if (typeof window === "undefined") return false;
@@ -18,7 +18,7 @@ function isElectronEnvironment(): boolean {
 	);
 }
 
-interface DynamicIslandState {
+interface WindowModeState {
 	mode: IslandMode;
 	isEnabled: boolean;
 	panelVisible: boolean;
@@ -28,8 +28,8 @@ interface DynamicIslandState {
 	hidePanel: () => void;
 }
 
-export const useDynamicIslandStore = create<DynamicIslandState>((set, get) => ({
-	mode: IslandMode.FLOAT,
+export const useWindowModeStore = create<WindowModeState>((set, get) => ({
+	mode: IslandMode.MAXIMIZE, // 默认最大化模式
 	isEnabled: isElectronEnvironment(),
 	panelVisible: false,
 	setMode: (mode) =>
@@ -50,7 +50,10 @@ export const useDynamicIslandStore = create<DynamicIslandState>((set, get) => ({
 	hidePanel: () =>
 		set((state) => ({
 			panelVisible: false,
-			// 如果当前模式是 PANEL，则回到 FLOAT，避免卡在 Panel 模式
-			mode: state.mode === IslandMode.PANEL ? IslandMode.FLOAT : state.mode,
+			// 如果当前模式是 PANEL，则回到 MAXIMIZE，避免卡在 Panel 模式
+			mode: state.mode === IslandMode.PANEL ? IslandMode.MAXIMIZE : state.mode,
 		})),
 }));
+
+// 为了兼容性，导出 useDynamicIslandStore 作为别名
+export const useDynamicIslandStore = useWindowModeStore;

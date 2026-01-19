@@ -4,8 +4,8 @@
  */
 
 import { useCallback } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
-import type { IslandMode } from "@/components/dynamic-island/types";
+import type { IslandMode } from "@/lib/types/window-mode";
+import { getElectronAPI } from "@/lib/utils/electron-api";
 
 interface UsePanelWindowDragOptions {
 	panelWindowWidth: number;

@@ -2,8 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
-import { IslandMode } from "@/components/dynamic-island/types";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PanelRegion } from "@/components/layout/PanelRegion";
 import { PanelWindow } from "@/components/panel/PanelWindow";
@@ -17,10 +15,12 @@ import { usePanelWindowStyles } from "@/lib/hooks/usePanelWindowStyles";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
-import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
+import { useDynamicIslandStore } from "@/lib/store/window-mode-store";
+import { IslandMode } from "@/lib/types/window-mode";
 import { isElectronEnvironment } from "@/lib/utils/electron";
+import { getElectronAPI } from "@/lib/utils/electron-api";
 
 
 export default function HomePage() {

@@ -19,14 +19,6 @@
 		"userSettings": "用户设置",
 		"openSettings": "打开设置"
 	},
-	"dynamicIsland": {
-		"micTooltip": "麦克风（功能暂未接入）",
-		"screenshotEnabled": "截屏已开启，单击关闭",
-		"screenshotDisabled": "截屏已关闭，单击开启",
-		"expandPanel": "展开为 Panel",
-		"expandMaximize": "展开为最大化",
-		"collapseIsland": "折叠到灵动岛"
-	},
 	"page": {
 		"title": "Free Todo Canvas",
 		"subtitle": "日历视图与待办视图并列排布，可通过底部 Dock 快速切换与组合，并支持拖拽调整宽度。",

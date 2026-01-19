@@ -13,8 +13,8 @@ import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
-import { IslandMode } from "@/components/dynamic-island/types";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
+import { IslandMode } from "@/lib/types/window-mode";
 
 interface AppHeaderProps {
 	/** 当前模式 */

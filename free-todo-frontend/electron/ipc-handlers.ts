@@ -4,7 +4,6 @@
  */
 
 import { app, BrowserWindow, ipcMain, screen } from "electron";
-import { enableDynamicIsland } from "./config";
 import { setupTodoCaptureIpcHandlers } from "./ipc-handlers-todo-capture";
 import { logger } from "./logger";
 import {
@@ -49,7 +48,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	// 移动窗口到指定位置（用于拖拽）
 	ipcMain.on("move-window", (event, x: number, y: number) => {
 		const win = BrowserWindow.fromWebContents(event.sender);
-		if (win && enableDynamicIsland) {
+		if (win) {
 			win.setPosition(Math.round(x), Math.round(y));
 		}
 	});
@@ -138,7 +137,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	ipcMain.handle("collapse-window", async () => {
 		const win = windowManager.getWindow();
 		const originalBounds = windowManager.getOriginalBounds();
-		if (!win || !enableDynamicIsland || !originalBounds) return;
+		if (!win || !originalBounds) return;
 
 		// 恢复为不可调整大小和不可移动
 		win.setResizable(false);
@@ -221,7 +220,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	// 展开窗口到面板模式（PANEL 模式）
 	ipcMain.handle("expand-window", async () => {
 		const win = windowManager.getWindow();
-		if (!win || !enableDynamicIsland) return;
+		if (!win) return;
 
 		// ✅ 修复 MAXIMIZE → PANEL：如果窗口是最大化状态，先恢复
 		if (win.isMaximized()) {
@@ -302,7 +301,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	// 展开窗口到最大化模式（MAXIMIZE 模式）
 	ipcMain.handle("expand-window-full", async () => {
 		const win = windowManager.getWindow();
-		if (!win || !enableDynamicIsland) return;
+		if (!win) return;
 
 		// MAXIMIZE 模式改为使用「最大化」而不是固定宽高
 		// 这样更符合用户预期：占满屏幕，由操作系统负责过渡动画（更自然，不突兀）
@@ -360,7 +359,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		"resize-window",
 		(event, totalDeltaX: number, totalDeltaY: number, position: string) => {
 			const win = BrowserWindow.fromWebContents(event.sender);
-			if (!win || !enableDynamicIsland) return;
+			if (!win) return;
 
 			// 获取或初始化拖动状态（使用窗口对象的自定义属性）
 			type ResizeAnchor = {
@@ -455,7 +454,7 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 		"expand-window-at-position",
 		(_event, x: number, y: number, width: number, height: number) => {
 			const win = windowManager.getWindow();
-			if (!win || !enableDynamicIsland) return;
+			if (!win) return;
 
 			// 必须设置可调整和可移动（因为创建时是 false）
 			win.setResizable(true);
@@ -512,10 +511,6 @@ export function setupIpcHandlers(windowManager: WindowManager): void {
 	ipcMain.on("hide-window", (event) => {
 		const win = BrowserWindow.fromWebContents(event.sender);
 		if (win) {
-			// 隐藏窗口前，重新启用点击穿透（如果启用灵动岛模式）
-			if (enableDynamicIsland) {
-				win.setIgnoreMouseEvents(true, { forward: true });
-			}
 			win.hide();
 			logger.info("Window hidden (exit maximize mode)");
 		}

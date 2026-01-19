@@ -5,11 +5,6 @@ import { ThemeProvider } from "@/components/common/theme/ThemeProvider";
 import { DockTriggerZone } from "@/components/common/ui/DockTriggerZone";
 import { LocaleSync } from "@/components/common/ui/LocaleSync";
 import { ScrollbarController } from "@/components/common/ui/ScrollbarController";
-import {
-	DynamicIslandProvider,
-	ElectronTransparentScript,
-	TransparentBody,
-} from "@/components/dynamic-island";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
 import "driver.js/dist/driver.css";
@@ -33,8 +28,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 				className="min-h-screen bg-background text-foreground antialiased"
 				suppressHydrationWarning
 			>
-				<ElectronTransparentScript />
-				<TransparentBody />
 				<ScrollbarController />
 				<QueryProvider>
 					<NextIntlClientProvider messages={messages}>
@@ -42,7 +35,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 						<DockTriggerZone />
 						<ThemeProvider>
 							{children}
-							<DynamicIslandProvider />
 						</ThemeProvider>
 					</NextIntlClientProvider>
 				</QueryProvider>

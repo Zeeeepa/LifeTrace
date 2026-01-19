@@ -4,7 +4,7 @@
  */
 
 import { useCallback } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
+import { getElectronAPI } from "@/lib/utils/electron-api";
 
 interface UsePanelWindowResizeOptions {
 	panelWindowWidth: number;

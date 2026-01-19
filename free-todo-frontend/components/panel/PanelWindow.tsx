@@ -5,9 +5,9 @@
 
 "use client";
 
-import { IslandMode } from "@/components/dynamic-island/types";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PanelRegion } from "@/components/layout/PanelRegion";
+import { IslandMode } from "@/lib/types/window-mode";
 
 interface PanelWindowProps {
 	panelWindowWidth: number;
