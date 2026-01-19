@@ -101,46 +101,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 显示窗口（用于全屏模式）
-	 */
-	showWindow: () => {
-		ipcRenderer.send("show-window");
-	},
-
-	/**
-	 * 隐藏窗口（用于退出全屏模式）
-	 */
-	hideWindow: () => {
-		ipcRenderer.send("hide-window");
-	},
-
-	/**
-	 * 展开窗口到全屏（完全按照 electron-with-nextjs）
-	 */
-	expandWindowFull: () => ipcRenderer.invoke("expand-window-full"),
-
-	/**
-	 * 展开窗口到窗口化模式（可调整大小）
-	 */
-	expandWindow: () => ipcRenderer.invoke("expand-window"),
-
-	/**
-	 * 在指定位置展开窗口（Panel模式 - 从灵动岛上方展开）
-	 */
-	expandWindowAtPosition: (
-		x: number,
-		y: number,
-		width: number,
-		height: number,
-	) => ipcRenderer.invoke("expand-window-at-position", x, y, width, height),
-
-	/**
-	 * 恢复窗口到原始大小（完全按照 electron-with-nextjs）
-	 */
-	collapseWindow: () => ipcRenderer.invoke("collapse-window"),
-
-	/**
-	 * 获取屏幕信息（完全照抄 electron-with-nextjs）
+	 * 获取屏幕信息
 	 */
 	getScreenInfo: () => ipcRenderer.invoke("get-screen-info"),
 
@@ -166,13 +127,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 调整窗口大小（用于自定义缩放把手）
-	 */
-	resizeWindow: (deltaX: number, deltaY: number, position: string) => {
-		ipcRenderer.send("resize-window", deltaX, deltaY, position);
-	},
-
-	/**
 	 * 退出应用
 	 */
 	quit: () => {
@@ -180,7 +134,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 设置窗口背景色（用于 Panel 模式）
+	 * 设置窗口背景色
 	 */
 	setWindowBackgroundColor: (color: string) => {
 		ipcRenderer.send("set-window-background-color", color);
