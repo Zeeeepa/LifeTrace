@@ -72,16 +72,22 @@ declare global {
 
 			// ========== Island 动态岛相关 API ==========
 
-			/**
-			 * 调整 Island 窗口大小（切换模式）
-			 * @param mode Island 模式: "FLOAT" | "POPUP" | "SIDEBAR" | "FULLSCREEN"
-			 */
-			islandResizeWindow: (mode: string) => void;
+		/**
+		 * 调整 Island 窗口大小（切换模式）
+		 * @param mode Island 模式: "FLOAT" | "POPUP" | "SIDEBAR" | "FULLSCREEN"
+		 */
+		islandResizeWindow: (mode: string) => void;
 
-			/**
-			 * 显示 Island 窗口
-			 */
-			islandShow: () => void;
+		/**
+		 * 调整 SIDEBAR 模式窗口大小（多栏展开/收起）
+		 * @param columnCount 栏数: 1 | 2 | 3
+		 */
+		islandResizeSidebar: (columnCount: number) => void;
+
+		/**
+		 * 显示 Island 窗口
+		 */
+		islandShow: () => void;
 
 			/**
 			 * 隐藏 Island 窗口

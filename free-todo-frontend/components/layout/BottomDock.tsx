@@ -195,7 +195,12 @@ function DockItemButton({
 	);
 }
 
-export function BottomDock({ className, isInPanelMode = false, panelContainerRef, visiblePanelCount }: BottomDockProps) {
+export function BottomDock({
+	className,
+	isInPanelMode = false,
+	panelContainerRef,
+	visiblePanelCount,
+}: BottomDockProps) {
 	const {
 		isPanelAOpen,
 		isPanelBOpen,
@@ -465,8 +470,8 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 		<motion.div
 			className={cn(
 				isInPanelMode
-					? "pointer-events-auto relative z-[1000000]"
-					: "pointer-events-auto fixed bottom-1 left-1/2 z-[1000000]",
+					? "pointer-events-auto relative z-1000000"
+					: "pointer-events-auto fixed bottom-1 left-1/2 z-1000000",
 				className,
 			)}
 			initial={false}

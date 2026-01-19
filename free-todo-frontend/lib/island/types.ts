@@ -27,6 +27,15 @@ export const ISLAND_SIZES: Record<IslandMode, { width: number; height: number }>
 };
 
 /**
+ * SIDEBAR 模式各栏数的窗口尺寸配置
+ */
+export const SIDEBAR_COLUMN_SIZES: Record<1 | 2 | 3, { width: number; height: number }> = {
+  1: { width: 420, height: 700 },   // 单栏（现有）
+  2: { width: 800, height: 700 },   // 双栏
+  3: { width: 1200, height: 700 },  // 三栏
+};
+
+/**
  * Island 窗口配置
  */
 export const ISLAND_WINDOW_CONFIG = {

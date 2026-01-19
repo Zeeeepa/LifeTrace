@@ -171,6 +171,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
+	 * 调整 SIDEBAR 模式窗口大小（多栏展开/收起）
+	 * @param columnCount 栏数: 1 | 2 | 3
+	 */
+	islandResizeSidebar: (columnCount: number) => {
+		ipcRenderer.send("island:resize-sidebar", columnCount);
+	},
+
+	/**
 	 * 显示 Island 窗口
 	 */
 	islandShow: () => {

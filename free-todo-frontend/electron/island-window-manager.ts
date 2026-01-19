@@ -152,6 +152,11 @@ export class IslandWindowManager {
       this.resizeToMode(mode as IslandMode);
     });
 
+    // 处理 SIDEBAR 模式多栏展开/收起请求
+    ipcMain.on("island:resize-sidebar", (_event, columnCount: number) => {
+      this.resizeSidebarToColumns(columnCount as 1 | 2 | 3);
+    });
+
     // 兼容旧的 resize-window 通道（来自原始 Island 代码）
     ipcMain.on("resize-window", (event, mode: string) => {
       // 只处理来自 Island 窗口的请求
@@ -205,6 +210,39 @@ export class IslandWindowManager {
     }
 
     logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
+  }
+
+  /**
+   * 调整 SIDEBAR 窗口到指定栏数
+   * @param columnCount 栏数: 1 | 2 | 3
+   */
+  resizeSidebarToColumns(columnCount: 1 | 2 | 3): void {
+    if (!this.islandWindow) return;
+
+    // 验证栏数有效性
+    if (columnCount < 1 || columnCount > 3) {
+      logger.warn(`Invalid column count: ${columnCount}`);
+      return;
+    }
+
+    // 定义各栏数的宽度
+    const widthMap: Record<1 | 2 | 3, number> = {
+      1: 420,
+      2: 800,
+      3: 1200,
+    };
+
+    const width = widthMap[columnCount];
+    const height = 700;
+
+    // 居中定位并设置新尺寸
+    const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+    const x = Math.floor((screenWidth - width) / 2);
+    const y = Math.floor((screenHeight - height) / 2);
+
+    this.islandWindow.setBounds({ x, y, width, height });
+
+    logger.info(`Island sidebar resized to ${columnCount} column(s): ${width}x${height}`);
   }
 
   /**
