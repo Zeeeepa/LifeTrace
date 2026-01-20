@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import type React from "react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { IslandMode } from "@/lib/island/types";
 import {
   FloatContent,
@@ -16,6 +16,56 @@ interface DynamicIslandProps {
 
 const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => {
   const prevModeRef = useRef<IslandMode | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // 自定义拖拽处理器（仅允许垂直拖动）
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // 仅在非全屏模式下允许拖拽
+    if (mode === IslandMode.FULLSCREEN) return;
+
+    // 仅响应左键
+    if (e.button !== 0) return;
+
+    setIsDragging(true);
+
+    // 发送拖拽开始事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragStart) {
+      window.electronAPI.islandDragStart(e.screenY);
+    }
+  }, [mode]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging) return;
+
+    // 发送拖拽移动事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragMove) {
+      window.electronAPI.islandDragMove(e.screenY);
+    }
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDragging) return;
+
+    setIsDragging(false);
+
+    // 发送拖拽结束事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragEnd) {
+      window.electronAPI.islandDragEnd();
+    }
+  }, [isDragging]);
+
+  // 设置全局鼠标事件监听器
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Electron Click-Through Handling & Window Resizing
   useEffect(() => {
@@ -128,12 +178,13 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
         className={`absolute overflow-hidden pointer-events-auto ${
           mode === IslandMode.FLOAT ? "" : "bg-background"
         }`}
+        onMouseDown={handleMouseDown}
         style={{
           right: 0,
           bottom: 0,
-          // @ts-expect-error - WebkitAppRegion is a valid CSS property in Electron
-          WebkitAppRegion: mode !== IslandMode.FULLSCREEN ? "drag" : "no-drag",
-          cursor: mode !== IslandMode.FULLSCREEN ? "move" : "default",
+          cursor: mode !== IslandMode.FULLSCREEN
+            ? (isDragging ? "grabbing" : "ns-resize")
+            : "default",
           boxShadow: isFullscreen
             ? "none"
             : "0px 20px 50px -10px rgba(0, 0, 0, 0.5), 0px 10px 20px -10px rgba(0,0,0,0.3)",

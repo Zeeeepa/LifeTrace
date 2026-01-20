@@ -94,12 +94,29 @@ declare global {
 			 */
 			islandHide: () => void;
 
-			/**
-			 * 切换 Island 窗口显示/隐藏
-			 */
-			islandToggle: () => void;
+		/**
+		 * 切换 Island 窗口显示/隐藏
+		 */
+		islandToggle: () => void;
 
-			// ========== Future Extensions ==========
+		/**
+		 * Island 窗口拖拽开始（自定义拖拽）
+		 * @param mouseY 鼠标屏幕 Y 坐标
+		 */
+		islandDragStart: (mouseY: number) => void;
+
+		/**
+		 * Island 窗口拖拽移动（自定义拖拽）
+		 * @param mouseY 鼠标屏幕 Y 坐标
+		 */
+		islandDragMove: (mouseY: number) => void;
+
+		/**
+		 * Island 窗口拖拽结束（自定义拖拽）
+		 */
+		islandDragEnd: () => void;
+
+		// ========== Future Extensions ==========
 
 			/**
 			 * 监听 Island 窗口可见性变化（未来功能）

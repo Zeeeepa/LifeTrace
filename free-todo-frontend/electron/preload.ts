@@ -198,4 +198,27 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	islandToggle: () => {
 		ipcRenderer.send("island:toggle");
 	},
+
+	/**
+	 * Island 窗口拖拽开始（自定义拖拽，仅垂直方向）
+	 * @param mouseY 鼠标屏幕 Y 坐标
+	 */
+	islandDragStart: (mouseY: number) => {
+		ipcRenderer.send("island:drag-start", mouseY);
+	},
+
+	/**
+	 * Island 窗口拖拽移动（自定义拖拽，仅垂直方向）
+	 * @param mouseY 鼠标屏幕 Y 坐标
+	 */
+	islandDragMove: (mouseY: number) => {
+		ipcRenderer.send("island:drag-move", mouseY);
+	},
+
+	/**
+	 * Island 窗口拖拽结束（自定义拖拽）
+	 */
+	islandDragEnd: () => {
+		ipcRenderer.send("island:drag-end");
+	},
 });

@@ -40,6 +40,8 @@ export class IslandWindowManager {
   /** 窗口位置配置 */
   private readonly marginRight: number = 20;
   private readonly marginTop: number = 20;
+  /** 当前 Y 位置（用于垂直拖动时保持位置） */
+  private currentY: number = 20;
   /** 可见性变化回调 */
   private onVisibilityChange?: (visible: boolean) => void;
 
@@ -54,14 +56,30 @@ export class IslandWindowManager {
   }
 
   /**
-   * 计算窗口位置（屏幕右上角）
+   * 计算窗口 X 位置（右边缘对齐）
+   * 所有非全屏模式共享相同的 X 位置，以便平滑过渡
    */
-  private calculateWindowPosition(width: number, _height: number): { x: number; y: number } {
+  private calculateRightAlignedX(width: number): number {
     const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize;
-    return {
-      x: screenWidth - width - this.marginRight,
-      y: this.marginTop,
-    };
+    return screenWidth - width - this.marginRight;
+  }
+
+  /**
+   * 计算窗口 Y 位置
+   * 如果 preferredY 未提供，则使用保存的位置；否则约束在屏幕边界内
+   */
+  private calculateYPosition(height: number, preferredY?: number): number {
+    const { height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
+    if (preferredY !== undefined) {
+      // 约束在屏幕边界内
+      const minY = this.marginTop;
+      const maxY = screenHeight - height - this.marginTop;
+      return Math.max(minY, Math.min(preferredY, maxY));
+    }
+
+    // 使用已保存的位置
+    return this.currentY;
   }
 
   /**
@@ -86,7 +104,9 @@ export class IslandWindowManager {
 
     const preloadPath = this.getPreloadPath();
     const { width, height } = this.getSizeForMode(this.currentMode);
-    const { x, y } = this.calculateWindowPosition(width, height);
+    const x = this.calculateRightAlignedX(width);
+    const y = this.calculateYPosition(height);
+    this.currentY = y; // 初始化 Y 位置
 
     this.islandWindow = new BrowserWindow({
       width,
@@ -98,7 +118,7 @@ export class IslandWindowManager {
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
-      movable: true,
+      movable: false, // 禁用原生拖动，使用自定义拖动
       hasShadow: true,
       focusable: true,
       webPreferences: {
@@ -141,6 +161,9 @@ export class IslandWindowManager {
     // 设置 IPC 处理器
     this.setupIpcHandlers();
 
+    // 设置自定义拖拽处理器
+    this.setupCustomDragHandlers();
+
     this.enabled = true;
     logger.info(`Island window created at ${islandUrl}`);
   }
@@ -165,6 +188,62 @@ export class IslandWindowManager {
       if (this.islandWindow && event.sender === this.islandWindow.webContents) {
         this.resizeToMode(mode as IslandMode);
       }
+    });
+  }
+
+  /**
+   * 设置自定义拖拽处理器（仅允许垂直拖动）
+   */
+  private setupCustomDragHandlers(): void {
+    // 存储拖拽起始位置
+    let dragStartY = 0;
+    let windowStartY = 0;
+
+    // 处理拖拽开始
+    ipcMain.on("island:drag-start", (event, mouseY: number) => {
+      // 只处理来自 Island 窗口的请求
+      if (!this.islandWindow || event.sender !== this.islandWindow.webContents) return;
+
+      // 全屏模式不允许拖拽
+      if (this.currentMode === IslandMode.FULLSCREEN) return;
+
+      const [, currentY] = this.islandWindow.getPosition();
+      dragStartY = mouseY;
+      windowStartY = currentY;
+    });
+
+    // 处理拖拽移动
+    ipcMain.on("island:drag-move", (event, mouseY: number) => {
+      // 只处理来自 Island 窗口的请求
+      if (!this.islandWindow || event.sender !== this.islandWindow.webContents) return;
+
+      // 全屏模式不允许拖拽
+      if (this.currentMode === IslandMode.FULLSCREEN) return;
+
+      const { width, height } = this.islandWindow.getBounds();
+
+      // 计算新的 Y 位置（仅垂直移动）
+      const deltaY = mouseY - dragStartY;
+      const newY = windowStartY + deltaY;
+
+      // 锁定 X 位置到右边缘
+      const x = this.calculateRightAlignedX(width);
+
+      // 约束 Y 在屏幕边界内
+      const y = this.calculateYPosition(height, newY);
+
+      // 更新窗口位置
+      this.islandWindow.setPosition(x, y);
+    });
+
+    // 处理拖拽结束
+    ipcMain.on("island:drag-end", (event) => {
+      // 只处理来自 Island 窗口的请求
+      if (!this.islandWindow || event.sender !== this.islandWindow.webContents) return;
+
+      // 保存最终的 Y 位置
+      const [, currentY] = this.islandWindow.getPosition();
+      this.currentY = currentY;
     });
   }
 
@@ -199,15 +278,11 @@ export class IslandWindowManager {
       // 全屏模式：覆盖整个工作区
       const { x: screenX, y: screenY } = screen.getPrimaryDisplay().workArea;
       this.islandWindow.setBounds({ x: screenX, y: screenY, width, height });
-    } else if (mode === IslandMode.SIDEBAR) {
-      // 侧边栏模式：居中显示
-      const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-      const x = Math.floor((screenWidth - width) / 2);
-      const y = Math.floor((screenHeight - height) / 2);
-      this.islandWindow.setBounds({ x, y, width, height });
     } else {
-      // 悬浮模式：定位到右上角
-      const { x, y } = this.calculateWindowPosition(width, height);
+      // 所有其他模式：右边缘对齐，保持当前 Y 位置
+      const x = this.calculateRightAlignedX(width);
+      const y = this.calculateYPosition(height);
+      this.currentY = y; // 保存位置以供下次调整使用
       this.islandWindow.setBounds({ x, y, width, height });
     }
 
@@ -237,12 +312,12 @@ export class IslandWindowManager {
     const width = widthMap[columnCount];
     const height = 700;
 
-    // 居中定位并设置新尺寸
-    const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
-    const x = Math.floor((screenWidth - width) / 2);
-    const y = Math.floor((screenHeight - height) / 2);
+    // 右边缘对齐，保持当前 Y 位置
+    const x = this.calculateRightAlignedX(width);
+    const y = this.calculateYPosition(height);
 
     this.islandWindow.setBounds({ x, y, width, height });
+    this.currentY = y; // 保存位置
 
     logger.info(`Island sidebar resized to ${columnCount} column(s): ${width}x${height}`);
   }
