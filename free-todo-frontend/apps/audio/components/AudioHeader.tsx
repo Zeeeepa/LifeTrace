@@ -130,8 +130,8 @@ export function AudioHeader({
 					className={cn(
 						"px-4 py-2 text-sm font-medium rounded-md transition-colors",
 						isRecording
-							? "bg-red-500 hover:bg-red-600 text-white"
-							: "bg-[oklch(var(--primary))] hover:bg-[oklch(var(--primary-hover))] text-white"
+							? "bg-red-500 text-white hover:bg-red-600"
+							: "bg-[oklch(var(--primary))] text-white hover:opacity-60"
 					)}
 				>
 					<Mic className="h-4 w-4 inline mr-1" />

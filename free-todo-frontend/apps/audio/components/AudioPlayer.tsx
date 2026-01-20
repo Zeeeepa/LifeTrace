@@ -16,7 +16,7 @@ export function AudioPlayer({ title, date, currentTime = "0:00", totalTime = "0:
 		<div className="px-4 py-2 flex items-center gap-3 border-t border-[oklch(var(--border))] bg-[oklch(var(--muted))]/30">
 			<button
 				type="button"
-				className="p-1.5 rounded-full bg-[oklch(var(--primary))] text-white hover:bg-[oklch(var(--primary-hover))]"
+				className="p-1.5 rounded-full bg-[oklch(var(--primary))] text-white hover:opacity-60"
 				onClick={onPlay}
 			>
 				{isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}

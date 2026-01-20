@@ -30,6 +30,10 @@ interface TranscriptionViewProps {
 	isRecording?: boolean;
 	segmentTimesSec?: number[];
 	segmentTimeLabels?: string[];
+	segmentRecordingIds?: number[];
+	/** 只对指定录音的文本段做高亮（其余录音的文本不高亮） */
+	highlightRecordingId?: number | null;
+	selectedSegmentIndex?: number | null;
 	onSegmentClick?: (index: number) => void;
 }
 
@@ -49,6 +53,9 @@ export function TranscriptionView({
 	isRecording = false,
 	segmentTimesSec = [],
 	segmentTimeLabels = [],
+	segmentRecordingIds = [],
+	highlightRecordingId = null,
+	selectedSegmentIndex = null,
 	onSegmentClick,
 }: TranscriptionViewProps) {
 	const transcriptionRef = useRef<HTMLDivElement>(null);
@@ -108,13 +115,19 @@ export function TranscriptionView({
 		};
 
 		// 为每个段落创建高亮
-		const computed = segments.map((segment) => {
+		const computed = segments.map((segment, segmentIndex) => {
 			const highlights: Array<{ start: number; end: number; type: "todo" | "schedule" }> = [];
+
+			// 如果指定了只高亮某个录音，则其他录音的段落直接原样返回
+			const recIdForSegment = segmentRecordingIds[segmentIndex];
+			if (highlightRecordingId && recIdForSegment && recIdForSegment !== highlightRecordingId) {
+				return [{ text: segment }];
+			}
 
 			// 高亮待办事项：优先使用 LLM 明确给出的 source_text，其次再用 title / description / deadline 进行匹配
 			todos.forEach((todo) => {
 				const candidates = new Set<string>();
-				if ((todo as any).source_text?.trim()) candidates.add((todo as any).source_text.trim());
+				if (todo.source_text?.trim()) candidates.add(todo.source_text.trim());
 				if (todo.title?.trim()) candidates.add(todo.title.trim());
 				if (todo.description?.trim()) candidates.add(todo.description.trim());
 				if (todo.deadline?.trim()) candidates.add(todo.deadline.trim());
@@ -152,7 +165,7 @@ export function TranscriptionView({
 			// 高亮日程安排：优先使用 source_text，其次再用 title / description / time
 			schedules.forEach((schedule) => {
 				const candidates = new Set<string>();
-				if ((schedule as any).source_text?.trim()) candidates.add((schedule as any).source_text.trim());
+				if (schedule.source_text?.trim()) candidates.add(schedule.source_text.trim());
 				if (schedule.title?.trim()) candidates.add(schedule.title.trim());
 				if (schedule.description?.trim()) candidates.add(schedule.description.trim());
 				if (schedule.time?.trim()) candidates.add(schedule.time.trim());
@@ -220,7 +233,13 @@ export function TranscriptionView({
 			return textSegments.length > 0 ? textSegments : [{ text: segment }];
 		});
 		return computed;
-	}, [originalText, optimizedText, activeTab, todos, schedules]);
+	}, [originalText, optimizedText, activeTab, todos, schedules, highlightRecordingId, segmentRecordingIds]);
+
+	// 当前实际展示的整段文本（用于滚动计算等）
+	const displayedTextKey = useMemo(
+		() => `${activeTab}:${(activeTab === "original" ? originalText : optimizedText).length}`,
+		[activeTab, originalText, optimizedText]
+	);
 
 	// 自动滚动策略：
 	// - 回看模式：不强制滚动（从顶部开始，用户自己滚）
@@ -238,6 +257,19 @@ export function TranscriptionView({
 		if (!userNearBottomRef.current) return;
 		el.scrollTop = el.scrollHeight;
 	}, [originalText, optimizedText, partialText, activeTab, isRecording]);
+
+	// 非录音模式：每次文本内容变化时，自动滚动到底部，方便刷新/进入页面后看到最新内容
+	useEffect(() => {
+		if (isRecording) return;
+		// 读取 displayedTextKey 以保证依赖关系完整（内容变化时重新滚动）
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+		displayedTextKey;
+		const el = transcriptionRef.current;
+		if (!el) return;
+		requestAnimationFrame(() => {
+			el.scrollTop = el.scrollHeight;
+		});
+	}, [isRecording, displayedTextKey]);
 
 	// 开始录音时，强制认为在底部并立即滚到底，避免首次不自动滚动
 	useEffect(() => {
@@ -302,12 +334,14 @@ export function TranscriptionView({
 							const timeLabel =
 								segmentTimeLabels[paragraphIndex] ?? formatTime(segmentTimesSec[paragraphIndex] ?? NaN);
 							const showOptimizedTag = activeTab === "optimized";
+							const isSelected = selectedSegmentIndex != null && selectedSegmentIndex === paragraphIndex;
 							return (
 								<button
 									type="button"
 									key={paragraphKey}
 									className={cn(
-										"flex flex-col items-start text-left bg-transparent border-none p-0 gap-1.5",
+										"flex flex-col items-start text-left bg-transparent border-none p-0 gap-1.5 rounded-md",
+										isSelected ? "bg-[oklch(var(--muted))/40]" : "",
 										onSegmentClick ? "cursor-pointer" : "cursor-default",
 									)}
 									onClick={() => onSegmentClick?.(paragraphIndex)}

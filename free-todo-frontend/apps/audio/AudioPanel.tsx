@@ -1,9 +1,8 @@
 "use client";
 
-import { Download, Edit } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { PanelActionButton, PanelHeader } from "@/components/common/layout/PanelHeader";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useConfig } from "@/lib/query";
 import { AudioHeader } from "./components/AudioHeader";
@@ -34,6 +33,15 @@ export function AudioPanel() {
 	const [schedules, setSchedules] = useState<
 		Array<{ title: string; time?: string; description?: string; source_text?: string }>
 	>([]);
+	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
+	const [liveTodos, setLiveTodos] = useState<
+		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
+	>([]);
+	const [liveSchedules, setLiveSchedules] = useState<
+		Array<{ title: string; time?: string; description?: string; source_text?: string }>
+	>([]);
+	// 当前回看模式下选中的文本段索引，用于给点击过的段落加选中态
+	const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null);
 
 	const { isRecording, startRecording, stopRecording } = useAudioRecording();
 	const [showStopConfirm, setShowStopConfirm] = useState(false);
@@ -157,16 +165,51 @@ export function AudioPanel() {
 		// 注意：这里不再依赖 isRecording，避免“停止录音后”立刻用旧数据覆盖掉刚才实时看到的文本
 	}, [loadTimeline]);
 
+	// 非录音模式下：根据当前选中的录音加载对应的转录提取结果（用于持久化高亮）
+	useEffect(() => {
+		if (isRecording) return;
+		if (!selectedRecordingId) {
+			setTodos([]);
+			setSchedules([]);
+			return;
+		}
+		const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const resp = await fetch(
+					`${apiBaseUrl}/api/audio/transcription/${selectedRecordingId}?optimized=${
+						activeTab === "optimized"
+					}`,
+					{ signal: controller.signal }
+				);
+				const data = await resp.json();
+				if (Array.isArray(data.todos)) setTodos(data.todos);
+				if (Array.isArray(data.schedules)) setSchedules(data.schedules);
+			} catch (e) {
+				if ((e as Error).name !== "AbortError") {
+					console.error("Failed to load transcription extraction:", e);
+				}
+			}
+		})();
+		return () => controller.abort();
+	}, [activeTab, isRecording, selectedRecordingId]);
+
 	const handleToggleRecording = async () => {
 		if (isRecording) {
 			setShowStopConfirm(true);
 			return;
 		}
 		// 录制开始：保留当天已有文本，在末尾追加新内容；并记录起始时间用于段落时间标签
+		setSelectedSegmentIndex(null);
 		recordingStartedAtMsRef.current = performance.now();
 		recordingStartedAtRef.current = new Date();
 		// 保持已有时间标签/偏移，后续新句子在末尾追加
 		setPartialText("");
+		// 开始录音前，清空本次会话的实时高亮状态
+		setLiveTodos([]);
+		setLiveSchedules([]);
+
 		await startRecording(
 			(text, isFinal) => {
 				// 规则：
@@ -180,7 +223,8 @@ export function AudioPanel() {
 					});
 					setSegmentTimesSec((prev) => [...prev, elapsedSec]);
 					setSegmentOffsetsSec((prev) => [...prev, elapsedSec]);
-					setSegmentRecordingIds((prev) => [...prev, selectedRecordingId ?? -1]);
+					// 当前录音会话的临时段落，用 0 标记，避免误判为某个已保存录音
+					setSegmentRecordingIds((prev) => [...prev, 0]);
 					setSegmentTimeLabels((prev) => {
 						const start = recordingStartedAtRef.current ?? new Date();
 						const labelDate = new Date(start.getTime() + elapsedSec * 1000);
@@ -192,10 +236,10 @@ export function AudioPanel() {
 				}
 			},
 			(data) => {
-				// 录制中实时优化/提取推送
+				// 录制中实时优化/提取推送（仅作用于当前会话，不覆盖已有录音的持久化高亮）
 				if (typeof data.optimizedText === "string") setOptimizedText(data.optimizedText);
-				if (Array.isArray(data.todos)) setTodos(data.todos);
-				if (Array.isArray(data.schedules)) setSchedules(data.schedules);
+				if (Array.isArray(data.todos)) setLiveTodos(data.todos);
+				if (Array.isArray(data.schedules)) setLiveSchedules(data.schedules);
 			},
 			(error) => {
 				console.error("Recording error:", error);
@@ -210,6 +254,9 @@ export function AudioPanel() {
 		// 停止后后端才会落库录音记录：稍等一下再刷新列表并选中最新录音，确保播放器出现
 		setTimeout(() => {
 			loadRecordings({ forceSelectLatest: true });
+			// 录音结束后，清空本次会话的实时高亮，避免影响历史录音
+			setLiveTodos([]);
+			setLiveSchedules([]);
 		}, 600);
 	};
 
@@ -286,6 +333,7 @@ export function AudioPanel() {
 				audio.currentTime = Math.max(0, target);
 				audio.play().catch(() => {});
 				setSelectedRecordingId(recId);
+				setSelectedSegmentIndex(index);
 				if (duration) {
 					setSelectedRecordingDurationSec(duration);
 				}
@@ -316,48 +364,37 @@ export function AudioPanel() {
 		}
 	}, [handlePlayFromTranscription]);
 
+	const mergedTodos = useMemo(() => {
+		if (!isRecording) return todos;
+		const map = new Map<string, (typeof todos)[number]>();
+		for (const t of todos) map.set(`${t.title}|${t.source_text ?? ""}`, t);
+		for (const t of liveTodos) map.set(`${t.title}|${t.source_text ?? ""}`, t);
+		return Array.from(map.values());
+	}, [isRecording, todos, liveTodos]);
+
+	const mergedSchedules = useMemo(() => {
+		if (!isRecording) return schedules;
+		const map = new Map<string, (typeof schedules)[number]>();
+		for (const s of schedules) map.set(`${s.title}|${s.source_text ?? ""}`, s);
+		for (const s of liveSchedules) map.set(`${s.title}|${s.source_text ?? ""}`, s);
+		return Array.from(map.values());
+	}, [isRecording, schedules, liveSchedules]);
+
 	const formatTime = useCallback((seconds: number) => {
 		const mins = Math.floor(seconds / 60);
 		const secs = Math.floor(seconds % 60);
 		return `${mins}:${secs.toString().padStart(2, "0")}`;
 	}, []);
 
-	const handleEdit = useCallback(() => {
-		console.log("TODO: 编辑");
-	}, []);
-
-	const handleExport = useCallback(() => {
-		console.log("TODO: 导出");
-	}, []);
-
 	return (
 		<div className="flex h-full flex-col bg-[oklch(var(--background))] overflow-hidden">
-			<PanelHeader
-				icon={Icon}
-				title={t("audioLabel")}
-				actions={
-					<>
-						<PanelActionButton
-							aria-label="编辑"
-							icon={Edit}
-							onClick={handleEdit}
-						/>
-						<PanelActionButton
-							aria-label="导出"
-							icon={Download}
-							onClick={handleExport}
-						/>
-					</>
-				}
-			/>
+			<PanelHeader icon={Icon} title={t("audioLabel")} />
 
 			<AudioHeader
 				isRecording={isRecording}
 				selectedDate={selectedDate}
 				onDateChange={setSelectedDate}
 				onToggleRecording={handleToggleRecording}
-				onEdit={handleEdit}
-				onExport={handleExport}
 			/>
 
 			{/* 转录内容区域（回看模式下点击即可播放对应录音） */}
@@ -367,11 +404,14 @@ export function AudioPanel() {
 				optimizedText={optimizedText}
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
-				todos={todos}
-				schedules={schedules}
+				todos={mergedTodos}
+				schedules={mergedSchedules}
 				isRecording={isRecording}
 				segmentTimesSec={segmentTimesSec}
 				segmentTimeLabels={segmentTimeLabels}
+				segmentRecordingIds={segmentRecordingIds}
+				highlightRecordingId={isRecording ? null : selectedRecordingId}
+				selectedSegmentIndex={selectedSegmentIndex}
 				onSegmentClick={isRecording ? undefined : handleSeekToSegment}
 			/>
 
