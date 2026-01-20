@@ -265,7 +265,11 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     <GlobalDndProvider>
       <div className="w-full h-full flex flex-col overflow-hidden bg-background">
         {/* Island 专用 Header */}
-        <IslandHeader mode={IslandMode.SIDEBAR} onModeChange={onModeChange} />
+        <IslandHeader
+          mode={IslandMode.SIDEBAR}
+          onModeChange={onModeChange}
+          isExpanded={isLeftExpanded || isRightExpanded}
+        />
 
         {/* 面板区域 */}
         <div
