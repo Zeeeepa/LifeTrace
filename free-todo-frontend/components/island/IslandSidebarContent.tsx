@@ -283,10 +283,10 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
             onClick={handleToggleLeft}
             className="absolute left-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
                        h-20 w-8 rounded-xl
-                       bg-[oklch(var(--card))]/70 dark:bg-background/70
+                       bg-[oklch(var(--card))]/70 dark:bg-background/70 opacity-50
                        backdrop-blur-md border border-[oklch(var(--border))]
                        shadow-lg
-                       text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
+                       text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))] hover:opacity-100
                        hover:bg-[oklch(var(--card))]/90
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
             aria-label={isLeftExpanded ? "收起左侧栏" : "展开左侧栏"}
@@ -360,11 +360,11 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
             onClick={handleToggleRight}
             className="absolute right-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
                        h-20 w-8 rounded-xl
-                       bg-[oklch(var(--card))]/70 dark:bg-background/70
+                       bg-[oklch(var(--card))]/70 dark:bg-background/70 opacity-50
                        backdrop-blur-md border border-[oklch(var(--border))]
                        shadow-lg
                        text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
-                       hover:bg-[oklch(var(--card))]/90
+                       hover:bg-[oklch(var(--card))] dark:hover:bg-background hover:opacity-100
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
             aria-label={isRightExpanded ? "收起右侧栏" : "展开右侧栏"}
             title={isRightExpanded ? "收起右侧" : "展开右侧"}
