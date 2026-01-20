@@ -116,6 +116,12 @@ declare global {
 		 */
 		islandDragEnd: () => void;
 
+		/**
+		 * 设置 Island SIDEBAR 模式的固定状态
+		 * @param isPinned true = 固定（始终在顶部），false = 非固定（正常窗口行为）
+		 */
+		islandSetPinned: (isPinned: boolean) => void;
+
 		// ========== Future Extensions ==========
 
 			/**

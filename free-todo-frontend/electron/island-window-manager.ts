@@ -42,6 +42,8 @@ export class IslandWindowManager {
   private readonly marginTop: number = 20;
   /** 当前 Y 位置（用于垂直拖动时保持位置） */
   private currentY: number = 20;
+  /** SIDEBAR 模式的固定状态（默认为 true）*/
+  private sidebarPinned: boolean = true;
   /** 可见性变化回调 */
   private onVisibilityChange?: (visible: boolean) => void;
 
@@ -247,6 +249,14 @@ export class IslandWindowManager {
       this.resizeSidebarToColumns(columnCount as 1 | 2 | 3);
     });
 
+    // 处理 SIDEBAR 模式固定状态变化
+    ipcMain.on("island:set-pinned", (event, isPinned: boolean) => {
+      // 只处理来自 Island 窗口的请求
+      if (this.islandWindow && event.sender === this.islandWindow.webContents) {
+        this.setSidebarPinned(isPinned);
+      }
+    });
+
     // 兼容旧的 resize-window 通道（来自原始 Island 代码）
     ipcMain.on("resize-window", (event, mode: string) => {
       // 只处理来自 Island 窗口的请求
@@ -328,15 +338,19 @@ export class IslandWindowManager {
     const { width, height } = this.getSizeForMode(mode);
 
     // 形态3/4 使用正常窗口样式，形态1/2 使用透明悬浮窗样式
+    // SIDEBAR 模式下根据 pin 状态决定行为
     const isExpandedMode = mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN;
+    const shouldAlwaysOnTop = mode === IslandMode.SIDEBAR
+      ? this.sidebarPinned  // SIDEBAR: 根据 pin 状态
+      : !isExpandedMode;     // 其他模式: FLOAT/POPUP 为 true, FULLSCREEN 为 false
 
     // 设置窗口属性
-    this.islandWindow.setAlwaysOnTop(!isExpandedMode, isExpandedMode ? "normal" : "floating");
-    this.islandWindow.setSkipTaskbar(!isExpandedMode);
+    this.islandWindow.setAlwaysOnTop(shouldAlwaysOnTop, shouldAlwaysOnTop ? "floating" : "normal");
+    this.islandWindow.setSkipTaskbar(shouldAlwaysOnTop);
 
-    // macOS 特定：展开模式下不在所有工作区显示
+    // macOS 特定：根据 pin 状态设置工作区可见性
     if (process.platform === "darwin") {
-      this.islandWindow.setVisibleOnAllWorkspaces(!isExpandedMode, { visibleOnFullScreen: !isExpandedMode });
+      this.islandWindow.setVisibleOnAllWorkspaces(shouldAlwaysOnTop, { visibleOnFullScreen: shouldAlwaysOnTop });
     }
 
     if (mode === IslandMode.FULLSCREEN) {
@@ -515,5 +529,28 @@ export class IslandWindowManager {
    */
   isVisible(): boolean {
     return this.islandWindow?.isVisible() ?? false;
+  }
+
+  /**
+   * 设置 SIDEBAR 模式的固定状态
+   * @param isPinned true = 固定（始终在顶部），false = 非固定（正常窗口行为）
+   */
+  setSidebarPinned(isPinned: boolean): void {
+    if (!this.islandWindow) return;
+
+    this.sidebarPinned = isPinned;
+
+    // 如果当前是 SIDEBAR 模式，立即更新窗口属性
+    if (this.currentMode === IslandMode.SIDEBAR) {
+      this.islandWindow.setAlwaysOnTop(isPinned, isPinned ? "floating" : "normal");
+      this.islandWindow.setSkipTaskbar(isPinned);
+
+      // macOS 特定：根据 pin 状态设置工作区可见性
+      if (process.platform === "darwin") {
+        this.islandWindow.setVisibleOnAllWorkspaces(isPinned, { visibleOnFullScreen: isPinned });
+      }
+
+      logger.info(`Island SIDEBAR pin state changed to: ${isPinned ? "pinned" : "unpinned"}`);
+    }
   }
 }

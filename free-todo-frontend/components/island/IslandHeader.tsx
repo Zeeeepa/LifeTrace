@@ -7,8 +7,9 @@
  * 遵循原设计：HeaderIsland 仅在有通知且为 Electron 环境时显示
  */
 
-import { Maximize2, Minimize2, X } from "lucide-react";
+import { Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
@@ -30,6 +31,9 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
   const isSidebar = mode === IslandMode.SIDEBAR;
   const isFullscreen = mode === IslandMode.FULLSCREEN;
 
+  // Pin state - default to true (pinned)
+  const [isPinned, setIsPinned] = useState(true);
+
   // 获取当前通知状态
   const { currentNotification } = useNotificationStore();
 
@@ -41,6 +45,17 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
 
   // 显示工具按钮的条件：全屏模式 或 侧边栏已展开到 2+ 栏（宽度足够）
   const shouldShowTools = isFullscreen || (isSidebar && isExpanded);
+
+  // Handle pin toggle
+  const handlePinToggle = () => {
+    const newPinState = !isPinned;
+    setIsPinned(newPinState);
+
+    // Notify Electron main process
+    if (isElectron && window.electronAPI?.islandSetPinned) {
+      window.electronAPI.islandSetPinned(newPinState);
+    }
+  };
 
   return (
     <header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible app-region-drag">
@@ -92,6 +107,24 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
         )}
 
         {/* 窗口控制按钮 */}
+        {/* Pin button - only show in SIDEBAR mode */}
+        {isSidebar && (
+          <button
+            type="button"
+            onClick={handlePinToggle}
+            className={`w-7 h-7 flex items-center justify-center rounded-md
+                       hover:bg-accent active:bg-accent/80
+                       transition-colors ${
+                         isPinned
+                           ? "text-primary hover:text-primary"
+                           : "text-muted-foreground hover:text-foreground"
+                       }`}
+            title={isPinned ? "取消固定（窗口将在失焦时最小化）" : "固定窗口（始终保持在桌面上）"}
+          >
+            {isPinned ? <Pin size={14} /> : <PinOff size={14} />}
+          </button>
+        )}
+
         {/* 缩小/展开按钮 */}
         {isSidebar ? (
           <button
