@@ -98,6 +98,19 @@ declare global {
 			 * 切换 Island 窗口显示/隐藏
 			 */
 			islandToggle: () => void;
+
+			// ========== Future Extensions ==========
+
+			/**
+			 * 监听 Island 窗口可见性变化（未来功能）
+			 * @param callback 回调函数，接收可见性状态
+			 */
+			onIslandVisibilityChange?: (callback: (visible: boolean) => void) => void;
+
+			/**
+			 * 取消监听 Island 窗口可见性变化（未来功能）
+			 */
+			offIslandVisibilityChange?: (callback: (visible: boolean) => void) => void;
 		};
 	}
 }

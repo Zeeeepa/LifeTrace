@@ -40,6 +40,8 @@ export class IslandWindowManager {
   /** 窗口位置配置 */
   private readonly marginRight: number = 20;
   private readonly marginTop: number = 20;
+  /** 可见性变化回调 */
+  private onVisibilityChange?: (visible: boolean) => void;
 
   /**
    * 获取 preload 脚本路径
@@ -251,6 +253,8 @@ export class IslandWindowManager {
   show(): void {
     if (this.islandWindow && !this.islandWindow.isVisible()) {
       this.islandWindow.show();
+      this.notifyVisibilityChange(true);
+      logger.info("Island window shown");
     }
   }
 
@@ -260,6 +264,8 @@ export class IslandWindowManager {
   hide(): void {
     if (this.islandWindow?.isVisible()) {
       this.islandWindow.hide();
+      this.notifyVisibilityChange(false);
+      logger.info("Island window hidden");
     }
   }
 
@@ -322,5 +328,36 @@ export class IslandWindowManager {
     if (this.islandWindow && !this.islandWindow.isDestroyed()) {
       this.islandWindow.webContents.send(channel, ...args);
     }
+  }
+
+  /**
+   * 设置可见性变化回调
+   * @param callback 回调函数，接收 visible 参数
+   */
+  setVisibilityChangeCallback(callback: (visible: boolean) => void): void {
+    this.onVisibilityChange = callback;
+  }
+
+  /**
+   * 通知可见性变化
+   * @param visible 当前可见性状态
+   */
+  private notifyVisibilityChange(visible: boolean): void {
+    if (this.onVisibilityChange) {
+      try {
+        this.onVisibilityChange(visible);
+      } catch (error) {
+        logger.error(
+          `Error in visibility change callback: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * 检查窗口当前是否可见
+   */
+  isVisible(): boolean {
+    return this.islandWindow?.isVisible() ?? false;
   }
 }

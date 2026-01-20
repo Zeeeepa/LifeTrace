@@ -38,11 +38,16 @@ export default function IslandPage() {
           setMode(IslandMode.FULLSCREEN);
           break;
         case "Escape":
-          // 逐级退出：全屏 -> 侧边栏 -> 悬浮
+          // 逐级退出：全屏 -> 侧边栏 -> 悬浮 -> 隐藏
           if (mode === IslandMode.FULLSCREEN) {
             setMode(IslandMode.SIDEBAR);
           } else if (mode === IslandMode.SIDEBAR || mode === IslandMode.POPUP) {
             setMode(IslandMode.FLOAT);
+          } else if (mode === IslandMode.FLOAT) {
+            // 隐藏 Island 窗口
+            if (typeof window !== "undefined" && window.electronAPI?.islandHide) {
+              window.electronAPI.islandHide();
+            }
           }
           break;
         default:
