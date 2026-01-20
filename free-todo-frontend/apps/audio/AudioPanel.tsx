@@ -27,12 +27,11 @@ export function AudioPanel() {
 	const [segmentRecordingIds, setSegmentRecordingIds] = useState<number[]>([]);
 	const [segmentTimeLabels, setSegmentTimeLabels] = useState<string[]>([]);
 	const [segmentTimesSec, setSegmentTimesSec] = useState<number[]>([]);
-	const [todos, setTodos] = useState<
-		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
-	>([]);
-	const [schedules, setSchedules] = useState<
-		Array<{ title: string; time?: string; description?: string; source_text?: string }>
-	>([]);
+	type TodoItem = { title: string; description?: string; deadline?: string; source_text?: string };
+	type ScheduleItem = { title: string; time?: string; description?: string; source_text?: string };
+	const [extractionsByRecordingId, setExtractionsByRecordingId] = useState<
+		Record<number, { todos: TodoItem[]; schedules: ScheduleItem[] }>
+	>({});
 	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
 	const [liveTodos, setLiveTodos] = useState<
 		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
@@ -165,35 +164,46 @@ export function AudioPanel() {
 		// 注意：这里不再依赖 isRecording，避免“停止录音后”立刻用旧数据覆盖掉刚才实时看到的文本
 	}, [loadTimeline]);
 
-	// 非录音模式下：根据当前选中的录音加载对应的转录提取结果（用于持久化高亮）
+	// 按录音ID加载对应的转录提取结果（用于整天时间线所有录音的持久化高亮）
 	useEffect(() => {
-		if (isRecording) return;
-		if (!selectedRecordingId) {
-			setTodos([]);
-			setSchedules([]);
-			return;
-		}
+		// 找出时间线中出现过的录音ID（忽略录音中的临时ID 0）
+		const uniqueIds = Array.from(new Set(segmentRecordingIds.filter((id) => id && id > 0)));
+		if (uniqueIds.length === 0) return;
 		const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 		const controller = new AbortController();
+
+		const missingIds = uniqueIds.filter((id) => !extractionsByRecordingId[id]);
+		if (missingIds.length === 0) return;
+
 		(async () => {
 			try {
-				const resp = await fetch(
-					`${apiBaseUrl}/api/audio/transcription/${selectedRecordingId}?optimized=${
-						activeTab === "optimized"
-					}`,
-					{ signal: controller.signal }
+				const results = await Promise.all(
+					missingIds.map(async (id) => {
+						const resp = await fetch(`${apiBaseUrl}/api/audio/transcription/${id}`, {
+							signal: controller.signal,
+						});
+						const data = await resp.json();
+						const todos: TodoItem[] = Array.isArray(data.todos) ? data.todos : [];
+						const schedules: ScheduleItem[] = Array.isArray(data.schedules) ? data.schedules : [];
+						return { id, todos, schedules };
+					})
 				);
-				const data = await resp.json();
-				if (Array.isArray(data.todos)) setTodos(data.todos);
-				if (Array.isArray(data.schedules)) setSchedules(data.schedules);
+				setExtractionsByRecordingId((prev) => {
+					const next = { ...prev };
+					for (const r of results) {
+						next[r.id] = { todos: r.todos, schedules: r.schedules };
+					}
+					return next;
+				});
 			} catch (e) {
 				if ((e as Error).name !== "AbortError") {
 					console.error("Failed to load transcription extraction:", e);
 				}
 			}
 		})();
+
 		return () => controller.abort();
-	}, [activeTab, isRecording, selectedRecordingId]);
+	}, [segmentRecordingIds, extractionsByRecordingId]);
 
 	const handleToggleRecording = async () => {
 		if (isRecording) {
@@ -254,9 +264,7 @@ export function AudioPanel() {
 		// 停止后后端才会落库录音记录：稍等一下再刷新列表并选中最新录音，确保播放器出现
 		setTimeout(() => {
 			loadRecordings({ forceSelectLatest: true });
-			// 录音结束后，清空本次会话的实时高亮，避免影响历史录音
-			setLiveTodos([]);
-			setLiveSchedules([]);
+			// 不清空 live 高亮，让本次录音的文本在刷新时间线前继续使用录音时的高亮
 		}, 600);
 	};
 
@@ -364,21 +372,23 @@ export function AudioPanel() {
 		}
 	}, [handlePlayFromTranscription]);
 
-	const mergedTodos = useMemo(() => {
-		if (!isRecording) return todos;
-		const map = new Map<string, (typeof todos)[number]>();
-		for (const t of todos) map.set(`${t.title}|${t.source_text ?? ""}`, t);
-		for (const t of liveTodos) map.set(`${t.title}|${t.source_text ?? ""}`, t);
-		return Array.from(map.values());
-	}, [isRecording, todos, liveTodos]);
+	// 每一条文本段对应的高亮数据：按 recordingId 映射，录音中的临时段 (id=0) 使用实时 highligh 数据
+	const segmentTodos = useMemo(() => {
+		return segmentRecordingIds.map((recId) => {
+			// 录音中的新增段落用实时高亮（recId=0），录音结束后在时间线刷新前继续使用这份高亮
+			if (recId === 0) return liveTodos;
+			const ext = recId != null ? extractionsByRecordingId[recId] : undefined;
+			return ext?.todos ?? [];
+		});
+	}, [segmentRecordingIds, liveTodos, extractionsByRecordingId]);
 
-	const mergedSchedules = useMemo(() => {
-		if (!isRecording) return schedules;
-		const map = new Map<string, (typeof schedules)[number]>();
-		for (const s of schedules) map.set(`${s.title}|${s.source_text ?? ""}`, s);
-		for (const s of liveSchedules) map.set(`${s.title}|${s.source_text ?? ""}`, s);
-		return Array.from(map.values());
-	}, [isRecording, schedules, liveSchedules]);
+	const segmentSchedules = useMemo(() => {
+		return segmentRecordingIds.map((recId) => {
+			if (recId === 0) return liveSchedules;
+			const ext = recId != null ? extractionsByRecordingId[recId] : undefined;
+			return ext?.schedules ?? [];
+		});
+	}, [segmentRecordingIds, liveSchedules, extractionsByRecordingId]);
 
 	const formatTime = useCallback((seconds: number) => {
 		const mins = Math.floor(seconds / 60);
@@ -404,13 +414,11 @@ export function AudioPanel() {
 				optimizedText={optimizedText}
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
-				todos={mergedTodos}
-				schedules={mergedSchedules}
+				segmentTodos={segmentTodos}
+				segmentSchedules={segmentSchedules}
 				isRecording={isRecording}
 				segmentTimesSec={segmentTimesSec}
 				segmentTimeLabels={segmentTimeLabels}
-				segmentRecordingIds={segmentRecordingIds}
-				highlightRecordingId={isRecording ? null : selectedRecordingId}
 				selectedSegmentIndex={selectedSegmentIndex}
 				onSegmentClick={isRecording ? undefined : handleSeekToSegment}
 			/>

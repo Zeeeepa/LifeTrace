@@ -25,14 +25,13 @@ interface TranscriptionViewProps {
 	partialText?: string;
 	activeTab: "original" | "optimized";
 	onTabChange: (tab: "original" | "optimized") => void;
-	todos?: TodoItem[];
-	schedules?: ScheduleItem[];
+	/** 每个文本段对应的待办高亮列表（与时间线一一对应） */
+	segmentTodos?: TodoItem[][];
+	/** 每个文本段对应的日程高亮列表（与时间线一一对应） */
+	segmentSchedules?: ScheduleItem[][];
 	isRecording?: boolean;
 	segmentTimesSec?: number[];
 	segmentTimeLabels?: string[];
-	segmentRecordingIds?: number[];
-	/** 只对指定录音的文本段做高亮（其余录音的文本不高亮） */
-	highlightRecordingId?: number | null;
 	selectedSegmentIndex?: number | null;
 	onSegmentClick?: (index: number) => void;
 }
@@ -48,13 +47,11 @@ export function TranscriptionView({
 	partialText = "",
 	activeTab,
 	onTabChange,
-	todos = [],
-	schedules = [],
+	segmentTodos = [],
+	segmentSchedules = [],
 	isRecording = false,
 	segmentTimesSec = [],
 	segmentTimeLabels = [],
-	segmentRecordingIds = [],
-	highlightRecordingId = null,
 	selectedSegmentIndex = null,
 	onSegmentClick,
 }: TranscriptionViewProps) {
@@ -85,15 +82,27 @@ export function TranscriptionView({
 			segments.push(...parts.filter((s) => s.trim()));
 		}
 
-		// 帮助函数：支持“去空格”的宽松匹配（用于处理 LLM 在 source_text 中插入空格的情况）
+		// 帮助函数：支持“归一化匹配”（用于处理 LLM/智能优化带来的微小差异）
+		// - 忽略空白字符
+		// - 忽略常见中文/英文标点
+		// - 忽略“钟”（常见于“八点钟” vs “八点”）
 		const findNormalizedMatch = (segment: string, raw: string) => {
-			// 构造“去掉所有空白字符”的版本，并记录映射关系
+			const isIgnorable = (ch: string) => {
+				if (/\s/.test(ch)) return true;
+				// 常见标点：中英文 + 顿号/冒号/分号/引号/括号
+				if (/[，。！？、,.!?；;：:“”"‘’'（）()【】[\]《》<>]/.test(ch)) return true;
+				// “点钟/八点钟”里的“钟”常导致不匹配
+				if (ch === "钟") return true;
+				return false;
+			};
+
+			// 构造“去掉可忽略字符”的版本，并记录映射关系
 			const segChars = Array.from(segment);
 			const compactSeg: string[] = [];
 			const indexMap: number[] = [];
 			for (let i = 0; i < segChars.length; i++) {
 				const ch = segChars[i];
-				if (!/\s/.test(ch)) {
+				if (!isIgnorable(ch)) {
 					compactSeg.push(ch);
 					indexMap.push(i);
 				}
@@ -101,7 +110,7 @@ export function TranscriptionView({
 			const compactSegment = compactSeg.join("");
 
 			const candChars = Array.from(raw);
-			const compactCand = candChars.filter((ch) => !/\s/.test(ch)).join("");
+			const compactCand = candChars.filter((ch) => !isIgnorable(ch)).join("");
 			if (!compactCand) return null;
 
 			const startCompact = compactSegment.indexOf(compactCand);
@@ -118,14 +127,12 @@ export function TranscriptionView({
 		const computed = segments.map((segment, segmentIndex) => {
 			const highlights: Array<{ start: number; end: number; type: "todo" | "schedule" }> = [];
 
-			// 如果指定了只高亮某个录音，则其他录音的段落直接原样返回
-			const recIdForSegment = segmentRecordingIds[segmentIndex];
-			if (highlightRecordingId && recIdForSegment && recIdForSegment !== highlightRecordingId) {
-				return [{ text: segment }];
-			}
+			// 当前段落对应的高亮数据（按录音ID预先拆分好）
+			const todosForSegment = segmentTodos[segmentIndex] ?? [];
+			const schedulesForSegment = segmentSchedules[segmentIndex] ?? [];
 
 			// 高亮待办事项：优先使用 LLM 明确给出的 source_text，其次再用 title / description / deadline 进行匹配
-			todos.forEach((todo) => {
+			todosForSegment.forEach((todo) => {
 				const candidates = new Set<string>();
 				if (todo.source_text?.trim()) candidates.add(todo.source_text.trim());
 				if (todo.title?.trim()) candidates.add(todo.title.trim());
@@ -163,7 +170,7 @@ export function TranscriptionView({
 			});
 
 			// 高亮日程安排：优先使用 source_text，其次再用 title / description / time
-			schedules.forEach((schedule) => {
+			schedulesForSegment.forEach((schedule) => {
 				const candidates = new Set<string>();
 				if (schedule.source_text?.trim()) candidates.add(schedule.source_text.trim());
 				if (schedule.title?.trim()) candidates.add(schedule.title.trim());
@@ -233,7 +240,7 @@ export function TranscriptionView({
 			return textSegments.length > 0 ? textSegments : [{ text: segment }];
 		});
 		return computed;
-	}, [originalText, optimizedText, activeTab, todos, schedules, highlightRecordingId, segmentRecordingIds]);
+	}, [originalText, optimizedText, activeTab, segmentTodos, segmentSchedules]);
 
 	// 当前实际展示的整段文本（用于滚动计算等）
 	const displayedTextKey = useMemo(
