@@ -372,6 +372,21 @@ export function AudioPanel() {
 		}
 	}, [handlePlayFromTranscription]);
 
+	const handleSeekInPlayer = useCallback(
+		(ratio: number) => {
+			const audio = audioRef.current;
+			if (!audio) return;
+			const target = Math.max(0, Math.min(1, ratio)) * (audio.duration || 0);
+			try {
+				audio.currentTime = target;
+				setCurrentTime(target);
+			} catch (e) {
+				console.error("Failed to seek from player:", e);
+			}
+		},
+		[]
+	);
+
 	// 每一条文本段对应的高亮数据：按 recordingId 映射，录音中的临时段 (id=0) 使用实时 highligh 数据
 	const segmentTodos = useMemo(() => {
 		return segmentRecordingIds.map((recId) => {
@@ -395,6 +410,51 @@ export function AudioPanel() {
 		const secs = Math.floor(seconds % 60);
 		return `${mins}:${secs.toString().padStart(2, "0")}`;
 	}, []);
+
+	const currentSegmentText = useMemo(() => {
+		if (selectedSegmentIndex == null) return "";
+		const baseText = activeTab === "original" ? transcriptionText : optimizedText;
+		const lines = baseText.split("\n").filter((s) => s.trim());
+		return lines[selectedSegmentIndex] ?? "";
+	}, [selectedSegmentIndex, transcriptionText, optimizedText, activeTab]);
+
+	// 根据当前播放时间自动更新选中的文本段（仅回看模式）
+	useEffect(() => {
+		if (isRecording) return;
+		if (!selectedRecordingId) return;
+		if (!segmentRecordingIds.length) return;
+
+		const indicesForRec: number[] = [];
+		for (let i = 0; i < segmentRecordingIds.length; i++) {
+			if (segmentRecordingIds[i] === selectedRecordingId) {
+				indicesForRec.push(i);
+			}
+		}
+		if (indicesForRec.length === 0) return;
+
+		// 选取“offset <= currentTime”中最接近 currentTime 的段落；如果都在未来，则选第一段
+		let bestIndex = indicesForRec[0];
+		let bestDiff = Number.POSITIVE_INFINITY;
+		for (const idx of indicesForRec) {
+			const offset = segmentOffsetsSec[idx] ?? 0;
+			const diff = currentTime - offset;
+			// 允许一点点负误差（例如 currentTime 比 offset 略小）
+			if (diff >= -0.5 && diff < bestDiff) {
+				bestDiff = diff;
+				bestIndex = idx;
+			}
+		}
+		if (selectedSegmentIndex !== bestIndex) {
+			setSelectedSegmentIndex(bestIndex);
+		}
+	}, [
+		isRecording,
+		selectedRecordingId,
+		currentTime,
+		segmentRecordingIds,
+		segmentOffsetsSec,
+		selectedSegmentIndex,
+	]);
 
 	return (
 		<div className="flex h-full flex-col bg-[oklch(var(--background))] overflow-hidden">
@@ -437,6 +497,9 @@ export function AudioPanel() {
 						totalTime={formatTime(duration)}
 						isPlaying={isPlaying}
 						onPlay={handlePlayPause}
+						progress={duration > 0 ? currentTime / duration : 0}
+						onSeek={handleSeekInPlayer}
+						currentSegmentText={currentSegmentText}
 					/>
 				)
 			)}

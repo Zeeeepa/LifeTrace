@@ -347,8 +347,10 @@ export function TranscriptionView({
 									type="button"
 									key={paragraphKey}
 									className={cn(
-										"flex flex-col items-start text-left bg-transparent border-none p-0 gap-1.5 rounded-md",
-										isSelected ? "bg-[oklch(var(--muted))/40]" : "",
+										"flex flex-col items-start text-left bg-transparent border-none p-0 gap-1.5 rounded-md px-1 -mx-1",
+										isSelected
+											? "bg-[oklch(var(--muted))] border border-[oklch(var(--border))] shadow-sm"
+											: "",
 										onSegmentClick ? "cursor-pointer" : "cursor-default",
 									)}
 									onClick={() => onSegmentClick?.(paragraphIndex)}
