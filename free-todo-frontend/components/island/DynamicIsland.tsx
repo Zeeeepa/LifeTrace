@@ -218,7 +218,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           restDelta: 0.001,
         }}
         className={`absolute overflow-hidden pointer-events-auto ${
-          mode === IslandMode.FLOAT ? "" : "bg-background"
+          (mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN) ? "bg-background" : ""
         }`}
         onMouseDown={handleMouseDown}
         style={{
@@ -228,13 +228,14 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           cursor: mode !== IslandMode.FULLSCREEN
             ? (isDragging ? "grabbing" : "ns-resize")
             : "default",
-          boxShadow: isFullscreen
-            ? "none"
-            : "0px 20px 50px -10px rgba(0, 0, 0, 0.5), 0px 10px 20px -10px rgba(0,0,0,0.3)",
+          // Only apply box-shadow for SIDEBAR mode (FLOAT/POPUP are fully transparent, FULLSCREEN has no shadow)
+          boxShadow: mode === IslandMode.SIDEBAR
+            ? "0px 20px 50px -10px rgba(0, 0, 0, 0.5), 0px 10px 20px -10px rgba(0,0,0,0.3)"
+            : "none",
         }}
       >
-        {/* 背景层 - 仅在非 FLOAT 模式显示 */}
-        {mode !== IslandMode.FLOAT && (
+        {/* 背景层 - 仅在 SIDEBAR/FULLSCREEN 模式显示（FLOAT/POPUP 完全透明） */}
+        {(mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN) && (
           <div
             className={`absolute inset-0 bg-primary-foreground/90 dark:bg-accent/90 backdrop-blur-[80px] transition-colors duration-700 ease-out ${
               isFullscreen ? "bg-primary-foreground/98 dark:bg-accent/98" : ""
@@ -242,26 +243,22 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           />
         )}
 
-        {/* 噪点纹理 */}
-        <div className="absolute inset-0 opacity-[0.035] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none mix-blend-overlay" />
+        {/* 噪点纹理 - 仅在 SIDEBAR/FULLSCREEN 模式显示 */}
+        {(mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN) && (
+          <div className="absolute inset-0 opacity-[0.035] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none mix-blend-overlay" />
+        )}
 
-        {/* 光晕效果 */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            mode === IslandMode.FLOAT ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          <div className="absolute top-[-50%] left-[-20%] w-[100%] h-[100%] rounded-full bg-primary/10 blur-[120px] mix-blend-screen" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-primary/8 blur-[120px] mix-blend-screen" />
-        </div>
+        {/* 光晕效果 - 仅在 SIDEBAR/FULLSCREEN 模式显示 */}
+        {(mode === IslandMode.SIDEBAR || mode === IslandMode.FULLSCREEN) && (
+          <div className="absolute inset-0">
+            <div className="absolute top-[-50%] left-[-20%] w-full h-full rounded-full bg-primary/10 blur-[120px] mix-blend-screen" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-primary/8 blur-[120px] mix-blend-screen" />
+          </div>
+        )}
 
-        {/* 边框 - 仅在非 FLOAT 模式显示 */}
-        {mode !== IslandMode.FLOAT && (
-          <div
-            className={`absolute inset-0 rounded-[inherit] border border-border pointer-events-none shadow-[inset_0_0_20px_oklch(var(--foreground)/0.03)] transition-opacity duration-500 ${
-              isFullscreen ? "opacity-0" : "opacity-100"
-            }`}
-          />
+        {/* 边框 - 仅在 SIDEBAR 模式显示 */}
+        {mode === IslandMode.SIDEBAR && (
+          <div className="absolute inset-0 rounded-[inherit] border border-border pointer-events-none shadow-[inset_0_0_20px_oklch(var(--foreground)/0.03)]" />
         )}
 
         {/* 内容区域 */}

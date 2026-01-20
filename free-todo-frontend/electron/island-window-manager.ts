@@ -186,7 +186,7 @@ export class IslandWindowManager {
       skipTaskbar: true,
       resizable: false,
       movable: false, // 禁用原生拖动，使用自定义拖动
-      hasShadow: true,
+      hasShadow: false, // 禁用系统阴影以避免透明窗口出现黑边，使用 CSS box-shadow 代替
       focusable: true,
       webPreferences: {
         nodeIntegration: false,
