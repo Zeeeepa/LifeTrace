@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IslandHeader } from "@/components/island/IslandHeader";
 import { PanelRegion } from "@/components/layout/PanelRegion";
+import type { PanelFeature } from "@/lib/config/panel-config";
 import { GlobalDndProvider } from "@/lib/dnd";
 import { usePanelResize } from "@/lib/hooks/usePanelResize";
 import { IslandMode } from "@/lib/island/types";
@@ -30,9 +31,11 @@ export function IslandFullscreenContent({ onModeChange }: IslandFullscreenConten
     panelCWidth,
     setPanelAWidth,
     setPanelCWidth,
+    setPanelFeature,
+    getAvailableFeatures,
   } = useUiStore();
 
-  // 确保三栏全部打开
+  // 确保三栏全部打开，并确保所有面板都有功能分配
   useEffect(() => {
     const state = useUiStore.getState();
     const updates: Partial<typeof state> = {};
@@ -42,7 +45,44 @@ export function IslandFullscreenContent({ onModeChange }: IslandFullscreenConten
     if (Object.keys(updates).length > 0) {
       useUiStore.setState(updates);
     }
-  }, []);
+
+    // 确保所有面板都有功能分配
+    const currentFeatureMap = state.panelFeatureMap;
+    const availableFeatures = getAvailableFeatures();
+
+    // 定义每个面板的优先功能（如果没有分配）
+    const preferredFeatures: Record<"panelA" | "panelB" | "panelC", PanelFeature> = {
+      panelA: "todos",
+      panelB: "chat",
+      panelC: "todoDetail",
+    };
+
+    // 检查并分配缺失的功能
+    (["panelA", "panelB", "panelC"] as const).forEach((position) => {
+      if (!currentFeatureMap[position]) {
+        // 该位置没有功能，需要分配
+        const preferred = preferredFeatures[position];
+
+        // 优先使用偏好功能（如果可用），否则使用第一个可用功能
+        let featureToAssign: PanelFeature | null = null;
+
+        if (availableFeatures.includes(preferred)) {
+          featureToAssign = preferred;
+        } else if (availableFeatures.length > 0) {
+          featureToAssign = availableFeatures[0];
+        }
+
+        if (featureToAssign) {
+          setPanelFeature(position, featureToAssign);
+          // 更新可用功能列表（移除已分配的）
+          const index = availableFeatures.indexOf(featureToAssign);
+          if (index > -1) {
+            availableFeatures.splice(index, 1);
+          }
+        }
+      }
+    });
+  }, [setPanelFeature, getAvailableFeatures]);
 
   useEffect(() => {
     setMounted(true);
