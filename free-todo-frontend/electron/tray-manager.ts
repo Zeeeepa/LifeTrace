@@ -78,31 +78,15 @@ export class TrayManager {
 	 */
 	private getTrayIconPath(): string | null {
 		try {
-			// Use the Free Todo icon as tray icon
-			// For production (packaged app)
+			// Use the Free Todo icon as tray icon from public/free-todo-logos
 			if (app.isPackaged) {
+				// Production: use packaged public folder
 				const resourcesPath = process.resourcesPath;
-
-				if (process.platform === "darwin") {
-					// macOS: use template image for automatic dark/light mode
-					// Electron will handle fallback to regular icon if template not found
-					return path.join(resourcesPath, "tray", "iconTemplate.png");
-				}
-
-				// Windows: use ICO file
-				return path.join(resourcesPath, "tray", "icon.ico");
+				return path.join(resourcesPath, "standalone", "public", "free-todo-logos", "free_todo_icon_4.png");
 			}
 
 			// Development: use public folder icons
-			const publicPath = path.join(__dirname, "..", "public", "free-todo-logos");
-
-			if (process.platform === "darwin") {
-				// macOS: use PNG (template naming handled by Electron)
-				return path.join(publicPath, "free_todo_icon_4.png");
-			}
-
-			// Windows: try to use PNG (will convert internally)
-			return path.join(publicPath, "free_todo_icon_4.png");
+			return path.join(__dirname, "..", "public", "free-todo-logos", "free_todo_icon_4.png");
 		} catch (error) {
 			logger.error(`Error getting tray icon path: ${error instanceof Error ? error.message : String(error)}`);
 			return null;
