@@ -25,7 +25,8 @@ interface IslandSidebarContentProps {
 export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [columnCount, setColumnCount] = useState<1 | 2 | 3>(1);
+  const [isLeftExpanded, setIsLeftExpanded] = useState(false); // Panel A
+  const [isRightExpanded, setIsRightExpanded] = useState(false); // Panel C
   const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
   const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
@@ -47,14 +48,30 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     setMounted(true);
   }, []);
 
-  // SIDEBAR 默认是单栏，并在进入时同步窗口尺寸
+  const visiblePanelCount: 1 | 2 | 3 = (1 + (isLeftExpanded ? 1 : 0) + (isRightExpanded ? 1 : 0)) as
+    | 1
+    | 2
+    | 3;
+
+  // SIDEBAR 默认只显示中间栏（Panel B），并在进入时同步窗口尺寸
   useEffect(() => {
     if (!mounted) return;
-    setColumnCount(1);
+    setIsLeftExpanded(false);
+    setIsRightExpanded(false);
+
+    // 默认：只显示 Panel B
+    useUiStore.setState({ isPanelAOpen: false, isPanelBOpen: true, isPanelCOpen: false });
+
     if (typeof window !== "undefined" && window.electronAPI?.islandResizeSidebar) {
       window.electronAPI.islandResizeSidebar(1);
     }
   }, [mounted]);
+
+  // 侧边栏模式下强制保持 Panel B 可见（避免用户误关导致空白）
+  useEffect(() => {
+    if (!mounted) return;
+    if (!isPanelBOpen) useUiStore.setState({ isPanelBOpen: true });
+  }, [mounted, isPanelBOpen]);
 
   useEffect(() => {
     // Save current dock mode only on first mount (when ref is null)
@@ -87,7 +104,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
   // 使用 usePanelResize hook 进行面板拖拽调整
   const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } = usePanelResize({
     containerRef,
-    isPanelCOpen: columnCount === 3 && isPanelCOpen,
+    isPanelCOpen: isRightExpanded && isPanelCOpen,
     panelCWidth,
     setPanelAWidth,
     setPanelCWidth,
@@ -102,47 +119,45 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     }
   }, []);
 
-  // 展开栏数处理
-  const handleExpand = useCallback(() => {
-    if (columnCount < 3) {
-      const newCount = (columnCount + 1) as 2 | 3;
-      setColumnCount(newCount);
-
-      // 打开新增的 panel（保证“展开”后一定能看到新栏）
-      if (newCount === 2) {
-        useUiStore.setState({ isPanelBOpen: true });
-      } else if (newCount === 3) {
-        useUiStore.setState({ isPanelBOpen: true, isPanelCOpen: true });
-      }
-
-      // 通知 Electron 调整窗口尺寸
-      resizeSidebarWindow(newCount);
+  const handleToggleLeft = useCallback(() => {
+    // 左侧按钮：展开/收起 Panel A
+    if (!isLeftExpanded) {
+      setIsLeftExpanded(true);
+      useUiStore.setState({ isPanelAOpen: true, isPanelBOpen: true });
+      const nextCount = (1 + 1 + (isRightExpanded ? 1 : 0)) as 2 | 3;
+      resizeSidebarWindow(nextCount);
+      return;
     }
-  }, [columnCount, resizeSidebarWindow]);
 
-  // 收起栏数处理
-  const handleCollapse = useCallback(() => {
-    if (columnCount > 1) {
-      const newCount = (columnCount - 1) as 1 | 2;
-      setColumnCount(newCount);
+    setIsLeftExpanded(false);
+    useUiStore.setState({ isPanelAOpen: false, isPanelBOpen: true });
+    const nextCount = (1 + (isRightExpanded ? 1 : 0)) as 1 | 2;
+    resizeSidebarWindow(nextCount);
+  }, [isLeftExpanded, isRightExpanded, resizeSidebarWindow]);
 
-      // 收起时关闭被移除的 panel，避免“栏数减少但开关状态还在”造成困惑
-      if (newCount === 1) {
-        useUiStore.setState({ isPanelBOpen: false, isPanelCOpen: false });
-      } else if (newCount === 2) {
-        useUiStore.setState({ isPanelCOpen: false });
-      }
-
-      // 通知 Electron 调整窗口尺寸
-      resizeSidebarWindow(newCount);
+  const handleToggleRight = useCallback(() => {
+    // 右侧按钮：展开/收起 Panel C
+    if (!isRightExpanded) {
+      setIsRightExpanded(true);
+      useUiStore.setState({ isPanelCOpen: true, isPanelBOpen: true });
+      const nextCount = (1 + 1 + (isLeftExpanded ? 1 : 0)) as 2 | 3;
+      resizeSidebarWindow(nextCount);
+      return;
     }
-  }, [columnCount, resizeSidebarWindow]);
+
+    setIsRightExpanded(false);
+    useUiStore.setState({ isPanelCOpen: false, isPanelBOpen: true });
+    const nextCount = (1 + (isLeftExpanded ? 1 : 0)) as 1 | 2;
+    resizeSidebarWindow(nextCount);
+  }, [isRightExpanded, isLeftExpanded, resizeSidebarWindow]);
 
   // 计算面板宽度布局
   const layoutState = useCallback(() => {
     const clampedPanelA = Math.min(Math.max(panelAWidth, 0.1), 0.9);
+    const clampedPanelC = Math.min(Math.max(panelCWidth, 0.1), 0.9);
 
-    if (columnCount === 3) {
+    // 三栏布局：A + B + C
+    if (isLeftExpanded && isRightExpanded) {
       // 三栏布局
       const baseWidth = 1 - panelCWidth;
       const safeBase = baseWidth > 0 ? baseWidth : 1;
@@ -157,8 +172,8 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
       };
     }
 
-    if (columnCount === 2) {
-      // 双栏布局 (A + B)
+    // 双栏布局：A + B
+    if (isLeftExpanded && !isRightExpanded) {
       return {
         panelAWidth: clampedPanelA,
         panelBWidth: 1 - clampedPanelA,
@@ -166,13 +181,22 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
       };
     }
 
-    // 单栏布局 (只有 A)
+    // 双栏布局：B + C
+    if (!isLeftExpanded && isRightExpanded) {
+      return {
+        panelAWidth: 0,
+        panelBWidth: 1 - clampedPanelC,
+        panelCWidth: clampedPanelC,
+      };
+    }
+
+    // 单栏布局：只有 B
     return {
-      panelAWidth: 1,
-      panelBWidth: 0,
+      panelAWidth: 0,
+      panelBWidth: 1,
       panelCWidth: 0,
     };
-  }, [columnCount, panelAWidth, panelCWidth]);
+  }, [isLeftExpanded, isRightExpanded, panelAWidth, panelCWidth]);
 
   const layout = layoutState();
 
@@ -197,97 +221,103 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
           className="flex-1 min-h-0 overflow-hidden relative bg-primary-foreground dark:bg-accent flex px-3"
         >
           {/* 左侧收起按钮（点击区域在面板两侧，避免 dock 内部塞按钮） */}
-          {columnCount > 1 && (
-            <button
-              type="button"
-              onClick={handleCollapse}
-              className="absolute left-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
-                         h-20 w-8 rounded-xl
-                         bg-[oklch(var(--card))]/70 dark:bg-background/70
-                         backdrop-blur-md border border-[oklch(var(--border))]
-                         shadow-lg
-                         text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
-                         hover:bg-[oklch(var(--card))]/90
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
-              aria-label="收起栏"
-              title="收起"
-            >
+          <button
+            type="button"
+            onClick={handleToggleLeft}
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
+                       h-20 w-8 rounded-xl
+                       bg-[oklch(var(--card))]/70 dark:bg-background/70
+                       backdrop-blur-md border border-[oklch(var(--border))]
+                       shadow-lg
+                       text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
+                       hover:bg-[oklch(var(--card))]/90
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
+            aria-label={isLeftExpanded ? "收起左侧栏" : "展开左侧栏"}
+            title={isLeftExpanded ? "收起左侧" : "展开左侧"}
+          >
+            {isLeftExpanded ? (
+              <ChevronRight className="mx-auto h-5 w-5" />
+            ) : (
               <ChevronLeft className="mx-auto h-5 w-5" />
-            </button>
+            )}
+          </button>
+
+          {/* Panel A - 左侧展开时显示 */}
+          {isLeftExpanded && (
+            <PanelContainer
+              position="panelA"
+              isVisible={isPanelAOpen}
+              width={layout.panelAWidth}
+              isDragging={isDraggingPanelA || isDraggingPanelC}
+              className="mx-1"
+            >
+              <PanelContent position="panelA" />
+            </PanelContainer>
           )}
 
-          {/* Panel A - 始终显示 */}
+          {/* Panel A / B 之间的 ResizeHandle（左侧展开时显示） */}
+          {isLeftExpanded && (
+            <ResizeHandle
+              onPointerDown={handlePanelAResizePointerDown}
+              isDragging={isDraggingPanelA}
+              isVisible={isPanelBOpen}
+            />
+          )}
+
+          {/* Panel B - 始终显示（SIDEBAR 默认中间栏） */}
           <PanelContainer
-            position="panelA"
-            isVisible={isPanelAOpen}
-            width={layout.panelAWidth}
+            position="panelB"
+            isVisible={true}
+            width={layout.panelBWidth}
             isDragging={isDraggingPanelA || isDraggingPanelC}
             className="mx-1"
           >
-            <PanelContent position="panelA" />
+            <PanelContent position="panelB" />
           </PanelContainer>
 
-          {/* Panel B - 双栏和三栏时显示 */}
-          {columnCount >= 2 && (
-            <>
-              <ResizeHandle
-                onPointerDown={handlePanelAResizePointerDown}
-                isDragging={isDraggingPanelA}
-                isVisible={isPanelBOpen}
-              />
-
-              <PanelContainer
-                position="panelB"
-                isVisible={isPanelBOpen}
-                width={layout.panelBWidth}
-                isDragging={isDraggingPanelA || isDraggingPanelC}
-                className="mx-1"
-              >
-                <PanelContent position="panelB" />
-              </PanelContainer>
-            </>
+          {/* Panel B / C 之间的 ResizeHandle（右侧展开时显示） */}
+          {isRightExpanded && (
+            <ResizeHandle
+              onPointerDown={handlePanelCResizePointerDown}
+              isDragging={isDraggingPanelC}
+              isVisible={isPanelCOpen}
+            />
           )}
 
-          {/* Panel C - 三栏时显示 */}
-          {columnCount === 3 && (
-            <>
-              <ResizeHandle
-                onPointerDown={handlePanelCResizePointerDown}
-                isDragging={isDraggingPanelC}
-                isVisible={isPanelCOpen}
-              />
-
-              <PanelContainer
-                position="panelC"
-                isVisible={isPanelCOpen}
-                width={layout.panelCWidth}
-                isDragging={isDraggingPanelA || isDraggingPanelC}
-                className="mx-1"
-              >
-                <PanelContent position="panelC" />
-              </PanelContainer>
-            </>
+          {/* Panel C - 右侧展开时显示 */}
+          {isRightExpanded && (
+            <PanelContainer
+              position="panelC"
+              isVisible={isPanelCOpen}
+              width={layout.panelCWidth}
+              isDragging={isDraggingPanelA || isDraggingPanelC}
+              className="mx-1"
+            >
+              <PanelContent position="panelC" />
+            </PanelContainer>
           )}
 
           {/* 右侧展开按钮（点击区域在面板两侧，避免 dock 内部塞按钮） */}
-          {columnCount < 3 && (
-            <button
-              type="button"
-              onClick={handleExpand}
-              className="absolute right-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
-                         h-20 w-8 rounded-xl
-                         bg-[oklch(var(--card))]/70 dark:bg-background/70
-                         backdrop-blur-md border border-[oklch(var(--border))]
-                         shadow-lg
-                         text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
-                         hover:bg-[oklch(var(--card))]/90
-                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
-              aria-label="展开栏"
-              title="展开"
-            >
+          <button
+            type="button"
+            onClick={handleToggleRight}
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-50 pointer-events-auto
+                       h-20 w-8 rounded-xl
+                       bg-[oklch(var(--card))]/70 dark:bg-background/70
+                       backdrop-blur-md border border-[oklch(var(--border))]
+                       shadow-lg
+                       text-[oklch(var(--muted-foreground))] hover:text-[oklch(var(--foreground))]
+                       hover:bg-[oklch(var(--card))]/90
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(var(--ring))] focus-visible:ring-offset-2"
+            aria-label={isRightExpanded ? "收起右侧栏" : "展开右侧栏"}
+            title={isRightExpanded ? "收起右侧" : "展开右侧"}
+          >
+            {isRightExpanded ? (
+              <ChevronLeft className="mx-auto h-5 w-5" />
+            ) : (
               <ChevronRight className="mx-auto h-5 w-5" />
-            </button>
-          )}
+            )}
+          </button>
         </div>
 
         {/* 底部 Dock - 用于切换面板和展开/收起栏数 */}
@@ -295,7 +325,16 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
           <BottomDock
             isInPanelMode={true}
             panelContainerRef={containerRef}
-            visiblePanelCount={columnCount}
+            visiblePanelCount={visiblePanelCount}
+            visiblePositions={
+              visiblePanelCount === 1
+                ? ["panelB"]
+                : visiblePanelCount === 2
+                  ? isLeftExpanded
+                    ? ["panelA", "panelB"]
+                    : ["panelB", "panelC"]
+                  : ["panelA", "panelB", "panelC"]
+            }
           />
         </div>
       </div>
