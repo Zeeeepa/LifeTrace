@@ -268,6 +268,8 @@ class ConfigService:
             "dify.base_url",
             # Tavily 配置（联网搜索）
             "tavily.api_key",
+            # 音频录制配置
+            "audio.is_24x7",
         ]
 
         config_dict = {}

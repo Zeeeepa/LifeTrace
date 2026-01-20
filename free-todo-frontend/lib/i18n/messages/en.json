@@ -83,6 +83,7 @@
 			"whitelistAppsDesc": "Only screenshots from these apps will trigger auto todo detection",
 			"loadFailed": "Failed to load config: {error}",
 			"saveFailed": "Failed to save config: {error}",
+			"saveSuccess": "Configuration saved",
 			"costTrackingPanelTitle": "Cost Panel",
 			"costTrackingPanelDescription": "Control whether the cost tracking feature is available in panels",
 			"costTrackingPanelLabel": "Enable cost tracking panel",
@@ -139,6 +140,9 @@
 			"modeSwitcherHint": "When disabled, chat panel will only use Ask mode",
 			"modeSwitcherEnabled": "Mode switcher enabled",
 			"modeSwitcherDisabled": "Mode switcher disabled",
+			"audioSettings": "Audio Recording Settings",
+			"enable24x7Recording": "7x24 Hour Recording",
+			"enable24x7RecordingDesc": "When enabled, recordings will be automatically marked as 7x24 hour recording mode",
 			"currentVersion": "Current Version"
 		},
 		"costTracking": {

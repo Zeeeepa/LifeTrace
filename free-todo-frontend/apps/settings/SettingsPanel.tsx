@@ -7,6 +7,7 @@ import { CollapsibleSection } from "@/components/common/layout/CollapsibleSectio
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useConfig } from "@/lib/query";
 import {
+	AudioConfigSection,
 	AutoTodoDetectionSection,
 	DifyConfigSection,
 	DockDisplayModeSection,
@@ -52,6 +53,9 @@ export function SettingsPanel() {
 
 				{/* Tavily 配置 */}
 				<TavilyConfigSection config={config} loading={loading} />
+
+				{/* 音频录制配置 */}
+				<AudioConfigSection config={config} loading={loading} />
 
 				{/* 自动待办检测设置 */}
 				<AutoTodoDetectionSection config={config} loading={loading} />
@@ -105,3 +109,6 @@ export function SettingsPanel() {
 		</div>
 	);
 }
+
+// 兼容默认导出，避免构建器找不到导出时报错
+export default SettingsPanel;

@@ -18,6 +18,7 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import to_local
 
 logger = get_logger()
 
@@ -93,7 +94,8 @@ class AudioService:
                 file_path=file_path,
                 file_size=file_size,
                 duration=duration,
-                start_time=datetime.utcnow(),
+                # 使用本地时间记录，避免前端显示存在时区偏移
+                start_time=datetime.now(),
                 status="recording",
                 is_24x7=is_24x7,
                 is_transcribed=False,
@@ -121,20 +123,21 @@ class AudioService:
             recording = session.get(AudioRecording, recording_id)
             if recording:
                 recording.status = "completed"
-                recording.end_time = datetime.utcnow()
+                # 使用本地时间记录结束时间
+                recording.end_time = datetime.now()
                 recording.transcription_status = "processing"
                 session.commit()
                 session.refresh(recording)
             return recording
 
-    def get_recordings_by_date(self, date: datetime) -> list[AudioRecording]:
+    def get_recordings_by_date(self, date: datetime) -> list[dict[str, Any]]:
         """根据日期获取录音列表
 
         Args:
             date: 日期
 
         Returns:
-            录音列表
+            录音列表（序列化后的字典列表，避免 Session 错误）
         """
         with get_session() as session:
             start_of_day = date.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -146,7 +149,28 @@ class AudioService:
                 AudioRecording.deleted_at.is_(None),
             )
             recordings = session.exec(statement).all()
-            return list(recordings)
+            # 在 session 内序列化数据，避免 Session 错误
+            result = []
+            for rec in recordings:
+                result.append(
+                    {
+                        "id": rec.id,
+                        "file_path": rec.file_path,
+                        "file_size": rec.file_size,
+                        "duration": rec.duration,
+                        "start_time": to_local(rec.start_time),
+                        "end_time": to_local(rec.end_time) if rec.end_time else None,
+                        "status": rec.status,
+                        "is_24x7": rec.is_24x7,
+                        "is_transcribed": rec.is_transcribed,
+                        "is_extracted": rec.is_extracted,
+                        "is_summarized": rec.is_summarized,
+                        "is_full_audio": rec.is_full_audio,
+                        "is_segment_audio": rec.is_segment_audio,
+                        "transcription_status": rec.transcription_status,
+                    }
+                )
+            return result
 
     async def save_transcription(
         self,
@@ -379,18 +403,34 @@ class AudioService:
                 session.refresh(transcription)
             return transcription
 
-    def get_transcription(self, recording_id: int) -> Transcription | None:
-        """获取转录文本
+    def get_transcription(self, recording_id: int) -> dict[str, Any] | None:
+        """获取转录文本（已序列化）
+
+        注意：不要将 ORM 实例返回到路由层，避免 Session 关闭后访问属性时报
+        “Instance <Transcription ...> is not bound to a Session”。
 
         Args:
             recording_id: 录音ID
 
         Returns:
-            Transcription对象，如果不存在则返回None
+            包含转录字段的字典，如果不存在则返回None
         """
         with get_session() as session:
             statement = select(Transcription).where(
                 Transcription.audio_recording_id == recording_id
             )
             transcription = session.exec(statement).first()
-            return transcription
+            if not transcription:
+                return None
+
+            return {
+                "id": transcription.id,
+                "audio_recording_id": transcription.audio_recording_id,
+                "original_text": transcription.original_text,
+                "optimized_text": transcription.optimized_text,
+                "extracted_todos": transcription.extracted_todos,
+                "extracted_schedules": transcription.extracted_schedules,
+                "extraction_status": transcription.extraction_status,
+                "created_at": transcription.created_at,
+                "updated_at": transcription.updated_at,
+            }

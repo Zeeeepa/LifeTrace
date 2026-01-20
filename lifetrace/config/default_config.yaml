@@ -164,6 +164,7 @@ tavily:
 
 # 音频识别配置（阿里云Fun-ASR）
 audio:
+  is_24x7: true # 7x24小时录制模式（默认开启）
   asr:
     api_key: sk-628836258f014665b8096e988d7c522c # 阿里云百炼API Key
     base_url: wss://dashscope.aliyuncs.com/api-ws/v1/inference/ # WebSocket地址
