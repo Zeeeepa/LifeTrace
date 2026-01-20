@@ -82,11 +82,6 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     }
   }, [mounted]);
 
-  // 侧边栏模式下强制保持 Panel B 可见（避免用户误关导致空白）
-  useEffect(() => {
-    if (!mounted) return;
-    if (!isPanelBOpen) useUiStore.setState({ isPanelBOpen: true });
-  }, [mounted, isPanelBOpen]);
 
   useEffect(() => {
     // Save current dock mode only on first mount (when ref is null)
@@ -139,7 +134,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     if (!isLeftExpanded) {
       // 展开 Panel A
       setIsLeftExpanded(true);
-      useUiStore.setState({ isPanelAOpen: true, isPanelBOpen: true });
+      useUiStore.setState({ isPanelAOpen: true });
 
       // 如果 Panel A 没有分配功能，自动分配一个可用功能
       if (!panelFeatureMap.panelA) {
@@ -160,7 +155,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
 
     // 收起 Panel A
     setIsLeftExpanded(false);
-    useUiStore.setState({ isPanelAOpen: false, isPanelBOpen: true });
+    useUiStore.setState({ isPanelAOpen: false });
 
     // 取消分配 Panel A 的功能，释放给其他面板使用
     useUiStore.setState((state) => ({
@@ -176,7 +171,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     if (!isRightExpanded) {
       // 展开 Panel C
       setIsRightExpanded(true);
-      useUiStore.setState({ isPanelCOpen: true, isPanelBOpen: true });
+      useUiStore.setState({ isPanelCOpen: true });
 
       // 如果 Panel C 没有分配功能，自动分配一个可用功能
       if (!panelFeatureMap.panelC) {
@@ -197,7 +192,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
 
     // 收起 Panel C
     setIsRightExpanded(false);
-    useUiStore.setState({ isPanelCOpen: false, isPanelBOpen: true });
+    useUiStore.setState({ isPanelCOpen: false });
 
     // 取消分配 Panel C 的功能，释放给其他面板使用
     useUiStore.setState((state) => ({
@@ -321,10 +316,10 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
             />
           )}
 
-          {/* Panel B - 始终显示（SIDEBAR 默认中间栏） */}
+          {/* Panel B - SIDEBAR 默认中间栏（可被用户关闭） */}
           <PanelContainer
             position="panelB"
-            isVisible={true}
+            isVisible={isPanelBOpen}
             width={layout.panelBWidth}
             isDragging={isDraggingPanelA || isDraggingPanelC}
             className="mx-1"
