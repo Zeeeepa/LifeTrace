@@ -377,7 +377,7 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
         </div>
 
         {/* 底部 Dock - 用于切换面板和展开/收起栏数 */}
-        <div className="shrink-0 flex justify-center px-2 pb-2">
+        <div className="shrink-0 flex justify-center px-2 pb-2 bg-primary-foreground dark:bg-accent">
           <BottomDock
             isInPanelMode={true}
             panelContainerRef={containerRef}
