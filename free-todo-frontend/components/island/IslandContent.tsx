@@ -115,51 +115,56 @@ export const PopupContent: React.FC = () => (
     initial="initial"
     animate="animate"
     exit="exit"
-    className="w-full h-full p-4 flex items-center gap-4 relative overflow-hidden font-sans"
+    className="w-full h-full flex items-center justify-center relative"
   >
-    {/* Background Accent */}
-    <div className="absolute -left-4 top-0 w-24 h-full bg-gradient-to-r from-primary/10 to-transparent blur-lg" />
+    {/* 弹窗容器 - 与 FloatContent 相同的背景样式 */}
+    <div className="w-full h-full rounded-[32px] bg-card/95 backdrop-blur-md
+                    border-2 border-border/60 shadow-xl
+                    p-4 flex items-center gap-4 relative overflow-hidden">
+      {/* Background Accent */}
+      <div className="absolute -left-4 top-0 w-24 h-full bg-gradient-to-r from-primary/10 to-transparent blur-lg" />
 
-    {/* Logo */}
-    <div className="relative shrink-0">
-      <div className="w-14 h-14 rounded-2xl border border-border overflow-hidden shadow-lg bg-card flex items-center justify-center">
-        {/* Light mode logo */}
-        <Image
-          src="/free-todo-logos/free_todo_icon_4_dark_with_grid.png"
-          alt="Free Todo Logo"
-          width={36}
-          height={36}
-          className="object-contain block dark:hidden"
-        />
-        {/* Dark mode logo */}
-        <Image
-          src="/free-todo-logos/free_todo_icon_4_with_grid.png"
-          alt="Free Todo Logo"
-          width={36}
-          height={36}
-          className="object-contain hidden dark:block"
-        />
+      {/* Logo */}
+      <div className="relative shrink-0 z-10">
+        <div className="w-14 h-14 rounded-2xl border border-border overflow-hidden shadow-lg bg-card flex items-center justify-center">
+          {/* Light mode logo */}
+          <Image
+            src="/free-todo-logos/free_todo_icon_4_dark_with_grid.png"
+            alt="Free Todo Logo"
+            width={36}
+            height={36}
+            className="object-contain block dark:hidden"
+          />
+          {/* Dark mode logo */}
+          <Image
+            src="/free-todo-logos/free_todo_icon_4_with_grid.png"
+            alt="Free Todo Logo"
+            width={36}
+            height={36}
+            className="object-contain hidden dark:block"
+          />
+        </div>
+        <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-emerald-500 border-2 border-card/95 rounded-full z-10 flex items-center justify-center">
+          <CheckCircle2 size={10} className="text-white" />
+        </div>
       </div>
-      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-emerald-500 border-2 border-background rounded-full z-10 flex items-center justify-center">
-        <CheckCircle2 size={10} className="text-white" />
-      </div>
-    </div>
 
-    {/* Message Content */}
-    <div className="flex flex-col flex-1 min-w-0 justify-center">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-base font-semibold text-foreground tracking-tight">
-          待办提醒
-        </span>
-        <span className="text-[10px] text-muted-foreground font-medium">刚刚</span>
-      </div>
-      <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
-        您有 3 个任务即将到期，点击查看详情
-      </p>
-      <div className="flex items-center gap-2 mt-2.5">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent border border-border hover:bg-accent/80 transition-colors cursor-pointer">
-          <MessageCircle size={12} className="text-primary" />
-          <span className="text-[11px] text-muted-foreground font-medium">查看详情</span>
+      {/* Message Content */}
+      <div className="flex flex-col flex-1 min-w-0 justify-center z-10">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-base font-semibold text-foreground tracking-tight">
+            待办提醒
+          </span>
+          <span className="text-[10px] text-muted-foreground font-medium">刚刚</span>
+        </div>
+        <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
+          您有 3 个任务即将到期，点击查看详情
+        </p>
+        <div className="flex items-center gap-2 mt-2.5">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent border border-border hover:bg-accent/80 transition-colors cursor-pointer">
+            <MessageCircle size={12} className="text-primary" />
+            <span className="text-[11px] text-muted-foreground font-medium">查看详情</span>
+          </div>
         </div>
       </div>
     </div>
