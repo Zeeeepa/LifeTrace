@@ -229,4 +229,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	islandSetPinned: (isPinned: boolean) => {
 		ipcRenderer.send("island:set-pinned", isPinned);
 	},
+
+	/**
+	 * 监听 Island 窗口位置更新（拖拽时实时更新）
+	 * @param callback 回调函数，接收位置数据
+	 */
+	onIslandPositionUpdate: (callback: (data: { y: number; screenHeight: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: { y: number; screenHeight: number }) => callback(data);
+		ipcRenderer.on('island:position-update', listener);
+		return () => {
+			ipcRenderer.removeListener('island:position-update', listener);
+		};
+	},
+
+	/**
+	 * 监听 Island 窗口锚点更新（模式切换时更新）
+	 * @param callback 回调函数，接收锚点数据
+	 */
+	onIslandAnchorUpdate: (callback: (data: { anchor: 'top' | 'bottom' | null; y: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: { anchor: 'top' | 'bottom' | null; y: number }) => callback(data);
+		ipcRenderer.on('island:anchor-update', listener);
+		return () => {
+			ipcRenderer.removeListener('island:anchor-update', listener);
+		};
+	},
 });

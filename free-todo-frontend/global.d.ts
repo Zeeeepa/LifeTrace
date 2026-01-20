@@ -122,6 +122,20 @@ declare global {
 		 */
 		islandSetPinned: (isPinned: boolean) => void;
 
+		/**
+		 * 监听 Island 窗口位置更新（拖拽时实时更新）
+		 * @param callback 回调函数，接收位置数据 { y: number, screenHeight: number }
+		 * @returns 清理函数，用于取消监听
+		 */
+		onIslandPositionUpdate: (callback: (data: { y: number; screenHeight: number }) => void) => () => void;
+
+		/**
+		 * 监听 Island 窗口锚点更新（模式切换时更新）
+		 * @param callback 回调函数，接收锚点数据 { anchor: 'top' | 'bottom' | null, y: number }
+		 * @returns 清理函数，用于取消监听
+		 */
+		onIslandAnchorUpdate: (callback: (data: { anchor: 'top' | 'bottom' | null; y: number }) => void) => () => void;
+
 		// ========== Future Extensions ==========
 
 			/**

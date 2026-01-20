@@ -309,6 +309,13 @@ export class IslandWindowManager {
 
       // 更新窗口位置
       this.islandWindow.setPosition(x, y);
+
+      // 发送位置更新到渲染进程
+      const { height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+      this.islandWindow.webContents.send('island:position-update', {
+        y: y,
+        screenHeight: screenHeight
+      });
     });
 
     // 处理拖拽结束
@@ -319,6 +326,13 @@ export class IslandWindowManager {
       // 保存最终的 Y 位置
       const [, currentY] = this.islandWindow.getPosition();
       this.currentY = currentY;
+
+      // 发送最终位置更新到渲染进程
+      const { height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+      this.islandWindow.webContents.send('island:position-update', {
+        y: currentY,
+        screenHeight: screenHeight
+      });
     });
   }
 
@@ -358,6 +372,12 @@ export class IslandWindowManager {
       const { x: screenX, y: screenY } = screen.getPrimaryDisplay().workArea;
       this.islandWindow.setBounds({ x: screenX, y: screenY, width, height });
       logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
+
+      // 发送锚点更新到渲染进程（全屏无锚点）
+      this.islandWindow.webContents.send('island:anchor-update', {
+        anchor: null,
+        y: screenY
+      });
     } else if (mode === IslandMode.SIDEBAR) {
       // SIDEBAR 模式：使用智能定位算法
       const x = this.calculateRightAlignedX(width);
@@ -365,6 +385,12 @@ export class IslandWindowManager {
       this.currentY = y; // 保存位置
       this.islandWindow.setBounds({ x, y, width, height });
       logger.info(`Island window resized to mode: ${mode} (${width}x${height}) with ${anchor} anchor at Y=${y}`);
+
+      // 发送锚点更新到渲染进程
+      this.islandWindow.webContents.send('island:anchor-update', {
+        anchor: anchor,
+        y: y
+      });
     } else {
       // FLOAT/POPUP 模式：右边缘对齐，保持当前 Y 位置
       const x = this.calculateRightAlignedX(width);
@@ -372,6 +398,14 @@ export class IslandWindowManager {
       this.currentY = y; // 保存位置以供下次调整使用
       this.islandWindow.setBounds({ x, y, width, height });
       logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
+
+      // 发送锚点更新到渲染进程（FLOAT/POPUP 使用当前位置）
+      const { height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+      const isInUpperHalf = y < screenHeight / 2;
+      this.islandWindow.webContents.send('island:anchor-update', {
+        anchor: isInUpperHalf ? 'top' : 'bottom',
+        y: y
+      });
     }
   }
 

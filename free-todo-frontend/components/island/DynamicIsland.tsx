@@ -18,6 +18,9 @@ interface DynamicIslandProps {
 const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => {
   const prevModeRef = useRef<IslandMode | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [anchorPoint, setAnchorPoint] = useState<'top' | 'bottom' | null>('top');
+  const [currentY, setCurrentY] = useState(20);
+  const [screenHeight, setScreenHeight] = useState(1080);
 
   // 自定义拖拽处理器（仅允许垂直拖动）
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -67,6 +70,28 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // 监听位置和锚点更新
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.electronAPI) {
+      // 监听位置更新（拖拽时）
+      const cleanupPosition = window.electronAPI.onIslandPositionUpdate?.((data) => {
+        setCurrentY(data.y);
+        setScreenHeight(data.screenHeight);
+      });
+
+      // 监听锚点更新（模式切换时）
+      const cleanupAnchor = window.electronAPI.onIslandAnchorUpdate?.((data) => {
+        setAnchorPoint(data.anchor);
+        setCurrentY(data.y);
+      });
+
+      return () => {
+        cleanupPosition?.();
+        cleanupAnchor?.();
+      };
+    }
+  }, []);
 
   // Electron Click-Through Handling & Window Resizing
   useEffect(() => {
@@ -159,6 +184,22 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
   const layoutState = getLayoutState(mode);
   const isFullscreen = mode === IslandMode.FULLSCREEN;
 
+  // 计算 transform-origin 基于锚点
+  const getTransformOrigin = (): string => {
+    if (anchorPoint === null || mode === IslandMode.FULLSCREEN) {
+      return "center right";
+    }
+
+    // 对于 SIDEBAR 模式，使用智能锚点
+    if (mode === IslandMode.SIDEBAR) {
+      return `${anchorPoint} right`;
+    }
+
+    // 对于 FLOAT/POPUP 模式，根据当前位置决定
+    const isInUpperHalf = currentY < screenHeight / 2;
+    return isInUpperHalf ? "top right" : "bottom right";
+  };
+
   return (
     <div className="relative w-full h-full pointer-events-none overflow-hidden">
       <motion.div
@@ -183,6 +224,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
         style={{
           right: 0,
           bottom: 0,
+          transformOrigin: getTransformOrigin(),
           cursor: mode !== IslandMode.FULLSCREEN
             ? (isDragging ? "grabbing" : "ns-resize")
             : "default",
