@@ -83,6 +83,71 @@ export class IslandWindowManager {
   }
 
   /**
+   * 智能计算 SIDEBAR 的 Y 位置
+   * 根据当前窗口位置和可用空间，选择最佳的锚点（顶部或底部对齐）
+   * @param sidebarHeight SIDEBAR 窗口的高度
+   * @returns 计算出的 Y 位置和使用的锚点类型
+   */
+  private calculateSmartSidebarPosition(
+    sidebarHeight: number
+  ): { y: number; anchor: 'top' | 'bottom' } {
+    const { height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+    const currentWindowY = this.currentY;
+    const currentWindowHeight = this.islandWindow?.getBounds().height || 56;
+
+    // 计算当前窗口的底部位置
+    const currentWindowBottom = currentWindowY + currentWindowHeight;
+
+    // 计算如果使用底部对齐，SIDEBAR 的顶部位置
+    const bottomAlignedY = currentWindowBottom - sidebarHeight;
+
+    // 计算如果使用顶部对齐，SIDEBAR 的顶部位置
+    const topAlignedY = currentWindowY;
+
+    // 检查底部对齐是否可行（SIDEBAR 完全在屏幕内）
+    const canBottomAlign = bottomAlignedY >= this.marginTop;
+
+    // 检查顶部对齐是否可行
+    const canTopAlign = (topAlignedY + sidebarHeight) <= (screenHeight - this.marginTop);
+
+    // 决策逻辑：
+    // 1. 如果当前窗口在屏幕上半部分，优先使用顶部对齐
+    // 2. 如果当前窗口在屏幕下半部分，优先使用底部对齐
+    // 3. 如果首选方案不可行，尝试另一种
+    // 4. 如果两种都不可行，居中显示并调整位置
+
+    const isInUpperHalf = currentWindowY < screenHeight / 2;
+
+    if (isInUpperHalf) {
+      // 上半部分：优先顶部对齐
+      if (canTopAlign) {
+        return { y: topAlignedY, anchor: 'top' };
+      } else if (canBottomAlign) {
+        return { y: bottomAlignedY, anchor: 'bottom' };
+      }
+    } else {
+      // 下半部分：优先底部对齐
+      if (canBottomAlign) {
+        return { y: bottomAlignedY, anchor: 'bottom' };
+      } else if (canTopAlign) {
+        return { y: topAlignedY, anchor: 'top' };
+      }
+    }
+
+    // 如果两种对齐都不可行，计算一个安全的居中位置
+    const safeY = Math.max(
+      this.marginTop,
+      Math.min(
+        screenHeight - sidebarHeight - this.marginTop,
+        currentWindowY
+      )
+    );
+
+    logger.warn(`SIDEBAR doesn't fit with current anchor, adjusted to Y=${safeY}`);
+    return { y: safeY, anchor: isInUpperHalf ? 'top' : 'bottom' };
+  }
+
+  /**
    * 获取指定模式的窗口尺寸
    */
   private getSizeForMode(mode: IslandMode): { width: number; height: number } {
@@ -278,15 +343,22 @@ export class IslandWindowManager {
       // 全屏模式：覆盖整个工作区
       const { x: screenX, y: screenY } = screen.getPrimaryDisplay().workArea;
       this.islandWindow.setBounds({ x: screenX, y: screenY, width, height });
+      logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
+    } else if (mode === IslandMode.SIDEBAR) {
+      // SIDEBAR 模式：使用智能定位算法
+      const x = this.calculateRightAlignedX(width);
+      const { y, anchor } = this.calculateSmartSidebarPosition(height);
+      this.currentY = y; // 保存位置
+      this.islandWindow.setBounds({ x, y, width, height });
+      logger.info(`Island window resized to mode: ${mode} (${width}x${height}) with ${anchor} anchor at Y=${y}`);
     } else {
-      // 所有其他模式：右边缘对齐，保持当前 Y 位置
+      // FLOAT/POPUP 模式：右边缘对齐，保持当前 Y 位置
       const x = this.calculateRightAlignedX(width);
       const y = this.calculateYPosition(height);
       this.currentY = y; // 保存位置以供下次调整使用
       this.islandWindow.setBounds({ x, y, width, height });
+      logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
     }
-
-    logger.info(`Island window resized to mode: ${mode} (${width}x${height})`);
   }
 
   /**
@@ -312,14 +384,23 @@ export class IslandWindowManager {
     const width = widthMap[columnCount];
     const height = 700;
 
-    // 右边缘对齐，保持当前 Y 位置
+    // 右边缘对齐，使用智能定位算法（如果当前是 SIDEBAR 模式）
     const x = this.calculateRightAlignedX(width);
-    const y = this.calculateYPosition(height);
+    let y: number;
+
+    if (this.currentMode === IslandMode.SIDEBAR) {
+      // SIDEBAR 模式：使用智能定位算法
+      const { y: smartY, anchor } = this.calculateSmartSidebarPosition(height);
+      y = smartY;
+      logger.info(`Island sidebar resized to ${columnCount} column(s): ${width}x${height} with ${anchor} anchor at Y=${y}`);
+    } else {
+      // 其他模式：保持当前 Y 位置
+      y = this.calculateYPosition(height);
+      logger.info(`Island sidebar resized to ${columnCount} column(s): ${width}x${height}`);
+    }
 
     this.islandWindow.setBounds({ x, y, width, height });
     this.currentY = y; // 保存位置
-
-    logger.info(`Island sidebar resized to ${columnCount} column(s): ${width}x${height}`);
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   FloatContent,
   PopupContent,
 } from "./IslandContent";
+import { IslandSidebarContent } from "./IslandSidebarContent";
 
 interface DynamicIslandProps {
   mode: IslandMode;
@@ -232,6 +233,11 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
             {mode === IslandMode.POPUP && (
               <motion.div key="popup" className="absolute inset-0 w-full h-full">
                 <PopupContent />
+              </motion.div>
+            )}
+            {mode === IslandMode.SIDEBAR && (
+              <motion.div key="sidebar" className="absolute inset-0 w-full h-full">
+                <IslandSidebarContent onModeChange={onModeChange || (() => {})} />
               </motion.div>
             )}
           </AnimatePresence>
