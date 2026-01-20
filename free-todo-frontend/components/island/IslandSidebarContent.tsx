@@ -13,6 +13,7 @@ import { BottomDock } from "@/components/layout/BottomDock";
 import { PanelContainer } from "@/components/layout/PanelContainer";
 import { PanelContent } from "@/components/layout/PanelContent";
 import { ResizeHandle } from "@/components/layout/ResizeHandle";
+import type { PanelFeature } from "@/lib/config/panel-config";
 import { GlobalDndProvider } from "@/lib/dnd";
 import { usePanelResize } from "@/lib/hooks/usePanelResize";
 import { IslandMode } from "@/lib/island/types";
@@ -40,6 +41,9 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     setPanelCWidth,
     dockDisplayMode,
     setDockDisplayMode,
+    setPanelFeature,
+    getAvailableFeatures,
+    panelFeatureMap,
   } = useUiStore();
 
   const previousDockModeRef = useRef<DockDisplayMode | null>(null);
@@ -59,8 +63,19 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
     setIsLeftExpanded(false);
     setIsRightExpanded(false);
 
-    // 默认：只显示 Panel B
+    // 默认：只显示 Panel B，并确保 Panel B 有分配功能
     useUiStore.setState({ isPanelAOpen: false, isPanelBOpen: true, isPanelCOpen: false });
+
+    // 取消分配隐藏面板的功能，释放给可见面板使用
+    useUiStore.setState((state) => ({
+      panelFeatureMap: {
+        ...state.panelFeatureMap,
+        panelA: null,
+        panelC: null,
+        // 确保 Panel B 有功能分配，如果没有则分配 chat
+        panelB: state.panelFeatureMap.panelB || ("chat" as PanelFeature),
+      },
+    }));
 
     if (typeof window !== "undefined" && window.electronAPI?.islandResizeSidebar) {
       window.electronAPI.islandResizeSidebar(1);
@@ -122,34 +137,76 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
   const handleToggleLeft = useCallback(() => {
     // 左侧按钮：展开/收起 Panel A
     if (!isLeftExpanded) {
+      // 展开 Panel A
       setIsLeftExpanded(true);
       useUiStore.setState({ isPanelAOpen: true, isPanelBOpen: true });
+
+      // 如果 Panel A 没有分配功能，自动分配一个可用功能
+      if (!panelFeatureMap.panelA) {
+        const availableFeatures = getAvailableFeatures();
+        if (availableFeatures.length > 0) {
+          // 优先分配 todos，如果不可用则分配第一个可用功能
+          const featureToAssign = availableFeatures.includes("todos" as PanelFeature)
+            ? ("todos" as PanelFeature)
+            : availableFeatures[0];
+          setPanelFeature("panelA", featureToAssign);
+        }
+      }
+
       const nextCount = (1 + 1 + (isRightExpanded ? 1 : 0)) as 2 | 3;
       resizeSidebarWindow(nextCount);
       return;
     }
 
+    // 收起 Panel A
     setIsLeftExpanded(false);
     useUiStore.setState({ isPanelAOpen: false, isPanelBOpen: true });
+
+    // 取消分配 Panel A 的功能，释放给其他面板使用
+    useUiStore.setState((state) => ({
+      panelFeatureMap: { ...state.panelFeatureMap, panelA: null },
+    }));
+
     const nextCount = (1 + (isRightExpanded ? 1 : 0)) as 1 | 2;
     resizeSidebarWindow(nextCount);
-  }, [isLeftExpanded, isRightExpanded, resizeSidebarWindow]);
+  }, [isLeftExpanded, isRightExpanded, resizeSidebarWindow, panelFeatureMap, getAvailableFeatures, setPanelFeature]);
 
   const handleToggleRight = useCallback(() => {
     // 右侧按钮：展开/收起 Panel C
     if (!isRightExpanded) {
+      // 展开 Panel C
       setIsRightExpanded(true);
       useUiStore.setState({ isPanelCOpen: true, isPanelBOpen: true });
+
+      // 如果 Panel C 没有分配功能，自动分配一个可用功能
+      if (!panelFeatureMap.panelC) {
+        const availableFeatures = getAvailableFeatures();
+        if (availableFeatures.length > 0) {
+          // 优先分配 todoDetail，如果不可用则分配第一个可用功能
+          const featureToAssign = availableFeatures.includes("todoDetail" as PanelFeature)
+            ? ("todoDetail" as PanelFeature)
+            : availableFeatures[0];
+          setPanelFeature("panelC", featureToAssign);
+        }
+      }
+
       const nextCount = (1 + 1 + (isLeftExpanded ? 1 : 0)) as 2 | 3;
       resizeSidebarWindow(nextCount);
       return;
     }
 
+    // 收起 Panel C
     setIsRightExpanded(false);
     useUiStore.setState({ isPanelCOpen: false, isPanelBOpen: true });
+
+    // 取消分配 Panel C 的功能，释放给其他面板使用
+    useUiStore.setState((state) => ({
+      panelFeatureMap: { ...state.panelFeatureMap, panelC: null },
+    }));
+
     const nextCount = (1 + (isLeftExpanded ? 1 : 0)) as 1 | 2;
     resizeSidebarWindow(nextCount);
-  }, [isRightExpanded, isLeftExpanded, resizeSidebarWindow]);
+  }, [isRightExpanded, isLeftExpanded, resizeSidebarWindow, panelFeatureMap, getAvailableFeatures, setPanelFeature]);
 
   // 计算面板宽度布局
   const layoutState = useCallback(() => {
