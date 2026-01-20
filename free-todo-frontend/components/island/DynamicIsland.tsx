@@ -125,7 +125,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           mass: 0.6,
           restDelta: 0.001,
         }}
-        className="absolute overflow-hidden pointer-events-auto bg-[#0a0a0a]"
+        className="absolute overflow-hidden pointer-events-auto bg-background"
         style={{
           right: 0,
           bottom: 0,
@@ -139,8 +139,8 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
       >
         {/* 背景层 */}
         <div
-          className={`absolute inset-0 bg-[#080808]/90 backdrop-blur-[80px] transition-colors duration-700 ease-out ${
-            isFullscreen ? "bg-[#030303]/98" : ""
+          className={`absolute inset-0 bg-primary-foreground/90 dark:bg-accent/90 backdrop-blur-[80px] transition-colors duration-700 ease-out ${
+            isFullscreen ? "bg-primary-foreground/98 dark:bg-accent/98" : ""
           }`}
         />
 
@@ -153,19 +153,19 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
             mode === IslandMode.FLOAT ? "opacity-0" : "opacity-100"
           }`}
         >
-          <div className="absolute top-[-50%] left-[-20%] w-[100%] h-[100%] rounded-full bg-indigo-500/10 blur-[120px] mix-blend-screen" />
-          <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-purple-500/10 blur-[120px] mix-blend-screen" />
+          <div className="absolute top-[-50%] left-[-20%] w-[100%] h-[100%] rounded-full bg-primary/10 blur-[120px] mix-blend-screen" />
+          <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-primary/8 blur-[120px] mix-blend-screen" />
         </div>
 
         {/* 边框 */}
         <div
-          className={`absolute inset-0 rounded-[inherit] border border-white/10 pointer-events-none shadow-[inset_0_0_20px_rgba(255,255,255,0.03)] transition-opacity duration-500 ${
+          className={`absolute inset-0 rounded-[inherit] border border-border pointer-events-none shadow-[inset_0_0_20px_oklch(var(--foreground)/0.03)] transition-opacity duration-500 ${
             isFullscreen ? "opacity-0" : "opacity-100"
           }`}
         />
 
         {/* 内容区域 */}
-        <div className="absolute inset-0 w-full h-full text-white font-sans antialiased overflow-hidden">
+        <div className="absolute inset-0 w-full h-full text-foreground font-sans antialiased overflow-hidden">
           <AnimatePresence>
             {mode === IslandMode.FLOAT && (
               <motion.div key="float" className="absolute inset-0 w-full h-full">

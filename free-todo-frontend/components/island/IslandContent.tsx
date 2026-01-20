@@ -37,9 +37,9 @@ const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, title, color }) 
     onClick={onClick}
     title={title}
     className={`w-8 h-8 flex items-center justify-center rounded-full
-               bg-white/5 hover:bg-white/15 active:bg-white/20
+               bg-accent hover:bg-accent/80 active:bg-accent/60
                transition-all duration-200 ease-out
-               hover:scale-105 active:scale-95 ${color || 'text-white/70 hover:text-white'}`}
+               hover:scale-105 active:scale-95 ${color || 'text-muted-foreground hover:text-foreground'}`}
     style={{
       // @ts-expect-error - WebkitAppRegion is valid in Electron
       WebkitAppRegion: "no-drag",
@@ -106,20 +106,29 @@ export const PopupContent: React.FC = () => (
     className="w-full h-full p-4 flex items-center gap-4 relative overflow-hidden font-sans"
   >
     {/* Background Accent */}
-    <div className="absolute -left-4 top-0 w-24 h-full bg-gradient-to-r from-cyan-500/10 to-transparent blur-lg" />
+    <div className="absolute -left-4 top-0 w-24 h-full bg-gradient-to-r from-primary/10 to-transparent blur-lg" />
 
     {/* Logo */}
     <div className="relative shrink-0">
-      <div className="w-14 h-14 rounded-2xl border border-white/10 overflow-hidden shadow-lg bg-zinc-800/50 flex items-center justify-center">
+      <div className="w-14 h-14 rounded-2xl border border-border overflow-hidden shadow-lg bg-card flex items-center justify-center">
+        {/* Light mode logo */}
+        <Image
+          src="/free-todo-logos/free_todo_icon_4_dark_with_grid.png"
+          alt="Free Todo Logo"
+          width={36}
+          height={36}
+          className="object-contain block dark:hidden"
+        />
+        {/* Dark mode logo */}
         <Image
           src="/free-todo-logos/free_todo_icon_4_with_grid.png"
           alt="Free Todo Logo"
           width={36}
           height={36}
-          className="object-contain"
+          className="object-contain hidden dark:block"
         />
       </div>
-      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-emerald-500 border-2 border-[#121212] rounded-full z-10 flex items-center justify-center">
+      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-emerald-500 border-2 border-background rounded-full z-10 flex items-center justify-center">
         <CheckCircle2 size={10} className="text-white" />
       </div>
     </div>
@@ -127,18 +136,18 @@ export const PopupContent: React.FC = () => (
     {/* Message Content */}
     <div className="flex flex-col flex-1 min-w-0 justify-center">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-base font-semibold text-white tracking-tight">
+        <span className="text-base font-semibold text-foreground tracking-tight">
           待办提醒
         </span>
-        <span className="text-[10px] text-white/40 font-medium">刚刚</span>
+        <span className="text-[10px] text-muted-foreground font-medium">刚刚</span>
       </div>
-      <p className="text-sm text-white/70 leading-snug line-clamp-2">
+      <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
         您有 3 个任务即将到期，点击查看详情
       </p>
       <div className="flex items-center gap-2 mt-2.5">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer">
-          <MessageCircle size={12} className="text-cyan-400" />
-          <span className="text-[11px] text-white/70 font-medium">查看详情</span>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent border border-border hover:bg-accent/80 transition-colors cursor-pointer">
+          <MessageCircle size={12} className="text-primary" />
+          <span className="text-[11px] text-muted-foreground font-medium">查看详情</span>
         </div>
       </div>
     </div>

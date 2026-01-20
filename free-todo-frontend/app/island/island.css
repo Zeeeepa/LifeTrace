@@ -32,7 +32,7 @@ html:has(.island-container) body {
   position: relative;
   overflow: hidden;
   background: transparent;
-  color: white;
+  color: oklch(var(--foreground));
 }
 
 /* 形态3/4: 使用 FreeTodo 主题背景 */
