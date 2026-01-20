@@ -9,6 +9,7 @@
 
 import { Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
 import Image from "next/image";
+import type React from "react";
 import { useState } from "react";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
@@ -25,9 +26,13 @@ interface IslandHeaderProps {
   onModeChange: (mode: IslandMode) => void;
   /** SIDEBAR 模式下是否已展开到 2+ 栏（可选） */
   isExpanded?: boolean;
+  /** 拖拽开始回调（用于 SIDEBAR 模式垂直拖拽，可选） */
+  onDragStart?: (e: React.MouseEvent) => void;
+  /** 是否正在拖拽（可选） */
+  isDragging?: boolean;
 }
 
-export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandHeaderProps) {
+export function IslandHeader({ mode, onModeChange, isExpanded = false, onDragStart, isDragging = false }: IslandHeaderProps) {
   const isSidebar = mode === IslandMode.SIDEBAR;
   const isFullscreen = mode === IslandMode.FULLSCREEN;
 
@@ -57,10 +62,22 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
     }
   };
 
+  // 在 SIDEBAR 模式下，Header 作为垂直拖拽的 Handle
+  const canDrag = isSidebar && onDragStart;
+
   return (
-    <header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible app-region-drag">
+    // biome-ignore lint/a11y/noStaticElementInteractions: Header conditionally acts as a drag handle in SIDEBAR mode
+    <header
+      className={`relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible ${!canDrag ? 'app-region-drag' : ''}`}
+      onMouseDown={canDrag ? onDragStart : undefined}
+      role={canDrag ? "button" : undefined}
+      tabIndex={canDrag ? -1 : undefined}
+      style={{
+        cursor: canDrag ? (isDragging ? "grabbing" : "ns-resize") : undefined,
+      }}
+    >
       {/* 左侧：Logo + 应用名称 */}
-      <div className="flex items-center gap-2 shrink-0 app-region-no-drag">
+      <div className={`flex items-center gap-2 shrink-0 ${!canDrag ? 'app-region-no-drag' : ''}`}>
         <div className="relative h-8 w-8 shrink-0">
           {/* 浅色模式图标 */}
           <Image
@@ -86,7 +103,7 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
 
       {/* 中间：HeaderIsland 通知区域（与原 FreeTodo 共享，仅在有通知时显示） */}
       {showNotification ? (
-        <div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible app-region-no-drag">
+        <div className={`flex-1 flex items-center justify-center relative min-w-0 overflow-visible ${!canDrag ? 'app-region-no-drag' : ''}`}>
           <HeaderIsland />
         </div>
       ) : (
@@ -94,7 +111,7 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
       )}
 
       {/* 右侧：工具按钮 + 窗口控制 */}
-      <div className="flex items-center gap-2 app-region-no-drag">
+      <div className={`flex items-center gap-2 ${!canDrag ? 'app-region-no-drag' : ''}`}>
         {/* 工具按钮 - 全屏模式或 SIDEBAR 已展开时显示 */}
         {shouldShowTools && (
           <>

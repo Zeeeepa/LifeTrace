@@ -7,6 +7,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IslandHeader } from "@/components/island/IslandHeader";
 import { BottomDock } from "@/components/layout/BottomDock";
@@ -21,15 +22,68 @@ import { type DockDisplayMode, useUiStore } from "@/lib/store/ui-store";
 
 interface IslandSidebarContentProps {
   onModeChange: (mode: IslandMode) => void;
+  /** 拖拽开始回调（用于 Header 垂直拖拽） */
+  onHeaderDragStart?: (e: React.MouseEvent) => void;
+  /** 是否正在拖拽 */
+  isDragging?: boolean;
 }
 
-export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps) {
+export function IslandSidebarContent({ onModeChange, onHeaderDragStart, isDragging: isDraggingProp }: IslandSidebarContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [isLeftExpanded, setIsLeftExpanded] = useState(false); // Panel A
   const [isRightExpanded, setIsRightExpanded] = useState(false); // Panel C
   const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
   const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
+
+  // SIDEBAR 模式独立的拖拽状态和处理器
+  const [isDraggingWindow, setIsDraggingWindow] = useState(false);
+
+  // 自定义拖拽处理器（仅允许垂直拖动）
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    // 仅响应左键
+    if (e.button !== 0) return;
+
+    setIsDraggingWindow(true);
+
+    // 发送拖拽开始事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragStart) {
+      window.electronAPI.islandDragStart(e.screenY);
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingWindow) return;
+
+    // 发送拖拽移动事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragMove) {
+      window.electronAPI.islandDragMove(e.screenY);
+    }
+  }, [isDraggingWindow]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDraggingWindow) return;
+
+    setIsDraggingWindow(false);
+
+    // 发送拖拽结束事件到主进程
+    if (typeof window !== "undefined" && window.electronAPI?.islandDragEnd) {
+      window.electronAPI.islandDragEnd();
+    }
+  }, [isDraggingWindow]);
+
+  // 设置全局鼠标事件监听器
+  useEffect(() => {
+    if (isDraggingWindow) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
+  }, [isDraggingWindow, handleMouseMove, handleMouseUp]);
 
   const {
     isPanelAOpen,
@@ -264,11 +318,13 @@ export function IslandSidebarContent({ onModeChange }: IslandSidebarContentProps
   return (
     <GlobalDndProvider>
       <div className="w-full h-full flex flex-col overflow-hidden bg-background">
-        {/* Island 专用 Header */}
+        {/* Island 专用 Header（可作为垂直拖拽 Handle） */}
         <IslandHeader
           mode={IslandMode.SIDEBAR}
           onModeChange={onModeChange}
           isExpanded={isLeftExpanded || isRightExpanded}
+          onDragStart={onHeaderDragStart || handleDragStart}
+          isDragging={isDraggingProp !== undefined ? isDraggingProp : isDraggingWindow}
         />
 
         {/* 面板区域 */}

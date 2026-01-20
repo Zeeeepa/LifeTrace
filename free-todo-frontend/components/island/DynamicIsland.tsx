@@ -23,7 +23,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
   const [screenHeight, setScreenHeight] = useState(1080);
 
   // 自定义拖拽处理器（仅允许垂直拖动）
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
     // 仅在非全屏模式下允许拖拽
     if (mode === IslandMode.FULLSCREEN) return;
 
@@ -37,6 +37,13 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
       window.electronAPI.islandDragStart(e.screenY);
     }
   }, [mode]);
+
+  // 用于 FLOAT/POPUP 模式的整体拖拽（整个区域可拖）
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // SIDEBAR 模式由 Header 独立处理，不在此处理
+    if (mode === IslandMode.SIDEBAR) return;
+    handleDragStart(e);
+  }, [mode, handleDragStart]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
@@ -225,7 +232,10 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           right: 0,
           bottom: 0,
           transformOrigin: getTransformOrigin(),
-          cursor: mode !== IslandMode.FULLSCREEN
+          // FLOAT/POPUP: 整个区域可拖拽，显示 ns-resize 光标
+          // SIDEBAR: 仅 Header 可拖拽，主区域使用默认光标
+          // FULLSCREEN: 不可拖拽
+          cursor: (mode === IslandMode.FLOAT || mode === IslandMode.POPUP)
             ? (isDragging ? "grabbing" : "ns-resize")
             : "default",
           // Only apply box-shadow for SIDEBAR mode (FLOAT/POPUP are fully transparent, FULLSCREEN has no shadow)
@@ -276,7 +286,11 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
             )}
             {mode === IslandMode.SIDEBAR && (
               <motion.div key="sidebar" className="absolute inset-0 w-full h-full">
-                <IslandSidebarContent onModeChange={onModeChange || (() => {})} />
+                <IslandSidebarContent
+                  onModeChange={onModeChange || (() => {})}
+                  onHeaderDragStart={handleDragStart}
+                  isDragging={isDragging}
+                />
               </motion.div>
             )}
           </AnimatePresence>
