@@ -29,17 +29,22 @@ interface IconButtonProps {
   onClick?: () => void;
   title?: string;
   color?: string;
+  hoverBorderColor?: string;
 }
 
-const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, title, color }) => (
+const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, title, color, hoverBorderColor }) => (
   <button
     type="button"
     onClick={onClick}
     title={title}
-    className={`w-8 h-8 flex items-center justify-center rounded-full
-               bg-accent hover:bg-accent/80 active:bg-accent/60
+    className={`w-9 h-9 flex items-center justify-center rounded-full
+               bg-card hover:bg-accent
+               border-2 border-border/60
+               shadow-lg hover:shadow-xl
                transition-all duration-200 ease-out
-               hover:scale-105 active:scale-95 ${color || 'text-muted-foreground hover:text-foreground'}`}
+               hover:scale-110 active:scale-95
+               ${hoverBorderColor || 'hover:border-border'}
+               ${color || 'text-muted-foreground hover:text-foreground'}`}
     style={{
       // @ts-expect-error - WebkitAppRegion is valid in Electron
       WebkitAppRegion: "no-drag",
@@ -60,13 +65,14 @@ export const FloatContent: React.FC<FloatContentProps> = ({ onModeChange }) => (
     initial="initial"
     animate="animate"
     exit="exit"
-    className="w-full h-full flex items-center justify-center gap-4 px-4 relative"
+    className="w-full h-full flex items-center justify-center gap-6 px-3 relative"
   >
     {/* 录音按钮 - 红色 */}
     <IconButton
-      icon={<Mic size={16} strokeWidth={2} />}
+      icon={<Mic size={16} strokeWidth={2.5} />}
       title="开始录音"
-      color="text-red-400 hover:text-red-300"
+      color="text-red-500 hover:text-red-400"
+      hoverBorderColor="hover:border-red-400/50"
       onClick={() => {
         // TODO: 触发录音功能，可能会切换到形态2
         console.log("Start recording");
@@ -75,19 +81,22 @@ export const FloatContent: React.FC<FloatContentProps> = ({ onModeChange }) => (
 
     {/* 截图按钮 - 绿色 */}
     <IconButton
-      icon={<Camera size={16} strokeWidth={2} />}
+      icon={<Camera size={16} strokeWidth={2.5} />}
       title="截图"
-      color="text-green-400 hover:text-green-300"
+      color="text-green-500 hover:text-green-400"
+      hoverBorderColor="hover:border-green-400/50"
       onClick={() => {
         // TODO: 触发截图功能，可能会切换到形态2
         console.log("Take screenshot");
       }}
     />
 
-    {/* 全屏按钮 - 默认颜色，点击进入形态3 */}
+    {/* 全屏按钮 - 蓝色，点击进入形态3 */}
     <IconButton
-      icon={<Maximize2 size={16} strokeWidth={2} />}
+      icon={<Maximize2 size={16} strokeWidth={2.5} />}
       title="展开"
+      color="text-blue-500 hover:text-blue-400"
+      hoverBorderColor="hover:border-blue-400/50"
       onClick={() => {
         // 切换到侧边栏模式（形态3）
         onModeChange?.(IslandMode.SIDEBAR);

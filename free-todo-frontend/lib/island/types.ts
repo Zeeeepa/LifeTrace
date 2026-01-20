@@ -20,7 +20,7 @@ export enum IslandMode {
  * 各模式对应的窗口尺寸配置
  */
 export const ISLAND_SIZES: Record<IslandMode, { width: number; height: number }> = {
-  [IslandMode.FLOAT]: { width: 200, height: 56 },
+  [IslandMode.FLOAT]: { width: 240, height: 56 }, // 增加宽度以提供更好的图标间距
   [IslandMode.POPUP]: { width: 380, height: 120 },
   [IslandMode.SIDEBAR]: { width: 420, height: 700 },
   [IslandMode.FULLSCREEN]: { width: 0, height: 0 }, // 全屏时使用屏幕尺寸
