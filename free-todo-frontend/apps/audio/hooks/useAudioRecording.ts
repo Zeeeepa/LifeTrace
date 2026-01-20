@@ -38,7 +38,6 @@ export function useAudioRecording() {
 					"http://localhost:8100";
 				const wsUrl = apiBaseUrl.replace("http://", "ws://").replace("https://", "wss://");
 				const wsEndpoint = `${wsUrl}/api/audio/transcribe`;
-				console.log("[useAudioRecording] Connecting to WebSocket:", wsEndpoint);
 				const ws = new WebSocket(wsEndpoint);
 				ws.binaryType = "arraybuffer";
 
@@ -130,11 +129,6 @@ export function useAudioRecording() {
 				};
 
 				ws.onclose = (event) => {
-					console.log("[useAudioRecording] WebSocket closed", {
-						code: event.code,
-						reason: event.reason,
-						wasClean: event.wasClean,
-					});
 					setIsRecording(false);
 					// 如果不是正常关闭，触发错误回调
 					if (!event.wasClean && onError) {

@@ -4,14 +4,29 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 
+interface TodoItem {
+	title: string;
+	description?: string;
+	deadline?: string;
+	// 后端 LLM 可能返回的原文高亮片段（用于更精准的高亮）
+	source_text?: string;
+}
+
+interface ScheduleItem {
+	title: string;
+	time?: string;
+	description?: string;
+	source_text?: string;
+}
+
 interface TranscriptionViewProps {
 	originalText: string;
 	optimizedText: string;
 	partialText?: string;
 	activeTab: "original" | "optimized";
 	onTabChange: (tab: "original" | "optimized") => void;
-	todos?: Array<{ title: string; description?: string; deadline?: string }>;
-	schedules?: Array<{ title: string; time?: string; description?: string }>;
+	todos?: TodoItem[];
+	schedules?: ScheduleItem[];
 	isRecording?: boolean;
 	segmentTimesSec?: number[];
 	segmentTimeLabels?: string[];
@@ -63,36 +78,110 @@ export function TranscriptionView({
 			segments.push(...parts.filter((s) => s.trim()));
 		}
 
+		// 帮助函数：支持“去空格”的宽松匹配（用于处理 LLM 在 source_text 中插入空格的情况）
+		const findNormalizedMatch = (segment: string, raw: string) => {
+			// 构造“去掉所有空白字符”的版本，并记录映射关系
+			const segChars = Array.from(segment);
+			const compactSeg: string[] = [];
+			const indexMap: number[] = [];
+			for (let i = 0; i < segChars.length; i++) {
+				const ch = segChars[i];
+				if (!/\s/.test(ch)) {
+					compactSeg.push(ch);
+					indexMap.push(i);
+				}
+			}
+			const compactSegment = compactSeg.join("");
+
+			const candChars = Array.from(raw);
+			const compactCand = candChars.filter((ch) => !/\s/.test(ch)).join("");
+			if (!compactCand) return null;
+
+			const startCompact = compactSegment.indexOf(compactCand);
+			if (startCompact === -1) return null;
+
+			const endCompact = startCompact + compactCand.length - 1;
+			const start = indexMap[startCompact];
+			const end = indexMap[endCompact] + 1;
+			if (start == null || end == null) return null;
+			return { start, end };
+		};
+
 		// 为每个段落创建高亮
-		return segments.map((segment) => {
+		const computed = segments.map((segment) => {
 			const highlights: Array<{ start: number; end: number; type: "todo" | "schedule" }> = [];
 
-			// 高亮待办事项
+			// 高亮待办事项：优先使用 LLM 明确给出的 source_text，其次再用 title / description / deadline 进行匹配
 			todos.forEach((todo) => {
-				const searchText = todo.title;
-				let index = segment.indexOf(searchText);
-				while (index !== -1) {
-					highlights.push({
-						start: index,
-						end: index + searchText.length,
-						type: "todo",
-					});
-					index = segment.indexOf(searchText, index + searchText.length);
-				}
+				const candidates = new Set<string>();
+				if ((todo as any).source_text?.trim()) candidates.add((todo as any).source_text.trim());
+				if (todo.title?.trim()) candidates.add(todo.title.trim());
+				if (todo.description?.trim()) candidates.add(todo.description.trim());
+				if (todo.deadline?.trim()) candidates.add(todo.deadline.trim());
+
+				candidates.forEach((searchText) => {
+					// 太短的关键词容易误伤，忽略
+					if (!searchText || searchText.length < 2) return;
+
+					let hasDirectMatch = false;
+					let index = segment.indexOf(searchText);
+					while (index !== -1) {
+						hasDirectMatch = true;
+						highlights.push({
+							start: index,
+							end: index + searchText.length,
+							type: "todo",
+						});
+						index = segment.indexOf(searchText, index + searchText.length);
+					}
+
+					// 如果原文中没有完全相同的子串，再尝试“去空格”的宽松匹配
+					if (!hasDirectMatch) {
+						const normalized = findNormalizedMatch(segment, searchText);
+						if (normalized) {
+							highlights.push({
+								start: normalized.start,
+								end: normalized.end,
+								type: "todo",
+							});
+						}
+					}
+				});
 			});
 
-			// 高亮日程安排
+			// 高亮日程安排：优先使用 source_text，其次再用 title / description / time
 			schedules.forEach((schedule) => {
-				const searchText = schedule.title;
-				let index = segment.indexOf(searchText);
-				while (index !== -1) {
-					highlights.push({
-						start: index,
-						end: index + searchText.length,
-						type: "schedule",
-					});
-					index = segment.indexOf(searchText, index + searchText.length);
-				}
+				const candidates = new Set<string>();
+				if ((schedule as any).source_text?.trim()) candidates.add((schedule as any).source_text.trim());
+				if (schedule.title?.trim()) candidates.add(schedule.title.trim());
+				if (schedule.description?.trim()) candidates.add(schedule.description.trim());
+				if (schedule.time?.trim()) candidates.add(schedule.time.trim());
+
+				candidates.forEach((searchText) => {
+					if (!searchText || searchText.length < 2) return;
+					let hasDirectMatch = false;
+					let index = segment.indexOf(searchText);
+					while (index !== -1) {
+						hasDirectMatch = true;
+						highlights.push({
+							start: index,
+							end: index + searchText.length,
+							type: "schedule",
+						});
+						index = segment.indexOf(searchText, index + searchText.length);
+					}
+
+					if (!hasDirectMatch) {
+						const normalized = findNormalizedMatch(segment, searchText);
+						if (normalized) {
+							highlights.push({
+								start: normalized.start,
+								end: normalized.end,
+								type: "schedule",
+							});
+						}
+					}
+				});
 			});
 
 			// 按位置排序并合并重叠
@@ -130,6 +219,7 @@ export function TranscriptionView({
 
 			return textSegments.length > 0 ? textSegments : [{ text: segment }];
 		});
+		return computed;
 	}, [originalText, optimizedText, activeTab, todos, schedules]);
 
 	// 自动滚动策略：
@@ -234,21 +324,24 @@ export function TranscriptionView({
 										) : null}
 									</div>
 									<p className="text-[15px] leading-[1.8] text-[oklch(var(--foreground))]">
-									{paragraph.map((segment, segmentIndex) => {
-										const segmentKey = `${paragraphIndex}-${segmentIndex}-${segment.text.slice(0, 10)}`;
-										if (segment.highlight) {
-											return (
+										{paragraph.map((segment, segmentIndex) => {
+											const segmentKey = `${paragraphIndex}-${segmentIndex}-${segment.text.slice(
+												0,
+												10,
+											)}`;
+											if (segment.highlight) {
+												return (
 													<span
 														key={segmentKey}
-														className="px-0.5 rounded bg-[oklch(var(--muted))/30]"
+														className="px-1 rounded-md bg-[oklch(var(--primary))/18] text-[oklch(var(--primary))] font-semibold"
 													>
-													{segment.text}
-												</span>
-											);
-										}
-										return <span key={segmentKey}>{segment.text}</span>;
-									})}
-								</p>
+														{segment.text}
+													</span>
+												);
+											}
+											return <span key={segmentKey}>{segment.text}</span>;
+										})}
+									</p>
 								</button>
 							);
 						})}

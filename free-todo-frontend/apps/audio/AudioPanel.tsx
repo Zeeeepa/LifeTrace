@@ -28,8 +28,12 @@ export function AudioPanel() {
 	const [segmentRecordingIds, setSegmentRecordingIds] = useState<number[]>([]);
 	const [segmentTimeLabels, setSegmentTimeLabels] = useState<string[]>([]);
 	const [segmentTimesSec, setSegmentTimesSec] = useState<number[]>([]);
-	const [todos, setTodos] = useState<Array<{ title: string; description?: string; deadline?: string }>>([]);
-	const [schedules, setSchedules] = useState<Array<{ title: string; time?: string; description?: string }>>([]);
+	const [todos, setTodos] = useState<
+		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
+	>([]);
+	const [schedules, setSchedules] = useState<
+		Array<{ title: string; time?: string; description?: string; source_text?: string }>
+	>([]);
 
 	const { isRecording, startRecording, stopRecording } = useAudioRecording();
 	const [showStopConfirm, setShowStopConfirm] = useState(false);
@@ -149,9 +153,9 @@ export function AudioPanel() {
 
 	// 加载时间线（当天所有录音按时间顺序拼接）
 	useEffect(() => {
-		if (isRecording) return;
 		loadTimeline();
-	}, [loadTimeline, isRecording]);
+		// 注意：这里不再依赖 isRecording，避免“停止录音后”立刻用旧数据覆盖掉刚才实时看到的文本
+	}, [loadTimeline]);
 
 	const handleToggleRecording = async () => {
 		if (isRecording) {
@@ -206,10 +210,6 @@ export function AudioPanel() {
 		// 停止后后端才会落库录音记录：稍等一下再刷新列表并选中最新录音，确保播放器出现
 		setTimeout(() => {
 			loadRecordings({ forceSelectLatest: true });
-			// 再等一会儿让转录/优化落库后刷新时间线，避免需要手动刷新
-			setTimeout(() => {
-				loadTimeline();
-			}, 600);
 		}, 600);
 	};
 

@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 # ---- constants (avoid magic numbers) ----
 SAMPLE_RATE = 16000
@@ -91,7 +92,11 @@ def _create_result_callback(
 
     async def _send_result(text: str, is_final: bool) -> None:
         try:
-            if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+            if (
+                is_connected_ref[0]
+                and websocket.application_state == WebSocketState.CONNECTED
+                and websocket.client_state == WebSocketState.CONNECTED
+            ):
                 await websocket.send_json(
                     {
                         "header": {"name": "TranscriptionResultChanged"},
@@ -100,7 +105,7 @@ def _create_result_callback(
                 )
         except Exception as e:
             is_connected_ref[0] = False
-            logger.debug(f"Failed to send result to client (connection may be closed): {e}")
+            logger.warning(f"Failed to send TranscriptionResultChanged to client: {e}")
 
     def on_result(text: str, is_final: bool) -> None:
         if not text or not is_connected_ref[0]:
@@ -113,10 +118,14 @@ def _create_result_callback(
             transcription_text_ref[0] = committed
 
         try:
-            if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+            if (
+                is_connected_ref[0]
+                and websocket.application_state == WebSocketState.CONNECTED
+                and websocket.client_state == WebSocketState.CONNECTED
+            ):
                 asyncio.create_task(_send_result(text, is_final))
         except Exception as e:
-            logger.debug(f"Failed to send result to client (connection may be closed): {e}")
+            logger.warning(f"Failed to schedule sending TranscriptionResultChanged: {e}")
 
     return on_result
 
@@ -124,22 +133,29 @@ def _create_result_callback(
 def _create_error_callback(*, websocket: WebSocket, logger, is_connected_ref: list[bool]):
     async def _send_error(error: Exception) -> None:
         try:
-            if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
+            if (
+                is_connected_ref[0]
+                and websocket.application_state == WebSocketState.CONNECTED
+                and websocket.client_state == WebSocketState.CONNECTED
+            ):
                 await websocket.send_json(
                     {"header": {"name": "TaskFailed"}, "payload": {"error": str(error)}}
                 )
         except Exception as e:
             is_connected_ref[0] = False
-            logger.debug(f"Failed to send error to client (connection may be closed): {e}")
+            logger.warning(f"Failed to send TaskFailed to client: {e}")
 
     def on_error(error: Exception) -> None:
         logger.error(f"ASR转录错误: {error}")
         if is_connected_ref[0]:
             try:
-                if websocket.client_state.name == "CONNECTED":
+                if (
+                    websocket.application_state == WebSocketState.CONNECTED
+                    and websocket.client_state == WebSocketState.CONNECTED
+                ):
                     asyncio.create_task(_send_error(error))
             except Exception as e:
-                logger.debug(f"Failed to send error to client (connection may be closed): {e}")
+                logger.warning(f"Failed to schedule sending TaskFailed: {e}")
 
     return on_error
 
@@ -162,11 +178,23 @@ def _create_realtime_nlp_handler(  # noqa: C901
 
         async def _send(self, name: str, payload: dict[str, Any]) -> None:
             try:
-                if is_connected_ref[0] and websocket.client_state.name == "CONNECTED":
-                    await websocket.send_json({"header": {"name": name}, "payload": payload})
+                if not is_connected_ref[0]:
+                    logger.info(f"Skip sending {name}: is_connected_ref=False")
+                    return
+                if not (
+                    websocket.application_state == WebSocketState.CONNECTED
+                    and websocket.client_state == WebSocketState.CONNECTED
+                ):
+                    logger.info(
+                        f"Skip sending {name}: websocket state not CONNECTED "
+                        f"(application_state={websocket.application_state}, client_state={websocket.client_state})"
+                    )
+                    return
+                await websocket.send_json({"header": {"name": name}, "payload": payload})
+                logger.debug(f"Sent {name} to client")
             except Exception as e:
                 is_connected_ref[0] = False
-                logger.debug(f"Failed to send {name} (connection may be closed): {e}")
+                logger.warning(f"Failed to send {name} to client: {e}")
 
         async def _compute(self, text_snapshot: str) -> tuple[str, dict[str, Any]]:
             optimized = text_snapshot
@@ -347,7 +375,9 @@ async def _save_transcription_if_any(*, audio_service, recording_id: int | None,
 
 async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, audio_service) -> None:
     await websocket.accept()
-    logger.info("WebSocket client connected")
+    logger.info(
+        f"WebSocket client connected: application_state={websocket.application_state}, client_state={websocket.client_state}"
+    )
 
     recording_started_at = datetime.now()
     transcription_text_ref: list[str] = [""]
@@ -416,6 +446,9 @@ async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, aud
     finally:
         is_connected_ref[0] = False
         cancel_realtime_nlp()
+        logger.info(
+            f"WebSocket handler finished: application_state={websocket.application_state}, client_state={websocket.client_state}"
+        )
 
 
 def register_audio_ws_routes(*, router: APIRouter, logger, asr_client, audio_service) -> None:
