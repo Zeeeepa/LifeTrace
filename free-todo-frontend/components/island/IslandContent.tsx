@@ -4,7 +4,7 @@ import { motion, type Variants } from "framer-motion";
 import {
   Camera,
   CheckCircle2,
-  Maximize2,
+  Hexagon,
   MessageCircle,
   Mic,
 } from "lucide-react";
@@ -23,27 +23,24 @@ const fadeVariants: Variants = {
   exit: { opacity: 0, filter: "blur(8px)", scale: 1.05, transition: { duration: 0.2 } },
 };
 
-// 图标按钮组件
+// 图标按钮组件 - 胶囊设计（无独立背景）
 interface IconButtonProps {
   icon: React.ReactNode;
   onClick?: () => void;
   title?: string;
   color?: string;
-  hoverBorderColor?: string;
+  hoverBgColor?: string;
 }
 
-const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, title, color, hoverBorderColor }) => (
+const IconButton: React.FC<IconButtonProps> = ({ icon, onClick, title, color, hoverBgColor }) => (
   <button
     type="button"
     onClick={onClick}
     title={title}
-    className={`w-9 h-9 flex items-center justify-center rounded-full
-               bg-card hover:bg-accent
-               border-2 border-border/60
-               shadow-lg hover:shadow-xl
+    className={`w-8 h-8 flex items-center justify-center rounded-full
                transition-all duration-200 ease-out
                hover:scale-110 active:scale-95
-               ${hoverBorderColor || 'hover:border-border'}
+               ${hoverBgColor || 'hover:bg-accent/30'}
                ${color || 'text-muted-foreground hover:text-foreground'}`}
     style={{
       // @ts-expect-error - WebkitAppRegion is valid in Electron
@@ -59,49 +56,55 @@ interface FloatContentProps {
 }
 
 // --- 1. FLOAT STATE: 三个功能图标 - 录音、截图、全屏 ---
+// 紧凑胶囊设计：完美的圆角胶囊，图标靠近边缘，黄金比例布局
 export const FloatContent: React.FC<FloatContentProps> = ({ onModeChange }) => (
   <motion.div
     variants={fadeVariants}
     initial="initial"
     animate="animate"
     exit="exit"
-    className="w-full h-full flex items-center justify-center gap-6 px-3 relative"
+    className="w-full h-full flex items-center justify-center relative"
   >
-    {/* 录音按钮 - 红色 */}
-    <IconButton
-      icon={<Mic size={16} strokeWidth={2.5} />}
-      title="开始录音"
-      color="text-red-500 hover:text-red-400"
-      hoverBorderColor="hover:border-red-400/50"
-      onClick={() => {
-        // TODO: 触发录音功能，可能会切换到形态2
-        console.log("Start recording");
-      }}
-    />
+    {/* 胶囊容器 - 统一背景，完美圆角，填满整个窗口 */}
+    <div className="w-full h-full rounded-full bg-card/95 backdrop-blur-md
+                    border-2 border-border/60 shadow-xl
+                    flex items-center justify-between px-5">
+      {/* 录音按钮 - 红色 */}
+      <IconButton
+        icon={<Mic size={16} strokeWidth={2.5} />}
+        title="开始录音"
+        color="text-red-500 hover:text-red-400"
+        hoverBgColor="hover:bg-red-500/10"
+        onClick={() => {
+          // TODO: 触发录音功能，可能会切换到形态2
+          console.log("Start recording");
+        }}
+      />
 
-    {/* 截图按钮 - 绿色 */}
-    <IconButton
-      icon={<Camera size={16} strokeWidth={2.5} />}
-      title="截图"
-      color="text-green-500 hover:text-green-400"
-      hoverBorderColor="hover:border-green-400/50"
-      onClick={() => {
-        // TODO: 触发截图功能，可能会切换到形态2
-        console.log("Take screenshot");
-      }}
-    />
+      {/* 截图按钮 - 绿色 */}
+      <IconButton
+        icon={<Camera size={16} strokeWidth={2.5} />}
+        title="截图"
+        color="text-green-500 hover:text-green-400"
+        hoverBgColor="hover:bg-green-500/10"
+        onClick={() => {
+          // TODO: 触发截图功能，可能会切换到形态2
+          console.log("Take screenshot");
+        }}
+      />
 
-    {/* 全屏按钮 - 蓝色，点击进入形态3 */}
-    <IconButton
-      icon={<Maximize2 size={16} strokeWidth={2.5} />}
-      title="展开"
-      color="text-blue-500 hover:text-blue-400"
-      hoverBorderColor="hover:border-blue-400/50"
-      onClick={() => {
-        // 切换到侧边栏模式（形态3）
-        onModeChange?.(IslandMode.SIDEBAR);
-      }}
-    />
+      {/* 全屏按钮 - 蓝色，点击进入形态3 */}
+      <IconButton
+        icon={<Hexagon size={16} strokeWidth={2.5} />}
+        title="展开"
+        color="text-blue-500 hover:text-blue-400"
+        hoverBgColor="hover:bg-blue-500/10"
+        onClick={() => {
+          // 切换到侧边栏模式（形态3）
+          onModeChange?.(IslandMode.SIDEBAR);
+        }}
+      />
+    </div>
   </motion.div>
 );
 

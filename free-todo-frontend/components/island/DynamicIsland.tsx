@@ -76,7 +76,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
         return {
           width: "100%",
           height: "100%",
-          borderRadius: 24,
+          borderRadius: 9999, // 完美胶囊形状 (fully rounded, 与 rounded-full 语义一致)
         };
       case IslandMode.POPUP:
         return {
@@ -100,7 +100,7 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
         return {
           width: "100%",
           height: "100%",
-          borderRadius: 24,
+          borderRadius: 28,
         };
     }
   };
@@ -125,7 +125,9 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           mass: 0.6,
           restDelta: 0.001,
         }}
-        className="absolute overflow-hidden pointer-events-auto bg-background"
+        className={`absolute overflow-hidden pointer-events-auto ${
+          mode === IslandMode.FLOAT ? "" : "bg-background"
+        }`}
         style={{
           right: 0,
           bottom: 0,
@@ -137,12 +139,14 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
             : "0px 20px 50px -10px rgba(0, 0, 0, 0.5), 0px 10px 20px -10px rgba(0,0,0,0.3)",
         }}
       >
-        {/* 背景层 */}
-        <div
-          className={`absolute inset-0 bg-primary-foreground/90 dark:bg-accent/90 backdrop-blur-[80px] transition-colors duration-700 ease-out ${
-            isFullscreen ? "bg-primary-foreground/98 dark:bg-accent/98" : ""
-          }`}
-        />
+        {/* 背景层 - 仅在非 FLOAT 模式显示 */}
+        {mode !== IslandMode.FLOAT && (
+          <div
+            className={`absolute inset-0 bg-primary-foreground/90 dark:bg-accent/90 backdrop-blur-[80px] transition-colors duration-700 ease-out ${
+              isFullscreen ? "bg-primary-foreground/98 dark:bg-accent/98" : ""
+            }`}
+          />
+        )}
 
         {/* 噪点纹理 */}
         <div className="absolute inset-0 opacity-[0.035] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none mix-blend-overlay" />
@@ -157,12 +161,14 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-primary/8 blur-[120px] mix-blend-screen" />
         </div>
 
-        {/* 边框 */}
-        <div
-          className={`absolute inset-0 rounded-[inherit] border border-border pointer-events-none shadow-[inset_0_0_20px_oklch(var(--foreground)/0.03)] transition-opacity duration-500 ${
-            isFullscreen ? "opacity-0" : "opacity-100"
-          }`}
-        />
+        {/* 边框 - 仅在非 FLOAT 模式显示 */}
+        {mode !== IslandMode.FLOAT && (
+          <div
+            className={`absolute inset-0 rounded-[inherit] border border-border pointer-events-none shadow-[inset_0_0_20px_oklch(var(--foreground)/0.03)] transition-opacity duration-500 ${
+              isFullscreen ? "opacity-0" : "opacity-100"
+            }`}
+          />
+        )}
 
         {/* 内容区域 */}
         <div className="absolute inset-0 w-full h-full text-foreground font-sans antialiased overflow-hidden">
