@@ -4,6 +4,7 @@
  * Island 专用 Header 组件
  * 用于形态3/4，提供窗口控制按钮
  * 与原 FreeTodo Header 共享 HeaderIsland 组件
+ * 遵循原设计：HeaderIsland 仅在有通知且为 Electron 环境时显示
  */
 
 import { Maximize2, Minimize2, X } from "lucide-react";
@@ -14,6 +15,7 @@ import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
 import { IslandMode } from "@/lib/island/types";
+import { useNotificationStore } from "@/lib/store/notification-store";
 
 interface IslandHeaderProps {
   /** 当前模式 */
@@ -27,6 +29,15 @@ interface IslandHeaderProps {
 export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandHeaderProps) {
   const isSidebar = mode === IslandMode.SIDEBAR;
   const isFullscreen = mode === IslandMode.FULLSCREEN;
+
+  // 获取当前通知状态
+  const { currentNotification } = useNotificationStore();
+
+  // 检测是否为 Electron 环境
+  const isElectron = typeof window !== "undefined" && !!window.electronAPI;
+
+  // 显示通知岛的条件：有通知 且 在 Electron 环境（匹配原设计）
+  const showNotification = currentNotification && isElectron;
 
   // 显示工具按钮的条件：全屏模式 或 侧边栏已展开到 2+ 栏（宽度足够）
   const shouldShowTools = isFullscreen || (isSidebar && isExpanded);
@@ -53,15 +64,19 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false }: IslandH
             className="object-contain hidden dark:block"
           />
         </div>
-        <h1 className={`text-lg font-semibold tracking-tight text-foreground ${isSidebar ? "hidden md:block" : ""}`}>
-          Free Todo: Your AI Secretary
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">
+          {isSidebar ? "FreeTodo" : "Free Todo: Your AI Secretary"}
         </h1>
       </div>
 
-      {/* 中间：HeaderIsland 通知区域（与原 FreeTodo 共享） */}
-      <div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible app-region-no-drag">
-        <HeaderIsland />
-      </div>
+      {/* 中间：HeaderIsland 通知区域（与原 FreeTodo 共享，仅在有通知时显示） */}
+      {showNotification ? (
+        <div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible app-region-no-drag">
+          <HeaderIsland />
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* 右侧：工具按钮 + 窗口控制 */}
       <div className="flex items-center gap-2 app-region-no-drag">
