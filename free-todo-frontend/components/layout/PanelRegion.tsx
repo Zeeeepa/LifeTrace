@@ -9,10 +9,16 @@ import { PanelContainer } from "./PanelContainer";
 import { PanelContent } from "./PanelContent";
 import { ResizeHandle } from "./ResizeHandle";
 
+// ========== 布局常量 ==========
+/** BottomDock 容器的高度 (px) */
+const BOTTOM_DOCK_HEIGHT = 60;
+/** Dock 和面板内容区之间的间距 (px) */
+const DOCK_MARGIN_TOP = 4;
+
 interface PanelRegionProps {
 	/** Panel 区域的宽度（用于计算显示多少个 Panel） */
 	width: number;
-	/** PanelRegion 的总高度（包括 Panels 容器 + BottomDock 60px），用于计算 Panels 容器固定高度 */
+	/** PanelRegion 的总高度（包括 Panels 容器 + BottomDock），用于计算 Panels 容器固定高度 */
 	height?: number;
 	/** 是否在 MAXIMIZE 模式下（MAXIMIZE 模式下始终显示 3 个 panel，PANEL 模式下根据宽度显示） */
 	isMaximizeMode?: boolean;
@@ -39,7 +45,7 @@ interface PanelRegionProps {
  */
 export function PanelRegion({
 	width,
-	height, // PanelRegion 总高度（包括 Panels 容器 + BottomDock 60px）
+	height, // PanelRegion 总高度（包括 Panels 容器 + BottomDock）
 	// isMaximizeMode 目前仅用于 props 兼容，逻辑上宽度规则一致，故不再解构使用
 	isInPanelMode = true,
 	isDraggingPanelA = false,
@@ -175,10 +181,10 @@ export function PanelRegion({
 		};
 	}, [showPanelA, showPanelB, showPanelC, panelAWidth, panelCWidth]);
 
-	// ✅ 计算 Panels 容器的固定高度：PanelRegion 总高度 - BottomDock 高度(60px) - Dock 上方间距(12px)
+	// 计算 Panels 容器的固定高度：PanelRegion 总高度 - BottomDock 高度 - Dock 上方间距
 	const panelsContainerHeight = useMemo(() => {
 		if (height && height > 0) {
-			return height - 60 - 12; // PanelRegion 高度 - BottomDock 60px - Dock 上方间距 12px
+			return height - BOTTOM_DOCK_HEIGHT - DOCK_MARGIN_TOP;
 		}
 		return undefined; // 如果没有提供 height，使用 flex-1 自适应（兼容完整页面模式）
 	}, [height]);
@@ -222,7 +228,7 @@ export function PanelRegion({
 
 	return (
 		<div className="flex flex-col h-full w-full bg-primary-foreground dark:bg-accent" style={{ opacity: 1 }}>
-			{/* Panels 容器：固定高度 = PanelRegion 总高度 - BottomDock 60px */}
+			{/* Panels 容器：固定高度 = PanelRegion 总高度 - BottomDock 高度 - 间距 */}
 			<div
 				ref={containerRef}
 				className={cn(
@@ -319,27 +325,26 @@ export function PanelRegion({
 				)}
 			</div>
 
-			{/* BottomDock：整条 60px 底部区域（Dock 与 Panels 之间留 12px 间距） */}
-			{/* ✅ 保持单个 panel 时的逻辑：始终只显示 panelA 的 dock item，不受宽度变化影响 */}
+			{/* BottomDock 底部区域 */}
 			<div
 				ref={(el) => {
 					bottomDockContainerRef.current = el;
-					// 仍然强制固定高度 60px，防止随内容抖动
+					// 强制固定高度，防止随内容抖动
 					if (el) {
 						requestAnimationFrame(() => {
 							if (el) {
-								el.style.setProperty("height", "60px", "important");
-								el.style.setProperty("min-height", "60px", "important");
-								el.style.setProperty("max-height", "60px", "important");
+								el.style.setProperty("height", `${BOTTOM_DOCK_HEIGHT}px`, "important");
+								el.style.setProperty("min-height", `${BOTTOM_DOCK_HEIGHT}px`, "important");
+								el.style.setProperty("max-height", `${BOTTOM_DOCK_HEIGHT}px`, "important");
 							}
 						});
 					}
 				}}
-				className="relative flex h-[60px] shrink-0 items-center justify-center bg-primary-foreground dark:bg-accent"
+				className="relative flex shrink-0 items-center justify-center bg-primary-foreground dark:bg-accent"
 				style={{
 					pointerEvents: "auto",
-					// 再略微加大一点间距，让 Dock 和 Panel 内容区之间更舒展
-					marginTop: "12px", // ✅ Dock 到 Panel 内容区的间距（12px）
+					height: BOTTOM_DOCK_HEIGHT,
+					marginTop: DOCK_MARGIN_TOP,
 				}}
 			>
 				<BottomDock
