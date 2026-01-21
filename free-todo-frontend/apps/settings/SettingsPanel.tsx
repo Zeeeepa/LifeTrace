@@ -38,7 +38,7 @@ export function SettingsPanel() {
 	const loading = configLoading;
 
 	return (
-		<div className="relative flex h-full flex-col overflow-hidden">
+		<div className="relative flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
 			<PanelHeader icon={Settings} title={tPage("settingsLabel")} />
 

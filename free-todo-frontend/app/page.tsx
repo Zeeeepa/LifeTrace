@@ -238,7 +238,7 @@ export default function HomePage() {
 						}}
 					>
 						<PanelRegion
-							width={typeof window !== "undefined" ? window.innerWidth : 1920}
+							width={mounted ? window.innerWidth : 1920}
 							isMaximizeMode={true}
 							isInPanelMode={false}
 							isDraggingPanelA={isDraggingPanelA}
