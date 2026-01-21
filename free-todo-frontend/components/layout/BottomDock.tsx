@@ -38,6 +38,8 @@ interface BottomDockProps {
 	panelContainerRef?: React.RefObject<HTMLElement | null>;
 	/** 当前显示的 panel 个数（1, 2, 或 3），用于决定显示哪些 dock items */
 	visiblePanelCount?: number;
+	/** 指定需要显示的 panel 槽位（优先级高于 visiblePanelCount） */
+	visiblePositions?: PanelPosition[];
 }
 
 interface DockItem {
@@ -196,7 +198,13 @@ function DockItemButton({
 	);
 }
 
-export function BottomDock({ className, isInPanelMode = false, panelContainerRef, visiblePanelCount }: BottomDockProps) {
+export function BottomDock({
+	className,
+	isInPanelMode = false,
+	panelContainerRef,
+	visiblePanelCount,
+	visiblePositions,
+}: BottomDockProps) {
 	const {
 		isPanelAOpen,
 		isPanelBOpen,
@@ -235,8 +243,10 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 	}, []);
 
 	// 根据当前显示的 panel 个数决定显示哪些 dock items
-	// 如果 visiblePanelCount 未指定，默认显示所有 3 个（兼容完整页面模式）
-	const visiblePositions: PanelPosition[] = useMemo(() => {
+	// 如果 visiblePositions 指定，则按指定显示；否则使用 visiblePanelCount（兼容完整页面模式）
+	const visiblePositionsResolved: PanelPosition[] = useMemo(() => {
+		if (visiblePositions && visiblePositions.length > 0) return visiblePositions;
+
 		// Panel 模式 & 完整页面模式都按 visiblePanelCount 显示 1/2/3 个，保证与面板数量同步
 		const count = visiblePanelCount ?? 3;
 		return count === 1
@@ -244,7 +254,7 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 			: count === 2
 				? ["panelA", "panelB"]
 				: ["panelA", "panelB", "panelC"]; // 默认或 3 个
-	}, [visiblePanelCount]);
+	}, [visiblePanelCount, visiblePositions]);
 
 	// 监听外部事件以程序化打开右键菜单（用于引导流程）
 	useEffect(() => {
@@ -299,7 +309,7 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	// 在 SSR 时使用默认值，避免 hydration 错误
-	const DOCK_ITEMS: DockItem[] = useMemo(() => visiblePositions.map((position) => {
+	const DOCK_ITEMS: DockItem[] = useMemo(() => visiblePositionsResolved.map((position) => {
 		// 在 SSR 时使用默认功能分配，客户端挂载后使用实际值
 		const defaultFeatureMap: Record<PanelPosition, PanelFeature> = {
 			panelA: "todos",
@@ -352,7 +362,7 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 			onClick,
 			group: "views",
 		};
-	}), [visiblePositions, mounted, panelFeatureMap, disabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
+	}), [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
 
 	// 测量 dock 实际高度
 	useEffect(() => {
@@ -466,8 +476,8 @@ export function BottomDock({ className, isInPanelMode = false, panelContainerRef
 		<motion.div
 			className={cn(
 				isInPanelMode
-					? "pointer-events-auto relative z-[1000000]"
-					: "pointer-events-auto fixed bottom-1 left-1/2 z-[1000000]",
+					? "pointer-events-auto relative z-1000000"
+					: "pointer-events-auto fixed bottom-1 left-1/2 z-1000000",
 				className,
 			)}
 			initial={false}

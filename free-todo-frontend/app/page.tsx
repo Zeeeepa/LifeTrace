@@ -1,66 +1,23 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getElectronAPI } from "@/components/dynamic-island/electron-api";
-import { IslandMode } from "@/components/dynamic-island/types";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PanelRegion } from "@/components/layout/PanelRegion";
-import { PanelWindow } from "@/components/panel/PanelWindow";
 import { GlobalDndProvider } from "@/lib/dnd";
-import { useElectronClickThrough } from "@/lib/hooks/useElectronClickThrough";
 import { useOnboardingTour } from "@/lib/hooks/useOnboardingTour";
 import { usePanelResize } from "@/lib/hooks/usePanelResize";
-import { usePanelWindowDrag } from "@/lib/hooks/usePanelWindowDrag";
-import { usePanelWindowResize } from "@/lib/hooks/usePanelWindowResize";
-import { usePanelWindowStyles } from "@/lib/hooks/usePanelWindowStyles";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
-import { useDynamicIslandStore } from "@/lib/store/dynamic-island-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import { isElectronEnvironment } from "@/lib/utils/electron";
 
 
 export default function HomePage() {
-	// 所有 hooks 必须在条件返回之前调用（React Hooks 规则）
-	const { mode, setMode, hidePanel } = useDynamicIslandStore();
-
 	// 使用 mounted 状态来避免 SSR 水合不匹配
-	// 在服务器端和初始客户端渲染时，始终渲染最大化模式
-	// 只有在水合完成后（mounted 为 true），才根据实际环境决定显示模式
 	const [mounted, setMounted] = useState(false);
-
-	// Panel 模式切换函数
-	const onModeChange = useCallback((newMode: IslandMode) => {
-		console.log(`[HomePage] onModeChange called: ${newMode}, current mode: ${mode}`);
-		const isElectronEnv = mounted ? isElectronEnvironment() : false;
-		if (newMode === IslandMode.MAXIMIZE) {
-			setMode(IslandMode.MAXIMIZE);
-		} else if (newMode === IslandMode.FLOAT) {
-			// 切换到 FLOAT 模式时，确保 Panel 关闭
-			hidePanel();
-		} else {
-			if (newMode === IslandMode.PANEL && isElectronEnv) {
-				const api = getElectronAPI();
-				if (api.electronAPI?.expandWindow) {
-					const expandResult = api.electronAPI.expandWindow();
-					if (expandResult instanceof Promise) {
-						expandResult.then(() => {
-							setMode(newMode);
-						}).catch(() => {
-							setMode(newMode);
-						});
-					} else {
-						setMode(newMode);
-					}
-					return;
-				}
-			}
-			setMode(newMode);
-		}
-	}, [setMode, mode, hidePanel, mounted]);
 	useEffect(() => {
 		setMounted(true);
 
@@ -79,9 +36,8 @@ export default function HomePage() {
 		};
 	}, []);
 
-	// MAXIMIZE 进入时，默认打开三列（仍允许用户通过 BottomDock 控制）
+	// 默认打开三列（仍允许用户通过 BottomDock 控制）
 	useEffect(() => {
-		if (mode !== IslandMode.MAXIMIZE) return;
 		const state = useUiStore.getState();
 		const next: Partial<typeof state> = {};
 		if (!state.isPanelAOpen) next.isPanelAOpen = true;
@@ -90,14 +46,9 @@ export default function HomePage() {
 		if (Object.keys(next).length > 0) {
 			useUiStore.setState(next);
 		}
-	}, [mode]);
+	}, []);
 
-	// 浏览器模式下始终使用最大化模式（不显示灵动岛）
-	// 在未挂载时（SSR/初始渲染），始终使用最大化模式以避免水合不匹配
 	const isElectron = mounted ? isElectronEnvironment() : false;
-	// Panel 模式显示右侧 Panel，MAXIMIZE 显示完整页面；FLOAT 仅悬浮层
-	const shouldShowPage = !isElectron || mode === IslandMode.PANEL || mode === IslandMode.MAXIMIZE;
-	const isPanelMode = isElectron && mode === IslandMode.PANEL;
 	const {
 		isPanelCOpen,
 		panelCWidth,
@@ -108,37 +59,6 @@ export default function HomePage() {
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
-	// Panel 窗口状态（需要在 useEffect 之前定义）
-	const [panelWindowWidth, setPanelWindowWidth] = useState(520); // 初始宽度（从 480 增加到 520）
-	const [panelWindowHeight, setPanelWindowHeight] = useState(0); // 初始会在 mounted 后设置一个更低的默认高度
-	const [isResizingPanel, setIsResizingPanel] = useState(false);
-	const [panelWindowPosition, setPanelWindowPosition] = useState({ x: 0, y: 0 });
-	const [isDraggingPanel, setIsDraggingPanel] = useState(false);
-	const [isUserInteracting, setIsUserInteracting] = useState(false); // 用户交互标志，防止定时器干扰
-
-	// ✅ Panel 模式：设置一个更合理的“初始高度”（不要默认接近满屏）
-	// panelWindowHeight 表示 PanelRegion 的高度（不含标题栏 48px）
-	useEffect(() => {
-		if (!mounted) return;
-		if (!isElectron) return;
-		// 只在第一次初始化（避免用户手动调整后被覆盖）
-		if (panelWindowHeight > 0) return;
-		if (typeof window === "undefined") return;
-
-		const headerHeight = 48;
-		const topOffset = 40;
-		const desiredTotal = Math.round(window.innerHeight * 0.8); // 窗口总高度目标
-		const desiredRegion = Math.max(250, desiredTotal - headerHeight);
-		const maxRegion = window.innerHeight - topOffset - headerHeight;
-		setPanelWindowHeight(Math.min(desiredRegion, maxRegion));
-	}, [mounted, isElectron, panelWindowHeight]);
-
-	// ✅ 计算 Panel 窗口的 right 值，确保不会移出视口
-	const panelWindowRight = useMemo(() => {
-		if (panelWindowPosition.x === 0) return 16;
-		// 使用 Math.max 确保 right 值不会变成负数
-		return Math.max(16, (typeof window !== 'undefined' ? window.innerWidth : 1920) - panelWindowPosition.x - panelWindowWidth);
-	}, [panelWindowPosition.x, panelWindowWidth]);
 
 	// 国际化
 	const t = useTranslations("todoExtraction");
@@ -275,8 +195,6 @@ export default function HomePage() {
 	}, [config]);
 
 	// 使用自定义 hooks 管理 Panel 调整大小
-	// 注意：layoutState 由 PanelRegion 内部计算，这里不需要
-
 	const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } = usePanelResize({
 		containerRef,
 		isPanelCOpen,
@@ -288,147 +206,50 @@ export default function HomePage() {
 		setGlobalResizeCursor,
 	});
 
-	// Panel 窗口尺寸常量
-	const MIN_PANEL_WIDTH = 400;
-	const MAX_PANEL_WIDTH = 1500;
-	const MIN_PANEL_HEIGHT = 250; // PanelRegion 最小高度（包括 Panels 容器 + BottomDock 60px + Dock 上方间距 12px）
-	const MAX_PANEL_HEIGHT = typeof window !== 'undefined'
-		? window.innerHeight - 40 - 48 - 12
-		: 1000; // PanelRegion 最大高度（窗口高度 - 顶部偏移40px - 标题栏48px - Dock 上方间距12px）
-
-	// 使用自定义 hooks 管理 Panel 窗口功能
-	useElectronClickThrough({
-		mounted,
-		isElectron,
-		mode,
-		isUserInteracting,
-	});
-
-	usePanelWindowStyles({
-		isPanelMode,
-		panelWindowHeight,
-	});
-
-	const { handlePanelDragStart } = usePanelWindowDrag({
-		panelWindowWidth,
-		isElectron,
-		mode,
-		shouldShowPage,
-		setPanelWindowPosition,
-		setIsDraggingPanel,
-		setIsUserInteracting,
-	});
-
-	const { handlePanelResizeStart } = usePanelWindowResize({
-		panelWindowWidth,
-		panelWindowPosition,
-		panelWindowHeight,
-		isElectron,
-		MIN_PANEL_WIDTH,
-		MAX_PANEL_WIDTH,
-		MIN_PANEL_HEIGHT,
-		MAX_PANEL_HEIGHT,
-		setPanelWindowWidth,
-		setPanelWindowPosition,
-		setPanelWindowHeight,
-		setIsResizingPanel,
-		setIsUserInteracting,
-	});
-
-	const showContent = shouldShowPage;
-
 	return (
 		<GlobalDndProvider>
 			<main
 				className="relative flex h-screen flex-col overflow-hidden text-foreground"
 				style={{
-					pointerEvents: showContent ? "auto" : "none",
-					// ✅ Panel 模式下，main 背景必须是透明的（左侧需要穿透）
-					// MAXIMIZE 模式下，设置背景色确保内容可见
-					background: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
-					backgroundColor: isPanelMode ? "transparent" : (showContent ? "oklch(var(--background))" : "transparent"),
-					// ✅ MAXIMIZE 模式下，确保 main 元素在最上层
-					zIndex: isPanelMode ? 1 : (showContent ? 10 : 0),
-					// ✅ Panel 模式下，main 本身应该是透明的，但内容不透明
-					opacity: isPanelMode ? 1 : (showContent ? 1 : undefined),
-					// ✅ MAXIMIZE 模式下，确保可见性
-					visibility: isPanelMode ? "visible" : (showContent ? "visible" : "hidden"),
+					backgroundColor: "oklch(var(--background))",
+					background: "oklch(var(--background))",
 				}}
 			>
-				{showContent ? (
-					isPanelMode ? (
-						<PanelWindow
-							panelWindowWidth={panelWindowWidth}
-							panelWindowHeight={panelWindowHeight}
-							panelWindowPosition={panelWindowPosition}
-							panelWindowRight={panelWindowRight}
-							isDraggingPanel={isDraggingPanel}
+				<div
+					className="relative flex h-screen flex-col text-foreground"
+					style={{
+						backgroundColor: "oklch(var(--background))",
+						background: "oklch(var(--background))",
+						height: "100vh",
+						width: "100vw",
+						overflow: "hidden",
+					}}
+				>
+					<AppHeader
+						currentNotification={currentNotification}
+						isElectron={isElectron}
+					/>
+					<div
+						className="flex-1 min-h-0 overflow-hidden"
+						style={{
+							backgroundColor: "oklch(var(--background))",
+							background: "oklch(var(--background))",
+							height: "calc(100vh - 80px)",
+						}}
+					>
+						<PanelRegion
+							width={typeof window !== "undefined" ? window.innerWidth : 1920}
+							isMaximizeMode={true}
+							isInPanelMode={false}
 							isDraggingPanelA={isDraggingPanelA}
 							isDraggingPanelC={isDraggingPanelC}
-							isResizingPanel={isResizingPanel}
-							onModeChange={onModeChange}
-							onHidePanel={hidePanel}
-							onPanelDragStart={handlePanelDragStart}
-							onPanelResizeStart={handlePanelResizeStart}
+							isResizingPanel={false}
 							onPanelAResizePointerDown={handlePanelAResizePointerDown}
 							onPanelCResizePointerDown={handlePanelCResizePointerDown}
 							containerRef={containerRef}
 						/>
-					) : (
-						// MAXIMIZE 或浏览器模式：原有全页面布局
-						<div
-							className="relative flex h-screen flex-col text-foreground"
-							style={{
-								backgroundColor: "oklch(var(--background))",
-								background: "oklch(var(--background))",
-								height: "100vh",
-								width: "100vw",
-								overflow: "hidden",
-								opacity: 1,
-								visibility: "visible",
-								zIndex: 1, // 页面内容的 z-index，灵动岛容器使用 pointer-events-none，只有灵动岛本身可交互
-								position: "relative",
-							}}
-						>
-							<AppHeader
-								mode={mode === IslandMode.MAXIMIZE ? IslandMode.MAXIMIZE : IslandMode.PANEL}
-								onModeChange={onModeChange}
-								onClose={() => {
-									if (mode === IslandMode.MAXIMIZE) {
-										onModeChange(IslandMode.FLOAT);
-									}
-								}}
-								isPanelMode={false}
-								currentNotification={currentNotification}
-								isElectron={isElectron}
-						/>
-							<div
-								className="flex-1 min-h-0 overflow-hidden"
-								style={{
-									backgroundColor: "oklch(var(--background))",
-									background: "oklch(var(--background))",
-									height: "calc(100vh - 80px)",
-									opacity: 1,
-									visibility: "visible",
-									position: "relative",
-									zIndex: 1,
-								}}
-							>
-								<PanelRegion
-									width={typeof window !== "undefined" ? window.innerWidth : 1920}
-									isMaximizeMode={mode === IslandMode.MAXIMIZE}
-									isInPanelMode={false}
-									isDraggingPanelA={isDraggingPanelA}
-									isDraggingPanelC={isDraggingPanelC}
-									isResizingPanel={false}
-									onPanelAResizePointerDown={handlePanelAResizePointerDown}
-									onPanelCResizePointerDown={handlePanelCResizePointerDown}
-									containerRef={containerRef}
-								/>
 					</div>
 				</div>
-					)
-				) : null}
 			</main>
 		</GlobalDndProvider>
 	);

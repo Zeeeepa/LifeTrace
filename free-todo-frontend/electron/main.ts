@@ -16,7 +16,9 @@ if (process.platform === "win32") {
 import { app, dialog } from "electron";
 import { BackendServer } from "./backend-server";
 import { getServerMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
+import { GlobalShortcutManager } from "./global-shortcut-manager";
 import { setupIpcHandlers } from "./ipc-handlers";
+import { IslandWindowManager } from "./island-window-manager";
 import { logger } from "./logger";
 import {
 	getServerUrl,
@@ -26,6 +28,7 @@ import {
 	waitForServerPublic,
 } from "./next-server";
 import { requestNotificationPermission } from "./notification";
+import { TrayManager } from "./tray-manager";
 import { WindowManager } from "./window-manager";
 
 // 判断是否为开发模式
@@ -47,6 +50,11 @@ if (!gotTheLock) {
 	// 初始化各管理器实例
 	const backendServer = new BackendServer();
 	const windowManager = new WindowManager();
+	const islandWindowManager = new IslandWindowManager();
+
+	// 初始化 Tray 和 GlobalShortcut 管理器（在 Island 创建后初始化）
+	let trayManager: TrayManager | null = null;
+	let shortcutManager: GlobalShortcutManager | null = null;
 
 	// 设置全局异常处理
 	setupGlobalErrorHandlers();
@@ -117,23 +125,26 @@ if (!gotTheLock) {
 	process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 	process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-	// 当另一个实例尝试启动时，聚焦到当前窗口
+	// 当另一个实例尝试启动时，聚焦到 Island 窗口
 	app.on("second-instance", () => {
-		if (windowManager.hasWindow()) {
-			windowManager.focus();
+		if (islandWindowManager.hasWindow()) {
+			islandWindowManager.show();
+			islandWindowManager.getWindow()?.focus();
 		} else if (app.isReady()) {
-			windowManager.create(getServerUrl());
-			} else {
-				app.once("ready", () => {
-				windowManager.create(getServerUrl());
+			islandWindowManager.create(getServerUrl());
+		} else {
+			app.once("ready", () => {
+				islandWindowManager.create(getServerUrl());
 			});
 		}
 	});
 
-	// macOS: 点击 dock 图标时重新创建窗口
+	// macOS: 点击 dock 图标时显示或重建 Island 窗口
 	app.on("activate", () => {
-		if (!WindowManager.hasAnyWindows()) {
-			windowManager.create(getServerUrl());
+		if (islandWindowManager.hasWindow()) {
+			islandWindowManager.show();
+		} else {
+			islandWindowManager.create(getServerUrl());
 		}
 	});
 
@@ -146,17 +157,19 @@ if (!gotTheLock) {
 
 	// 应用退出前清理（不等待，快速退出）
 	app.on("before-quit", () => {
-		cleanup(backendServer, false);
+		cleanup(backendServer, trayManager, shortcutManager, false);
 	});
 
 	// 应用退出时确保清理（不等待，快速退出）
 	app.on("quit", () => {
-		cleanup(backendServer, false);
+		cleanup(backendServer, trayManager, shortcutManager, false);
 	});
 
 	// 应用准备就绪后启动
 	app.whenReady().then(async () => {
-		await bootstrap(backendServer, windowManager);
+		const managers = await bootstrap(backendServer, windowManager, islandWindowManager);
+		trayManager = managers.trayManager;
+		shortcutManager = managers.shortcutManager;
 	});
 }
 
@@ -182,13 +195,14 @@ function setupGlobalErrorHandlers(): void {
 async function bootstrap(
 	backendServer: BackendServer,
 	windowManager: WindowManager,
-): Promise<void> {
+	islandWindowManager: IslandWindowManager,
+): Promise<{ trayManager: TrayManager; shortcutManager: GlobalShortcutManager }> {
 	try {
 		// 记录启动信息
 		logStartupInfo();
 
-			// 设置 IPC 处理器
-		setupIpcHandlers(windowManager);
+			// 设置 IPC 处理器（包含 Island 相关）
+		setupIpcHandlers(windowManager, islandWindowManager);
 
 		// 请求通知权限
 			await requestNotificationPermission();
@@ -250,14 +264,31 @@ async function bootstrap(
 			}
 		}
 
-		// 4. 创建窗口
-		windowManager.create(serverUrl);
+		// 4. 创建 Island 主窗口
+		islandWindowManager.create(serverUrl);
+		logger.info("Island main window created");
+
+		// 5. 初始化 Tray 和 Global Shortcuts
+		const trayManager = new TrayManager(islandWindowManager);
+		trayManager.create();
+		logger.info("System tray icon created");
+
+		const shortcutManager = new GlobalShortcutManager(islandWindowManager);
+		shortcutManager.registerDefaults();
+		logger.info("Global shortcuts registered");
 
 		logger.info(
 			`Window created successfully. Frontend: ${getServerUrl()}, Backend: ${backendServer.getUrl()}`,
-			);
-		} catch (error) {
+		);
+
+		return { trayManager, shortcutManager };
+	} catch (error) {
 		handleStartupError(error);
+		// Return dummy instances on error (will be cleaned up)
+		return {
+			trayManager: new TrayManager(islandWindowManager),
+			shortcutManager: new GlobalShortcutManager(islandWindowManager),
+		};
 	}
 }
 
@@ -298,10 +329,28 @@ function handleStartupError(error: unknown): void {
 /**
  * 清理资源
  * @param backendServer 后端服务器实例
+ * @param trayManager Tray 管理器实例
+ * @param shortcutManager 全局快捷键管理器实例
  * @param waitForExit 是否等待进程退出（默认 false，用于快速退出）
  */
-function cleanup(backendServer: BackendServer, waitForExit = false): void {
+function cleanup(
+	backendServer: BackendServer,
+	trayManager: TrayManager | null,
+	shortcutManager: GlobalShortcutManager | null,
+	waitForExit = false,
+): void {
 	logger.info("Cleaning up resources...");
+
+	// 清理 Tray
+	if (trayManager) {
+		trayManager.destroy();
+	}
+
+	// 清理全局快捷键（在 GlobalShortcutManager 中已自动注册清理）
+	if (shortcutManager) {
+		shortcutManager.unregisterAll();
+	}
+
 	// 如果 waitForExit 为 false，快速停止（不等待）
 	backendServer.stop(waitForExit);
 	stopNextServer();

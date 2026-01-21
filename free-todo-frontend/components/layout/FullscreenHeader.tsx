@@ -44,7 +44,7 @@ export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHead
 				</h1>
 			</div>
 
-			{/* 中间：通知区域（灵动岛） - 只在有通知时且是 Electron 环境时显示 */}
+			{/* 中间：通知区域 - 只在有通知时且是 Electron 环境时显示 */}
 			{currentNotification && isElectron && (
 				<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
 					<HeaderIsland />

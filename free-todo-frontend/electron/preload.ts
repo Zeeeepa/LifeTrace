@@ -101,46 +101,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 显示窗口（用于全屏模式）
-	 */
-	showWindow: () => {
-		ipcRenderer.send("show-window");
-	},
-
-	/**
-	 * 隐藏窗口（用于退出全屏模式）
-	 */
-	hideWindow: () => {
-		ipcRenderer.send("hide-window");
-	},
-
-	/**
-	 * 展开窗口到全屏（完全按照 electron-with-nextjs）
-	 */
-	expandWindowFull: () => ipcRenderer.invoke("expand-window-full"),
-
-	/**
-	 * 展开窗口到窗口化模式（可调整大小）
-	 */
-	expandWindow: () => ipcRenderer.invoke("expand-window"),
-
-	/**
-	 * 在指定位置展开窗口（Panel模式 - 从灵动岛上方展开）
-	 */
-	expandWindowAtPosition: (
-		x: number,
-		y: number,
-		width: number,
-		height: number,
-	) => ipcRenderer.invoke("expand-window-at-position", x, y, width, height),
-
-	/**
-	 * 恢复窗口到原始大小（完全按照 electron-with-nextjs）
-	 */
-	collapseWindow: () => ipcRenderer.invoke("collapse-window"),
-
-	/**
-	 * 获取屏幕信息（完全照抄 electron-with-nextjs）
+	 * 获取屏幕信息
 	 */
 	getScreenInfo: () => ipcRenderer.invoke("get-screen-info"),
 
@@ -166,13 +127,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 调整窗口大小（用于自定义缩放把手）
-	 */
-	resizeWindow: (deltaX: number, deltaY: number, position: string) => {
-		ipcRenderer.send("resize-window", deltaX, deltaY, position);
-	},
-
-	/**
 	 * 退出应用
 	 */
 	quit: () => {
@@ -180,7 +134,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 
 	/**
-	 * 设置窗口背景色（用于 Panel 模式）
+	 * 设置窗口背景色
 	 */
 	setWindowBackgroundColor: (color: string) => {
 		ipcRenderer.send("set-window-background-color", color);
@@ -204,5 +158,99 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		createdCount: number;
 	}> => {
 		return await ipcRenderer.invoke("capture-and-extract-todos", panelBounds);
+	},
+
+	// ========== Island 动态岛相关 API ==========
+
+	/**
+	 * 调整 Island 窗口大小（切换模式）
+	 * @param mode Island 模式: "FLOAT" | "POPUP" | "SIDEBAR" | "FULLSCREEN"
+	 */
+	islandResizeWindow: (mode: string) => {
+		ipcRenderer.send("island:resize-window", mode);
+	},
+
+	/**
+	 * 调整 SIDEBAR 模式窗口大小（多栏展开/收起）
+	 * @param columnCount 栏数: 1 | 2 | 3
+	 */
+	islandResizeSidebar: (columnCount: number) => {
+		ipcRenderer.send("island:resize-sidebar", columnCount);
+	},
+
+	/**
+	 * 显示 Island 窗口
+	 */
+	islandShow: () => {
+		ipcRenderer.send("island:show");
+	},
+
+	/**
+	 * 隐藏 Island 窗口
+	 */
+	islandHide: () => {
+		ipcRenderer.send("island:hide");
+	},
+
+	/**
+	 * 切换 Island 窗口显示/隐藏
+	 */
+	islandToggle: () => {
+		ipcRenderer.send("island:toggle");
+	},
+
+	/**
+	 * Island 窗口拖拽开始（自定义拖拽，仅垂直方向）
+	 * @param mouseY 鼠标屏幕 Y 坐标
+	 */
+	islandDragStart: (mouseY: number) => {
+		ipcRenderer.send("island:drag-start", mouseY);
+	},
+
+	/**
+	 * Island 窗口拖拽移动（自定义拖拽，仅垂直方向）
+	 * @param mouseY 鼠标屏幕 Y 坐标
+	 */
+	islandDragMove: (mouseY: number) => {
+		ipcRenderer.send("island:drag-move", mouseY);
+	},
+
+	/**
+	 * Island 窗口拖拽结束（自定义拖拽）
+	 */
+	islandDragEnd: () => {
+		ipcRenderer.send("island:drag-end");
+	},
+
+	/**
+	 * 设置 Island SIDEBAR 模式的固定状态
+	 * @param isPinned true = 固定（始终在顶部），false = 非固定（正常窗口行为）
+	 */
+	islandSetPinned: (isPinned: boolean) => {
+		ipcRenderer.send("island:set-pinned", isPinned);
+	},
+
+	/**
+	 * 监听 Island 窗口位置更新（拖拽时实时更新）
+	 * @param callback 回调函数，接收位置数据
+	 */
+	onIslandPositionUpdate: (callback: (data: { y: number; screenHeight: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: { y: number; screenHeight: number }) => callback(data);
+		ipcRenderer.on('island:position-update', listener);
+		return () => {
+			ipcRenderer.removeListener('island:position-update', listener);
+		};
+	},
+
+	/**
+	 * 监听 Island 窗口锚点更新（模式切换时更新）
+	 * @param callback 回调函数，接收锚点数据
+	 */
+	onIslandAnchorUpdate: (callback: (data: { anchor: 'top' | 'bottom' | null; y: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: { anchor: 'top' | 'bottom' | null; y: number }) => callback(data);
+		ipcRenderer.on('island:anchor-update', listener);
+		return () => {
+			ipcRenderer.removeListener('island:anchor-update', listener);
+		};
 	},
 });
