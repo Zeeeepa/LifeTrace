@@ -552,6 +552,19 @@ export function BottomDock({
 					onSelect={(feature) => {
 						if (menuState.position) {
 							setPanelFeature(menuState.position, feature);
+							// ✅ 如果 Panel 当前未激活，则自动激活它
+							const pos = menuState.position;
+							const isPanelActive =
+								pos === "panelA" ? isPanelAOpen :
+								pos === "panelB" ? isPanelBOpen :
+								isPanelCOpen;
+							if (!isPanelActive) {
+								const toggleFn =
+									pos === "panelA" ? togglePanelA :
+									pos === "panelB" ? togglePanelB :
+									togglePanelC;
+								toggleFn();
+							}
 							// ✅ 修复：选择功能后立即关闭菜单，重置状态
 							setMenuState({
 								isOpen: false,
