@@ -15,7 +15,7 @@ if (process.platform === "win32") {
 
 import { app, dialog } from "electron";
 import { BackendServer } from "./backend-server";
-import { getServerMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
+import { getServerMode, getWindowMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
 import { GlobalShortcutManager } from "./global-shortcut-manager";
 import { setupIpcHandlers } from "./ipc-handlers";
 import { IslandWindowManager } from "./island-window-manager";
@@ -36,6 +36,9 @@ const isDev = isDevelopment(app.isPackaged);
 
 // 获取服务器模式
 const serverMode = getServerMode();
+
+// 获取窗口模式（island 或 web）
+const windowMode = getWindowMode();
 
 // 确保只有相同模式的应用实例运行
 // DEV 和 Build 版本使用不同的锁名称，允许它们同时运行
@@ -125,26 +128,50 @@ if (!gotTheLock) {
 	process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 	process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-	// 当另一个实例尝试启动时，聚焦到 Island 窗口
+	// 当另一个实例尝试启动时，聚焦到主窗口
 	app.on("second-instance", () => {
-		if (islandWindowManager.hasWindow()) {
-			islandWindowManager.show();
-			islandWindowManager.getWindow()?.focus();
-		} else if (app.isReady()) {
-			islandWindowManager.create(getServerUrl());
+		if (windowMode === "web") {
+			// Web 模式：使用普通窗口
+			if (windowManager.hasWindow()) {
+				windowManager.focus();
+			} else if (app.isReady()) {
+				windowManager.create(getServerUrl());
+			} else {
+				app.once("ready", () => {
+					windowManager.create(getServerUrl());
+				});
+			}
 		} else {
-			app.once("ready", () => {
+			// Island 模式：使用灵动岛窗口
+			if (islandWindowManager.hasWindow()) {
+				islandWindowManager.show();
+				islandWindowManager.getWindow()?.focus();
+			} else if (app.isReady()) {
 				islandWindowManager.create(getServerUrl());
-			});
+			} else {
+				app.once("ready", () => {
+					islandWindowManager.create(getServerUrl());
+				});
+			}
 		}
 	});
 
-	// macOS: 点击 dock 图标时显示或重建 Island 窗口
+	// macOS: 点击 dock 图标时显示或重建窗口
 	app.on("activate", () => {
-		if (islandWindowManager.hasWindow()) {
-			islandWindowManager.show();
+		if (windowMode === "web") {
+			// Web 模式：使用普通窗口
+			if (windowManager.hasWindow()) {
+				windowManager.focus();
+			} else {
+				windowManager.create(getServerUrl());
+			}
 		} else {
-			islandWindowManager.create(getServerUrl());
+			// Island 模式：使用灵动岛窗口
+			if (islandWindowManager.hasWindow()) {
+				islandWindowManager.show();
+			} else {
+				islandWindowManager.create(getServerUrl());
+			}
 		}
 	});
 
@@ -264,11 +291,20 @@ async function bootstrap(
 			}
 		}
 
-		// 4. 创建 Island 主窗口
-		islandWindowManager.create(serverUrl);
-		logger.info("Island main window created");
+		// 4. 根据窗口模式创建主窗口
+		if (windowMode === "web") {
+			// Web 模式：创建普通窗口，加载主页面
+			windowManager.create(serverUrl);
+			logger.info("Web main window created");
+		} else {
+			// Island 模式：创建灵动岛窗口
+			islandWindowManager.create(serverUrl);
+			logger.info("Island main window created");
+		}
 
 		// 5. 初始化 Tray 和 Global Shortcuts
+		// 注意：Web 模式下 TrayManager 和 GlobalShortcutManager 仍然使用 islandWindowManager
+		// 这样即使在 Web 模式下，用户也可以通过快捷键或托盘切换到 Island 模式
 		const trayManager = new TrayManager(islandWindowManager);
 		trayManager.create();
 		logger.info("System tray icon created");
@@ -301,6 +337,7 @@ function logStartupInfo(): void {
 	logger.info(`NODE_ENV: ${process.env.NODE_ENV || "not set"}`);
 	logger.info(`isDev: ${isDev}`);
 	logger.info(`Server mode: ${serverMode}`);
+	logger.info(`Window mode: ${windowMode}`);
 	logger.info(`Will start built-in server: ${!isDev || app.isPackaged}`);
 }
 

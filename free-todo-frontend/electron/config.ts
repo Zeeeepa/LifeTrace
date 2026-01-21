@@ -132,6 +132,51 @@ export const WINDOW_CONFIG = {
 } as const;
 
 /**
+ * 窗口模式类型
+ * - island: 灵动岛模式（默认，透明悬浮窗）
+ * - web: Web 界面模式（普通窗口，类似浏览器）
+ */
+export type WindowMode = "island" | "web";
+
+/**
+ * 编译时注入的默认窗口模式
+ * 由 esbuild 在构建时通过 define 选项设置
+ * 如果未定义，默认为 "island"
+ */
+declare const __DEFAULT_WINDOW_MODE__: string | undefined;
+
+/**
+ * 获取当前窗口模式
+ *
+ * 优先级：
+ * 1. 运行时环境变量 WINDOW_MODE（方便调试）
+ * 2. 编译时注入的默认值 __DEFAULT_WINDOW_MODE__
+ * 3. 硬编码默认值 "island"
+ */
+export function getWindowMode(): WindowMode {
+	// 运行时环境变量优先（方便调试和开发）
+	const envMode = process.env.WINDOW_MODE?.toLowerCase();
+	if (envMode === "web" || envMode === "island") {
+		return envMode;
+	}
+
+	// 编译时注入的默认值
+	try {
+		const buildTimeDefault = typeof __DEFAULT_WINDOW_MODE__ !== "undefined"
+			? __DEFAULT_WINDOW_MODE__
+			: undefined;
+		if (buildTimeDefault === "web") {
+			return "web";
+		}
+	} catch {
+		// __DEFAULT_WINDOW_MODE__ 未定义，使用硬编码默认值
+	}
+
+	// 硬编码默认值
+	return "island";
+}
+
+/**
  * 日志配置
  */
 export const LOG_CONFIG = {

@@ -8,7 +8,12 @@ const path = require("node:path");
 
 const isWatch = process.argv.includes("--watch");
 
+// 获取窗口模式（默认为 island）
+const windowMode = process.env.WINDOW_MODE || "island";
+
 async function build() {
+	console.log(`Building Electron with WINDOW_MODE=${windowMode}`);
+
 	const mainOptions = {
 		entryPoints: [path.join(__dirname, "..", "electron", "main.ts")],
 		bundle: true,
@@ -18,6 +23,10 @@ async function build() {
 		external: ["electron"],
 		sourcemap: true,
 		minify: process.env.NODE_ENV === "production",
+		// 在编译时注入窗口模式常量
+		define: {
+			"__DEFAULT_WINDOW_MODE__": JSON.stringify(windowMode),
+		},
 	};
 
 	const preloadOptions = {
