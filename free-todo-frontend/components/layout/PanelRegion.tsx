@@ -13,7 +13,7 @@ import { ResizeHandle } from "./ResizeHandle";
 /** BottomDock 容器的高度 (px) */
 const BOTTOM_DOCK_HEIGHT = 60;
 /** Dock 和面板内容区之间的间距 (px) */
-const DOCK_MARGIN_TOP = 4;
+const DOCK_MARGIN_TOP = 0;
 
 interface PanelRegionProps {
 	/** Panel 区域的宽度（用于计算显示多少个 Panel） */
