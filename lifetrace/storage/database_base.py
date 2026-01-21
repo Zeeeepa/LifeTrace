@@ -44,11 +44,16 @@ class DatabaseBase:
             # 导入所有模型以确保 metadata 包含所有表
             from lifetrace.storage import models  # noqa: F401
 
-            # 创建表（仅在新数据库时）
-            # 对于现有数据库，使用 Alembic 进行迁移
+            # 创建表
+            # 对于新数据库：创建所有表
+            # 对于现有数据库：只创建缺失的表（SQLModel.metadata.create_all 会自动跳过已存在的表）
             if not db_exists:
                 SQLModel.metadata.create_all(bind=self.engine)
                 logger.info(f"数据库初始化完成: {db_path}")
+            else:
+                # 对于现有数据库，也调用 create_all 来创建缺失的表
+                # checkfirst=True（默认值）会跳过已存在的表
+                SQLModel.metadata.create_all(bind=self.engine)
 
             # 性能优化：添加关键索引
             self._create_performance_indexes()
@@ -179,6 +184,27 @@ class DatabaseBase:
                     (
                         "idx_messages_chat_id",
                         "CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)",
+                    ),
+                    # 音频相关索引
+                    (
+                        "idx_audio_recordings_start_time",
+                        "CREATE INDEX IF NOT EXISTS idx_audio_recordings_start_time ON audio_recordings(start_time)",
+                    ),
+                    (
+                        "idx_audio_recordings_status",
+                        "CREATE INDEX IF NOT EXISTS idx_audio_recordings_status ON audio_recordings(status)",
+                    ),
+                    (
+                        "idx_audio_recordings_deleted_at",
+                        "CREATE INDEX IF NOT EXISTS idx_audio_recordings_deleted_at ON audio_recordings(deleted_at)",
+                    ),
+                    (
+                        "idx_transcriptions_audio_recording_id",
+                        "CREATE INDEX IF NOT EXISTS idx_transcriptions_audio_recording_id ON transcriptions(audio_recording_id)",
+                    ),
+                    (
+                        "idx_transcriptions_extraction_status",
+                        "CREATE INDEX IF NOT EXISTS idx_transcriptions_extraction_status ON transcriptions(extraction_status)",
                     ),
                 ]
 

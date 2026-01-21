@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
 import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
@@ -60,6 +60,13 @@ export function PanelRegion({
 	// BottomDock 容器 ref（用于鼠标位置检测）
 	const bottomDockContainerRef = useRef<HTMLDivElement>(null);
 
+	// 确保客户端 hydration 完成后再渲染，避免 SSR 和客户端不一致
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	// 获取 panel 的打开状态和当前宽度配置
 	const { isPanelAOpen, isPanelBOpen, isPanelCOpen, panelAWidth, panelCWidth } =
 		useUiStore();
@@ -74,13 +81,15 @@ export function PanelRegion({
 	// - width >= 1200：显示 A / B / C
 	const PANEL_DUAL_THRESHOLD = 800;
 	const PANEL_TRIPLE_THRESHOLD = 1200;
-	const shouldShowPanelB = width >= PANEL_DUAL_THRESHOLD;
-	const shouldShowPanelC = width >= PANEL_TRIPLE_THRESHOLD;
+	// 在 SSR 时使用默认值，避免 hydration 不匹配
+	const shouldShowPanelB = mounted ? width >= PANEL_DUAL_THRESHOLD : false;
+	const shouldShowPanelC = mounted ? width >= PANEL_TRIPLE_THRESHOLD : false;
 
 	// 面板可见性：由 store 控制（在 MAXIMIZE 入口处会确保三者默认打开）
-	const panelAVisible = isPanelAOpen;
-	const panelBVisible = isPanelBOpen;
-	const panelCVisible = isPanelCOpen;
+	// 在 SSR 时使用默认值，避免 hydration 不匹配
+	const panelAVisible = mounted ? isPanelAOpen : true;
+	const panelBVisible = mounted ? isPanelBOpen : false;
+	const panelCVisible = mounted ? isPanelCOpen : false;
 
 	// 实际应该渲染的 Panel（需要同时满足：宽度允许该槽位 + 该 Panel 处于打开状态）
 	const showPanelA = panelAVisible;
@@ -96,7 +105,17 @@ export function PanelRegion({
 	}, [shouldShowPanelB, shouldShowPanelC]);
 
 	// 计算 layoutState：根据「实际可见」的 Panel 数量 + 当前 store 中的宽度配置分配宽度
+	// 在 SSR 时使用默认值，避免 hydration 不匹配
 	const layoutState = useMemo(() => {
+		// SSR 时返回默认布局（只有 Panel A）
+		if (!mounted) {
+			return {
+				panelAWidth: 1,
+				panelBWidth: 0,
+				panelCWidth: 0,
+			};
+		}
+
 		const clampedPanelA = Math.min(Math.max(panelAWidth, 0.1), 0.9);
 
 		// 三栏场景：A / B / C（A/B/C 都可见）
@@ -179,7 +198,7 @@ export function PanelRegion({
 			panelBWidth: 0,
 			panelCWidth: 0,
 		};
-	}, [showPanelA, showPanelB, showPanelC, panelAWidth, panelCWidth]);
+	}, [mounted, showPanelA, showPanelB, showPanelC, panelAWidth, panelCWidth]);
 
 	// 计算 Panels 容器的固定高度：PanelRegion 总高度 - BottomDock 高度 - Dock 上方间距
 	const panelsContainerHeight = useMemo(() => {

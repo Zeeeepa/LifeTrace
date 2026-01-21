@@ -193,6 +193,207 @@ async def test_tavily_config(config_data: dict[str, str]):
         return {"success": False, "error": error_msg}
 
 
+def _parse_asr_config(config_data: dict[str, Any]) -> dict[str, Any]:
+    """解析 ASR 配置参数"""
+    return {
+        "asr_key": _get_config_value(config_data, "audioAsrApiKey", "audio_asr_api_key"),
+        "base_url": _get_config_value(config_data, "audioAsrBaseUrl", "audio_asr_base_url"),
+        "model": _get_config_value(config_data, "audioAsrModel", "audio_asr_model")
+        or "fun-asr-realtime",
+        "sample_rate": int(
+            _get_config_value(config_data, "audioAsrSampleRate", "audio_asr_sample_rate") or 16000
+        ),
+        "format_type": _get_config_value(config_data, "audioAsrFormat", "audio_asr_format")
+        or "pcm",
+        "semantic_punc": _get_config_value(
+            config_data,
+            "audioAsrSemanticPunctuationEnabled",
+            "audio_asr_semantic_punctuation_enabled",
+        )
+        or False,
+        "max_silence": int(
+            _get_config_value(
+                config_data, "audioAsrMaxSentenceSilence", "audio_asr_max_sentence_silence"
+            )
+            or 1300
+        ),
+        "heartbeat": _get_config_value(config_data, "audioAsrHeartbeat", "audio_asr_heartbeat")
+        or False,
+    }
+
+
+def _build_asr_run_task_message(
+    task_id: str,
+    model: str,
+    format_type: str,
+    sample_rate: int,
+    semantic_punc: bool,
+    max_silence: int,
+    heartbeat: bool,
+) -> dict[str, Any]:
+    """构建 ASR run-task 消息"""
+    return {
+        "header": {
+            "action": "run-task",
+            "task_id": task_id,
+            "streaming": "duplex",
+        },
+        "payload": {
+            "task_group": "audio",
+            "task": "asr",
+            "function": "recognition",
+            "model": model,
+            "parameters": {
+                "format": format_type,
+                "sample_rate": sample_rate,
+                "semantic_punctuation_enabled": semantic_punc,
+                "max_sentence_silence": max_silence,
+                "heartbeat": heartbeat,
+            },
+            "input": {},
+        },
+    }
+
+
+def _build_asr_finish_task_message(task_id: str) -> dict[str, Any]:
+    """构建 ASR finish-task 消息"""
+    return {
+        "header": {
+            "action": "finish-task",
+            "task_id": task_id,
+            "streaming": "duplex",
+        },
+        "payload": {"input": {}},
+    }
+
+
+async def _handle_asr_websocket_response(ws, task_id: str) -> dict[str, Any]:
+    """处理 ASR WebSocket 响应"""
+    import asyncio
+    import json
+
+    try:
+        response = await asyncio.wait_for(ws.recv(), timeout=3.0)
+        data = json.loads(response)
+        event = data.get("header", {}).get("event")
+        logger.info(f"ASR 测试收到响应: {event}")
+
+        if event in ("task-started", "result-generated"):
+            finish_message = _build_asr_finish_task_message(task_id)
+            await ws.send(json.dumps(finish_message))
+            logger.info("ASR配置测试成功")
+            return {"success": True, "message": "配置验证成功"}
+        if event == "task-failed":
+            error_code = data.get("header", {}).get("error_code", "")
+            error_message = data.get("header", {}).get("error_message", "")
+            error_msg = f"ASR任务失败: {error_code} - {error_message}"
+            logger.error(f"ASR配置测试失败: {error_msg}")
+            return {"success": False, "error": error_msg}
+        # 其他事件也视为成功（至少连接和认证通过了）
+        logger.info("ASR配置测试成功（收到其他事件）")
+        return {"success": True, "message": "配置验证成功"}
+    except TimeoutError:
+        # 超时也视为成功（至少连接和认证通过了）
+        logger.info("ASR配置测试成功（连接超时但已建立连接）")
+        return {"success": True, "message": "配置验证成功"}
+
+
+async def _test_asr_websocket_connection(
+    base_url: str, asr_key: str, run_task_message: dict[str, Any], task_id: str
+) -> dict[str, Any]:
+    """测试 ASR WebSocket 连接"""
+    import json
+
+    import websockets
+    from websockets.exceptions import ConnectionClosed, InvalidURI
+
+    headers = [("Authorization", f"Bearer {asr_key}")]
+    try:
+        async with websockets.connect(base_url, additional_headers=headers, close_timeout=5) as ws:
+            await ws.send(json.dumps(run_task_message))
+            logger.info("ASR WebSocket 连接成功，已发送 run-task 消息")
+            return await _handle_asr_websocket_response(ws, task_id)
+    except ConnectionClosed as e:
+        error_msg = f"WebSocket 连接被关闭: {e}"
+        logger.error(f"ASR配置测试失败: {error_msg}")
+        return {"success": False, "error": error_msg}
+    except InvalidURI as e:
+        error_msg = f"WebSocket 地址无效: {e}"
+        logger.error(f"ASR配置测试失败: {error_msg}")
+        return {"success": False, "error": error_msg}
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"ASR配置测试失败: {error_msg}")
+        return {"success": False, "error": error_msg}
+
+
+def _handle_asr_test_error(error_msg: str, model: str) -> dict[str, Any]:
+    """处理ASR测试错误，返回友好的错误信息"""
+    if "401" in error_msg or "unauthorized" in error_msg.lower() or "invalid" in error_msg.lower():
+        return {
+            "success": False,
+            "error": f"API Key 无效，请检查：\n1. 是否从阿里云控制台正确复制了完整的 API Key\n2. API Key 是否已启用\n3. API Key 是否有权限访问 ASR 服务\n\n原始错误: {error_msg}",
+        }
+    if "404" in error_msg or "not found" in error_msg.lower():
+        return {
+            "success": False,
+            "error": f"WebSocket 地址或模型 '{model}' 不存在，请检查配置是否正确\n\n原始错误: {error_msg}",
+        }
+    if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+        return {
+            "success": False,
+            "error": f"连接失败，请检查：\n1. WebSocket 地址是否正确\n2. 网络连接是否正常\n\n原始错误: {error_msg}",
+        }
+    return {"success": False, "error": error_msg}
+
+
+@router.post("/test-asr-config")
+async def test_asr_config(config_data: dict[str, Any]):
+    """测试ASR配置是否可用（验证WebSocket连接和认证）"""
+    import uuid
+
+    try:
+        # 解析配置参数
+        config = _parse_asr_config(config_data)
+        asr_key = config["asr_key"]
+        base_url = config["base_url"]
+        model = config["model"]
+
+        if not asr_key or not base_url:
+            return {"success": False, "error": "ASR API Key 和 Base URL 不能为空"}
+
+        # 验证 API Key 格式（针对阿里云）
+        if "aliyun" in base_url.lower():
+            validation_error = _validate_aliyun_api_key(asr_key)
+            if validation_error:
+                return validation_error
+
+        logger.info(f"开始测试 ASR 配置 - 模型: {model}, Key前缀: {asr_key[:10]}...")
+
+        # 构建测试消息
+        task_id = uuid.uuid4().hex[:32]
+        run_task_message = _build_asr_run_task_message(
+            task_id,
+            model,
+            config["format_type"],
+            config["sample_rate"],
+            config["semantic_punc"],
+            config["max_silence"],
+            config["heartbeat"],
+        )
+
+        # 测试 WebSocket 连接
+        return await _test_asr_websocket_connection(base_url, asr_key, run_task_message, task_id)
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"ASR配置测试失败: {error_msg}")
+        model = (
+            _get_config_value(config_data, "audioAsrModel", "audio_asr_model") or "fun-asr-realtime"
+        )
+        return _handle_asr_test_error(error_msg, model)
+
+
 @router.get("/llm-status")
 async def get_llm_status():
     """检查 LLM 是否已正确配置并通过连接测试

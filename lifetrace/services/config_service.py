@@ -25,6 +25,18 @@ LLM_RELATED_BACKEND_KEYS = [
     "llm_model",
 ]
 
+# ASR 相关配置键（支持两种格式，用于判断是否需要重新初始化 ASR）
+ASR_RELATED_BACKEND_KEYS = [
+    # 点分隔格式（后端标准）
+    "audio.asr.api_key",
+    "audio.asr.base_url",
+    "audio.asr.model",
+    # snake_case 格式（前端 fetcher 转换后发送的格式）
+    "audio_asr_api_key",
+    "audio_asr_base_url",
+    "audio_asr_model",
+]
+
 # 任务启用状态配置键到调度器任务ID的映射（支持两种格式）
 JOB_ENABLED_CONFIG_TO_JOB_ID = {
     # 点分隔格式（后端标准）
@@ -59,6 +71,19 @@ _SIMPLE_PREFIX_MAP: dict[str, tuple[int, str]] = {
     "chat_": (5, "chat"),
     "dify_": (5, "dify"),
     "tavily_": (7, "tavily"),
+}
+
+# ASR 配置键名映射（保留下划线的键名）
+_ASR_KEY_MAPPING: dict[str, str] = {
+    "audio_asr_api_key": "audio.asr.api_key",
+    "audio_asr_base_url": "audio.asr.base_url",
+    "audio_asr_model": "audio.asr.model",
+    "audio_asr_sample_rate": "audio.asr.sample_rate",
+    "audio_asr_format": "audio.asr.format",
+    "audio_asr_semantic_punctuation_enabled": "audio.asr.semantic_punctuation_enabled",
+    "audio_asr_max_sentence_silence": "audio.asr.max_sentence_silence",
+    "audio_asr_heartbeat": "audio.asr.heartbeat",
+    "audio_is_24x7": "audio.is_24x7",
 }
 
 # 复合任务名映射：首部分 -> 完整任务名
@@ -116,6 +141,10 @@ def snake_to_dot_notation(key: str) -> str:
     # 如果已经是点分隔格式或不包含下划线，直接返回
     if "." in key or "_" not in key:
         return key
+
+    # 优先检查 ASR 配置键名映射（需要保留下划线的键）
+    if key in _ASR_KEY_MAPPING:
+        return _ASR_KEY_MAPPING[key]
 
     # 处理 jobs 相关配置
     if key.startswith("jobs_"):
@@ -222,6 +251,25 @@ class ConfigService:
             "model": settings.llm.model,
         }
 
+    def get_asr_config(self) -> dict[str, Any]:
+        """获取当前 ASR 配置
+
+        Returns:
+            ASR 配置字典
+        """
+        try:
+            return {
+                "api_key": settings.audio.asr.api_key,
+                "base_url": settings.audio.asr.base_url,
+                "model": settings.audio.asr.model,
+            }
+        except Exception:
+            return {
+                "api_key": None,
+                "base_url": None,
+                "model": None,
+            }
+
     def get_config_for_frontend(self) -> dict[str, Any]:
         """获取配置（转换为 snake_case 格式供前端使用）
 
@@ -268,6 +316,17 @@ class ConfigService:
             "dify.base_url",
             # Tavily 配置（联网搜索）
             "tavily.api_key",
+            # 音频录制配置
+            "audio.is_24x7",
+            # 音频识别（ASR）配置
+            "audio.asr.api_key",
+            "audio.asr.base_url",
+            "audio.asr.model",
+            "audio.asr.sample_rate",
+            "audio.asr.format",
+            "audio.asr.semantic_punctuation_enabled",
+            "audio.asr.max_sentence_silence",
+            "audio.asr.heartbeat",
         ]
 
         config_dict = {}
@@ -447,6 +506,57 @@ class ConfigService:
         else:
             logger.info("LLM 配置未发生实际变更，跳过重新加载")
 
+    def reinitialize_asr_if_needed(
+        self,
+        new_settings: dict[str, Any],
+        old_asr_config: dict[str, Any],
+    ) -> None:
+        """如果 ASR 配置发生变化，重新初始化 ASR 客户端
+
+        Args:
+            new_settings: 配置字典（键为后端格式）
+            old_asr_config: 旧的 ASR 配置
+        """
+        # 检测是否有 ASR 相关配置项在请求中
+        has_asr_keys = any(key in ASR_RELATED_BACKEND_KEYS for key in new_settings.keys())
+
+        if not has_asr_keys:
+            return
+
+        # 获取新的 ASR 配置值
+        new_asr_config = self.get_asr_config()
+
+        # 比对新旧配置值
+        asr_config_changed = old_asr_config != new_asr_config
+
+        if asr_config_changed:
+            logger.info("检测到 ASR 配置实际发生变更，正在热加载 ASR 客户端...")
+            logger.info(
+                f"旧配置: API Key={old_asr_config['api_key'][:10] if old_asr_config['api_key'] else 'None'}..., "
+                f"Base URL={old_asr_config['base_url']}, Model={old_asr_config['model']}"
+            )
+            logger.info(
+                f"新配置: API Key={new_asr_config['api_key'][:10] if new_asr_config['api_key'] else 'None'}..., "
+                f"Base URL={new_asr_config['base_url']}, Model={new_asr_config['model']}"
+            )
+
+            try:
+                # 重新初始化 ASR 客户端单例
+                from lifetrace.services.asr_client import ASRClient
+
+                asr_client = ASRClient()
+                asr_client.reinitialize()
+                logger.info(
+                    f"ASR 客户端热加载成功 - "
+                    f"API Key: {asr_client.api_key[:10] if asr_client.api_key else 'None'}..., "
+                    f"Model: {asr_client.model}"
+                )
+                logger.info("ASR 配置热加载完成")
+            except Exception as e:
+                logger.error(f"热加载 ASR 客户端失败: {e}", exc_info=True)
+        else:
+            logger.info("ASR 配置未发生实际变更，跳过重新加载")
+
     def save_config(
         self,
         new_settings: dict[str, Any],
@@ -480,8 +590,9 @@ class ConfigService:
         for item in changed_items:
             logger.info(f"  - {item}")
 
-        # 2. 保存旧的 LLM 配置值（用于后续比对 LLM 是否需要重新初始化）
+        # 2. 保存旧的 LLM 和 ASR 配置值（用于后续比对是否需要重新初始化）
         old_llm_config = self.get_llm_config()
+        old_asr_config = self.get_asr_config()
 
         # 3. 更新配置文件
         self.update_config_file(new_settings, config_path)
@@ -498,6 +609,9 @@ class ConfigService:
 
         # 6. 如果需要，重新初始化 LLM 客户端
         self.reinitialize_llm_if_needed(new_settings, old_llm_config, is_llm_configured_callback)
+
+        # 7. 如果需要，重新初始化 ASR 客户端
+        self.reinitialize_asr_if_needed(new_settings, old_asr_config)
 
         return {"success": True, "message": "配置保存成功"}
 

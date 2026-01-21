@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { AchievementsPanel } from "@/apps/achievements/AchievementsPanel";
 import { ActivityPanel } from "@/apps/activity/ActivityPanel";
+import { AudioPanel } from "@/apps/audio/AudioPanel";
 import { CalendarPanel } from "@/apps/calendar/CalendarPanel";
 import { ChatPanel } from "@/apps/chat/ChatPanel";
 import { CostTrackingPanel } from "@/apps/cost-tracking";
@@ -51,6 +52,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			costTracking: "costTrackingLabel",
 			achievements: "achievementsLabel",
 			debugShots: "debugShotsLabel",
+			audio: "audioLabel",
 		};
 		const key = labelKeyMap[feat];
 		return key ? t(key) : "";
@@ -71,6 +73,7 @@ export function PanelContent({ position }: PanelContentProps) {
 			costTracking: "costTrackingPlaceholder",
 			achievements: "achievementsPlaceholder",
 			debugShots: "debugShotsPlaceholder",
+			audio: "audioPlaceholder",
 		};
 		const key = placeholderKeyMap[feat];
 		return key ? t(key) : "";
@@ -156,6 +159,15 @@ export function PanelContent({ position }: PanelContentProps) {
 		return (
 			<PanelPositionProvider position={position}>
 				<DebugCapturePanel />
+			</PanelPositionProvider>
+		);
+	}
+
+	// 如果是音频功能，显示音频面板
+	if (feature === "audio") {
+		return (
+			<PanelPositionProvider position={position}>
+				<AudioPanel />
 			</PanelPositionProvider>
 		);
 	}

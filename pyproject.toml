@@ -27,6 +27,7 @@ dependencies = [
     # WhisperLiveKit 实时语音识别（超低延迟，支持发言者区分）
     "whisperlivekit>=0.1.0", # 实时本地语音转文本与翻译，延迟 < 300ms
     "websockets>=12.0",      # WebSocket 客户端（用于连接 WhisperLiveKit 服务器）
+    "python-socks>=2.0.0",   # SOCKS 代理支持（websockets 库的可选依赖）
     # 繁简转换（可选，用于将繁体中文转换为简体）
     "opencc-python-reimplemented>=0.1.7", # 繁简转换库
     # FunASR 语音识别（可选，需要 Visual C++ 构建工具）
@@ -47,6 +48,10 @@ dependencies = [
     "psutil>=5.9.0",
     # OpenAI API
     "openai>=1.0.0",
+    # DashScope API (阿里云百炼)
+    "dashscope>=1.17.0",
+    # PyAudio for microphone input
+    "pyaudio>=0.2.14",
     # Tavily API for web search
     "tavily-python>=0.5.0",
     # Configuration management with hot reload support (includes yaml support)

@@ -68,6 +68,8 @@ class LLMClient:
             logger.warning("使用硬编码默认值初始化LLM客户端")
 
         try:
+            if OpenAI is None:
+                raise ImportError("openai 依赖未安装")
             self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
             logger.info(f"LLM客户端初始化成功，使用模型: {self.model}")
             logger.info(f"API Base URL: {self.base_url}")

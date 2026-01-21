@@ -6,7 +6,10 @@ import { useState } from "react";
 import { CollapsibleSection } from "@/components/common/layout/CollapsibleSection";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useConfig } from "@/lib/query";
+import { useUiStore } from "@/lib/store/ui-store";
 import {
+	AudioAsrConfigSection,
+	AudioConfigSection,
 	AutoTodoDetectionSection,
 	DifyConfigSection,
 	DockDisplayModeSection,
@@ -31,6 +34,10 @@ export function SettingsPanel() {
 
 	// 使用 TanStack Query 获取配置
 	const { data: config, isLoading: configLoading } = useConfig();
+
+	// 获取面板启用状态
+	const isFeatureEnabled = useUiStore((state) => state.isFeatureEnabled);
+	const isAudioPanelEnabled = isFeatureEnabled("audio");
 
 	// 状态管理
 	const [showDeveloperOptions, setShowDeveloperOptions] = useState(false);
@@ -97,6 +104,21 @@ export function SettingsPanel() {
 							<ModeSwitcherSection loading={loading} />
 						</div>
 
+						{/* 音频设置（仅在音频面板启用时显示） */}
+						{isAudioPanelEnabled && (
+							<>
+								{/* 音频录制配置 */}
+								<div className="mt-4">
+									<AudioConfigSection config={config} loading={loading} />
+								</div>
+
+								{/* 音频识别（ASR）配置 */}
+								<div className="mt-4">
+									<AudioAsrConfigSection config={config} loading={loading} />
+								</div>
+							</>
+						)}
+
 						{/* 版本信息 */}
 						<VersionInfoSection />
 					</SettingsSection>
@@ -105,3 +127,6 @@ export function SettingsPanel() {
 		</div>
 	);
 }
+
+// 兼容默认导出，避免构建器找不到导出时报错
+export default SettingsPanel;

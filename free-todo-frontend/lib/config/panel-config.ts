@@ -15,6 +15,7 @@ import {
 	ListTodo,
 	type LucideIcon,
 	MessageSquare,
+	Mic,
 	Settings,
 } from "lucide-react";
 
@@ -29,7 +30,8 @@ export type PanelFeature =
 	| "settings"
 	| "costTracking"
 	| "achievements"
-	| "debugShots";
+	| "debugShots"
+	| "audio";
 
 /**
  * 开发中的面板功能列表
@@ -57,6 +59,7 @@ export const ALL_PANEL_FEATURES: PanelFeature[] = [
 	"costTracking",
 	"achievements",
 	"debugShots",
+	"audio",
 ];
 
 /**
@@ -73,4 +76,5 @@ export const FEATURE_ICON_MAP: Record<PanelFeature, LucideIcon> = {
 	costTracking: DollarSign,
 	achievements: Award,
 	debugShots: Camera,
+	audio: Mic,
 };

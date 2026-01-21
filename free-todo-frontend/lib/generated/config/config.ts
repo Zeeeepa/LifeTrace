@@ -27,6 +27,7 @@ import type {
 	HTTPValidationError,
 	SaveAndInitLlmApiSaveAndInitLlmPostBody,
 	SaveConfigApiSaveConfigPostBody,
+	TestAsrConfigApiTestAsrConfigPostBody,
 	TestLlmConfigApiTestLlmConfigPostBody,
 } from ".././schemas";
 
@@ -116,6 +117,95 @@ export const useTestLlmConfigApiTestLlmConfigPost = <
 > => {
 	const mutationOptions =
 		getTestLlmConfigApiTestLlmConfigPostMutationOptions(options);
+
+	return useMutation(mutationOptions, queryClient);
+};
+/**
+ * 测试ASR配置是否可用（验证WebSocket连接和认证）
+ * @summary Test Asr Config
+ */
+export const testAsrConfigApiTestAsrConfigPost = (
+	testAsrConfigApiTestAsrConfigPostBody: TestAsrConfigApiTestAsrConfigPostBody,
+	signal?: AbortSignal,
+) => {
+	return customFetcher<unknown>({
+		url: `/api/test-asr-config`,
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		data: testAsrConfigApiTestAsrConfigPostBody,
+		signal,
+	});
+};
+
+export const getTestAsrConfigApiTestAsrConfigPostMutationOptions = <
+	TError = HTTPValidationError,
+	TContext = unknown,
+>(options?: {
+	mutation?: UseMutationOptions<
+		Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>,
+		TError,
+		{ data: TestAsrConfigApiTestAsrConfigPostBody },
+		TContext
+	>;
+}): UseMutationOptions<
+	Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>,
+	TError,
+	{ data: TestAsrConfigApiTestAsrConfigPostBody },
+	TContext
+> => {
+	const mutationKey = ["testAsrConfigApiTestAsrConfigPost"];
+	const { mutation: mutationOptions } = options
+		? options.mutation &&
+			"mutationKey" in options.mutation &&
+			options.mutation.mutationKey
+			? options
+			: { ...options, mutation: { ...options.mutation, mutationKey } }
+		: { mutation: { mutationKey } };
+
+	const mutationFn: MutationFunction<
+		Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>,
+		{ data: TestAsrConfigApiTestAsrConfigPostBody }
+	> = (props) => {
+		const { data } = props ?? {};
+
+		return testAsrConfigApiTestAsrConfigPost(data);
+	};
+
+	return { mutationFn, ...mutationOptions };
+};
+
+export type TestAsrConfigApiTestAsrConfigPostMutationResult = NonNullable<
+	Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>
+>;
+export type TestAsrConfigApiTestAsrConfigPostMutationBody =
+	TestAsrConfigApiTestAsrConfigPostBody;
+export type TestAsrConfigApiTestAsrConfigPostMutationError =
+	HTTPValidationError;
+
+/**
+ * @summary Test Asr Config
+ */
+export const useTestAsrConfigApiTestAsrConfigPost = <
+	TError = HTTPValidationError,
+	TContext = unknown,
+>(
+	options?: {
+		mutation?: UseMutationOptions<
+			Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>,
+			TError,
+			{ data: TestAsrConfigApiTestAsrConfigPostBody },
+			TContext
+		>;
+	},
+	queryClient?: QueryClient,
+): UseMutationResult<
+	Awaited<ReturnType<typeof testAsrConfigApiTestAsrConfigPost>>,
+	TError,
+	{ data: TestAsrConfigApiTestAsrConfigPostBody },
+	TContext
+> => {
+	const mutationOptions =
+		getTestAsrConfigApiTestAsrConfigPostMutationOptions(options);
 
 	return useMutation(mutationOptions, queryClient);
 };

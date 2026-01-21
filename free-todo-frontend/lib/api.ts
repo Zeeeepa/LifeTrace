@@ -308,8 +308,9 @@ export async function fetchNotification(
 			return null;
 		}
 
-		const data = JSON.parse(text) as NotificationResponse;
-		if (!data.title && !data.content) {
+		const data = JSON.parse(text) as NotificationResponse | null;
+		// 添加空值检查
+		if (!data || (!data.title && !data.content)) {
 			return null;
 		}
 
