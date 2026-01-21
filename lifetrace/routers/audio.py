@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 
 from lifetrace.routers.audio_ws import register_audio_ws_routes
 from lifetrace.services.asr_client import ASRClient
@@ -157,6 +158,45 @@ async def get_recording_file(recording_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _parse_extracted(
+    transcription: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Parse extracted todos/schedules and backfill legacy fields."""
+    todos: list[dict[str, Any]] = []
+    schedules: list[dict[str, Any]] = []
+
+    if transcription.get("extracted_todos"):
+        try:
+            todos = json.loads(transcription["extracted_todos"])
+        except Exception:
+            todos = []
+
+    if transcription.get("extracted_schedules"):
+        try:
+            schedules = json.loads(transcription["extracted_schedules"])
+        except Exception:
+            schedules = []
+
+    # Backfill legacy items and persist so clients always get id/dedupe_key/linked
+    try:
+        audio_service.update_extraction(
+            transcription_id=int(transcription["id"]),
+            todos=todos,
+            schedules=schedules,
+        )
+        refreshed = audio_service.get_transcription(transcription["audio_recording_id"])
+        if refreshed:
+            if refreshed.get("extracted_todos"):
+                todos = json.loads(refreshed["extracted_todos"])
+            if refreshed.get("extracted_schedules"):
+                schedules = json.loads(refreshed["extracted_schedules"])
+    except Exception:
+        # best-effort; return parsed data even if persist fails
+        pass
+
+    return todos, schedules
+
+
 @router.get("/transcription/{recording_id}")
 async def get_transcription(recording_id: int, optimized: bool = Query(False)):
     """获取转录文本"""
@@ -169,19 +209,7 @@ async def get_transcription(recording_id: int, optimized: bool = Query(False)):
         if not text:
             text = ""
 
-        # 解析提取的待办和日程
-        todos: list[dict[str, Any]] = []
-        schedules: list[dict[str, Any]] = []
-        if transcription.get("extracted_todos"):
-            try:
-                todos = json.loads(transcription["extracted_todos"])
-            except Exception:
-                pass
-        if transcription.get("extracted_schedules"):
-            try:
-                schedules = json.loads(transcription["extracted_schedules"])
-            except Exception:
-                pass
+        todos, schedules = _parse_extracted(transcription)
 
         return JSONResponse(
             {
@@ -193,6 +221,30 @@ async def get_transcription(recording_id: int, optimized: bool = Query(False)):
         )
     except Exception as e:
         logger.error(f"获取转录文本失败: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+class AudioLinkItem(BaseModel):
+    kind: str = Field(..., description="todo|schedule")
+    item_id: str = Field(..., description="extracted item id")
+    todo_id: int = Field(..., description="linked todo id")
+
+
+class AudioLinkRequest(BaseModel):
+    links: list[AudioLinkItem]
+
+
+@router.post("/transcription/{recording_id}/link")
+async def link_extracted_items(recording_id: int, request: AudioLinkRequest):
+    """Mark extracted items as linked to todos (persisted in transcription JSON)."""
+    try:
+        result = audio_service.link_extracted_items(
+            recording_id=recording_id,
+            links=[link.model_dump() for link in request.links],
+        )
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error(f"标记提取项已关联失败: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 

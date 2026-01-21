@@ -240,6 +240,22 @@
 		"llmConfigMissing": "Please configure AI service",
 		"llmConfigMissingHint": "Click to set API Key"
 	},
+	"audio": {
+		"extractionSummary": "Extracted {todoCount} todos and {scheduleCount} schedules",
+		"linkTodo": "Link to todos",
+		"extractionModalTitle": "Review extracted items",
+		"extractionModalDesc": "Select todos/schedules to add into your todo list:",
+		"todoSection": "Todos ({count})",
+		"scheduleSection": "Schedules ({count})",
+		"scheduleTag": "Schedule",
+		"linkTodoTag": "Extracted",
+		"scheduleFallbackTitle": "Schedule",
+		"noExtractions": "No extracted items to add",
+		"selectedCount": "Selected {count} items",
+		"confirmAdd": "Add selected ({count})",
+		"addSuccess": "Added {count} items",
+		"addFailed": "Failed to add {count} items"
+	},
 	"chat": {
 		"greetings": {
 			"title": "Free Todo, Just Do It",

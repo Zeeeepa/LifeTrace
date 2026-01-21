@@ -96,6 +96,9 @@ class TodoManager:
             "tags": self._get_todo_tags(session, todo.id),
             "attachments": self._get_todo_attachments(session, todo.id),
             "related_activities": _safe_int_list(todo.related_activities),
+            "source_type": getattr(todo, "source_type", None),
+            "source_key": getattr(todo, "source_key", None),
+            "source_date": getattr(todo, "source_date", None),
             "created_at": todo.created_at,
             "updated_at": todo.updated_at,
         }
