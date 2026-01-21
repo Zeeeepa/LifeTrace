@@ -166,7 +166,7 @@ tavily:
 audio:
   is_24x7: true # 7x24小时录制模式（默认开启）
   asr:
-    api_key: sk-628836258f014665b8096e988d7c522c # 阿里云百炼API Key
+    api_key: YOUR_LLM_KEY_HERE # 阿里云百炼API Key
     base_url: wss://dashscope.aliyuncs.com/api-ws/v1/inference/ # WebSocket地址
     model: fun-asr-realtime # 使用的模型名称
     sample_rate: 16000 # 采样率（Hz）

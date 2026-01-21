@@ -7,6 +7,7 @@ import { CollapsibleSection } from "@/components/common/layout/CollapsibleSectio
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useConfig } from "@/lib/query";
 import {
+	AudioAsrConfigSection,
 	AudioConfigSection,
 	AutoTodoDetectionSection,
 	DifyConfigSection,
@@ -56,6 +57,9 @@ export function SettingsPanel() {
 
 				{/* 音频录制配置 */}
 				<AudioConfigSection config={config} loading={loading} />
+
+				{/* 音频识别（ASR）配置 */}
+				<AudioAsrConfigSection config={config} loading={loading} />
 
 				{/* 自动待办检测设置 */}
 				<AutoTodoDetectionSection config={config} loading={loading} />

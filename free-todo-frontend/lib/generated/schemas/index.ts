@@ -176,6 +176,7 @@ export * from "./taskUpdate";
 export * from "./taskUpdateDescription";
 export * from "./taskUpdateName";
 export * from "./taskUpdateStatus";
+export * from "./testAsrConfigApiTestAsrConfigPostBody";
 export * from "./testLlmConfigApiTestLlmConfigPostBody";
 export * from "./timeAllocationResponse";
 export * from "./timeAllocationResponseAppDetailsItem";

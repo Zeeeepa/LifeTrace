@@ -1,3 +1,4 @@
+export { AudioAsrConfigSection } from "./AudioAsrConfigSection";
 export { AudioConfigSection } from "./AudioConfigSection";
 export { AutoTodoDetectionSection } from "./AutoTodoDetectionSection";
 export { DifyConfigSection } from "./DifyConfigSection";

@@ -72,6 +72,7 @@
 		"audioLabel": "音频录制",
 		"audioPlaceholder": "占位：在这里接入音频录制组件",
 		"settings": {
+
 			"autoTodoDetectionTitle": "自动待办检测",
 			"autoTodoDetectionDescription": "自动从白名单应用截图中检测待办事项，并创建为待确认的草稿待办",
 			"autoTodoDetectionLabel": "启用自动待办检测",
@@ -143,6 +144,7 @@
 			"audioSettings": "音频录制设置",
 			"enable24x7Recording": "7x24小时录制",
 			"enable24x7RecordingDesc": "启用后，录音将自动标记为7x24小时录制模式",
+			"audioAsrConfig": "音频识别（ASR）配置",
 			"currentVersion": "当前版本"
 		},
 		"costTracking": {

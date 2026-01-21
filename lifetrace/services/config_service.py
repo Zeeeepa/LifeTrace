@@ -270,6 +270,15 @@ class ConfigService:
             "tavily.api_key",
             # 音频录制配置
             "audio.is_24x7",
+            # 音频识别（ASR）配置
+            "audio.asr.api_key",
+            "audio.asr.base_url",
+            "audio.asr.model",
+            "audio.asr.sample_rate",
+            "audio.asr.format",
+            "audio.asr.semantic_punctuation_enabled",
+            "audio.asr.max_sentence_silence",
+            "audio.asr.heartbeat",
         ]
 
         config_dict = {}

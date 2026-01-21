@@ -144,16 +144,16 @@ export function TranscriptionView({
 					if (!searchText || searchText.length < 2) return;
 
 					let hasDirectMatch = false;
-					let index = segment.indexOf(searchText);
-					while (index !== -1) {
+				let index = segment.indexOf(searchText);
+				while (index !== -1) {
 						hasDirectMatch = true;
-						highlights.push({
-							start: index,
-							end: index + searchText.length,
-							type: "todo",
-						});
-						index = segment.indexOf(searchText, index + searchText.length);
-					}
+					highlights.push({
+						start: index,
+						end: index + searchText.length,
+						type: "todo",
+					});
+					index = segment.indexOf(searchText, index + searchText.length);
+				}
 
 					// 如果原文中没有完全相同的子串，再尝试“去空格”的宽松匹配
 					if (!hasDirectMatch) {
@@ -180,16 +180,16 @@ export function TranscriptionView({
 				candidates.forEach((searchText) => {
 					if (!searchText || searchText.length < 2) return;
 					let hasDirectMatch = false;
-					let index = segment.indexOf(searchText);
-					while (index !== -1) {
+				let index = segment.indexOf(searchText);
+				while (index !== -1) {
 						hasDirectMatch = true;
-						highlights.push({
-							start: index,
-							end: index + searchText.length,
-							type: "schedule",
-						});
-						index = segment.indexOf(searchText, index + searchText.length);
-					}
+					highlights.push({
+						start: index,
+						end: index + searchText.length,
+						type: "schedule",
+					});
+					index = segment.indexOf(searchText, index + searchText.length);
+				}
 
 					if (!hasDirectMatch) {
 						const normalized = findNormalizedMatch(segment, searchText);
@@ -367,24 +367,24 @@ export function TranscriptionView({
 										) : null}
 									</div>
 									<p className="text-[15px] leading-[1.8] text-[oklch(var(--foreground))]">
-										{paragraph.map((segment, segmentIndex) => {
+									{paragraph.map((segment, segmentIndex) => {
 											const segmentKey = `${paragraphIndex}-${segmentIndex}-${segment.text.slice(
 												0,
 												10,
 											)}`;
-											if (segment.highlight) {
-												return (
+										if (segment.highlight) {
+											return (
 													<span
 														key={segmentKey}
 														className="px-1 rounded-md bg-[oklch(var(--primary))/18] text-[oklch(var(--primary))] font-semibold"
 													>
-														{segment.text}
-													</span>
-												);
-											}
-											return <span key={segmentKey}>{segment.text}</span>;
-										})}
-									</p>
+													{segment.text}
+												</span>
+											);
+										}
+										return <span key={segmentKey}>{segment.text}</span>;
+									})}
+								</p>
 								</button>
 							);
 						})}
