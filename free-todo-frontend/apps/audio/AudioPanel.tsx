@@ -4,6 +4,11 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
+import {
+	getRecordingsApiAudioRecordingsGet,
+	getTimelineApiAudioTimelineGet,
+	getTranscriptionApiAudioTranscriptionRecordingIdGet,
+} from "@/lib/generated/audio/audio";
 import { useConfig } from "@/lib/query";
 import { toastError } from "@/lib/toast";
 import { AudioExtractionPanel } from "./components/AudioExtractionPanel";
@@ -61,12 +66,10 @@ export function AudioPanel() {
 
 	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
 		try {
-			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 			const dateStr = selectedDate.toISOString().split("T")[0];
-			const response = await fetch(`${apiBaseUrl}/api/audio/recordings?date=${dateStr}`);
-			const data = await response.json();
+			const data = await getRecordingsApiAudioRecordingsGet({ date: dateStr }) as { recordings?: Array<{ id: number; durationSeconds?: number }> };
 			if (data.recordings) {
-				const recordings: Array<{ id: number; durationSeconds?: number }> = data.recordings;
+				const recordings = data.recordings;
 				if (recordings.length > 0) {
 					// 默认选最新一个（更符合“回看最近录音”，也避免选到旧的不可播放文件）
 					const latest = recordings[recordings.length - 1];
@@ -87,12 +90,8 @@ export function AudioPanel() {
 
 	const loadTimeline = useCallback(async () => {
 		try {
-			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 			const dateStr = selectedDate.toISOString().split("T")[0];
-			const response = await fetch(
-				`${apiBaseUrl}/api/audio/timeline?date=${dateStr}&optimized=${activeTab === "optimized"}`
-			);
-			const data = await response.json();
+			const data = await getTimelineApiAudioTimelineGet({ date: dateStr, optimized: activeTab === "optimized" }) as { timeline?: Array<{ id: number; start_time: string; duration: number; text: string }> };
 			if (Array.isArray(data.timeline)) {
 				setTranscriptionText("");
 				setOptimizedText("");
@@ -165,7 +164,6 @@ export function AudioPanel() {
 		// 找出时间线中出现过的录音ID（忽略录音中的临时ID 0）
 		const uniqueIds = Array.from(new Set(segmentRecordingIds.filter((id) => id && id > 0)));
 		if (uniqueIds.length === 0) return;
-		const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 		const controller = new AbortController();
 
 		const missingIds = uniqueIds.filter((id) => !extractionsByRecordingId[id]);
@@ -175,10 +173,7 @@ export function AudioPanel() {
 			try {
 				const results = await Promise.all(
 					missingIds.map(async (id) => {
-						const resp = await fetch(`${apiBaseUrl}/api/audio/transcription/${id}`, {
-							signal: controller.signal,
-						});
-						const data = await resp.json();
+						const data = await getTranscriptionApiAudioTranscriptionRecordingIdGet(id, undefined, controller.signal) as { todos?: TodoItem[]; schedules?: ScheduleItem[] };
 						const todos: TodoItem[] = Array.isArray(data.todos) ? data.todos : [];
 						const schedules: ScheduleItem[] = Array.isArray(data.schedules) ? data.schedules : [];
 						return { id, todos, schedules };

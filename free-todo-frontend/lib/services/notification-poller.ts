@@ -1,9 +1,18 @@
-import { fetchNotification, getTodos } from "@/lib/api";
+import { getNotificationApiNotificationsGet } from "@/lib/generated/notifications/notifications";
+import { listTodosApiTodosGet } from "@/lib/generated/todos/todos";
 import type {
 	Notification,
 	PollingEndpoint,
 } from "@/lib/store/notification-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
+
+// 通知响应类型（后端 OpenAPI 未定义响应 schema，手动定义）
+interface NotificationResponse {
+	id?: string;
+	title: string;
+	content: string;
+	timestamp?: string;
+}
 
 class NotificationPoller {
 	private timers: Map<string, NodeJS.Timeout> = new Map();
@@ -74,9 +83,9 @@ class NotificationPoller {
 				return;
 			}
 
-			// 标准通知端点
-			const response = await fetchNotification(endpoint.url);
-			if (response) {
+			// 标准通知端点 - 使用 Orval 生成的 API
+			const response = (await getNotificationApiNotificationsGet()) as NotificationResponse | null;
+			if (response && (response.title || response.content)) {
 				// 转换为通知格式
 				const notification: Notification = {
 					id: response.id || `${endpoint.id}-${Date.now()}`,
@@ -124,8 +133,8 @@ class NotificationPoller {
 				limit = 1;
 			}
 
-			// 获取 draft todos
-			const result = await getTodos({
+			// 获取 draft todos - 使用 Orval 生成的 API
+			const result = await listTodosApiTodosGet({
 				status: "draft",
 				limit,
 				offset: 0,

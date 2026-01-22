@@ -7,7 +7,9 @@ repos:
       - id: check-toml
       - id: check-json
       - id: end-of-file-fixer
+        exclude: ^free-todo-frontend/lib/generated/
       - id: trailing-whitespace
+        exclude: ^free-todo-frontend/lib/generated/
         args: [--markdown-linebreak-ext=md]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.10

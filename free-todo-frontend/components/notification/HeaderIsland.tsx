@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, Clock, Settings, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import { deleteNotification } from "@/lib/api";
+import { deleteNotificationApiNotificationsNotificationIdDelete } from "@/lib/generated/notifications/notifications";
 import { useOpenSettings } from "@/lib/hooks/useOpenSettings";
 import { useUpdateTodo } from "@/lib/query";
 import { useNotificationStore } from "@/lib/store/notification-store";
@@ -121,7 +121,7 @@ export function HeaderIsland() {
 		// 如果有通知ID，先尝试删除后端通知
 		if (currentNotification?.id) {
 			try {
-				await deleteNotification(currentNotification.id);
+				await deleteNotificationApiNotificationsNotificationIdDelete(currentNotification.id);
 			} catch (error) {
 				// 静默处理错误，即使删除失败也关闭前端通知
 				console.warn("Failed to delete notification from backend:", error);
