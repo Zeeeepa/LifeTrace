@@ -264,7 +264,48 @@ export const useUiStore = create<UiStoreState>()(
 					newMap[position1] = feature2;
 					newMap[position2] = feature1;
 
-					return { panelFeatureMap: newMap };
+					// 获取两个位置的当前激活状态
+					const getIsOpen = (pos: PanelPosition): boolean => {
+						switch (pos) {
+							case "panelA":
+								return state.isPanelAOpen;
+							case "panelB":
+								return state.isPanelBOpen;
+							case "panelC":
+								return state.isPanelCOpen;
+						}
+					};
+
+					const isOpen1 = getIsOpen(position1);
+					const isOpen2 = getIsOpen(position2);
+
+					// 构建更新对象，同时交换功能映射和激活状态
+					const updates: Partial<UiStoreState> = {
+						panelFeatureMap: newMap,
+					};
+
+					// 交换激活状态：将 position1 的激活状态设置为 position2 的，反之亦然
+					const setPanelOpen = (
+						pos: PanelPosition,
+						isOpen: boolean,
+					) => {
+						switch (pos) {
+							case "panelA":
+								updates.isPanelAOpen = isOpen;
+								break;
+							case "panelB":
+								updates.isPanelBOpen = isOpen;
+								break;
+							case "panelC":
+								updates.isPanelCOpen = isOpen;
+								break;
+						}
+					};
+
+					setPanelOpen(position1, isOpen2);
+					setPanelOpen(position2, isOpen1);
+
+					return updates;
 				});
 			},
 
