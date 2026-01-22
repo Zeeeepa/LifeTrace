@@ -99,7 +99,7 @@ async def chat_with_llm_stream(
 
         # 2.6. Agno 模式（基于 Agno 框架的 Agent）
         if getattr(message, "mode", None) == "agno":
-            return _create_agno_streaming_response(message, chat_service, session_id)
+            return _create_agno_streaming_response(message, chat_service, session_id, lang)
 
         # 3. 根据 use_rag 构建 messages / temperature，并处理 RAG 失败场景
         (
@@ -361,9 +361,17 @@ def _create_agno_streaming_response(
     message: ChatMessage,
     chat_service: ChatService,
     session_id: str,
+    lang: str = "en",
 ) -> StreamingResponse:
-    """处理 Agno 模式，使用 Agno 框架的 Agent 进行对话"""
-    logger.info("[stream] 进入 Agno 模式")
+    """处理 Agno 模式，使用 Agno 框架的 Agent 进行对话
+
+    Args:
+        message: 聊天消息
+        chat_service: 聊天服务
+        session_id: 会话 ID
+        lang: 语言代码 ('zh' 或 'en')
+    """
+    logger.info(f"[stream] 进入 Agno 模式, lang={lang}")
 
     # 保存用户消息
     chat_service.add_message(
@@ -372,8 +380,8 @@ def _create_agno_streaming_response(
         content=message.message,
     )
 
-    # 创建 Agno Agent 服务
-    agno_service = AgnoAgentService()
+    # 创建 Agno Agent 服务（传入语言参数）
+    agno_service = AgnoAgentService(lang=lang)
 
     # 获取对话历史（用于上下文）
     conversation_history = None

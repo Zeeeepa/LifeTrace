@@ -162,6 +162,15 @@ Prompt 模板统一存放在 `config/prompt.yaml`：
 - 支持变量插值
 - 按功能模块组织
 
+### Agno Agent
+
+`llm/agno_agent.py` 提供基于 [Agno 框架](https://docs.agno.com/) 的 AI 待办管理：
+- FreeTodoToolkit 包含 14 个工具（CRUD、任务拆解、时间解析等）
+- 国际化支持（中/英文）
+- 基于 Mixin 的可扩展架构
+
+详细开发指南见 `.cursor/commands/agno_agent_CN.md`。
+
 ---
 
 ## ⏰ 后台任务

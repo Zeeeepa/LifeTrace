@@ -1,22 +1,56 @@
-"""Agno Agent 服务，基于 Agno 框架的通用 Agent 实现"""
+"""Agno Agent 服务，基于 Agno 框架的通用 Agent 实现
+
+支持 FreeTodoToolkit 工具集和国际化消息。
+"""
 
 from collections.abc import Generator
 
 from agno.agent import Agent, RunEvent
 from agno.models.openai.like import OpenAILike
 
+from lifetrace.llm.agno_tools import FreeTodoToolkit
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 
 logger = get_logger()
 
+# Default language, can be overridden from settings
+DEFAULT_LANG = "en"
+
 
 class AgnoAgentService:
-    """Agno Agent 服务，提供基于 Agno 框架的智能对话能力"""
+    """Agno Agent 服务，提供基于 Agno 框架的智能对话能力
 
-    def __init__(self):
-        """初始化 Agno Agent 服务"""
+    Supports:
+    - FreeTodoToolkit for todo management
+    - Internationalization (i18n) through lang parameter
+    - Streaming responses
+    """
+
+    def __init__(self, lang: str | None = None):
+        """初始化 Agno Agent 服务
+
+        Args:
+            lang: Language code for messages ('zh' or 'en').
+                  If None, uses DEFAULT_LANG or settings default.
+        """
         try:
+            # Determine language
+            self.lang = lang or DEFAULT_LANG
+
+            # Initialize toolkit with language support
+            toolkit = FreeTodoToolkit(lang=self.lang)
+
+            # Load instructions from config
+            instructions = get_prompt("freetodo_toolkit", f"instructions_{self.lang}")
+            if not instructions:
+                # Fallback to English
+                instructions = get_prompt("freetodo_toolkit", "instructions_en")
+
+            # Build instructions list
+            instructions_list = [instructions] if instructions else None
+
             # 复用现有 LLM 配置
             self.agent = Agent(
                 model=OpenAILike(
@@ -24,11 +58,13 @@ class AgnoAgentService:
                     api_key=settings.llm.api_key,
                     base_url=settings.llm.base_url,
                 ),
+                tools=[toolkit],
+                instructions=instructions_list,
                 markdown=True,
             )
             logger.info(
                 f"Agno Agent 初始化成功，模型: {settings.llm.model}, "
-                f"Base URL: {settings.llm.base_url}",
+                f"Base URL: {settings.llm.base_url}, lang: {self.lang}",
             )
         except Exception as e:
             logger.error(f"Agno Agent 初始化失败: {e}")
