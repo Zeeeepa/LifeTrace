@@ -1,3 +1,4 @@
+import type { ChatMode } from "@/apps/chat/types";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 
 // Dock 显示模式类型
@@ -35,6 +36,8 @@ export interface UiStoreState {
 	dockDisplayMode: DockDisplayMode;
 	// 是否显示 Chat 模式切换器（开发者选项，默认关闭）
 	showModeSwitcher: boolean;
+	// 默认聊天模式（页面刷新时使用）
+	defaultChatMode: ChatMode;
 	// 位置槽位 toggle 方法
 	togglePanelA: () => void;
 	togglePanelB: () => void;
@@ -70,4 +73,6 @@ export interface UiStoreState {
 	setDockDisplayMode: (mode: DockDisplayMode) => void;
 	// 设置是否显示 Chat 模式切换器
 	setShowModeSwitcher: (show: boolean) => void;
+	// 设置默认聊天模式
+	setDefaultChatMode: (mode: ChatMode) => void;
 }

@@ -1,3 +1,4 @@
+import type { ChatMode } from "@/apps/chat/types";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import {
 	ALL_PANEL_FEATURES,
@@ -55,6 +56,8 @@ export const DEFAULT_PANEL_STATE = {
 	dockDisplayMode: "fixed" as DockDisplayMode,
 	// 是否显示 Chat 模式切换器（开发者选项，默认关闭）
 	showModeSwitcher: false,
+	// 默认聊天模式（页面刷新时使用）
+	defaultChatMode: "ask" as ChatMode,
 };
 
 /**

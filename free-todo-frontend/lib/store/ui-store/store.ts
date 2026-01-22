@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { ChatMode } from "@/apps/chat/types";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
 import { LAYOUT_PRESETS } from "./layout-presets";
@@ -30,6 +31,8 @@ export const useUiStore = create<UiStoreState>()(
 			dockDisplayMode: DEFAULT_PANEL_STATE.dockDisplayMode,
 			// 是否显示 Chat 模式切换器
 			showModeSwitcher: DEFAULT_PANEL_STATE.showModeSwitcher,
+			// 默认聊天模式
+			defaultChatMode: DEFAULT_PANEL_STATE.defaultChatMode,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -382,6 +385,12 @@ export const useUiStore = create<UiStoreState>()(
 				set(() => ({
 					showModeSwitcher: show,
 				})),
+
+			// 设置默认聊天模式
+			setDefaultChatMode: (mode) =>
+				set(() => ({
+					defaultChatMode: mode,
+				})),
 		}),
 		{
 			name: "ui-panel-config",
@@ -472,6 +481,21 @@ export const useUiStore = create<UiStoreState>()(
 							// 校验 showModeSwitcher（默认 false）
 							if (typeof state.showModeSwitcher !== "boolean") {
 								state.showModeSwitcher = DEFAULT_PANEL_STATE.showModeSwitcher;
+							}
+
+							// 校验 defaultChatMode
+							const validChatModes: ChatMode[] = [
+								"ask",
+								"plan",
+								"edit",
+								"difyTest",
+								"agno",
+							];
+							if (
+								!state.defaultChatMode ||
+								!validChatModes.includes(state.defaultChatMode)
+							) {
+								state.defaultChatMode = DEFAULT_PANEL_STATE.defaultChatMode;
 							}
 
 							// 如果有功能被禁用，确保对应位置不再保留

@@ -30,14 +30,33 @@ export const useChatStore = create<ChatStoreState>()(
 
 						try {
 							const stored = localStorage.getItem(name);
-							if (!stored) return null;
+							const parsed = stored ? JSON.parse(stored) : null;
+							const state = parsed?.state || parsed || {};
 
-							const parsed = JSON.parse(stored);
-							const state = parsed.state || parsed;
+							// 从 ui-store 读取默认聊天模式
+							let defaultChatMode: ChatMode = "ask";
+							try {
+								const uiConfig = localStorage.getItem("ui-panel-config");
+								if (uiConfig) {
+									const uiParsed = JSON.parse(uiConfig);
+									const uiState = uiParsed?.state || uiParsed;
+									if (
+										uiState?.defaultChatMode &&
+										["ask", "plan", "edit", "difyTest", "agno"].includes(
+											uiState.defaultChatMode,
+										)
+									) {
+										defaultChatMode = uiState.defaultChatMode;
+									}
+								}
+							} catch (e) {
+								// 如果读取 ui-store 失败，使用默认值 "ask"
+								console.warn("Failed to read default chat mode from ui-store:", e);
+							}
 
-							// chatMode 始终使用默认值 "ask"，不再从 localStorage 恢复
-							// 用户每次对话默认进入 Ask 模式
-							const chatMode: ChatMode = "ask";
+							// 使用默认聊天模式，而不是硬编码的 "ask"
+							// 用户每次刷新页面时，会进入设置的默认模式
+							const chatMode: ChatMode = defaultChatMode;
 
 							// 验证 conversationId - 刷新后清空，不默认选中历史记录
 							const conversationId: string | null = null;
