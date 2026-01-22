@@ -242,6 +242,22 @@
 		"llmConfigMissing": "请配置 AI 服务",
 		"llmConfigMissingHint": "点击设置 API Key"
 	},
+	"audio": {
+		"extractionSummary": "已提取 {todoCount} 个待办，{scheduleCount} 个日程",
+		"linkTodo": "关联到待办",
+		"extractionModalTitle": "提取结果确认",
+		"extractionModalDesc": "请选择要添加到待办列表的日程/待办项：",
+		"todoSection": "待办（{count}）",
+		"scheduleSection": "日程（{count}）",
+		"scheduleTag": "日程",
+		"linkTodoTag": "提取",
+		"scheduleFallbackTitle": "日程",
+		"noExtractions": "暂无可添加的提取结果",
+		"selectedCount": "已选择 {count} 项",
+		"confirmAdd": "确认添加 ({count})",
+		"addSuccess": "已添加 {count} 项",
+		"addFailed": "添加失败 {count} 项"
+	},
 	"chat": {
 		"greetings": {
 			"title": "Free Todo，放手去做",

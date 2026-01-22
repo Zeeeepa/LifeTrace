@@ -5,11 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useConfig } from "@/lib/query";
+import { AudioExtractionPanel } from "./components/AudioExtractionPanel";
 import { AudioHeader } from "./components/AudioHeader";
 import { AudioPlayer } from "./components/AudioPlayer";
 import { RecordingStatus } from "./components/RecordingStatus";
+import { StopRecordingConfirm } from "./components/StopRecordingConfirm";
 import { TranscriptionView } from "./components/TranscriptionView";
 import { useAudioRecording } from "./hooks/useAudioRecording";
+import {
+	formatDateTime,
+	formatTime,
+	parseTimeToIsoWithDate as parseTimeToIsoWithDateUtil,
+} from "./utils/parseTimeToIsoWithDate";
 
 export function AudioPanel() {
 	const t = useTranslations("page");
@@ -27,10 +34,10 @@ export function AudioPanel() {
 	const [segmentRecordingIds, setSegmentRecordingIds] = useState<number[]>([]);
 	const [segmentTimeLabels, setSegmentTimeLabels] = useState<string[]>([]);
 	const [segmentTimesSec, setSegmentTimesSec] = useState<number[]>([]);
-	type TodoItem = { title: string; description?: string; deadline?: string; source_text?: string };
-	type ScheduleItem = { title: string; time?: string; description?: string; source_text?: string };
+	type TodoItem = { id?: string; dedupe_key?: string; title: string; description?: string; deadline?: string; source_text?: string; linked?: boolean; linked_todo_id?: number | null };
+	type ScheduleItem = { id?: string; dedupe_key?: string; title: string; time?: string; description?: string; source_text?: string; linked?: boolean; linked_todo_id?: number | null };
 	const [extractionsByRecordingId, setExtractionsByRecordingId] = useState<
-		Record<number, { todos: TodoItem[]; schedules: ScheduleItem[] }>
+		Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>
 	>({});
 	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
 	const [liveTodos, setLiveTodos] = useState<
@@ -50,18 +57,6 @@ export function AudioPanel() {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
-
-	const formatDateTime = useCallback((date: Date) => {
-		return date.toLocaleString("zh-CN", {
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-			hour12: false,
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-		});
-	}, []);
 
 	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
 		try {
@@ -151,7 +146,7 @@ export function AudioPanel() {
 		} catch (error) {
 			console.error("Failed to load timeline:", error);
 		}
-	}, [activeTab, selectedDate, formatDateTime]);
+	}, [activeTab, selectedDate]);
 
 	// 加载录音列表
 	useEffect(() => {
@@ -405,12 +400,6 @@ export function AudioPanel() {
 		});
 	}, [segmentRecordingIds, liveSchedules, extractionsByRecordingId]);
 
-	const formatTime = useCallback((seconds: number) => {
-		const mins = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		return `${mins}:${secs.toString().padStart(2, "0")}`;
-	}, []);
-
 	const currentSegmentText = useMemo(() => {
 		if (selectedSegmentIndex == null) return "";
 		const baseText = activeTab === "original" ? transcriptionText : optimizedText;
@@ -456,6 +445,17 @@ export function AudioPanel() {
 		selectedSegmentIndex,
 	]);
 
+	// currentExtraction 仍用于 segment 级高亮（保持原逻辑），但"关联到待办"改为当天汇总 dayExtraction
+	// NOTE: "关联到待办"使用 dayExtraction；当前高亮仍使用 segmentTodos/segmentSchedules（来自 live/extractionsByRecordingId）
+
+	// ============ 关联待办（按"当天"汇总 + 以 source_text 为主） ============
+	const dateKey = useMemo(() => selectedDate.toISOString().split("T")[0], [selectedDate]);
+
+	const parseTimeToIsoWithDate = useCallback(
+		(raw?: string | null) => parseTimeToIsoWithDateUtil(raw, selectedDate),
+		[selectedDate],
+	);
+
 	return (
 		<div className="flex h-full flex-col bg-[oklch(var(--background))] overflow-hidden">
 			<PanelHeader icon={Icon} title={t("audioLabel")} />
@@ -465,6 +465,14 @@ export function AudioPanel() {
 				selectedDate={selectedDate}
 				onDateChange={setSelectedDate}
 				onToggleRecording={handleToggleRecording}
+			/>
+
+			<AudioExtractionPanel
+				dateKey={dateKey}
+				segmentRecordingIds={segmentRecordingIds}
+				extractionsByRecordingId={extractionsByRecordingId}
+				setExtractionsByRecordingId={setExtractionsByRecordingId}
+				parseTimeToIsoWithDate={parseTimeToIsoWithDate}
 			/>
 
 			{/* 转录内容区域（回看模式下点击即可播放对应录音） */}
@@ -504,32 +512,11 @@ export function AudioPanel() {
 				)
 			)}
 
-			{showStopConfirm ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-					<div className="bg-[oklch(var(--background))] border border-[oklch(var(--border))] rounded-lg shadow-lg w-[320px] p-4 space-y-4">
-						<div className="text-base font-semibold text-[oklch(var(--foreground))]">停止录音？</div>
-						<p className="text-sm text-[oklch(var(--muted-foreground))]">
-							确定要停止当前录音吗？停止后将保存当前音频并结束实时转写。
-						</p>
-						<div className="flex justify-end gap-2">
-							<button
-								type="button"
-								className="px-3 py-1.5 rounded-md text-sm border border-[oklch(var(--border))] text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))/50]"
-								onClick={() => setShowStopConfirm(false)}
-							>
-								取消
-							</button>
-							<button
-								type="button"
-								className="px-3 py-1.5 rounded-md text-sm bg-[oklch(var(--primary))] text-white shadow hover:opacity-90"
-								onClick={handleConfirmStop}
-							>
-								停止
-							</button>
-						</div>
-					</div>
-				</div>
-			) : null}
+			<StopRecordingConfirm
+				isOpen={showStopConfirm}
+				onCancel={() => setShowStopConfirm(false)}
+				onConfirm={handleConfirmStop}
+			/>
 		</div>
 	);
 }

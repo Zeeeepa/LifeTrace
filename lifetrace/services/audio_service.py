@@ -375,6 +375,39 @@ class AudioService:
             logger.error(f"提取待办和日程失败: {e}")
             return {"todos": [], "schedules": []}
 
+    def _stable_extracted_id(self, prefix: str, item: dict) -> str:
+        import hashlib
+
+        base = "|".join(
+            [
+                str(item.get("source_text") or ""),
+                str(item.get("deadline") or item.get("time") or ""),
+            ]
+        )
+        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+        return f"{prefix}_{digest}"
+
+    def _enrich_extracted_items(self, prefix: str, items: list[dict]) -> list[dict]:
+        out: list[dict] = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            it2 = dict(it)
+            it2.setdefault(
+                "dedupe_key",
+                "|".join(
+                    [
+                        str(it2.get("source_text") or ""),
+                        str(it2.get("deadline") or it2.get("time") or ""),
+                    ]
+                ),
+            )
+            it2.setdefault("id", self._stable_extracted_id(prefix, it2))
+            it2.setdefault("linked", False)
+            it2.setdefault("linked_todo_id", None)
+            out.append(it2)
+        return out
+
     def update_extraction(
         self,
         transcription_id: int,
@@ -394,14 +427,84 @@ class AudioService:
         with get_session() as session:
             transcription = session.get(Transcription, transcription_id)
             if transcription:
-                if todos:
-                    transcription.extracted_todos = json.dumps(todos, ensure_ascii=False)
-                if schedules:
-                    transcription.extracted_schedules = json.dumps(schedules, ensure_ascii=False)
+                if todos is not None:
+                    transcription.extracted_todos = json.dumps(
+                        self._enrich_extracted_items("todo", todos), ensure_ascii=False
+                    )
+                if schedules is not None:
+                    transcription.extracted_schedules = json.dumps(
+                        self._enrich_extracted_items("schedule", schedules), ensure_ascii=False
+                    )
                 transcription.extraction_status = "completed"
                 session.commit()
                 session.refresh(transcription)
             return transcription
+
+    def link_extracted_items(
+        self,
+        recording_id: int,
+        links: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Mark extracted items as linked to a todo (persisted in transcription JSON)."""
+        with get_session() as session:
+            statement = select(Transcription).where(
+                Transcription.audio_recording_id == recording_id
+            )
+            transcription = session.exec(statement).first()
+            if not transcription:
+                raise ValueError("transcription not found")
+
+            todos: list[dict[str, Any]] = []
+            schedules: list[dict[str, Any]] = []
+            if transcription.extracted_todos:
+                try:
+                    todos = json.loads(transcription.extracted_todos)
+                except Exception:
+                    todos = []
+            if transcription.extracted_schedules:
+                try:
+                    schedules = json.loads(transcription.extracted_schedules)
+                except Exception:
+                    schedules = []
+
+            # Backfill missing fields for legacy stored items (and persist)
+            todos = self._enrich_extracted_items("todo", todos)
+            schedules = self._enrich_extracted_items("schedule", schedules)
+
+            todo_by_id = {t.get("id"): t for t in todos if isinstance(t, dict) and t.get("id")}
+            sched_by_id = {s.get("id"): s for s in schedules if isinstance(s, dict) and s.get("id")}
+            todo_by_dedupe = {
+                t.get("dedupe_key"): t for t in todos if isinstance(t, dict) and t.get("dedupe_key")
+            }
+            sched_by_dedupe = {
+                s.get("dedupe_key"): s
+                for s in schedules
+                if isinstance(s, dict) and s.get("dedupe_key")
+            }
+
+            updated = 0
+            for link in links:
+                kind = link.get("kind")
+                item_id = link.get("item_id")
+                todo_id = link.get("todo_id")
+                if not kind or not item_id or not todo_id:
+                    continue
+                if kind == "todo":
+                    target = todo_by_id.get(item_id) or todo_by_dedupe.get(item_id)
+                else:
+                    target = sched_by_id.get(item_id) or sched_by_dedupe.get(item_id)
+                if not target:
+                    continue
+                target["linked"] = True
+                target["linked_todo_id"] = int(todo_id)
+                updated += 1
+
+            transcription.extracted_todos = json.dumps(todos, ensure_ascii=False)
+            transcription.extracted_schedules = json.dumps(schedules, ensure_ascii=False)
+            session.add(transcription)
+            session.commit()
+
+            return {"updated": updated}
 
     def get_transcription(self, recording_id: int) -> dict[str, Any] | None:
         """获取转录文本（已序列化）
