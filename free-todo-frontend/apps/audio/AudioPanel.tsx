@@ -11,6 +11,8 @@ import { AudioPlayer } from "./components/AudioPlayer";
 import { RecordingStatus } from "./components/RecordingStatus";
 import { StopRecordingConfirm } from "./components/StopRecordingConfirm";
 import { TranscriptionView } from "./components/TranscriptionView";
+import { useAudioData } from "./hooks/useAudioData";
+import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useAudioRecording } from "./hooks/useAudioRecording";
 import {
 	formatDateTime,
@@ -27,18 +29,25 @@ export function AudioPanel() {
 	const [partialText, setPartialText] = useState("");
 	const [optimizedText, setOptimizedText] = useState("");
 	const [selectedDate, setSelectedDate] = useState(new Date());
-	const [selectedRecordingId, setSelectedRecordingId] = useState<number | null>(null);
-	const [selectedRecordingDurationSec, setSelectedRecordingDurationSec] = useState<number>(0);
-	const [recordingDurations, setRecordingDurations] = useState<Record<number, number>>({});
-	const [segmentOffsetsSec, setSegmentOffsetsSec] = useState<number[]>([]);
-	const [segmentRecordingIds, setSegmentRecordingIds] = useState<number[]>([]);
-	const [segmentTimeLabels, setSegmentTimeLabels] = useState<string[]>([]);
-	const [segmentTimesSec, setSegmentTimesSec] = useState<number[]>([]);
-	type TodoItem = { id?: string; dedupe_key?: string; title: string; description?: string; deadline?: string; source_text?: string; linked?: boolean; linked_todo_id?: number | null };
-	type ScheduleItem = { id?: string; dedupe_key?: string; title: string; time?: string; description?: string; source_text?: string; linked?: boolean; linked_todo_id?: number | null };
-	const [extractionsByRecordingId, setExtractionsByRecordingId] = useState<
-		Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>
-	>({});
+	const {
+		selectedRecordingId,
+		setSelectedRecordingId,
+		selectedRecordingDurationSec,
+		setSelectedRecordingDurationSec,
+		recordingDurations,
+		segmentOffsetsSec,
+		setSegmentOffsetsSec,
+		segmentRecordingIds,
+		setSegmentRecordingIds,
+		segmentTimeLabels,
+		setSegmentTimeLabels,
+		segmentTimesSec,
+		setSegmentTimesSec,
+		extractionsByRecordingId,
+		optimizedExtractionsByRecordingId,
+		setOptimizedExtractionsByRecordingId,
+		loadRecordings,
+	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText);
 	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
 	const [liveTodos, setLiveTodos] = useState<
 		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
@@ -51,154 +60,18 @@ export function AudioPanel() {
 
 	const { isRecording, startRecording, stopRecording } = useAudioRecording();
 	const [showStopConfirm, setShowStopConfirm] = useState(false);
-	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const recordingStartedAtMsRef = useRef<number>(0);
 	const recordingStartedAtRef = useRef<Date | null>(null);
-	const [isPlaying, setIsPlaying] = useState(false);
-	const [currentTime, setCurrentTime] = useState(0);
-	const [duration, setDuration] = useState(0);
+	const {
+		audioRef,
+		isPlaying,
+		currentTime,
+		duration,
+		ensureAudio,
+		playPause,
+		seekByRatio,
+	} = useAudioPlayback();
 
-	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
-		try {
-			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-			const dateStr = selectedDate.toISOString().split("T")[0];
-			const response = await fetch(`${apiBaseUrl}/api/audio/recordings?date=${dateStr}`);
-			const data = await response.json();
-			if (data.recordings) {
-				const recordings: Array<{ id: number; durationSeconds?: number }> = data.recordings;
-				if (recordings.length > 0) {
-					// 默认选最新一个（更符合“回看最近录音”，也避免选到旧的不可播放文件）
-					const latest = recordings[recordings.length - 1];
-					const hasSelected = selectedRecordingId && recordings.some((r) => r.id === selectedRecordingId);
-					if (opts?.forceSelectLatest || !hasSelected) {
-						setSelectedRecordingId(latest.id);
-						setSelectedRecordingDurationSec(Number(latest.durationSeconds ?? 0));
-					}
-				} else if (opts?.forceSelectLatest) {
-					setSelectedRecordingId(null);
-					setSelectedRecordingDurationSec(0);
-				}
-			}
-		} catch (error) {
-			console.error("Failed to load recordings:", error);
-		}
-	}, [selectedDate, selectedRecordingId]);
-
-	const loadTimeline = useCallback(async () => {
-		try {
-			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-			const dateStr = selectedDate.toISOString().split("T")[0];
-			const response = await fetch(
-				`${apiBaseUrl}/api/audio/timeline?date=${dateStr}&optimized=${activeTab === "optimized"}`
-			);
-			const data = await response.json();
-			if (Array.isArray(data.timeline)) {
-				setTranscriptionText("");
-				setOptimizedText("");
-				setSegmentOffsetsSec([]);
-				setSegmentRecordingIds([]);
-				setSegmentTimeLabels([]);
-				setSegmentTimesSec([]);
-				const segments: string[] = [];
-				const offsets: number[] = [];
-				const timeLabels: string[] = [];
-				const recIds: number[] = [];
-				const durationMap: Record<number, number> = {};
-
-				data.timeline.forEach((item: { id: number; start_time: string; duration: number; text: string }) => {
-					durationMap[item.id] = item.duration;
-					const lines = (item.text || "").split("\n").filter((s: string) => s.trim());
-					const count = Math.max(1, lines.length);
-					const per = item.duration > 0 ? item.duration / count : 0;
-					lines.forEach((line: string, idx: number) => {
-						segments.push(line);
-						const offset = per * idx;
-						offsets.push(offset);
-						recIds.push(item.id);
-						// start_time + offset -> 完整时间标签（含日期、时分秒）
-						const start = new Date(item.start_time);
-						const labelDate = new Date(start.getTime() + offset * 1000);
-						const label = formatDateTime(labelDate);
-						timeLabels.push(label);
-					});
-				});
-
-				const combinedText = segments.join("\n");
-				if (activeTab === "original") {
-					setTranscriptionText(combinedText);
-				} else {
-					setOptimizedText(combinedText);
-				}
-				setSegmentTimesSec(offsets);
-				setSegmentOffsetsSec(offsets);
-				setSegmentRecordingIds(recIds);
-				setSegmentTimeLabels(timeLabels);
-				setRecordingDurations(durationMap);
-				// 默认选最新录音
-				if (recIds.length > 0) {
-					const lastRecId = recIds[recIds.length - 1];
-					setSelectedRecordingId(lastRecId);
-					if (durationMap[lastRecId]) {
-						setSelectedRecordingDurationSec(durationMap[lastRecId]);
-					}
-				}
-			}
-		} catch (error) {
-			console.error("Failed to load timeline:", error);
-		}
-	}, [activeTab, selectedDate]);
-
-	// 加载录音列表
-	useEffect(() => {
-		loadRecordings();
-	}, [loadRecordings]);
-
-	// 加载时间线（当天所有录音按时间顺序拼接）
-	useEffect(() => {
-		loadTimeline();
-		// 注意：这里不再依赖 isRecording，避免“停止录音后”立刻用旧数据覆盖掉刚才实时看到的文本
-	}, [loadTimeline]);
-
-	// 按录音ID加载对应的转录提取结果（用于整天时间线所有录音的持久化高亮）
-	useEffect(() => {
-		// 找出时间线中出现过的录音ID（忽略录音中的临时ID 0）
-		const uniqueIds = Array.from(new Set(segmentRecordingIds.filter((id) => id && id > 0)));
-		if (uniqueIds.length === 0) return;
-		const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-		const controller = new AbortController();
-
-		const missingIds = uniqueIds.filter((id) => !extractionsByRecordingId[id]);
-		if (missingIds.length === 0) return;
-
-		(async () => {
-			try {
-				const results = await Promise.all(
-					missingIds.map(async (id) => {
-						const resp = await fetch(`${apiBaseUrl}/api/audio/transcription/${id}`, {
-							signal: controller.signal,
-						});
-						const data = await resp.json();
-						const todos: TodoItem[] = Array.isArray(data.todos) ? data.todos : [];
-						const schedules: ScheduleItem[] = Array.isArray(data.schedules) ? data.schedules : [];
-						return { id, todos, schedules };
-					})
-				);
-				setExtractionsByRecordingId((prev) => {
-					const next = { ...prev };
-					for (const r of results) {
-						next[r.id] = { todos: r.todos, schedules: r.schedules };
-					}
-					return next;
-				});
-			} catch (e) {
-				if ((e as Error).name !== "AbortError") {
-					console.error("Failed to load transcription extraction:", e);
-				}
-			}
-		})();
-
-		return () => controller.abort();
-	}, [segmentRecordingIds, extractionsByRecordingId]);
 
 	const handleToggleRecording = async () => {
 		if (isRecording) {
@@ -292,44 +165,11 @@ export function AudioPanel() {
 
 	const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
 
-	const ensureAudio = useCallback(
-		(url: string) => {
-			if (!audioRef.current) {
-				const audio = new Audio(url);
-				audio.addEventListener("loadedmetadata", () => {
-					setDuration(audio.duration);
-				});
-				audio.addEventListener("timeupdate", () => {
-					setCurrentTime(audio.currentTime);
-				});
-				audio.addEventListener("ended", () => {
-					setIsPlaying(false);
-					setCurrentTime(0);
-				});
-				audio.addEventListener("play", () => setIsPlaying(true));
-				audio.addEventListener("pause", () => setIsPlaying(false));
-				audioRef.current = audio;
-			} else if (audioRef.current.src !== url) {
-				audioRef.current.src = url;
-				audioRef.current.load();
-			}
-		},
-		[]
-	);
-
 	const handlePlayFromTranscription = useCallback(() => {
 		if (!selectedRecordingId) return;
 		const audioUrl = `${apiBaseUrl}/api/audio/recording/${selectedRecordingId}/file`;
-		ensureAudio(audioUrl);
-		const audio = audioRef.current;
-		if (!audio) return;
-
-		if (audio.paused) {
-			audio.play().catch((e) => console.error("Failed to play audio:", e));
-		} else {
-			audio.pause();
-		}
-	}, [apiBaseUrl, selectedRecordingId, ensureAudio]);
+		playPause(audioUrl);
+	}, [apiBaseUrl, selectedRecordingId, playPause]);
 
 	const handleSeekToSegment = useCallback(
 		(index: number) => {
@@ -340,7 +180,7 @@ export function AudioPanel() {
 			const audio = audioRef.current;
 			if (!audio) return;
 
-			// 优先用“实时录制时采集到的时间戳”；否则用录音总时长做均匀估算
+			// 优先用"实时录制时采集到的时间戳"；否则用录音总时长做均匀估算
 			const direct = segmentOffsetsSec[index];
 			const segmentsCount = Math.max(1, segmentOffsetsSec.length);
 			const duration = recordingDurations[recId] ?? selectedRecordingDurationSec;
@@ -367,6 +207,9 @@ export function AudioPanel() {
 			segmentOffsetsSec,
 			selectedRecordingDurationSec,
 			recordingDurations,
+			audioRef,
+			setSelectedRecordingId,
+			setSelectedRecordingDurationSec,
 		]
 	);
 
@@ -374,27 +217,15 @@ export function AudioPanel() {
 		if (!audioRef.current) {
 			handlePlayFromTranscription();
 		} else {
-			if (audioRef.current.paused) {
-				audioRef.current.play().catch((e) => console.error("Failed to play audio:", e));
-			} else {
-				audioRef.current.pause();
-			}
+			playPause();
 		}
-	}, [handlePlayFromTranscription]);
+	}, [handlePlayFromTranscription, playPause, audioRef]);
 
 	const handleSeekInPlayer = useCallback(
 		(ratio: number) => {
-			const audio = audioRef.current;
-			if (!audio) return;
-			const target = Math.max(0, Math.min(1, ratio)) * (audio.duration || 0);
-			try {
-				audio.currentTime = target;
-				setCurrentTime(target);
-			} catch (e) {
-				console.error("Failed to seek from player:", e);
-			}
+			seekByRatio(ratio);
 		},
-		[]
+		[seekByRatio]
 	);
 
 	// 每一条文本段对应的高亮数据：按 recordingId 映射，录音中的临时段 (id=0) 使用实时 highligh 数据
@@ -485,8 +316,8 @@ export function AudioPanel() {
 			<AudioExtractionPanel
 				dateKey={dateKey}
 				segmentRecordingIds={segmentRecordingIds}
-				extractionsByRecordingId={extractionsByRecordingId}
-				setExtractionsByRecordingId={setExtractionsByRecordingId}
+				extractionsByRecordingId={optimizedExtractionsByRecordingId}
+				setExtractionsByRecordingId={setOptimizedExtractionsByRecordingId}
 				parseTimeToIsoWithDate={parseTimeToIsoWithDate}
 			/>
 

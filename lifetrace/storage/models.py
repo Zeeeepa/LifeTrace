@@ -328,10 +328,16 @@ class Transcription(TimestampMixin, table=True):
     )  # 提取状态：pending, processing, completed, failed
     extracted_todos: str | None = Field(
         default=None, sa_column=Column(Text)
-    )  # 提取的待办事项（JSON格式）
+    )  # 从原文提取的待办事项（JSON格式）
     extracted_schedules: str | None = Field(
         default=None, sa_column=Column(Text)
-    )  # 提取的日程安排（JSON格式）
+    )  # 从原文提取的日程安排（JSON格式）
+    extracted_todos_optimized: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从优化文本提取的待办事项（JSON格式）
+    extracted_schedules_optimized: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从优化文本提取的日程安排（JSON格式）
 
     def __repr__(self):
         return f"<Transcription(id={self.id}, audio_recording_id={self.audio_recording_id})>"

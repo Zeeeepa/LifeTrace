@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ from typing import Any
 from sqlmodel import select
 
 from lifetrace.llm.llm_client import LLMClient
+from lifetrace.services.audio_extraction_service import AudioExtractionService
 from lifetrace.storage import get_session
 from lifetrace.storage.models import AudioRecording, Transcription
 from lifetrace.util.logging_config import get_logger
@@ -29,6 +29,7 @@ class AudioService:
     def __init__(self):
         """初始化音频服务"""
         self.llm_client = LLMClient()
+        self.extraction_service = AudioExtractionService(self.llm_client)
         self.audio_base_dir = Path(get_user_data_dir()) / settings.audio.storage.audio_dir
         self.temp_audio_dir = Path(get_user_data_dir()) / settings.audio.storage.temp_audio_dir
         self.audio_base_dir.mkdir(parents=True, exist_ok=True)
@@ -217,24 +218,42 @@ class AudioService:
                 session.commit()
 
             # 自动提取待办和日程（异步执行，不阻塞）
+            # 分别对原文和优化文本进行提取
             if segmented_text:
                 asyncio.create_task(
-                    self._auto_extract_todos_and_schedules(transcription.id, segmented_text)
+                    self._auto_extract_todos_and_schedules(
+                        transcription.id, segmented_text, optimized=False
+                    )
+                )
+            if optimized_text:
+                asyncio.create_task(
+                    self._auto_extract_todos_and_schedules(
+                        transcription.id, optimized_text, optimized=True
+                    )
                 )
 
             return transcription
 
-    async def _auto_extract_todos_and_schedules(self, transcription_id: int, text: str) -> None:
-        """自动提取待办和日程（后台任务）"""
+    async def _auto_extract_todos_and_schedules(
+        self, transcription_id: int, text: str, optimized: bool = False
+    ) -> None:
+        """自动提取待办和日程（后台任务）
+
+        Args:
+            transcription_id: 转录ID
+            text: 要提取的文本
+            optimized: 是否为优化文本的提取
+        """
         try:
-            result = await self.extract_todos_and_schedules(text)
-            self.update_extraction(
+            result = await self.extraction_service.extract_todos_and_schedules(text)
+            self.extraction_service.update_extraction(
                 transcription_id=transcription_id,
                 todos=result.get("todos", []),
                 schedules=result.get("schedules", []),
+                optimized=optimized,
             )
         except Exception as e:
-            logger.error(f"自动提取待办和日程失败: {e}")
+            logger.error(f"自动提取待办和日程失败 (optimized={optimized}): {e}")
 
     def _auto_segment_text(self, text: str) -> str:
         """自动分段文本（基于句子结束标记和长度）
@@ -324,187 +343,20 @@ class AudioService:
             logger.error(f"优化转录文本失败: {e}")
             return text
 
-    async def extract_todos_and_schedules(self, text: str) -> dict[str, Any]:
-        """使用LLM提取待办事项和日程安排
+    @property
+    def extract_todos_and_schedules(self):
+        """委托给 extraction_service"""
+        return self.extraction_service.extract_todos_and_schedules
 
-        Args:
-            text: 转录文本
+    @property
+    def update_extraction(self):
+        """委托给 extraction_service"""
+        return self.extraction_service.update_extraction
 
-        Returns:
-            包含todos和schedules的字典
-        """
-        try:
-            if not self.llm_client.is_available():
-                logger.warning("LLM客户端不可用，跳过提取")
-                return {"todos": [], "schedules": []}
-
-            # 从配置文件加载提示词
-            system_prompt = get_prompt("transcription_extraction", "system_assistant")
-            user_prompt = get_prompt("transcription_extraction", "user_prompt", text=text)
-
-            if not system_prompt or not user_prompt:
-                logger.warning("无法加载提取提示词，使用默认提示词")
-                system_prompt = "你是一个专业的任务和日程提取助手。"
-                user_prompt = f"请从以下转录文本中提取待办事项和日程安排。\n\n转录文本：\n{text}\n\n只返回JSON，不要其他内容。"
-
-            client = self.llm_client
-            client._initialize_client()
-
-            response = client.client.chat.completions.create(
-                model=client.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.3,
-            )
-
-            result_text = response.choices[0].message.content.strip()
-            # 移除可能的markdown代码块标记
-            if result_text.startswith("```json"):
-                result_text = result_text[7:]
-            if result_text.startswith("```"):
-                result_text = result_text[3:]
-            if result_text.endswith("```"):
-                result_text = result_text[:-3]
-            result_text = result_text.strip()
-
-            result = json.loads(result_text)
-            return result
-        except Exception as e:
-            logger.error(f"提取待办和日程失败: {e}")
-            return {"todos": [], "schedules": []}
-
-    def _stable_extracted_id(self, prefix: str, item: dict) -> str:
-        import hashlib
-
-        base = "|".join(
-            [
-                str(item.get("source_text") or ""),
-                str(item.get("deadline") or item.get("time") or ""),
-            ]
-        )
-        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
-        return f"{prefix}_{digest}"
-
-    def _enrich_extracted_items(self, prefix: str, items: list[dict]) -> list[dict]:
-        out: list[dict] = []
-        for it in items:
-            if not isinstance(it, dict):
-                continue
-            it2 = dict(it)
-            it2.setdefault(
-                "dedupe_key",
-                "|".join(
-                    [
-                        str(it2.get("source_text") or ""),
-                        str(it2.get("deadline") or it2.get("time") or ""),
-                    ]
-                ),
-            )
-            it2.setdefault("id", self._stable_extracted_id(prefix, it2))
-            it2.setdefault("linked", False)
-            it2.setdefault("linked_todo_id", None)
-            out.append(it2)
-        return out
-
-    def update_extraction(
-        self,
-        transcription_id: int,
-        todos: list[dict] | None = None,
-        schedules: list[dict] | None = None,
-    ) -> Transcription | None:
-        """更新提取结果
-
-        Args:
-            transcription_id: 转录ID
-            todos: 待办事项列表
-            schedules: 日程安排列表
-
-        Returns:
-            更新后的Transcription对象
-        """
-        with get_session() as session:
-            transcription = session.get(Transcription, transcription_id)
-            if transcription:
-                if todos is not None:
-                    transcription.extracted_todos = json.dumps(
-                        self._enrich_extracted_items("todo", todos), ensure_ascii=False
-                    )
-                if schedules is not None:
-                    transcription.extracted_schedules = json.dumps(
-                        self._enrich_extracted_items("schedule", schedules), ensure_ascii=False
-                    )
-                transcription.extraction_status = "completed"
-                session.commit()
-                session.refresh(transcription)
-            return transcription
-
-    def link_extracted_items(
-        self,
-        recording_id: int,
-        links: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        """Mark extracted items as linked to a todo (persisted in transcription JSON)."""
-        with get_session() as session:
-            statement = select(Transcription).where(
-                Transcription.audio_recording_id == recording_id
-            )
-            transcription = session.exec(statement).first()
-            if not transcription:
-                raise ValueError("transcription not found")
-
-            todos: list[dict[str, Any]] = []
-            schedules: list[dict[str, Any]] = []
-            if transcription.extracted_todos:
-                try:
-                    todos = json.loads(transcription.extracted_todos)
-                except Exception:
-                    todos = []
-            if transcription.extracted_schedules:
-                try:
-                    schedules = json.loads(transcription.extracted_schedules)
-                except Exception:
-                    schedules = []
-
-            # Backfill missing fields for legacy stored items (and persist)
-            todos = self._enrich_extracted_items("todo", todos)
-            schedules = self._enrich_extracted_items("schedule", schedules)
-
-            todo_by_id = {t.get("id"): t for t in todos if isinstance(t, dict) and t.get("id")}
-            sched_by_id = {s.get("id"): s for s in schedules if isinstance(s, dict) and s.get("id")}
-            todo_by_dedupe = {
-                t.get("dedupe_key"): t for t in todos if isinstance(t, dict) and t.get("dedupe_key")
-            }
-            sched_by_dedupe = {
-                s.get("dedupe_key"): s
-                for s in schedules
-                if isinstance(s, dict) and s.get("dedupe_key")
-            }
-
-            updated = 0
-            for link in links:
-                kind = link.get("kind")
-                item_id = link.get("item_id")
-                todo_id = link.get("todo_id")
-                if not kind or not item_id or not todo_id:
-                    continue
-                if kind == "todo":
-                    target = todo_by_id.get(item_id) or todo_by_dedupe.get(item_id)
-                else:
-                    target = sched_by_id.get(item_id) or sched_by_dedupe.get(item_id)
-                if not target:
-                    continue
-                target["linked"] = True
-                target["linked_todo_id"] = int(todo_id)
-                updated += 1
-
-            transcription.extracted_todos = json.dumps(todos, ensure_ascii=False)
-            transcription.extracted_schedules = json.dumps(schedules, ensure_ascii=False)
-            session.add(transcription)
-            session.commit()
-
-            return {"updated": updated}
+    @property
+    def link_extracted_items(self):
+        """委托给 extraction_service"""
+        return self.extraction_service.link_extracted_items
 
     def get_transcription(self, recording_id: int) -> dict[str, Any] | None:
         """获取转录文本（已序列化）
@@ -533,6 +385,8 @@ class AudioService:
                 "optimized_text": transcription.optimized_text,
                 "extracted_todos": transcription.extracted_todos,
                 "extracted_schedules": transcription.extracted_schedules,
+                "extracted_todos_optimized": transcription.extracted_todos_optimized,
+                "extracted_schedules_optimized": transcription.extracted_schedules_optimized,
                 "extraction_status": transcription.extraction_status,
                 "created_at": transcription.created_at,
                 "updated_at": transcription.updated_at,

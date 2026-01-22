@@ -183,11 +183,15 @@ export function AudioExtractionPanel({
 
 					await Promise.all(
 						Array.from(byRec.entries()).map(async ([recId, links]) => {
-							await fetch(`${apiBaseUrl}/api/audio/transcription/${recId}/link`, {
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({ links }),
-							});
+							// 始终使用优化文本的提取结果进行链接
+							await fetch(
+								`${apiBaseUrl}/api/audio/transcription/${recId}/link?optimized=true`,
+								{
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify({ links }),
+								}
+							);
 						}),
 					);
 
@@ -232,11 +236,13 @@ export function AudioExtractionPanel({
 						return next;
 					});
 
-					// 兜底：重新拉取，防止状态偏差
+					// 兜底：重新拉取，防止状态偏差（始终使用优化文本的提取结果）
 					try {
 						const refreshed = await Promise.all(
 							Array.from(byRec.keys()).map(async (recId) => {
-								const resp = await fetch(`${apiBaseUrl}/api/audio/transcription/${recId}`);
+								const resp = await fetch(
+									`${apiBaseUrl}/api/audio/transcription/${recId}?optimized=true`
+								);
 								const data = await resp.json();
 								return {
 									id: recId,

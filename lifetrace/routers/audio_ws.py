@@ -204,7 +204,9 @@ def _create_realtime_nlp_handler(  # noqa: C901
             except Exception as e:
                 logger.error(f"实时优化失败: {e}")
             try:
-                extracted = await audio_service.extract_todos_and_schedules(text_snapshot)
+                extracted = await audio_service.extraction_service.extract_todos_and_schedules(
+                    text_snapshot
+                )
             except Exception as e:
                 logger.error(f"实时提取失败: {e}")
             return optimized, extracted
