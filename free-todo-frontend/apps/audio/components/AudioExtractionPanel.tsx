@@ -137,7 +137,7 @@ export function AudioExtractionPanel({
 			{hasExtraction ? (
 				<div className="flex items-center justify-between px-4 py-2 border-b border-[oklch(var(--border))] bg-[oklch(var(--muted))]/40">
 					<div className="text-sm text-[oklch(var(--muted-foreground))]">
-						{`待提取 ${filteredTodoCount} 个待办，${filteredScheduleCount} 个日程`}
+						{`待添加 ${filteredTodoCount} 个待办，${filteredScheduleCount} 个日程`}
 					</div>
 					<button
 						type="button"
