@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 
 from lifetrace.core.dependencies import get_chat_service, get_rag_service
 from lifetrace.llm.agent_service import AgentService
+from lifetrace.llm.agno_agent import AgnoAgentService
 from lifetrace.llm.web_search_service import WebSearchService
 from lifetrace.schemas.chat import ChatMessage, ChatResponse
 from lifetrace.services.chat_service import ChatService
@@ -95,6 +96,10 @@ async def chat_with_llm_stream(
         # 2.5. 联网搜索模式（直接返回，保留向后兼容）
         if getattr(message, "mode", None) == "web_search":
             return _create_web_search_streaming_response(message, chat_service, session_id, lang)
+
+        # 2.6. Agno 模式（基于 Agno 框架的 Agent）
+        if getattr(message, "mode", None) == "agno":
+            return _create_agno_streaming_response(message, chat_service, session_id)
 
         # 3. 根据 use_rag 构建 messages / temperature，并处理 RAG 失败场景
         (
@@ -349,6 +354,73 @@ def _create_web_search_streaming_response(
     }
     return StreamingResponse(
         web_search_token_generator(), media_type="text/plain; charset=utf-8", headers=headers
+    )
+
+
+def _create_agno_streaming_response(
+    message: ChatMessage,
+    chat_service: ChatService,
+    session_id: str,
+) -> StreamingResponse:
+    """处理 Agno 模式，使用 Agno 框架的 Agent 进行对话"""
+    logger.info("[stream] 进入 Agno 模式")
+
+    # 保存用户消息
+    chat_service.add_message(
+        session_id=session_id,
+        role="user",
+        content=message.message,
+    )
+
+    # 创建 Agno Agent 服务
+    agno_service = AgnoAgentService()
+
+    # 获取对话历史（用于上下文）
+    conversation_history = None
+    try:
+        chat = chat_service.get_chat_by_session_id(session_id)
+        if chat:
+            messages = chat_service.get_messages(session_id)
+            # 转换为 Agno 需要的格式（排除当前刚添加的用户消息）
+            conversation_history = []
+            for msg in messages:
+                msg_role = msg.get("role", "")
+                msg_content = msg.get("content", "")
+                if msg_role in ("user", "assistant") and msg_content != message.message:
+                    conversation_history.append({"role": msg_role, "content": msg_content})
+    except Exception as e:
+        logger.warning(f"[stream][agno] 获取对话历史失败: {e}，将使用单次对话模式")
+
+    def agno_token_generator():
+        total_content = ""
+        try:
+            # 流式生成 Agno Agent 回答
+            for chunk in agno_service.stream_response(
+                message=message.message,
+                conversation_history=conversation_history,
+            ):
+                total_content += chunk
+                yield chunk
+
+            # 保存完整的助手回复
+            if total_content:
+                chat_service.add_message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=total_content,
+                )
+                logger.info("[stream][agno] 消息已保存到数据库")
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"[stream][agno] 生成失败: {e}")
+            yield f"Agno Agent 处理失败: {str(e)}"
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "X-Session-Id": session_id,
+    }
+    return StreamingResponse(
+        agno_token_generator(), media_type="text/plain; charset=utf-8", headers=headers
     )
 
 

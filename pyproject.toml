@@ -50,6 +50,8 @@ dependencies = [
     "openai>=1.0.0",
     # DashScope API (阿里云百炼)
     "dashscope>=1.17.0",
+    # Agno Agent Framework
+    "agno>=2.4.1",
     # PyAudio for microphone input
     "pyaudio>=0.2.14",
     # Tavily API for web search

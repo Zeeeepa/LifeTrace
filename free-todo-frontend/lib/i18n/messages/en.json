@@ -382,6 +382,10 @@
 				"label": "Dify Test",
 				"description": "Use Dify API test channel for replies"
 			},
+			"agno": {
+				"label": "Agno",
+				"description": "Intelligent Agent based on Agno framework"
+			},
 			"active": "Active"
 		},
 		"webSearch": {
