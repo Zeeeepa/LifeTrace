@@ -123,6 +123,8 @@ export function useAudioRecording() {
 							? error.message
 							: "WebSocket连接错误，请检查后端服务是否运行";
 					console.error("WebSocket error:", errorMessage, error);
+					// 清理资源
+					setIsRecording(false);
 					if (onError) {
 						onError(new Error(errorMessage));
 					}
@@ -130,13 +132,77 @@ export function useAudioRecording() {
 
 				ws.onclose = (event) => {
 					setIsRecording(false);
-					// 如果不是正常关闭，触发错误回调
-					if (!event.wasClean && onError) {
-						onError(
-							new Error(
-								`WebSocket连接异常关闭: ${event.reason || `代码 ${event.code}`}`
-							)
-						);
+
+					// 正常关闭（用户主动停止或服务器正常关闭）不需要触发错误
+					if (event.wasClean) {
+						return;
+					}
+
+					// 异常关闭，提供详细的错误信息
+					let errorMessage = "WebSocket连接异常关闭";
+
+					// 根据错误代码提供更具体的错误信息
+					switch (event.code) {
+						case 1006:
+							errorMessage = "WebSocket连接异常断开，可能是网络问题或服务器未响应。请检查：\n1. 后端服务是否正常运行\n2. 网络连接是否正常\n3. 防火墙或代理设置是否正确";
+							break;
+						case 1000:
+							// 正常关闭，不应该到这里
+							return;
+						case 1001:
+							errorMessage = "服务器主动断开连接（端点离开）";
+							break;
+						case 1002:
+							errorMessage = "协议错误导致连接关闭";
+							break;
+						case 1003:
+							errorMessage = "不支持的数据类型导致连接关闭";
+							break;
+						case 1004:
+							errorMessage = "保留的错误代码（未使用）";
+							break;
+						case 1005:
+							errorMessage = "未收到状态码（异常关闭）";
+							break;
+						case 1007:
+							errorMessage = "数据格式错误导致连接关闭";
+							break;
+						case 1008:
+							errorMessage = "策略违规导致连接关闭";
+							break;
+						case 1009:
+							errorMessage = "消息过大导致连接关闭";
+							break;
+						case 1010:
+							errorMessage = "扩展协商失败导致连接关闭";
+							break;
+						case 1011:
+							errorMessage = "服务器内部错误导致连接关闭";
+							break;
+						case 1012:
+							errorMessage = "服务重启导致连接关闭";
+							break;
+						case 1013:
+							errorMessage = "服务过载导致连接关闭";
+							break;
+						case 1014:
+							errorMessage = "TLS握手失败导致连接关闭";
+							break;
+						case 1015:
+							errorMessage = "TLS错误导致连接关闭（无法设置状态码）";
+							break;
+						default:
+							errorMessage = `WebSocket连接异常关闭: ${event.reason || `错误代码 ${event.code}`}`;
+					}
+
+					console.error("WebSocket closed abnormally:", {
+						code: event.code,
+						reason: event.reason,
+						wasClean: event.wasClean,
+					});
+
+					if (onError) {
+						onError(new Error(errorMessage));
 					}
 				};
 

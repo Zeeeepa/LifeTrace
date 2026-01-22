@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useConfig } from "@/lib/query";
+import { toastError } from "@/lib/toast";
 import { AudioExtractionPanel } from "./components/AudioExtractionPanel";
 import { AudioHeader } from "./components/AudioHeader";
 import { AudioPlayer } from "./components/AudioPlayer";
@@ -248,6 +249,9 @@ export function AudioPanel() {
 			},
 			(error) => {
 				console.error("Recording error:", error);
+				// 显示用户友好的错误提示
+				const errorMessage = error instanceof Error ? error.message : "录音过程中发生错误";
+				toastError(errorMessage, { duration: 5000 });
 			},
 			is24x7Enabled
 		);
