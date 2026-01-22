@@ -20,6 +20,7 @@ repos:
         # https://pre-commit.com/#top_level-default_language_version
         language_version: python3.12
         files: ^lifetrace/
+        exclude: ^lifetrace/migrations/versions/
         types_or: [ python, pyi ]
         args: [ --fix ]
       # Run the formatter.

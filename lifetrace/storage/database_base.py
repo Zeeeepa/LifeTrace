@@ -75,152 +75,251 @@ class DatabaseBase:
                         )
                     ).fetchall()
                 ]
+
+                # 获取所有表的列信息，用于检查列是否存在
+                table_columns: dict[str, set[str]] = {}
+                tables = conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                ).fetchall()
+                for (table_name,) in tables:
+                    columns = conn.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+                    table_columns[table_name] = {col[1] for col in columns}
+
                 # 定义需要创建的索引
+                # 格式：(索引名, 表名, 列名列表, 创建SQL)
                 indexes_to_create = [
                     (
                         "idx_ocr_results_screenshot_id",
+                        "ocr_results",
+                        ["screenshot_id"],
                         "CREATE INDEX IF NOT EXISTS idx_ocr_results_screenshot_id ON ocr_results(screenshot_id)",
                     ),
                     (
                         "idx_screenshots_created_at",
+                        "screenshots",
+                        ["created_at"],
                         "CREATE INDEX IF NOT EXISTS idx_screenshots_created_at ON screenshots(created_at)",
                     ),
                     (
                         "idx_screenshots_app_name",
+                        "screenshots",
+                        ["app_name"],
                         "CREATE INDEX IF NOT EXISTS idx_screenshots_app_name ON screenshots(app_name)",
                     ),
                     (
                         "idx_screenshots_event_id",
+                        "screenshots",
+                        ["event_id"],
                         "CREATE INDEX IF NOT EXISTS idx_screenshots_event_id ON screenshots(event_id)",
                     ),
                     (
                         "idx_todos_parent_todo_id",
+                        "todos",
+                        ["parent_todo_id"],
                         "CREATE INDEX IF NOT EXISTS idx_todos_parent_todo_id ON todos(parent_todo_id)",
                     ),
                     (
                         "idx_todos_status",
+                        "todos",
+                        ["status"],
                         "CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status)",
                     ),
                     (
                         "idx_todos_deleted_at",
+                        "todos",
+                        ["deleted_at"],
                         "CREATE INDEX IF NOT EXISTS idx_todos_deleted_at ON todos(deleted_at)",
                     ),
                     (
                         "idx_todos_priority",
+                        "todos",
+                        ["priority"],
                         "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                     ),
                     (
                         "idx_todos_order",
+                        "todos",
+                        ["order"],
                         'CREATE INDEX IF NOT EXISTS idx_todos_order ON todos("order")',
                     ),
                     (
                         "idx_attachments_file_hash",
+                        "attachments",
+                        ["file_hash"],
                         "CREATE INDEX IF NOT EXISTS idx_attachments_file_hash ON attachments(file_hash)",
                     ),
                     (
                         "idx_attachments_deleted_at",
+                        "attachments",
+                        ["deleted_at"],
                         "CREATE INDEX IF NOT EXISTS idx_attachments_deleted_at ON attachments(deleted_at)",
                     ),
                     (
                         "idx_todo_attachment_relations_todo_id",
+                        "todo_attachment_relations",
+                        ["todo_id"],
                         "CREATE INDEX IF NOT EXISTS idx_todo_attachment_relations_todo_id ON todo_attachment_relations(todo_id)",
                     ),
                     (
                         "idx_todo_attachment_relations_attachment_id",
+                        "todo_attachment_relations",
+                        ["attachment_id"],
                         "CREATE INDEX IF NOT EXISTS idx_todo_attachment_relations_attachment_id ON todo_attachment_relations(attachment_id)",
                     ),
                     (
                         "idx_tags_tag_name_unique",
+                        "tags",
+                        ["tag_name"],
                         "CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_tag_name_unique ON tags(tag_name)",
                     ),
                     (
                         "idx_tags_deleted_at",
+                        "tags",
+                        ["deleted_at"],
                         "CREATE INDEX IF NOT EXISTS idx_tags_deleted_at ON tags(deleted_at)",
                     ),
                     (
                         "idx_todo_tag_relations_todo_id",
+                        "todo_tag_relations",
+                        ["todo_id"],
                         "CREATE INDEX IF NOT EXISTS idx_todo_tag_relations_todo_id ON todo_tag_relations(todo_id)",
                     ),
                     (
                         "idx_todo_tag_relations_tag_id",
+                        "todo_tag_relations",
+                        ["tag_id"],
                         "CREATE INDEX IF NOT EXISTS idx_todo_tag_relations_tag_id ON todo_tag_relations(tag_id)",
                     ),
                     (
                         "idx_journals_date",
+                        "journals",
+                        ["date"],
                         "CREATE INDEX IF NOT EXISTS idx_journals_date ON journals(date)",
                     ),
                     (
                         "idx_journals_deleted_at",
+                        "journals",
+                        ["deleted_at"],
                         "CREATE INDEX IF NOT EXISTS idx_journals_deleted_at ON journals(deleted_at)",
                     ),
                     (
                         "idx_journal_tag_relations_journal_id",
+                        "journal_tag_relations",
+                        ["journal_id"],
                         "CREATE INDEX IF NOT EXISTS idx_journal_tag_relations_journal_id ON journal_tag_relations(journal_id)",
                     ),
                     (
                         "idx_journal_tag_relations_tag_id",
+                        "journal_tag_relations",
+                        ["tag_id"],
                         "CREATE INDEX IF NOT EXISTS idx_journal_tag_relations_tag_id ON journal_tag_relations(tag_id)",
                     ),
                     (
                         "idx_activities_start_time",
+                        "activities",
+                        ["start_time"],
                         "CREATE INDEX IF NOT EXISTS idx_activities_start_time ON activities(start_time)",
                     ),
                     (
                         "idx_activities_end_time",
+                        "activities",
+                        ["end_time"],
                         "CREATE INDEX IF NOT EXISTS idx_activities_end_time ON activities(end_time)",
                     ),
                     (
                         "idx_activity_event_relations_activity_id",
+                        "activity_event_relations",
+                        ["activity_id"],
                         "CREATE INDEX IF NOT EXISTS idx_activity_event_relations_activity_id ON activity_event_relations(activity_id)",
                     ),
                     (
                         "idx_activity_event_relations_event_id",
+                        "activity_event_relations",
+                        ["event_id"],
                         "CREATE INDEX IF NOT EXISTS idx_activity_event_relations_event_id ON activity_event_relations(event_id)",
                     ),
                     (
                         "idx_chats_session_id",
+                        "chats",
+                        ["session_id"],
                         "CREATE INDEX IF NOT EXISTS idx_chats_session_id ON chats(session_id)",
                     ),
                     (
                         "idx_messages_chat_id",
+                        "messages",
+                        ["chat_id"],
                         "CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id)",
                     ),
                     # 音频相关索引
                     (
                         "idx_audio_recordings_start_time",
+                        "audio_recordings",
+                        ["start_time"],
                         "CREATE INDEX IF NOT EXISTS idx_audio_recordings_start_time ON audio_recordings(start_time)",
                     ),
                     (
                         "idx_audio_recordings_status",
+                        "audio_recordings",
+                        ["status"],
                         "CREATE INDEX IF NOT EXISTS idx_audio_recordings_status ON audio_recordings(status)",
                     ),
                     (
                         "idx_audio_recordings_deleted_at",
+                        "audio_recordings",
+                        ["deleted_at"],
                         "CREATE INDEX IF NOT EXISTS idx_audio_recordings_deleted_at ON audio_recordings(deleted_at)",
                     ),
                     (
                         "idx_transcriptions_audio_recording_id",
+                        "transcriptions",
+                        ["audio_recording_id"],
                         "CREATE INDEX IF NOT EXISTS idx_transcriptions_audio_recording_id ON transcriptions(audio_recording_id)",
                     ),
                     (
                         "idx_transcriptions_extraction_status",
+                        "transcriptions",
+                        ["extraction_status"],
                         "CREATE INDEX IF NOT EXISTS idx_transcriptions_extraction_status ON transcriptions(extraction_status)",
                     ),
                 ]
 
                 # 创建索引
                 created_count = 0
-                for index_name, create_sql in indexes_to_create:
-                    if index_name not in existing_indexes:
-                        conn.execute(text(create_sql))
-                        created_count += 1
-                        logger.info(f"已创建性能索引: {index_name}")
+                skipped_count = 0
+                for index_name, table_name, columns, create_sql in indexes_to_create:
+                    # 检查索引是否已存在
+                    if index_name in existing_indexes:
+                        continue
+
+                    # 检查表是否存在
+                    if table_name not in table_columns:
+                        skipped_count += 1
+                        logger.debug(f"跳过索引 {index_name}：表 {table_name} 不存在")
+                        continue
+
+                    # 检查所有需要的列是否存在
+                    missing_columns = [
+                        col for col in columns if col not in table_columns[table_name]
+                    ]
+                    if missing_columns:
+                        skipped_count += 1
+                        logger.debug(
+                            f"跳过索引 {index_name}：列 {missing_columns} 在表 {table_name} 中不存在"
+                        )
+                        continue
+
+                    # 创建索引
+                    conn.execute(text(create_sql))
+                    created_count += 1
+                    logger.info(f"已创建性能索引: {index_name}")
 
                 conn.commit()
 
-                # 只在有索引被创建时打印完成信息
-                if created_count > 0:
-                    logger.info(f"性能索引检查完成，创建了 {created_count} 个索引")
+                # 只在有索引被创建或跳过时打印完成信息
+                if created_count > 0 or skipped_count > 0:
+                    logger.info(
+                        f"性能索引检查完成：创建 {created_count} 个，跳过 {skipped_count} 个（表/列不存在）"
+                    )
 
         except Exception as e:
             logger.warning(f"创建性能索引失败: {e}")
