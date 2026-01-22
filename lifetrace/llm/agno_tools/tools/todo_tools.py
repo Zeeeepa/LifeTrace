@@ -31,7 +31,7 @@ class TodoTools:
         name: str,
         description: str | None = None,
         deadline: str | None = None,
-        priority: str = "none",
+        priority: str | None = None,
         tags: str | None = None,
     ) -> str:
         """Create a new todo item
@@ -40,7 +40,7 @@ class TodoTools:
             name: Todo name/title (required)
             description: Detailed description (optional)
             deadline: Deadline in ISO format like '2024-01-20T14:00:00' (optional)
-            priority: Priority level - 'high', 'medium', 'low', or 'none' (default: 'none')
+            priority: Priority level - 'high', 'medium', 'low', or 'none' (optional, default: 'none')
             tags: Comma-separated tags like 'work,urgent' (optional)
 
         Returns:
@@ -60,12 +60,16 @@ class TodoTools:
             if tags:
                 tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
+            # Normalize priority (handle None and invalid values)
+            valid_priorities = ("high", "medium", "low", "none")
+            normalized_priority = priority if priority in valid_priorities else "none"
+
             # Create todo
             todo_id = self.todo_repo.create(
                 name=name,
                 description=description,
                 deadline=parsed_deadline,
-                priority=priority if priority in ("high", "medium", "low", "none") else "none",
+                priority=normalized_priority,
                 tags=tag_list,
             )
 

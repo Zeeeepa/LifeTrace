@@ -409,6 +409,30 @@
 			"parentName": "父待办名称",
 			"due": "截止: {deadline}",
 			"tagsLabel": "标签: {tags}"
+		},
+		"toolCall": {
+			"calling": "正在调用 {tool}...",
+			"completed": "{tool} 执行完成",
+			"failed": "{tool} 执行失败",
+			"result": "结果",
+			"tools": {
+				"create_todo": "创建待办",
+				"complete_todo": "完成待办",
+				"update_todo": "更新待办",
+				"list_todos": "列出待办",
+				"search_todos": "搜索待办",
+				"delete_todo": "删除待办",
+				"breakdown_task": "任务拆解",
+				"parse_time": "时间解析",
+				"check_schedule_conflict": "冲突检测",
+				"get_todo_stats": "统计分析",
+				"get_overdue_todos": "逾期待办",
+				"list_tags": "列出标签",
+				"get_todos_by_tag": "按标签查询",
+				"suggest_tags": "标签推荐",
+				"web_search": "联网搜索",
+				"unknown": "未知工具"
+			}
 		}
 	},
 	"calendar": {

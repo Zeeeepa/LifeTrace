@@ -9,6 +9,7 @@ import { EditModeMessage } from "./EditModeMessage";
 import { MessageContent } from "./MessageContent";
 import { MessageTodoExtractionPanel } from "./MessageTodoExtractionPanel";
 import { ToolCallLoading } from "./ToolCallLoading";
+import { ToolCallSteps } from "./ToolCallSteps";
 import { extractToolCalls, removeToolCalls } from "./utils/messageContentUtils";
 
 type MessageItemProps = {
@@ -54,16 +55,37 @@ export function MessageItem({
 	const contentWithoutToolCalls = message.content
 		? removeToolCalls(message.content)
 		: "";
+
+	// 获取新的工具调用步骤（来自 toolCallSteps 属性）
+	const toolCallSteps = message.toolCallSteps || [];
+	const hasToolCallSteps = toolCallSteps.length > 0;
+
+	// 判断是否有正在执行的工具调用步骤
+	const hasRunningToolCall = toolCallSteps.some(
+		(step) => step.status === "running",
+	);
+
 	// 判断是否正在工具调用（有工具调用标记且移除标记后内容为空）
+	// 或者有新的 toolCallSteps 且没有内容
 	const isToolCallingOnly =
 		isStreaming &&
 		isLastMessage &&
 		message.role === "assistant" &&
-		toolCalls.length > 0 &&
-		!contentWithoutToolCalls.trim();
+		((toolCalls.length > 0 && !contentWithoutToolCalls.trim()) ||
+			(hasRunningToolCall && !contentWithoutToolCalls.trim()));
 
-	// 如果正在工具调用且没有实际内容，只显示 shimmer-text，不显示消息框
+	// 如果正在工具调用且没有实际内容，显示工具调用步骤
 	if (isToolCallingOnly) {
+		// 优先使用新的 toolCallSteps
+		if (hasToolCallSteps) {
+			return (
+				<div className="flex flex-col items-start w-full px-4">
+					<ToolCallSteps steps={toolCallSteps} />
+				</div>
+			);
+		}
+
+		// 降级到旧的 ToolCallLoading（兼容旧的工具调用标记）
 		const lastToolCall = toolCalls[toolCalls.length - 1];
 		// 提取搜索关键词（如果参数中包含"关键词:"）
 		let searchQuery: string | undefined;
@@ -155,6 +177,10 @@ export function MessageItem({
 				</div>
 			) : (
 				<div className="max-w-[80%]">
+					{/* 工具调用步骤（显示在消息内容之前） */}
+					{message.role === "assistant" && hasToolCallSteps && (
+						<ToolCallSteps steps={toolCallSteps} className="mb-2" />
+					)}
 					<div
 						ref={handleMessageBoxRef}
 						role="group"

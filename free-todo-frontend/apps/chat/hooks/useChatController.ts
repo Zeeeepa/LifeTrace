@@ -3,13 +3,13 @@ import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { usePlanParser } from "@/apps/chat/hooks/usePlanParser";
-import type { ChatMessage } from "@/apps/chat/types";
+import type { ChatMessage, ToolCallStep } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
 import {
 	buildHierarchicalTodoContext,
 	buildTodoContextBlock,
 } from "@/apps/chat/utils/todoContext";
-import type { ChatHistoryItem } from "@/lib/api";
+import type { ChatHistoryItem, ToolCallEvent } from "@/lib/api";
 import { sendChatMessageStream } from "@/lib/api";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 import { useChatHistory, useChatSessions, useTodos } from "@/lib/query";
@@ -242,16 +242,21 @@ export const useChatController = ({
 		abortControllerRef.current = abortController;
 
 		let assistantContent = "";
+		// 用于跟踪工具调用步骤
+		const toolCallStepsMap = new Map<string, ToolCallStep>();
 
 		try {
 			// 根据聊天模式选择后端模式
 			// ask 模式使用 agent（Agent会自动判断是否需要使用工具）
+			// agno 模式使用 agno（启用工具调用事件流）
 			const modeForBackend =
 				chatMode === "difyTest"
 					? "dify_test"
 					: chatMode === "ask"
 						? "agent"
-						: chatMode;
+						: chatMode === "agno"
+							? "agno"
+							: chatMode;
 
 			await sendChatMessageStream(
 				{
@@ -274,7 +279,11 @@ export const useChatController = ({
 						setMessages((prev) =>
 							prev.map((msg) =>
 								msg.id === assistantMessageId
-									? { ...msg, content: assistantContent }
+									? {
+											...msg,
+											content: assistantContent,
+											toolCallSteps: Array.from(toolCallStepsMap.values()),
+										}
 									: msg,
 							),
 						);
@@ -285,6 +294,71 @@ export const useChatController = ({
 				},
 				abortController.signal,
 				locale,
+				// 工具调用事件处理器
+				(event: ToolCallEvent) => {
+					if (abortController.signal.aborted) {
+						return;
+					}
+
+					if (event.type === "tool_call_start" && event.tool_name) {
+						// 创建新的工具调用步骤
+						const stepId = `${event.tool_name}-${Date.now()}`;
+						const newStep: ToolCallStep = {
+							id: stepId,
+							toolName: event.tool_name,
+							toolArgs: event.tool_args,
+							status: "running",
+							startTime: Date.now(),
+						};
+						toolCallStepsMap.set(stepId, newStep);
+
+						// 立即更新消息以显示新的工具调用步骤
+						flushSync(() => {
+							setMessages((prev) =>
+								prev.map((msg) =>
+									msg.id === assistantMessageId
+										? {
+												...msg,
+												toolCallSteps: Array.from(toolCallStepsMap.values()),
+											}
+										: msg,
+								),
+							);
+						});
+					} else if (event.type === "tool_call_end" && event.tool_name) {
+						// 找到对应的工具调用步骤并更新状态
+						const stepKey = Array.from(toolCallStepsMap.keys()).find((key) =>
+							key.startsWith(event.tool_name as string),
+						);
+						if (stepKey) {
+							const existingStep = toolCallStepsMap.get(stepKey);
+							if (existingStep) {
+								toolCallStepsMap.set(stepKey, {
+									...existingStep,
+									status: "completed",
+									resultPreview: event.result_preview,
+									endTime: Date.now(),
+								});
+
+								// 更新消息以显示完成状态
+								flushSync(() => {
+									setMessages((prev) =>
+										prev.map((msg) =>
+											msg.id === assistantMessageId
+												? {
+														...msg,
+														toolCallSteps: Array.from(
+															toolCallStepsMap.values(),
+														),
+													}
+												: msg,
+										),
+									);
+								});
+							}
+						}
+					}
+				},
 			);
 
 			if (!assistantContent) {
