@@ -11,8 +11,8 @@ from agno.agent import Agent, RunEvent
 from agno.models.openai.like import OpenAILike
 
 from lifetrace.llm.agno_tools import FreeTodoToolkit
+from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 
 logger = get_logger()
@@ -51,14 +51,15 @@ class AgnoAgentService:
             # Initialize toolkit with language support
             toolkit = FreeTodoToolkit(lang=self.lang)
 
-            # Load instructions from config
-            instructions = get_prompt("freetodo_toolkit", f"instructions_{self.lang}")
-            if not instructions:
-                # Fallback to English
-                instructions = get_prompt("freetodo_toolkit", "instructions_en")
+            # Load instructions from agno_tools/{lang}/instructions.yaml
+            # The key in the YAML file is "instructions", not "instructions_{lang}"
+            # get_message already handles fallback to English if key not found
+            instructions = get_message(self.lang, "instructions")
 
-            # Build instructions list
-            instructions_list = [instructions] if instructions else None
+            # Build instructions list (skip if not found, which returns "[instructions]")
+            instructions_list = (
+                [instructions] if instructions and instructions != "[instructions]" else None
+            )
 
             # 复用现有 LLM 配置
             self.agent = Agent(
