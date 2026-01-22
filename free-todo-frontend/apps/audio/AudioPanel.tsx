@@ -205,12 +205,27 @@ export function AudioPanel() {
 			setShowStopConfirm(true);
 			return;
 		}
+		// 检查当前日期，如果与选择的日期不同，自动切换到当前日期
+		const now = new Date();
+		const selectedDateStr = selectedDate.toISOString().split("T")[0];
+		const nowDateStr = now.toISOString().split("T")[0];
+		if (selectedDateStr !== nowDateStr) {
+			// 日期不一致，切换到当前日期
+			// 注意：这会触发 loadTimeline 和 loadRecordings，但会在录音开始前完成
+			setSelectedDate(now);
+			// 清空当前显示的文本，因为切换到了新日期
+			setTranscriptionText("");
+			setOptimizedText("");
+			setSegmentOffsetsSec([]);
+			setSegmentRecordingIds([]);
+			setSegmentTimeLabels([]);
+			setSegmentTimesSec([]);
+			setPartialText("");
+		}
 		// 录制开始：保留当天已有文本，在末尾追加新内容；并记录起始时间用于段落时间标签
 		setSelectedSegmentIndex(null);
 		recordingStartedAtMsRef.current = performance.now();
-		recordingStartedAtRef.current = new Date();
-		// 保持已有时间标签/偏移，后续新句子在末尾追加
-		setPartialText("");
+		recordingStartedAtRef.current = now;
 		// 开始录音前，清空本次会话的实时高亮状态
 		setLiveTodos([]);
 		setLiveSchedules([]);
