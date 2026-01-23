@@ -173,6 +173,139 @@ class AudioService:
                 )
             return result
 
+    def _check_has_extraction(self, transcription: Transcription) -> bool:
+        """检查转录记录是否有提取结果
+
+        Args:
+            transcription: 转录记录
+
+        Returns:
+            是否有提取结果
+        """
+        return bool(
+            (
+                transcription.extracted_todos
+                and transcription.extracted_todos.strip()
+                and transcription.extracted_todos.strip() != "[]"
+            )
+            or (
+                transcription.extracted_schedules
+                and transcription.extracted_schedules.strip()
+                and transcription.extracted_schedules.strip() != "[]"
+            )
+            or (
+                transcription.extracted_todos_optimized
+                and transcription.extracted_todos_optimized.strip()
+                and transcription.extracted_todos_optimized.strip() != "[]"
+            )
+            or (
+                transcription.extracted_schedules_optimized
+                and transcription.extracted_schedules_optimized.strip()
+                and transcription.extracted_schedules_optimized.strip() != "[]"
+            )
+        )
+
+    def _check_text_changes(
+        self, existing: Transcription, segmented_text: str, optimized_text: str | None
+    ) -> tuple[bool, bool]:
+        """检查文本是否变化
+
+        Args:
+            existing: 现有转录记录
+            segmented_text: 新的分段文本
+            optimized_text: 新的优化文本
+
+        Returns:
+            (original_changed, optimized_changed) 元组
+        """
+        original_changed = (existing.original_text or "").strip() != (segmented_text or "").strip()
+        optimized_changed = (existing.optimized_text or "").strip() != (
+            optimized_text or ""
+        ).strip()
+        return original_changed, optimized_changed
+
+    def _cleanup_duplicate_transcriptions(
+        self, session, recording_id: int, existing: Transcription
+    ) -> Transcription:
+        """清理重复的转录记录
+
+        Args:
+            session: 数据库会话
+            recording_id: 录音ID
+            existing: 现有记录
+
+        Returns:
+            保留的记录
+        """
+        from sqlmodel import select
+
+        all_records = list(
+            session.exec(
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
+            ).all()
+        )
+        if len(all_records) > 1:
+            logger.warning(
+                f"[save_transcription] 录音 {recording_id} 发现 {len(all_records)} 条转录记录，"
+                f"保留最新的（ID={all_records[0].id}），删除其他 {len(all_records) - 1} 条"
+            )
+            # 保留第一条（ID最大的），删除其他的
+            for old_record in all_records[1:]:
+                session.delete(old_record)
+            existing = all_records[0]
+            session.flush()
+        return existing
+
+    def _update_existing_transcription(
+        self,
+        session,
+        existing: Transcription,
+        recording_id: int,
+        segmented_text: str,
+        optimized_text: str | None,
+    ) -> tuple[Transcription, bool]:
+        """更新现有转录记录
+
+        Args:
+            session: 数据库会话
+            existing: 现有记录
+            recording_id: 录音ID
+            segmented_text: 分段文本
+            optimized_text: 优化文本
+
+        Returns:
+            (transcription, should_auto_extract) 元组
+        """
+        original_changed, optimized_changed = self._check_text_changes(
+            existing, segmented_text, optimized_text
+        )
+        text_changed = original_changed or optimized_changed
+
+        if not text_changed:
+            logger.debug(f"[save_transcription] 录音 {recording_id} 文本未变化，跳过更新")
+            return existing, False
+
+        # 文本变化了，更新文本字段（保留提取结果）
+        existing.original_text = segmented_text
+        existing.optimized_text = optimized_text
+
+        has_extraction = self._check_has_extraction(existing)
+        should_auto_extract = False
+
+        if not has_extraction:
+            existing.extraction_status = "pending"
+            should_auto_extract = True
+        else:
+            logger.info(
+                f"[save_transcription] 录音 {recording_id} 文本变化但已有提取结果，"
+                f"保留提取结果，不触发自动提取"
+            )
+
+        session.add(existing)
+        return existing, should_auto_extract
+
     async def save_transcription(
         self,
         recording_id: int,
@@ -201,13 +334,35 @@ class AudioService:
                 logger.error(f"自动优化文本失败: {e}")
 
         with get_session() as session:
-            transcription = Transcription(
-                audio_recording_id=recording_id,
-                original_text=segmented_text,
-                optimized_text=optimized_text,
-                extraction_status="pending",
-            )
-            session.add(transcription)
+            from sqlmodel import select
+
+            # 检查是否已存在转录记录
+            existing = session.exec(
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
+            ).first()
+
+            # 清理重复记录
+            if existing:
+                existing = self._cleanup_duplicate_transcriptions(session, recording_id, existing)
+
+            # 更新或创建记录
+            if existing:
+                transcription, should_auto_extract = self._update_existing_transcription(
+                    session, existing, recording_id, segmented_text, optimized_text
+                )
+            else:
+                logger.info(f"[save_transcription] 录音 {recording_id} 创建新转录记录")
+                transcription = Transcription(
+                    audio_recording_id=recording_id,
+                    original_text=segmented_text,
+                    optimized_text=optimized_text,
+                    extraction_status="pending",
+                )
+                session.add(transcription)
+                should_auto_extract = True
+
             session.commit()
             session.refresh(transcription)
 
@@ -218,19 +373,19 @@ class AudioService:
                 session.commit()
 
             # 自动提取待办和日程（异步执行，不阻塞）
-            # 分别对原文和优化文本进行提取
-            if segmented_text:
-                asyncio.create_task(
-                    self._auto_extract_todos_and_schedules(
-                        transcription.id, segmented_text, optimized=False
+            if should_auto_extract:
+                if segmented_text:
+                    asyncio.create_task(
+                        self._auto_extract_todos_and_schedules(
+                            transcription.id, segmented_text, optimized=False
+                        )
                     )
-                )
-            if optimized_text:
-                asyncio.create_task(
-                    self._auto_extract_todos_and_schedules(
-                        transcription.id, optimized_text, optimized=True
+                if optimized_text:
+                    asyncio.create_task(
+                        self._auto_extract_todos_and_schedules(
+                            transcription.id, optimized_text, optimized=True
+                        )
                     )
-                )
 
             return transcription
 
@@ -371,8 +526,11 @@ class AudioService:
             包含转录字段的字典，如果不存在则返回None
         """
         with get_session() as session:
-            statement = select(Transcription).where(
-                Transcription.audio_recording_id == recording_id
+            # 查询转录记录（一个 recording_id 只应该有一条）
+            statement = (
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
             )
             transcription = session.exec(statement).first()
             if not transcription:

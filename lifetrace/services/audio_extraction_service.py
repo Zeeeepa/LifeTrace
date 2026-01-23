@@ -248,8 +248,11 @@ class AudioExtractionService:
             包含更新数量的字典
         """
         with get_session() as session:
-            statement = select(Transcription).where(
-                Transcription.audio_recording_id == recording_id
+            # 查询转录记录（一个 recording_id 只应该有一条）
+            statement = (
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
             )
             transcription = session.exec(statement).first()
             if not transcription:
@@ -281,6 +284,85 @@ class AudioExtractionService:
 
             return {"updated": updated}
 
+    def _load_extraction_prompts(self, text: str) -> tuple[str, str]:
+        """加载提取提示词
+
+        Args:
+            text: 转录文本
+
+        Returns:
+            (system_prompt, user_prompt) 元组
+        """
+        system_prompt = get_prompt("transcription_extraction", "system_assistant")
+        user_prompt = get_prompt("transcription_extraction", "user_prompt", text=text)
+
+        if not system_prompt or not user_prompt:
+            logger.warning("无法加载提取提示词，使用默认提示词")
+            system_prompt = "你是一个专业的任务和日程提取助手。"
+            user_prompt = f"请从以下转录文本中提取待办事项和日程安排。\n\n转录文本：\n{text}\n\n只返回JSON，不要其他内容。"
+
+        return system_prompt, user_prompt
+
+    def _parse_llm_response(self, result_text: str) -> dict[str, Any]:
+        """解析 LLM 响应文本
+
+        Args:
+            result_text: LLM 返回的原始文本
+
+        Returns:
+            解析后的 JSON 字典
+        """
+        # 移除可能的markdown代码块标记
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        result_text = result_text.strip()
+
+        return json.loads(result_text)
+
+    def _normalize_extraction_result(self, result: dict[str, Any]) -> dict[str, Any]:
+        """规范化提取结果格式
+
+        将字符串数组转换为标准格式（对象数组，包含 source_text）
+
+        Args:
+            result: 原始提取结果
+
+        Returns:
+            规范化后的结果
+        """
+        # 处理 todos
+        if "todos" in result:
+            todos = result["todos"]
+            if todos and isinstance(todos[0], str):
+                result["todos"] = [
+                    {
+                        "title": item,
+                        "description": None,
+                        "source_text": item,
+                    }
+                    for item in todos
+                ]
+
+        # 处理 schedules
+        if "schedules" in result:
+            schedules = result["schedules"]
+            if schedules and isinstance(schedules[0], str):
+                result["schedules"] = [
+                    {
+                        "title": item,
+                        "time": None,
+                        "description": None,
+                        "source_text": item,
+                    }
+                    for item in schedules
+                ]
+
+        return result
+
     async def extract_todos_and_schedules(self, text: str) -> dict[str, Any]:
         """从转录文本中提取待办和日程
 
@@ -295,15 +377,10 @@ class AudioExtractionService:
                 logger.warning("LLM客户端不可用，跳过提取")
                 return {"todos": [], "schedules": []}
 
-            # 从配置文件加载提示词
-            system_prompt = get_prompt("transcription_extraction", "system_assistant")
-            user_prompt = get_prompt("transcription_extraction", "user_prompt", text=text)
+            # 加载提示词
+            system_prompt, user_prompt = self._load_extraction_prompts(text)
 
-            if not system_prompt or not user_prompt:
-                logger.warning("无法加载提取提示词，使用默认提示词")
-                system_prompt = "你是一个专业的任务和日程提取助手。"
-                user_prompt = f"请从以下转录文本中提取待办事项和日程安排。\n\n转录文本：\n{text}\n\n只返回JSON，不要其他内容。"
-
+            # 调用 LLM
             client = self.llm_client
             client._initialize_client()
 
@@ -316,17 +393,13 @@ class AudioExtractionService:
                 temperature=0.3,
             )
 
+            # 解析响应
             result_text = response.choices[0].message.content.strip()
-            # 移除可能的markdown代码块标记
-            if result_text.startswith("```json"):
-                result_text = result_text[7:]
-            if result_text.startswith("```"):
-                result_text = result_text[3:]
-            if result_text.endswith("```"):
-                result_text = result_text[:-3]
-            result_text = result_text.strip()
+            result = self._parse_llm_response(result_text)
 
-            result = json.loads(result_text)
+            # 规范化结果格式
+            result = self._normalize_extraction_result(result)
+
             return result
         except Exception as e:
             logger.error(f"提取待办和日程失败: {e}")

@@ -8,7 +8,6 @@ from typing import Any
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
-from sqlmodel import select
 
 from lifetrace.routers.audio_ws import register_audio_ws_routes
 from lifetrace.services.asr_client import ASRClient
@@ -181,7 +180,7 @@ def _load_extracted_json(transcription: dict[str, Any], field: str) -> list[dict
 def _refresh_extracted_from_db(
     transcription_id: int, recording_id: int, optimized: bool
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """从数据库刷新提取结果。
+    """从数据库刷新提取结果（只读取，不清空）。
 
     Args:
         transcription_id: 转录ID
@@ -192,12 +191,7 @@ def _refresh_extracted_from_db(
         (todos, schedules) 元组
     """
     try:
-        audio_service.update_extraction(
-            transcription_id=transcription_id,
-            todos=[],
-            schedules=[],
-            optimized=optimized,
-        )
+        # 直接读取数据库，不要调用 update_extraction（会清空数据）
         refreshed = audio_service.get_transcription(recording_id)
         if not refreshed:
             return [], []
@@ -319,14 +313,24 @@ async def optimize_transcription(recording_id: int):
         # 使用LLM优化
         optimized_text = await audio_service.optimize_transcription_text(text)
 
-        # 更新转录记录
+        # 更新转录记录（保留提取结果）
+        from sqlmodel import select
+
         from lifetrace.storage import get_session
+        from lifetrace.storage.models import Transcription
 
         with get_session() as session:
-            transcription.optimized_text = optimized_text
-            session.add(transcription)
-            session.commit()
-            session.refresh(transcription)
+            # 获取 ORM 对象（不是字典）
+            trans = session.exec(
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
+            ).first()
+            if trans:
+                # 只更新优化文本，保留提取结果等其他字段
+                trans.optimized_text = optimized_text
+                session.add(trans)
+                session.commit()
 
         return JSONResponse({"optimized_text": optimized_text})
     except Exception as e:
@@ -359,12 +363,17 @@ async def extract_todos_and_schedules(recording_id: int, optimized: bool = Query
         result = await audio_service.extraction_service.extract_todos_and_schedules(text)
 
         # 更新提取结果（根据 optimized 参数更新对应字段）
+        from sqlmodel import select
+
         from lifetrace.storage import get_session
         from lifetrace.storage.models import Transcription
 
         with get_session() as session:
+            # 查询转录记录（一个 recording_id 只应该有一条）
             trans = session.exec(
-                select(Transcription).where(Transcription.audio_recording_id == recording_id)
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
             ).first()
             if trans:
                 audio_service.update_extraction(
