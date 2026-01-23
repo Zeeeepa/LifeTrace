@@ -17,6 +17,7 @@ from lifetrace.routers import (
     logs,
     notification,
     ocr,
+    proactive_ocr,
     rag,
     scheduler,
     screenshot,
@@ -136,6 +137,7 @@ app.include_router(vision.router)
 app.include_router(notification.router)
 app.include_router(floating_capture.router)
 app.include_router(audio.router)
+app.include_router(proactive_ocr.router)
 
 
 def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
