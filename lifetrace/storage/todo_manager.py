@@ -258,6 +258,38 @@ class TodoManager:
             logger.error(f"统计 todo 数量失败: {e}")
             return 0
 
+    def get_active_todos_for_prompt(self, limit: int = 100) -> list[dict[str, Any]]:
+        """获取用于提示词的活跃 todo 列表（精简字段）。
+
+        返回的数据适合直接序列化为 JSON 传给 LLM，让模型了解当前已有的待办。
+        """
+        try:
+            with self.db_base.get_session() as session:
+                q = session.query(Todo)
+                try:
+                    q = q.filter(Todo.deleted_at.is_(None))
+                except Exception:
+                    # 兼容旧表结构没有 deleted_at 的情况
+                    pass
+
+                q = q.filter(Todo.status == "active").order_by(Todo.created_at.desc()).limit(limit)
+                todos = q.all()
+
+                result: list[dict[str, Any]] = []
+                for t in todos:
+                    result.append(
+                        {
+                            "id": t.id,
+                            "name": t.name,
+                            "description": t.description,
+                            "deadline": t.deadline.isoformat() if t.deadline else None,
+                        }
+                    )
+                return result
+        except SQLAlchemyError as e:
+            logger.error(f"获取用于提示词的活跃 todo 列表失败: {e}")
+            return []
+
     def _apply_todo_updates(  # noqa: PLR0913
         self,
         todo: Todo,

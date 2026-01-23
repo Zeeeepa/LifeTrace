@@ -63,6 +63,11 @@ class OCRResult(TimestampMixin, table=True):
     confidence: float | None = None  # 置信度[0, 1]
     language: str | None = Field(default=None, max_length=10)  # 识别语言
     processing_time: float | None = None  # OCR处理耗时（秒）
+    text_hash: str | None = Field(
+        default=None,
+        max_length=64,
+        index=True,
+    )  # 文本内容的哈希值，用于去重和缓存
 
     def __repr__(self):
         return f"<OCRResult(id={self.id}, screenshot_id={self.screenshot_id})>"

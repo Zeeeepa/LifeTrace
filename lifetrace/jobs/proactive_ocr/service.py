@@ -282,6 +282,57 @@ class ProactiveOCRService:
 
             if ocr_result_id:
                 logger.debug(f"ProactiveOCR: Saved OCR result_id={ocr_result_id}")
+                # 可选：自动触发基于 OCR 文本的待办提取
+                try:
+                    auto_extract = settings.get(
+                        "jobs.proactive_ocr.params.auto_extract_todos", False
+                    )
+                    min_text_length = settings.get(
+                        "jobs.proactive_ocr.params.min_text_length",
+                        10,
+                    )
+                    if auto_extract and len((text_content or "").strip()) >= min_text_length:
+                        from lifetrace.llm.todo_extraction_service import todo_extraction_service
+
+                        logger.info(
+                            "ProactiveOCR: auto_extract_todos 开启，开始基于 OCR 文本提取待办"
+                        )
+                        # 我们仅调用提取逻辑，不在此处直接写 todo，结果由上层或日志查看
+                        extraction_result = todo_extraction_service.extract_todos_from_ocr_text(
+                            ocr_result_id=ocr_result_id,
+                            text_content=text_content,
+                            app_name=app_type.value,
+                            window_title=window.title,
+                        )
+
+                        if extraction_result.get("skipped"):
+                            logger.info(
+                                "ProactiveOCR: OCR 文本待办提取已跳过 - "
+                                f"reason={extraction_result.get('reason')}, "
+                                f"ocr_result_id={extraction_result.get('ocr_result_id')}"
+                            )
+                        else:
+                            todos_count = len(extraction_result.get("todos") or [])
+                            error_message = extraction_result.get("error_message")
+                            created_count = extraction_result.get("created_count")
+                            if error_message:
+                                logger.warning(
+                                    "ProactiveOCR: OCR 文本待办提取完成但存在错误 - "
+                                    f"error={error_message}, "
+                                    f"ocr_result_id={extraction_result.get('ocr_result_id')}, "
+                                    f"todos_count={todos_count}, "
+                                    f"created_count={created_count}"
+                                )
+                            else:
+                                logger.info(
+                                    "ProactiveOCR: OCR 文本待办提取完成 - "
+                                    f"ocr_result_id={extraction_result.get('ocr_result_id')}, "
+                                    f"todos_count={todos_count}, "
+                                    f"created_count={created_count}"
+                                )
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"ProactiveOCR: 自动待办提取失败（已忽略）: {e}", exc_info=True)
+
                 return screenshot_id
 
             return None

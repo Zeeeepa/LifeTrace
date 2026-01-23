@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from lifetrace.llm.llm_client import LLMClient
+from lifetrace.llm.ocr_todo_extractor import OCRTodoExtractor
 from lifetrace.storage import event_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
@@ -32,6 +33,7 @@ class TodoExtractionService:
     def __init__(self):
         """初始化服务"""
         self.llm_client = LLMClient()
+        self._ocr_extractor = OCRTodoExtractor(self.llm_client)
 
     def is_whitelist_app(self, app_name: str) -> bool:
         """判断是否为白名单应用
@@ -323,6 +325,26 @@ class TodoExtractionService:
         except Exception as e:
             logger.error(f"解析待办时间失败: {e}")
             return None
+
+    # ========= 主动 OCR 文本待办提取 =========
+
+    def extract_todos_from_ocr_text(
+        self,
+        ocr_result_id: int,
+        text_content: str,
+        app_name: str,
+        window_title: str,
+    ) -> dict[str, Any]:
+        """基于主动 OCR 的纯文本进行待办提取。
+
+        委托给 OCRTodoExtractor 处理。
+        """
+        return self._ocr_extractor.extract_todos(
+            ocr_result_id=ocr_result_id,
+            text_content=text_content,
+            app_name=app_name,
+            window_title=window_title,
+        )
 
 
 # 全局实例

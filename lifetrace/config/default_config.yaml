@@ -111,6 +111,8 @@ jobs:
       resize_max_side: 800 # 图像预缩放最大边长，0表示不缩放
       det_limit_side_len: 640 # OCR检测输入边长限制
       min_confidence: 0.8 # 最低置信度阈值
+      auto_extract_todos: true # 是否在识别后自动触发基于 OCR 文本的待办提取
+      min_text_length: 5 # 触发自动待办提取所需的最小文本长度（按字符数）
 
 # 向量数据库配置
 vector_db:

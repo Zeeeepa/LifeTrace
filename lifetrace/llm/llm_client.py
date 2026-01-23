@@ -122,6 +122,30 @@ class LLMClient:
 
         return generate_summary_with_llm(self.client, self.model, query, context_data)
 
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        model: str | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        """通用非流式聊天方法，返回完整文本结果。"""
+        if not self.is_available():
+            raise RuntimeError("LLM客户端不可用，无法进行文本聊天")
+
+        try:
+            response = self.client.chat.completions.create(
+                model=model or self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            content = response.choices[0].message.content or ""
+            return content
+        except Exception as e:
+            logger.error(f"文本聊天失败: {e}")
+            raise
+
     def stream_chat(
         self,
         messages: list[dict[str, str]],
