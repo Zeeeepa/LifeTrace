@@ -3,11 +3,8 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { MessageTodoExtractionModal } from "@/apps/chat/components/message/MessageTodoExtractionModal";
-import {
-	getTranscriptionApiAudioTranscriptionRecordingIdGet,
-	linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost,
-} from "@/lib/generated/audio/audio";
 import { cn } from "@/lib/utils";
+import { useAudioLink } from "../hooks/useAudioLink";
 
 type TodoItem = {
 	id?: string;
@@ -51,6 +48,7 @@ export function AudioExtractionPanel({
 	const tAudio = useTranslations("audio");
 	const [showExtractionModal, setShowExtractionModal] = useState(false);
 	const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
+	const { linkAndRefresh } = useAudioLink();
 
 	type ModalItem = {
 		key: string;
@@ -183,13 +181,7 @@ export function AudioExtractionPanel({
 						}
 					}
 
-					await Promise.all(
-						Array.from(byRec.entries()).map(async ([recId, links]) => {
-							await linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost(recId, { links });
-						}),
-					);
-
-					// 前端即时标记 linked，避免再次出现
+					// 前端即时标记 linked，避免再次出现（优化用户体验）
 					setExtractionsByRecordingId((prev) => {
 						const next = { ...prev };
 						for (const [recId, links] of byRec.entries()) {
@@ -230,27 +222,18 @@ export function AudioExtractionPanel({
 						return next;
 					});
 
-					// 兜底：重新拉取，防止状态偏差（始终使用优化文本的提取结果）
+					// 使用 hook 进行链接和刷新（始终使用优化文本的提取结果）
 					try {
-						const refreshed = await Promise.all(
-							Array.from(byRec.keys()).map(async (recId) => {
-								const data = await getTranscriptionApiAudioTranscriptionRecordingIdGet(recId, { optimized: true }) as { todos?: TodoItem[]; schedules?: ScheduleItem[] };
-								return {
-									id: recId,
-									todos: Array.isArray(data.todos) ? data.todos : [],
-									schedules: Array.isArray(data.schedules) ? data.schedules : [],
-								};
-							}),
-						);
-						setExtractionsByRecordingId((prev) => {
-							const next = { ...prev };
-							for (const r of refreshed) {
-								next[r.id] = { todos: r.todos, schedules: r.schedules };
-							}
-							return next;
+						await linkAndRefresh(byRec, (recordingId, data) => {
+							setExtractionsByRecordingId((prev) => {
+								const next = { ...prev };
+								next[recordingId] = { todos: data.todos, schedules: data.schedules };
+								return next;
+							});
 						});
-					} catch {
-						// ignore
+					} catch (error) {
+						console.error("Failed to link and refresh extraction data:", error);
+						// 即使失败，前端已经标记了 linked，所以用户体验不受影响
 					}
 
 					setShowExtractionModal(false);
