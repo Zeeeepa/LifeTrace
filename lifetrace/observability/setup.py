@@ -102,6 +102,25 @@ def _setup_agno_instrumentor() -> None:
         logger.warning(f"AgnoInstrumentor 初始化失败: {e}")
 
 
+def _setup_openai_instrumentor() -> None:
+    """设置 OpenAI Instrumentor
+
+    用于追踪 Tool 内部的 LLM 调用，如 breakdown_task 中的 stream_chat。
+    这样可以在 Phoenix 中看到：
+    - Tool 调用的总耗时
+    - 内部 LLM 调用的详细信息（模型、token、延迟等）
+    """
+    try:
+        from openinference.instrumentation.openai import OpenAIInstrumentor
+
+        OpenAIInstrumentor().instrument()
+        logger.info("Observability: OpenAI Instrumentor 已启用")
+    except ImportError:
+        logger.warning("OpenAIInstrumentor 未安装，跳过 OpenAI 自动 instrument")
+    except Exception as e:
+        logger.warning(f"OpenAIInstrumentor 初始化失败: {e}")
+
+
 def setup_observability() -> bool:
     """初始化观测系统
 
@@ -153,6 +172,7 @@ def setup_observability() -> bool:
 
             trace_api.set_tracer_provider(tracer_provider)
             _setup_agno_instrumentor()
+            _setup_openai_instrumentor()  # 追踪 Tool 内部的 LLM 调用
 
             _initialized = True
             logger.info(f"Observability 初始化成功，模式: {config.mode}")

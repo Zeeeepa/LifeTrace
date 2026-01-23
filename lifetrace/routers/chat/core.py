@@ -406,6 +406,7 @@ def _create_agno_streaming_response(
             for chunk in agno_service.stream_response(
                 message=message.message,
                 conversation_history=conversation_history,
+                session_id=session_id,
             ):
                 total_content += chunk
                 yield chunk

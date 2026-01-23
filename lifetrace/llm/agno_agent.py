@@ -3,10 +3,12 @@
 支持 FreeTodoToolkit 工具集和国际化消息。
 支持工具调用事件流，可在前端实时展示 Agent 执行步骤。
 支持 Phoenix + OpenInference 观测（通过配置启用）。
+支持 session_id 传递，实现按会话聚合 trace 文件。
 """
 
 import json
 from collections.abc import Generator
+from contextvars import ContextVar
 
 from agno.agent import Agent, RunEvent
 from agno.models.openai.like import OpenAILike
@@ -16,6 +18,10 @@ from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.observability import setup_observability
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+
+# 全局 ContextVar 用于跨 span 传递 session_id
+# file_exporter 可以读取这个值来按 session 聚合文件
+current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 
 logger = get_logger()
 
@@ -170,6 +176,7 @@ class AgnoAgentService:
         message: str,
         conversation_history: list[dict[str, str]] | None = None,
         include_tool_events: bool = True,
+        session_id: str | None = None,
     ) -> Generator[str]:
         """
         流式生成 Agent 回复
@@ -178,11 +185,16 @@ class AgnoAgentService:
             message: 用户消息
             conversation_history: 对话历史，格式为 [{"role": "user|assistant", "content": "..."}]
             include_tool_events: 是否包含工具调用事件（默认 True）
+            session_id: 会话 ID，用于 trace 文件按会话聚合
 
         Yields:
             回复内容片段（字符串），如果 include_tool_events=True，
             工具调用事件会以特殊格式输出：[TOOL_EVENT:{"type":"...","data":{...}}]
         """
+        # 设置 session_id 到 ContextVar，供 file_exporter 读取
+        # 注意：使用 set(None) 而非 reset(token)，因为 StreamingResponse 的生成器
+        # 可能在不同的 Context 中执行，reset() 要求 token 在同一 Context 创建
+        current_session_id.set(session_id)
         try:
             input_data = self._build_input_data(message, conversation_history)
             stream = self.agent.run(
@@ -199,6 +211,9 @@ class AgnoAgentService:
         except Exception as e:
             logger.error(f"Agno Agent 流式生成失败: {e}")
             yield f"Agno Agent 处理失败: {str(e)}"
+        finally:
+            # 清理 ContextVar（使用 set(None) 而非 reset(token) 避免跨 Context 错误）
+            current_session_id.set(None)
 
     def is_available(self) -> bool:
         """检查 Agno Agent 是否可用"""

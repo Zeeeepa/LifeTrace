@@ -71,6 +71,7 @@ dependencies = [
     "pyobjc-framework-Quartz>=9.0; sys_platform == 'darwin'",
     # Windows specific dependencies (only install on Windows)
     "pywin32>=306; sys_platform == 'win32'",
+    "openinference-instrumentation-openai>=0.1.41",
 ]
 
 # Ruff 配置 - Python linter 和 formatter

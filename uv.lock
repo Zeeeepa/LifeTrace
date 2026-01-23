@@ -1297,6 +1297,7 @@ dependencies = [
     { name = "openai" },
     { name = "opencc-python-reimplemented" },
     { name = "openinference-instrumentation-agno" },
+    { name = "openinference-instrumentation-openai" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-sdk" },
     { name = "pillow" },
@@ -1347,6 +1348,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0.0" },
     { name = "opencc-python-reimplemented", specifier = ">=0.1.7" },
     { name = "openinference-instrumentation-agno", specifier = ">=0.1.0" },
+    { name = "openinference-instrumentation-openai", specifier = ">=0.1.41" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.20.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.20.0" },
     { name = "pillow", specifier = ">=10.0.0" },
@@ -1841,6 +1843,24 @@ dependencies = [
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a3/8f/cb344b8b3108a0942f086ad550771968a6479847fc457ae175744bb5af06/openinference_instrumentation_agno-0.1.26.tar.gz", hash = "sha256:d04e80ca9051fcf755d3ee212fd85feaf2c9614ccafb166ff0edc609fdeb7d93", size = 21008, upload-time = "2026-01-20T17:35:59.765Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/84/8f/23394f2c04ee8c214f37a1918aa889d0afae36dbda6fb496e24ed37d4f44/openinference_instrumentation_agno-0.1.26-py3-none-any.whl", hash = "sha256:cbda8907ef44ee73b0a0699897154c737bfed00d5e33ec5e23b44949b422decf", size = 26422, upload-time = "2026-01-20T17:35:58.938Z" },
+]
+
+[[package]]
+name = "openinference-instrumentation-openai"
+version = "0.1.41"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+dependencies = [
+    { name = "openinference-instrumentation" },
+    { name = "openinference-semantic-conventions" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "typing-extensions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/66/06/77b2fe7171336f71313936daf1b644a9968da85ff0b473a03ca05cc3d5c1/openinference_instrumentation_openai-0.1.41.tar.gz", hash = "sha256:ef4db680986a613b1639720f9beaa315c9e388c20bc985dbbbdf0f4df007c6e9", size = 22848, upload-time = "2025-12-04T19:58:35.349Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a1/db/48f1f540d335f98fa67891e9c25ad56020be7e7b2c0d4fd5014875fe5ddf/openinference_instrumentation_openai-0.1.41-py3-none-any.whl", hash = "sha256:6fad453446835e51333b660882eacababbf1052689ca53cba444a7d97fa2e910", size = 30273, upload-time = "2025-12-04T19:58:34.17Z" },
 ]
 
 [[package]]

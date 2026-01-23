@@ -5,6 +5,7 @@
 - Cursor 友好：结构化 JSON，便于 AI 分析
 - 人类可读：格式化输出，清晰的字段命名
 - 日志精简：Terminal 只输出一行摘要
+- 按会话聚合：同一 session 的所有 trace 保存在同一个文件中
 """
 
 from __future__ import annotations
@@ -27,6 +28,17 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+
+def _get_current_session_id() -> str | None:
+    """获取当前 session_id（从 ContextVar 读取）"""
+    try:
+        from lifetrace.llm.agno_agent import current_session_id
+
+        return current_session_id.get()
+    except Exception:
+        return None
+
+
 # OpenInference 语义约定中的常用属性
 OPENINFERENCE_SPAN_KIND = "openinference.span.kind"
 OPENINFERENCE_INPUT_VALUE = "input.value"
@@ -44,7 +56,8 @@ class LocalFileExporter(SpanExporter):
     """本地 JSON 文件导出器
 
     将 traces 写入本地 JSON 文件，支持：
-    - 按 trace_id 聚合 spans
+    - 按 session_id 聚合：同一会话的所有 trace 保存在同一个文件中
+    - 按 trace_id 聚合 spans（当无 session_id 时）
     - 格式化输出便于阅读
     - Terminal 摘要输出
     - 自动清理旧文件
@@ -74,6 +87,9 @@ class LocalFileExporter(SpanExporter):
         # 用于聚合同一 trace 的 spans
         self._pending_traces: dict[str, list[ReadableSpan]] = defaultdict(list)
 
+        # session_id -> 文件路径的映射（内存缓存）
+        self._session_files: dict[str, Path] = {}
+
     def _get_traces_path(self) -> Path:
         """获取 traces 目录路径"""
         from lifetrace.util.path_utils import get_user_data_dir
@@ -81,6 +97,57 @@ class LocalFileExporter(SpanExporter):
         traces_path = get_user_data_dir() / self.traces_dir
         traces_path.mkdir(parents=True, exist_ok=True)
         return traces_path
+
+    def _get_session_file_path(self, session_id: str) -> Path:
+        """获取 session 文件路径
+
+        如果已有该 session 的文件，返回现有路径；否则创建新路径。
+        文件名格式：session_{session_id}_{创建时间}.json
+        """
+        # 检查内存缓存
+        if session_id in self._session_files:
+            return self._session_files[session_id]
+
+        traces_path = self._get_traces_path()
+
+        # 查找已有的 session 文件
+        existing_files = list(traces_path.glob(f"session_{session_id}_*.json"))
+        if existing_files:
+            # 使用最新的文件
+            filepath = max(existing_files, key=lambda f: f.stat().st_mtime)
+            self._session_files[session_id] = filepath
+            return filepath
+
+        # 创建新文件路径
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        filename = f"session_{session_id}_{timestamp}.json"
+        filepath = traces_path / filename
+        self._session_files[session_id] = filepath
+        return filepath
+
+    def _load_session_data(self, filepath: Path) -> dict[str, Any]:
+        """加载已有的 session 数据"""
+        if not filepath.exists():
+            return {}
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"加载 session 文件失败: {e}")
+            return {}
+
+    def _save_session_data(self, filepath: Path, data: dict[str, Any]) -> bool:
+        """保存 session 数据"""
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                if self.pretty_print:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                else:
+                    json.dump(data, f, ensure_ascii=False)
+            return True
+        except OSError as e:
+            logger.error(f"保存 session 文件失败: {e}")
+            return False
 
     def _extract_span_kind(self, span: ReadableSpan) -> str:
         """提取 span 类型"""
@@ -217,11 +284,14 @@ class LocalFileExporter(SpanExporter):
             "span_count": len(spans),
         }
 
-    def _write_to_file(self, trace_data: dict[str, Any]) -> str | None:
+    def _write_to_file(
+        self, trace_data: dict[str, Any], session_id: str | None = None
+    ) -> str | None:
         """将 trace 数据写入 JSON 文件
 
         Args:
             trace_data: 聚合后的 trace 数据
+            session_id: 会话 ID，如果提供则追加到 session 文件
 
         Returns:
             写入的文件路径，失败返回 None
@@ -229,6 +299,11 @@ class LocalFileExporter(SpanExporter):
         if not trace_data:
             return None
 
+        # 如果有 session_id，追加到 session 文件
+        if session_id:
+            return self._write_to_session_file(trace_data, session_id)
+
+        # 否则，每个 trace 一个文件（原有行为）
         traces_path = self._get_traces_path()
         trace_id = trace_data.get("trace_id", "unknown")
         timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -248,6 +323,60 @@ class LocalFileExporter(SpanExporter):
             return str(filepath)
         except Exception as e:
             logger.error(f"写入 trace 文件失败: {e}")
+            return None
+
+    def _write_to_session_file(self, trace_data: dict[str, Any], session_id: str) -> str | None:
+        """将 trace 数据追加到 session 文件
+
+        Session 文件格式：
+        {
+            "session_id": "xxx",
+            "created_at": "2026-01-23T08:27:03Z",
+            "updated_at": "2026-01-23T08:30:00Z",
+            "traces": [...],
+            "summary": {...}
+        }
+        """
+        filepath = self._get_session_file_path(session_id)
+
+        try:
+            # 加载已有数据或创建新结构
+            session_data = self._load_session_data(filepath)
+            if not session_data:
+                session_data = {
+                    "session_id": session_id,
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "traces": [],
+                    "summary": {
+                        "total_duration_ms": 0,
+                        "tool_count": 0,
+                        "llm_count": 0,
+                        "trace_count": 0,
+                        "status": "success",
+                    },
+                }
+
+            # 追加 trace
+            session_data["traces"].append(trace_data)
+            session_data["updated_at"] = datetime.now(UTC).isoformat()
+
+            # 更新摘要
+            summary = session_data["summary"]
+            summary["total_duration_ms"] += trace_data.get("duration_ms", 0)
+            summary["tool_count"] += len(trace_data.get("tool_calls", []))
+            summary["llm_count"] += len(trace_data.get("llm_calls", []))
+            summary["trace_count"] = len(session_data["traces"])
+            if trace_data.get("status") == "error":
+                summary["status"] = "error"
+
+            # 保存
+            if self._save_session_data(filepath, session_data):
+                # 清理旧文件
+                self._cleanup_old_files(self._get_traces_path())
+                return str(filepath)
+            return None
+        except Exception as e:
+            logger.error(f"写入 session 文件失败: {e}")
             return None
 
     def _cleanup_old_files(self, traces_path: Path) -> None:
@@ -272,18 +401,25 @@ class LocalFileExporter(SpanExporter):
         except Exception:
             pass  # 清理失败不影响主流程
 
-    def _print_summary(self, trace_data: dict[str, Any], filepath: str | None) -> None:
+    def _print_summary(
+        self,
+        trace_data: dict[str, Any],
+        filepath: str | None,
+        session_id: str | None = None,
+    ) -> None:
         """输出 Terminal 摘要
 
         Args:
             trace_data: trace 数据
             filepath: 文件路径
+            session_id: 会话 ID
         """
         if not trace_data:
             return
 
         trace_id = trace_data.get("trace_id", "unknown")
         tool_count = len(trace_data.get("tool_calls", []))
+        llm_count = len(trace_data.get("llm_calls", []))
         duration_ms = trace_data.get("duration_ms", 0)
         duration_s = duration_ms / 1000
 
@@ -298,17 +434,34 @@ class LocalFileExporter(SpanExporter):
         else:
             rel_path = "N/A"
 
+        # 构建摘要信息
+        parts = [f"[Trace] {trace_id}"]
+        if session_id:
+            parts.append(f"session:{session_id[:8]}")
+        parts.append(f"{tool_count} tools")
+        if llm_count > 0:
+            parts.append(f"{llm_count} llm")
+        parts.append(f"{duration_s:.2f}s")
+        parts.append(rel_path)
+
         if self.summary_only:
             # 精简输出：一行摘要
-            logger.info(f"[Trace] {trace_id} | {tool_count} tools | {duration_s:.2f}s | {rel_path}")
+            logger.info(" | ".join(parts))
         else:
             # 详细输出
             logger.info(f"[Trace] {trace_id}")
+            if session_id:
+                logger.info(f"  Session: {session_id}")
             logger.info(f"  Duration: {duration_s:.2f}s")
             logger.info(f"  Tools: {tool_count}")
+            logger.info(f"  LLM calls: {llm_count}")
             logger.info(f"  File: {rel_path}")
             for tool in trace_data.get("tool_calls", []):
                 logger.info(f"    - {tool['name']}: {tool.get('duration_ms', 0):.0f}ms")
+            for llm in trace_data.get("llm_calls", []):
+                logger.info(
+                    f"    - LLM({llm.get('model', 'unknown')}): {llm.get('duration_ms', 0):.0f}ms"
+                )
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """导出 spans
@@ -321,6 +474,9 @@ class LocalFileExporter(SpanExporter):
         """
         if not spans:
             return SpanExportResult.SUCCESS
+
+        # 获取当前 session_id（在处理 spans 时获取，因为 ContextVar 可能在之后被重置）
+        session_id = _get_current_session_id()
 
         with self._lock:
             try:
@@ -343,8 +499,8 @@ class LocalFileExporter(SpanExporter):
                         # 聚合并写入
                         trace_data = self._aggregate_spans(all_spans)
                         if trace_data:
-                            filepath = self._write_to_file(trace_data)
-                            self._print_summary(trace_data, filepath)
+                            filepath = self._write_to_file(trace_data, session_id)
+                            self._print_summary(trace_data, filepath, session_id)
                     else:
                         # 缓存非根 spans，等待完整 trace
                         self._pending_traces[trace_id].extend(trace_spans)
@@ -357,14 +513,15 @@ class LocalFileExporter(SpanExporter):
     def shutdown(self) -> None:
         """关闭导出器，处理剩余的 spans"""
         with self._lock:
-            # 导出所有缓存的 traces
+            # 导出所有缓存的 traces（shutdown 时无法获取 session_id，使用独立文件）
             for _trace_id, spans in self._pending_traces.items():
                 if spans:
                     trace_data = self._aggregate_spans(spans)
                     if trace_data:
-                        filepath = self._write_to_file(trace_data)
-                        self._print_summary(trace_data, filepath)
+                        filepath = self._write_to_file(trace_data, session_id=None)
+                        self._print_summary(trace_data, filepath, session_id=None)
             self._pending_traces.clear()
+            self._session_files.clear()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         """强制刷新
