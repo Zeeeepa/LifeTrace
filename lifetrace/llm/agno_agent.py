@@ -2,6 +2,7 @@
 
 支持 FreeTodoToolkit 工具集和国际化消息。
 支持工具调用事件流，可在前端实时展示 Agent 执行步骤。
+支持 Phoenix + OpenInference 观测（通过配置启用）。
 """
 
 import json
@@ -12,10 +13,15 @@ from agno.models.openai.like import OpenAILike
 
 from lifetrace.llm.agno_tools import FreeTodoToolkit
 from lifetrace.llm.agno_tools.base import get_message
+from lifetrace.observability import setup_observability
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 logger = get_logger()
+
+# 初始化观测系统（在模块加载时执行一次）
+# 如果配置中 observability.enabled = false，则不会有任何影响
+setup_observability()
 
 # Default language, can be overridden from settings
 DEFAULT_LANG = "en"

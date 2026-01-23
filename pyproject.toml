@@ -60,6 +60,12 @@ dependencies = [
     "dynaconf[yaml]>=3.2.0",
     # Logging
     "loguru>=0.7.3",
+    # Observability (Phoenix + OpenInference)
+    "arize-phoenix>=8.0.0",  # Phoenix 服务器和 UI（包含 phoenix serve 命令）
+    "arize-phoenix-otel>=0.11.0",  # Phoenix OTEL 集成
+    "openinference-instrumentation-agno>=0.1.0",  # Agno 自动 instrument
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.20.0",
     # macOS specific dependencies (only install on macOS)
     "pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'",
     "pyobjc-framework-Quartz>=9.0; sys_platform == 'darwin'",

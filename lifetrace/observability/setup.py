@@ -1,0 +1,175 @@
+"""Observability 初始化模块
+
+负责设置 OpenTelemetry tracing 和 instrumentors。
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+from typing import TYPE_CHECKING
+
+from lifetrace.observability.config import get_observability_config
+from lifetrace.util.logging_config import get_logger
+
+if TYPE_CHECKING:
+    pass
+
+logger = get_logger()
+
+
+def _suppress_otel_context_warnings():
+    """抑制 OpenTelemetry context detach 警告
+
+    这些警告在异步/生成器环境中是正常的，不影响功能。
+    警告来源：OpenTelemetry 的 context detach 在流式/生成器模式下
+    会因为 context 跨越不同的异步边界而触发。
+    """
+    import warnings
+
+    # 1. 过滤 logging 模块的警告
+    class ContextDetachFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            msg = record.getMessage()
+            if "Failed to detach context" in msg:
+                return False
+            if "was created in a different Context" in msg:
+                return False
+            return True
+
+    # 应用到 OpenTelemetry 相关的 logger
+    for logger_name in ["opentelemetry", "opentelemetry.context"]:
+        otel_logger = logging.getLogger(logger_name)
+        otel_logger.addFilter(ContextDetachFilter())
+
+    # 2. 过滤 warnings 模块
+    warnings.filterwarnings("ignore", message=".*was created in a different Context.*")
+
+    # 3. 重定向 OpenTelemetry 的 stderr 输出（它直接打印到 stderr）
+    # 通过 monkey-patch OpenTelemetry 的 detach 函数来抑制警告
+    try:
+        from opentelemetry import context as otel_context
+
+        _original_detach = otel_context.detach
+
+        def _silent_detach(token):
+            """静默版本的 detach，捕获并忽略 context 错误"""
+            try:
+                return _original_detach(token)
+            except ValueError as e:
+                if "was created in a different Context" in str(e):
+                    pass  # 静默忽略这个已知问题
+                else:
+                    raise
+
+        otel_context.detach = _silent_detach
+    except Exception:
+        pass  # 如果 patch 失败，继续运行
+
+
+# 全局初始化标志，确保只初始化一次
+_initialized = False
+_init_lock = threading.Lock()
+
+
+def _setup_phoenix_exporter(tracer_provider, config) -> None:
+    """设置 Phoenix 导出器"""
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    try:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+        phoenix_endpoint = f"{config.phoenix.endpoint}/v1/traces"
+        phoenix_exporter = OTLPSpanExporter(endpoint=phoenix_endpoint)
+        tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
+        logger.info(f"Observability: Phoenix 导出已启用 -> {phoenix_endpoint}")
+    except ImportError:
+        logger.warning("Phoenix 导出器依赖未安装，跳过 Phoenix 集成")
+    except Exception as e:
+        logger.warning(f"Phoenix 导出器初始化失败: {e}")
+
+
+def _setup_agno_instrumentor() -> None:
+    """设置 Agno Instrumentor"""
+    try:
+        from openinference.instrumentation.agno import AgnoInstrumentor
+
+        AgnoInstrumentor().instrument()
+        logger.info("Observability: Agno Instrumentor 已启用")
+    except ImportError:
+        logger.warning("AgnoInstrumentor 未安装，跳过自动 instrument")
+    except Exception as e:
+        logger.warning(f"AgnoInstrumentor 初始化失败: {e}")
+
+
+def setup_observability() -> bool:
+    """初始化观测系统
+
+    根据配置设置 OpenTelemetry tracing，支持：
+    - local: 本地 JSON 文件导出
+    - phoenix: Phoenix UI 导出
+    - both: 同时启用两者
+
+    Returns:
+        bool: 是否成功初始化
+    """
+    global _initialized
+
+    with _init_lock:
+        if _initialized:
+            return True
+
+        config = get_observability_config()
+        if not config.enabled:
+            logger.debug("Observability 已禁用")
+            return False
+
+        # 抑制 OTel context 警告（在异步环境中是正常的）
+        _suppress_otel_context_warnings()
+
+        try:
+            from opentelemetry import trace as trace_api
+            from opentelemetry.sdk import trace as trace_sdk
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+            from lifetrace.observability.exporters.file_exporter import LocalFileExporter
+
+            tracer_provider = trace_sdk.TracerProvider()
+
+            # 本地文件导出
+            if config.mode in ("local", "both"):
+                file_exporter = LocalFileExporter(
+                    traces_dir=config.local.traces_dir,
+                    max_files=config.local.max_files,
+                    pretty_print=config.local.pretty_print,
+                    summary_only=config.terminal.summary_only,
+                )
+                tracer_provider.add_span_processor(BatchSpanProcessor(file_exporter))
+                logger.info(f"Observability: 本地文件导出已启用 -> {config.local.traces_dir}")
+
+            # Phoenix 导出
+            if config.mode in ("phoenix", "both"):
+                _setup_phoenix_exporter(tracer_provider, config)
+
+            trace_api.set_tracer_provider(tracer_provider)
+            _setup_agno_instrumentor()
+
+            _initialized = True
+            logger.info(f"Observability 初始化成功，模式: {config.mode}")
+            return True
+
+        except ImportError as e:
+            logger.warning(f"Observability 依赖未安装: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Observability 初始化失败: {e}")
+            return False
+
+
+def is_observability_enabled() -> bool:
+    """检查观测系统是否已启用
+
+    Returns:
+        bool: 是否已启用
+    """
+    return _initialized

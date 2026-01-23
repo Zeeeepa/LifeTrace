@@ -1,0 +1,379 @@
+"""本地文件导出器
+
+将 OpenTelemetry spans 转换为可读的 JSON 格式并写入本地文件。
+设计目标：
+- Cursor 友好：结构化 JSON，便于 AI 分析
+- 人类可读：格式化输出，清晰的字段命名
+- 日志精简：Terminal 只输出一行摘要
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import threading
+from collections import defaultdict
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+from lifetrace.util.logging_config import get_logger
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+logger = get_logger()
+
+# OpenInference 语义约定中的常用属性
+OPENINFERENCE_SPAN_KIND = "openinference.span.kind"
+OPENINFERENCE_INPUT_VALUE = "input.value"
+OPENINFERENCE_OUTPUT_VALUE = "output.value"
+OPENINFERENCE_LLM_MODEL_NAME = "llm.model_name"
+OPENINFERENCE_LLM_INPUT_MESSAGES = "llm.input_messages"
+OPENINFERENCE_LLM_OUTPUT_MESSAGES = "llm.output_messages"
+OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT = "llm.token_count.prompt"
+OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION = "llm.token_count.completion"
+OPENINFERENCE_TOOL_NAME = "tool.name"
+OPENINFERENCE_TOOL_PARAMETERS = "tool.parameters"
+
+
+class LocalFileExporter(SpanExporter):
+    """本地 JSON 文件导出器
+
+    将 traces 写入本地 JSON 文件，支持：
+    - 按 trace_id 聚合 spans
+    - 格式化输出便于阅读
+    - Terminal 摘要输出
+    - 自动清理旧文件
+    """
+
+    def __init__(
+        self,
+        traces_dir: str = "traces/",
+        max_files: int = 100,
+        pretty_print: bool = True,
+        summary_only: bool = True,
+    ):
+        """初始化导出器
+
+        Args:
+            traces_dir: trace 文件存储目录（相对于 base_dir）
+            max_files: 最大保留文件数
+            pretty_print: 是否格式化 JSON 输出
+            summary_only: Terminal 是否只输出摘要
+        """
+        self.traces_dir = traces_dir
+        self.max_files = max_files
+        self.pretty_print = pretty_print
+        self.summary_only = summary_only
+        self._lock = threading.Lock()
+
+        # 用于聚合同一 trace 的 spans
+        self._pending_traces: dict[str, list[ReadableSpan]] = defaultdict(list)
+
+    def _get_traces_path(self) -> Path:
+        """获取 traces 目录路径"""
+        from lifetrace.util.path_utils import get_user_data_dir
+
+        traces_path = get_user_data_dir() / self.traces_dir
+        traces_path.mkdir(parents=True, exist_ok=True)
+        return traces_path
+
+    def _extract_span_kind(self, span: ReadableSpan) -> str:
+        """提取 span 类型"""
+        attrs = dict(span.attributes or {})
+        return str(attrs.get(OPENINFERENCE_SPAN_KIND, span.name))
+
+    def _extract_tool_call(self, span: ReadableSpan) -> dict[str, Any] | None:
+        """从 span 提取工具调用信息"""
+        attrs = dict(span.attributes or {})
+        span_kind = attrs.get(OPENINFERENCE_SPAN_KIND, "")
+
+        if span_kind != "TOOL" and "tool" not in span.name.lower():
+            return None
+
+        tool_name = attrs.get(OPENINFERENCE_TOOL_NAME, span.name)
+        tool_params = attrs.get(OPENINFERENCE_TOOL_PARAMETERS, "{}")
+
+        # 尝试解析参数
+        try:
+            if isinstance(tool_params, str):
+                args = json.loads(tool_params)
+            else:
+                args = tool_params
+        except (json.JSONDecodeError, TypeError):
+            args = {"raw": str(tool_params)}
+
+        # 获取结果
+        output = attrs.get(OPENINFERENCE_OUTPUT_VALUE, "")
+        result_preview = str(output)[:200] if output else ""
+
+        # 计算持续时间
+        duration_ms = 0
+        if span.start_time and span.end_time:
+            duration_ms = (span.end_time - span.start_time) / 1_000_000  # ns -> ms
+
+        return {
+            "name": str(tool_name),
+            "args": args,
+            "result_preview": result_preview,
+            "duration_ms": round(duration_ms, 2),
+        }
+
+    def _extract_llm_call(self, span: ReadableSpan) -> dict[str, Any] | None:
+        """从 span 提取 LLM 调用信息"""
+        attrs = dict(span.attributes or {})
+        span_kind = attrs.get(OPENINFERENCE_SPAN_KIND, "")
+
+        if span_kind != "LLM" and "llm" not in span.name.lower():
+            return None
+
+        model = attrs.get(OPENINFERENCE_LLM_MODEL_NAME, "unknown")
+        input_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT, 0)
+        output_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION, 0)
+
+        # 计算持续时间
+        duration_ms = 0
+        if span.start_time and span.end_time:
+            duration_ms = (span.end_time - span.start_time) / 1_000_000
+
+        return {
+            "model": str(model),
+            "input_tokens": int(input_tokens) if input_tokens else 0,
+            "output_tokens": int(output_tokens) if output_tokens else 0,
+            "duration_ms": round(duration_ms, 2),
+        }
+
+    def _aggregate_spans(self, spans: Sequence[ReadableSpan]) -> dict[str, Any]:
+        """将 spans 聚合为结构化的 trace 数据
+
+        Args:
+            spans: OpenTelemetry spans 列表
+
+        Returns:
+            聚合后的 trace 数据字典
+        """
+        if not spans:
+            return {}
+
+        # 获取基本信息
+        first_span = spans[0]
+        trace_id = format(first_span.context.trace_id, "032x") if first_span.context else "unknown"
+
+        # 找到根 span（通常是 agent 运行）
+        root_span = None
+        for span in spans:
+            if span.parent is None:
+                root_span = span
+                break
+        if root_span is None:
+            root_span = first_span
+
+        # 提取输入输出
+        root_attrs = dict(root_span.attributes or {})
+        input_value = root_attrs.get(OPENINFERENCE_INPUT_VALUE, "")
+        output_value = root_attrs.get(OPENINFERENCE_OUTPUT_VALUE, "")
+
+        # 计算总持续时间
+        start_time = min(s.start_time for s in spans if s.start_time)
+        end_time = max(s.end_time for s in spans if s.end_time)
+        total_duration_ms = (end_time - start_time) / 1_000_000 if start_time and end_time else 0
+
+        # 提取工具调用和 LLM 调用
+        tool_calls = []
+        llm_calls = []
+        for span in spans:
+            tool_call = self._extract_tool_call(span)
+            if tool_call:
+                tool_calls.append(tool_call)
+
+            llm_call = self._extract_llm_call(span)
+            if llm_call:
+                llm_calls.append(llm_call)
+
+        # 确定状态
+        status = "success"
+        for span in spans:
+            if span.status and span.status.is_ok is False:
+                status = "error"
+                break
+
+        # 生成时间戳
+        timestamp = datetime.now(UTC).isoformat()
+
+        return {
+            "trace_id": trace_id[:12],  # 使用短 ID
+            "timestamp": timestamp,
+            "duration_ms": round(total_duration_ms, 2),
+            "agent": root_span.name,
+            "input": str(input_value)[:500] if input_value else "",
+            "output_preview": str(output_value)[:500] if output_value else "",
+            "tool_calls": tool_calls,
+            "llm_calls": llm_calls,
+            "status": status,
+            "span_count": len(spans),
+        }
+
+    def _write_to_file(self, trace_data: dict[str, Any]) -> str | None:
+        """将 trace 数据写入 JSON 文件
+
+        Args:
+            trace_data: 聚合后的 trace 数据
+
+        Returns:
+            写入的文件路径，失败返回 None
+        """
+        if not trace_data:
+            return None
+
+        traces_path = self._get_traces_path()
+        trace_id = trace_data.get("trace_id", "unknown")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{trace_id}.json"
+        filepath = traces_path / filename
+
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                if self.pretty_print:
+                    json.dump(trace_data, f, ensure_ascii=False, indent=2)
+                else:
+                    json.dump(trace_data, f, ensure_ascii=False)
+
+            # 清理旧文件
+            self._cleanup_old_files(traces_path)
+
+            return str(filepath)
+        except Exception as e:
+            logger.error(f"写入 trace 文件失败: {e}")
+            return None
+
+    def _cleanup_old_files(self, traces_path: Path) -> None:
+        """清理超出限制的旧文件
+
+        Args:
+            traces_path: traces 目录路径
+        """
+        try:
+            json_files = sorted(
+                traces_path.glob("*.json"),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True,
+            )
+
+            if len(json_files) > self.max_files:
+                for old_file in json_files[self.max_files :]:
+                    try:
+                        old_file.unlink()
+                    except OSError:
+                        pass
+        except Exception:
+            pass  # 清理失败不影响主流程
+
+    def _print_summary(self, trace_data: dict[str, Any], filepath: str | None) -> None:
+        """输出 Terminal 摘要
+
+        Args:
+            trace_data: trace 数据
+            filepath: 文件路径
+        """
+        if not trace_data:
+            return
+
+        trace_id = trace_data.get("trace_id", "unknown")
+        tool_count = len(trace_data.get("tool_calls", []))
+        duration_ms = trace_data.get("duration_ms", 0)
+        duration_s = duration_ms / 1000
+
+        # 获取相对路径用于显示
+        if filepath:
+            try:
+                from lifetrace.util.path_utils import get_user_data_dir
+
+                rel_path = os.path.relpath(filepath, get_user_data_dir())
+            except Exception:
+                rel_path = filepath
+        else:
+            rel_path = "N/A"
+
+        if self.summary_only:
+            # 精简输出：一行摘要
+            logger.info(f"[Trace] {trace_id} | {tool_count} tools | {duration_s:.2f}s | {rel_path}")
+        else:
+            # 详细输出
+            logger.info(f"[Trace] {trace_id}")
+            logger.info(f"  Duration: {duration_s:.2f}s")
+            logger.info(f"  Tools: {tool_count}")
+            logger.info(f"  File: {rel_path}")
+            for tool in trace_data.get("tool_calls", []):
+                logger.info(f"    - {tool['name']}: {tool.get('duration_ms', 0):.0f}ms")
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        """导出 spans
+
+        Args:
+            spans: 要导出的 spans
+
+        Returns:
+            导出结果
+        """
+        if not spans:
+            return SpanExportResult.SUCCESS
+
+        with self._lock:
+            try:
+                # 按 trace_id 分组
+                traces: dict[str, list[ReadableSpan]] = defaultdict(list)
+                for span in spans:
+                    if span.context:
+                        trace_id = format(span.context.trace_id, "032x")
+                        traces[trace_id].append(span)
+
+                # 处理每个 trace
+                for trace_id, trace_spans in traces.items():
+                    # 检查是否有根 span（表示 trace 完成）
+                    has_root = any(s.parent is None for s in trace_spans)
+
+                    if has_root:
+                        # 合并之前缓存的 spans
+                        all_spans = self._pending_traces.pop(trace_id, []) + trace_spans
+
+                        # 聚合并写入
+                        trace_data = self._aggregate_spans(all_spans)
+                        if trace_data:
+                            filepath = self._write_to_file(trace_data)
+                            self._print_summary(trace_data, filepath)
+                    else:
+                        # 缓存非根 spans，等待完整 trace
+                        self._pending_traces[trace_id].extend(trace_spans)
+
+                return SpanExportResult.SUCCESS
+            except Exception as e:
+                logger.error(f"导出 spans 失败: {e}")
+                return SpanExportResult.FAILURE
+
+    def shutdown(self) -> None:
+        """关闭导出器，处理剩余的 spans"""
+        with self._lock:
+            # 导出所有缓存的 traces
+            for _trace_id, spans in self._pending_traces.items():
+                if spans:
+                    trace_data = self._aggregate_spans(spans)
+                    if trace_data:
+                        filepath = self._write_to_file(trace_data)
+                        self._print_summary(trace_data, filepath)
+            self._pending_traces.clear()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        """强制刷新
+
+        Args:
+            timeout_millis: 超时时间（毫秒）
+
+        Returns:
+            是否成功
+        """
+        # 对于文件导出器，export 已经是同步的，不需要特殊处理
+        return True
