@@ -63,6 +63,7 @@ dependencies = [
     # Observability (Phoenix + OpenInference)
     "arize-phoenix>=8.0.0",  # Phoenix 服务器和 UI（包含 phoenix serve 命令）
     "arize-phoenix-otel>=0.11.0",  # Phoenix OTEL 集成
+    "openinference-instrumentation>=0.1.0",  # OpenInference 基础工具（using_session 等）
     "openinference-instrumentation-agno>=0.1.0",  # Agno 自动 instrument
     "opentelemetry-sdk>=1.20.0",
     "opentelemetry-exporter-otlp-proto-http>=1.20.0",
@@ -72,6 +73,7 @@ dependencies = [
     # Windows specific dependencies (only install on Windows)
     "pywin32>=306; sys_platform == 'win32'",
     "openinference-instrumentation-openai>=0.1.41",
+    "agno-infra>=1.0.7",
 ]
 
 # Ruff 配置 - Python linter 和 formatter

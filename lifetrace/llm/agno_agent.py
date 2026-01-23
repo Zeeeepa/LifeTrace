@@ -6,6 +6,8 @@
 支持 session_id 传递，实现按会话聚合 trace 文件。
 """
 
+from __future__ import annotations
+
 import json
 from collections.abc import Generator
 from contextvars import ContextVar
@@ -185,22 +187,24 @@ class AgnoAgentService:
             message: 用户消息
             conversation_history: 对话历史，格式为 [{"role": "user|assistant", "content": "..."}]
             include_tool_events: 是否包含工具调用事件（默认 True）
-            session_id: 会话 ID，用于 trace 文件按会话聚合
+            session_id: 会话 ID，用于 trace 文件按会话聚合和 Phoenix session 追踪
 
         Yields:
             回复内容片段（字符串），如果 include_tool_events=True，
             工具调用事件会以特殊格式输出：[TOOL_EVENT:{"type":"...","data":{...}}]
         """
-        # 设置 session_id 到 ContextVar，供 file_exporter 读取
-        # 注意：使用 set(None) 而非 reset(token)，因为 StreamingResponse 的生成器
-        # 可能在不同的 Context 中执行，reset() 要求 token 在同一 Context 创建
+        # 设置本地 ContextVar（用于 file_exporter 按会话聚合）
         current_session_id.set(session_id)
+
         try:
             input_data = self._build_input_data(message, conversation_history)
+            # 直接将 session_id 传递给 agent.run()
+            # Agno Instrumentor 会从参数中读取 session_id 并设置为 span 属性
             stream = self.agent.run(
                 input_data,
                 stream=True,
                 stream_events=include_tool_events,
+                session_id=session_id,  # 传递给 Agno，用于 Phoenix session 追踪
             )
 
             for chunk in stream:
@@ -212,7 +216,7 @@ class AgnoAgentService:
             logger.error(f"Agno Agent 流式生成失败: {e}")
             yield f"Agno Agent 处理失败: {str(e)}"
         finally:
-            # 清理 ContextVar（使用 set(None) 而非 reset(token) 避免跨 Context 错误）
+            # 清理 ContextVar
             current_session_id.set(None)
 
     def is_available(self) -> bool:
