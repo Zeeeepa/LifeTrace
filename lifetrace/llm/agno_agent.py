@@ -51,29 +51,39 @@ class AgnoAgentService:
     - Streaming responses
     """
 
-    def __init__(self, lang: str | None = None):
+    def __init__(self, lang: str | None = None, selected_tools: list[str] | None = None):
         """初始化 Agno Agent 服务
 
         Args:
             lang: Language code for messages ('zh' or 'en').
                   If None, uses DEFAULT_LANG or settings default.
+            selected_tools: List of tool names to enable. If None or empty, all tools are enabled.
         """
         try:
             # Determine language
             self.lang = lang or DEFAULT_LANG
 
             # Initialize toolkit with language support
-            toolkit = FreeTodoToolkit(lang=self.lang)
+            toolkit = FreeTodoToolkit(lang=self.lang, selected_tools=selected_tools)
 
-            # Load instructions from agno_tools/{lang}/instructions.yaml
-            # The key in the YAML file is "instructions", not "instructions_{lang}"
-            # get_message already handles fallback to English if key not found
-            instructions = get_message(self.lang, "instructions")
+            # 判断是否使用全部工具（FreeTodoToolkit 有 14 个工具）
+            # 如果只选择了部分工具，使用简化的 instructions，避免 LLM 尝试调用不存在的工具
+            total_tools_count = 14
+            use_all_tools = not selected_tools or len(selected_tools) == total_tools_count
 
-            # Build instructions list (skip if not found, which returns "[instructions]")
-            instructions_list = (
-                [instructions] if instructions and instructions != "[instructions]" else None
-            )
+            if use_all_tools:
+                # Load full instructions from agno_tools/{lang}/instructions.yaml
+                instructions = get_message(self.lang, "instructions")
+                instructions_list = (
+                    [instructions] if instructions and instructions != "[instructions]" else None
+                )
+            elif self.lang == "zh":
+                # 使用简化的 instructions，只告诉 LLM 使用提供的工具
+                instructions_list = ["你是 FreeTodo 智能助手，可以帮助用户管理待办事项。"]
+            else:
+                instructions_list = [
+                    "You are the FreeTodo assistant that helps users manage their todos. "
+                ]
 
             # 复用现有 LLM 配置
             self.agent = Agent(

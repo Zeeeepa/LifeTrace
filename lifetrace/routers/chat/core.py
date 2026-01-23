@@ -380,8 +380,12 @@ def _create_agno_streaming_response(
         content=message.message,
     )
 
-    # 创建 Agno Agent 服务（传入语言参数）
-    agno_service = AgnoAgentService(lang=lang)
+    # 获取前端传递的工具选择列表
+    selected_tools = getattr(message, "selected_tools", None)
+    logger.info(f"[stream][agno] Received selected_tools from frontend: {selected_tools}")
+
+    # 创建 Agno Agent 服务（传入语言参数和工具选择）
+    agno_service = AgnoAgentService(lang=lang, selected_tools=selected_tools)
 
     # 获取对话历史（用于上下文）
     conversation_history = None

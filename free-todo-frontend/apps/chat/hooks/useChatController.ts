@@ -14,6 +14,7 @@ import { sendChatMessageStream } from "@/lib/api";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 import { useChatHistory, useChatSessions, useTodos } from "@/lib/query";
 import { useChatStore } from "@/lib/store/chat-store";
+import { useUiStore } from "@/lib/store/ui-store";
 import type { CreateTodoInput, Todo } from "@/lib/types";
 
 type UseChatControllerParams = {
@@ -77,6 +78,14 @@ export const useChatController = ({
 		setConversationId,
 		setHistoryOpen,
 	} = useChatStore();
+
+	// 从 ui-store 读取选中的 Agno 工具
+	const selectedAgnoTools = useUiStore((state) => state.selectedAgnoTools);
+
+	// 调试：打印 selectedAgnoTools 的值
+	useEffect(() => {
+		console.log("[useChatController] Current selectedAgnoTools:", selectedAgnoTools);
+	}, [selectedAgnoTools]);
 
 	// 使用 TanStack Query 获取会话列表
 	const {
@@ -258,6 +267,12 @@ export const useChatController = ({
 							? "agno"
 							: chatMode;
 
+			// 调试日志：查看选中的工具和模式
+			console.log("[useChatController] chatMode:", chatMode);
+			console.log("[useChatController] modeForBackend:", modeForBackend);
+			console.log("[useChatController] selectedAgnoTools:", selectedAgnoTools);
+			console.log("[useChatController] Will send selectedTools:", chatMode === "agno" ? selectedAgnoTools : undefined);
+
 			await sendChatMessageStream(
 				{
 					message: payloadMessage,
@@ -267,6 +282,8 @@ export const useChatController = ({
 					// agent 模式使用 useRag=false，因为工具调用逻辑在后端独立处理
 					useRag: false,
 					mode: modeForBackend,
+					// Agno 模式下传递选中的工具列表
+					selectedTools: chatMode === "agno" ? selectedAgnoTools : undefined,
 				},
 				(chunk) => {
 					// 检查是否已取消
@@ -460,6 +477,7 @@ export const useChatController = ({
 		locale,
 		parsePlanTodos,
 		planSystemPrompt,
+		selectedAgnoTools,
 		t,
 		tCommon,
 		todos,

@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { InputBox } from "@/apps/chat/components/input/InputBox";
 import { LinkedTodos } from "@/apps/chat/components/input/LinkedTodos";
 import { ModeSwitcher } from "@/apps/chat/components/input/ModeSwitcher";
+import { ToolSelector } from "@/apps/chat/components/input/ToolSelector";
 import type { ChatMode } from "@/apps/chat/types";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo } from "@/lib/types";
@@ -59,6 +60,10 @@ export function ChatInputSection({
 	const modeMenuRef = useRef<HTMLDivElement | null>(null);
 	// 从 ui-store 读取是否显示模式切换器
 	const showModeSwitcher = useUiStore((state) => state.showModeSwitcher);
+	// 从 ui-store 读取是否显示 Agno 工具选择器
+	const showAgnoToolSelector = useUiStore(
+		(state) => state.showAgnoToolSelector,
+	);
 
 	const inputPlaceholder =
 		chatMode === "plan"
@@ -108,6 +113,10 @@ export function ChatInputSection({
 								}}
 								variant="inline"
 							/>
+							{/* 在 Agno 模式下显示工具选择器 */}
+							{chatMode === "agno" && showAgnoToolSelector && (
+								<ToolSelector disabled={isStreaming} />
+							)}
 						</div>
 					) : null
 				}

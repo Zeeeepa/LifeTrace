@@ -136,6 +136,11 @@
 			"defaultChatModeLabel": "默认聊天模式",
 			"defaultChatModeHint": "页面刷新时将自动进入此模式",
 			"defaultChatModeChanged": "默认聊天模式已更新",
+			"agnoToolSelectorTitle": "Agno 工具选择器",
+			"agnoToolSelectorLabel": "显示工具选择按钮",
+			"agnoToolSelectorHint": "开启后，在 Agno 模式下会显示工具选择按钮",
+			"agnoToolSelectorEnabled": "已启用工具选择器",
+			"agnoToolSelectorDisabled": "已关闭工具选择器",
 			"audioSettings": "音频录制设置",
 			"enable24x7Recording": "7x24小时录制",
 			"enable24x7RecordingDesc": "启用后，录音将自动标记为7x24小时录制模式",
@@ -397,6 +402,22 @@
 			"toggle": "切换联网搜索",
 			"enabled": "联网搜索已启用",
 			"disabled": "联网搜索已禁用"
+		},
+		"toolSelector": {
+			"label": "工具",
+			"title": "选择工具",
+			"selectAll": "全选",
+			"deselectAll": "取消全选",
+			"selectedCount": "已选择 {count} 个工具",
+			"allSelected": "使用所有工具",
+			"categories": {
+				"todo": "待办管理",
+				"breakdown": "任务拆解",
+				"time": "时间解析",
+				"conflict": "冲突检测",
+				"stats": "统计分析",
+				"tags": "标签管理"
+			}
 		},
 		"sources": "来源",
 		"todoContext": {

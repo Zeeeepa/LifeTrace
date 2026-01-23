@@ -44,11 +44,12 @@ class FreeTodoToolkit(
     - Tag management: list_tags, get_todos_by_tag, suggest_tags
     """
 
-    def __init__(self, lang: str = "en", **kwargs):
+    def __init__(self, lang: str = "en", selected_tools: list[str] | None = None, **kwargs):
         """Initialize FreeTodoToolkit
 
         Args:
             lang: Language code for messages ('zh' or 'en'), defaults to 'en'
+            selected_tools: List of tool names to enable. If None or empty, all tools are enabled.
             **kwargs: Additional arguments passed to Toolkit base class
         """
         self.lang = lang
@@ -63,29 +64,41 @@ class FreeTodoToolkit(
         self.db_base = db_base
         self.todo_repo = SqlTodoRepository(db_base)
 
-        # Register all tools from mixins
-        tools = [
+        # All available tools
+        all_tools = {
             # Todo management (from TodoTools)
-            self.create_todo,
-            self.complete_todo,
-            self.update_todo,
-            self.list_todos,
-            self.search_todos,
-            self.delete_todo,
+            "create_todo": self.create_todo,
+            "complete_todo": self.complete_todo,
+            "update_todo": self.update_todo,
+            "list_todos": self.list_todos,
+            "search_todos": self.search_todos,
+            "delete_todo": self.delete_todo,
             # Task breakdown (from BreakdownTools)
-            self.breakdown_task,
+            "breakdown_task": self.breakdown_task,
             # Time parsing (from TimeTools)
-            self.parse_time,
+            "parse_time": self.parse_time,
             # Conflict detection (from ConflictTools)
-            self.check_schedule_conflict,
+            "check_schedule_conflict": self.check_schedule_conflict,
             # Statistics (from StatsTools)
-            self.get_todo_stats,
-            self.get_overdue_todos,
+            "get_todo_stats": self.get_todo_stats,
+            "get_overdue_todos": self.get_overdue_todos,
             # Tag management (from TagTools)
-            self.list_tags,
-            self.get_todos_by_tag,
-            self.suggest_tags,
-        ]
+            "list_tags": self.list_tags,
+            "get_todos_by_tag": self.get_todos_by_tag,
+            "suggest_tags": self.suggest_tags,
+        }
+
+        # Filter tools based on selected_tools
+        if selected_tools and len(selected_tools) > 0:
+            tools = [all_tools[tool_name] for tool_name in selected_tools if tool_name in all_tools]
+            logger.info(
+                f"FreeTodoToolkit initialized with lang={lang}, "
+                f"selected {len(tools)} tools: {selected_tools}"
+            )
+        else:
+            tools = list(all_tools.values())
+            logger.info(
+                f"FreeTodoToolkit initialized with lang={lang}, all {len(tools)} tools enabled"
+            )
 
         super().__init__(name="freetodo_toolkit", tools=tools, **kwargs)
-        logger.info(f"FreeTodoToolkit initialized with lang={lang}, tools={len(tools)}")

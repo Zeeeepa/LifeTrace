@@ -16,6 +16,7 @@ export interface SendChatParams {
 	conversationId?: string;
 	useRag?: boolean;
 	mode?: string;
+	selectedTools?: string[];
 }
 
 /**
@@ -106,21 +107,26 @@ export async function sendChatMessageStream(
 	console.log("[sendChatMessageStream] baseUrl:", baseUrl);
 	console.log("[sendChatMessageStream] apiUrl:", apiUrl);
 	console.log("[sendChatMessageStream] params:", params);
+	console.log("[sendChatMessageStream] selectedTools:", params.selectedTools);
 
 	let response: Response;
 	try {
+		const requestBody = {
+			message: params.message,
+			conversation_id: params.conversationId,
+			use_rag: params.useRag,
+			mode: params.mode,
+			selected_tools: params.selectedTools,
+		};
+		console.log("[sendChatMessageStream] Request body:", requestBody);
+
 		response = await fetch(apiUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"Accept-Language": locale || "en",
 			},
-			body: JSON.stringify({
-				message: params.message,
-				conversation_id: params.conversationId,
-				use_rag: params.useRag,
-				mode: params.mode,
-			}),
+			body: JSON.stringify(requestBody),
 			signal,
 		});
 	} catch (error) {

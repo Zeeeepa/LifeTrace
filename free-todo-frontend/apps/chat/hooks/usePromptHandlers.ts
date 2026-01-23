@@ -9,6 +9,7 @@ import {
 	buildTodoContextBlock,
 } from "@/apps/chat/utils/todoContext";
 import { sendChatMessageStream } from "@/lib/api";
+import { useUiStore } from "@/lib/store/ui-store";
 import type { CreateTodoInput, Todo } from "@/lib/types";
 
 type UsePromptHandlersParams = {
@@ -62,6 +63,9 @@ export const usePromptHandlers = ({
 }: UsePromptHandlersParams) => {
 	const tChat = useTranslations("chat");
 	const tCommon = useTranslations("common");
+
+	// 从 ui-store 读取选中的 Agno 工具
+	const selectedAgnoTools = useUiStore((state) => state.selectedAgnoTools);
 
 	// 验证 prompt 输入和检查系统提示词是否已加载
 	const validatePromptInput = useCallback(
@@ -204,11 +208,23 @@ export const usePromptHandlers = ({
 			assistantMessageId: string,
 		): Promise<{ content: string; aborted: boolean }> => {
 			let assistantContent = "";
-			const modeForBackend = chatMode === "difyTest" ? "dify_test" : chatMode;
+			// 根据聊天模式选择后端模式
+			const modeForBackend =
+				chatMode === "difyTest"
+					? "dify_test"
+					: chatMode === "ask"
+						? "agent"
+						: chatMode === "agno"
+							? "agno"
+							: chatMode;
 
 			// 创建新的 AbortController 并存入共享 ref
 			const abortController = new AbortController();
 			abortControllerRef.current = abortController;
+
+			// 调试日志
+			console.log("[usePromptHandlers] chatMode:", chatMode);
+			console.log("[usePromptHandlers] selectedAgnoTools:", selectedAgnoTools);
 
 			try {
 				await sendChatMessageStream(
@@ -218,6 +234,8 @@ export const usePromptHandlers = ({
 						// 当发送格式化消息（包含todo上下文）时，设置useRag=false
 						useRag: false,
 						mode: modeForBackend,
+						// Agno 模式下传递选中的工具列表
+						selectedTools: chatMode === "agno" ? selectedAgnoTools : undefined,
 					},
 					(chunk) => {
 						// 检查是否已取消
@@ -252,7 +270,7 @@ export const usePromptHandlers = ({
 				abortControllerRef.current = null;
 			}
 		},
-		[chatMode, conversationId, setConversationId, updateAssistantMessage, abortControllerRef, locale],
+		[chatMode, conversationId, setConversationId, updateAssistantMessage, abortControllerRef, locale, selectedAgnoTools],
 	);
 
 	// 处理预设prompt选择：直接发送消息，不设置到输入框

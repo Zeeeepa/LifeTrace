@@ -38,6 +38,10 @@ export interface UiStoreState {
 	showModeSwitcher: boolean;
 	// 默认聊天模式（页面刷新时使用）
 	defaultChatMode: ChatMode;
+	// 是否显示 Agno 模式的工具选择器（默认关闭）
+	showAgnoToolSelector: boolean;
+	// Agno 模式下选中的工具列表（空数组表示使用所有工具）
+	selectedAgnoTools: string[];
 	// 位置槽位 toggle 方法
 	togglePanelA: () => void;
 	togglePanelB: () => void;
@@ -75,4 +79,8 @@ export interface UiStoreState {
 	setShowModeSwitcher: (show: boolean) => void;
 	// 设置默认聊天模式
 	setDefaultChatMode: (mode: ChatMode) => void;
+	// 设置是否显示 Agno 工具选择器
+	setShowAgnoToolSelector: (show: boolean) => void;
+	// 设置 Agno 模式下选中的工具
+	setSelectedAgnoTools: (tools: string[]) => void;
 }

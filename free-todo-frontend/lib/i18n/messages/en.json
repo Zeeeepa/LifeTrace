@@ -135,6 +135,11 @@
 			"defaultChatModeLabel": "Default Chat Mode",
 			"defaultChatModeHint": "This mode will be automatically selected when the page refreshes",
 			"defaultChatModeChanged": "Default chat mode updated",
+			"agnoToolSelectorTitle": "Agno Tool Selector",
+			"agnoToolSelectorLabel": "Show Tool Selection Button",
+			"agnoToolSelectorHint": "When enabled, a tool selection button will appear in Agno mode",
+			"agnoToolSelectorEnabled": "Tool selector enabled",
+			"agnoToolSelectorDisabled": "Tool selector disabled",
 			"audioSettings": "Audio Recording Settings",
 			"enable24x7Recording": "7x24 Hour Recording",
 			"enable24x7RecordingDesc": "When enabled, recordings will be automatically marked as 7x24 hour recording mode",
@@ -396,6 +401,22 @@
 			"toggle": "Toggle web search",
 			"enabled": "Web search enabled",
 			"disabled": "Web search disabled"
+		},
+		"toolSelector": {
+			"label": "Tools",
+			"title": "Select Tools",
+			"selectAll": "Select All",
+			"deselectAll": "Deselect All",
+			"selectedCount": "{count} tools selected",
+			"allSelected": "All tools enabled",
+			"categories": {
+				"todo": "Todo Management",
+				"breakdown": "Task Breakdown",
+				"time": "Time Parsing",
+				"conflict": "Conflict Detection",
+				"stats": "Statistics",
+				"tags": "Tag Management"
+			}
 		},
 		"sources": "Sources",
 		"todoContext": {

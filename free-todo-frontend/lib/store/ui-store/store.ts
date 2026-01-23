@@ -33,6 +33,10 @@ export const useUiStore = create<UiStoreState>()(
 			showModeSwitcher: DEFAULT_PANEL_STATE.showModeSwitcher,
 			// 默认聊天模式
 			defaultChatMode: DEFAULT_PANEL_STATE.defaultChatMode,
+			// 是否显示 Agno 工具选择器
+			showAgnoToolSelector: DEFAULT_PANEL_STATE.showAgnoToolSelector,
+			// Agno 模式下选中的工具
+			selectedAgnoTools: DEFAULT_PANEL_STATE.selectedAgnoTools,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -391,6 +395,18 @@ export const useUiStore = create<UiStoreState>()(
 				set(() => ({
 					defaultChatMode: mode,
 				})),
+
+			// 设置是否显示 Agno 工具选择器
+			setShowAgnoToolSelector: (show) =>
+				set(() => ({
+					showAgnoToolSelector: show,
+				})),
+
+			// 设置 Agno 模式下选中的工具
+			setSelectedAgnoTools: (tools) =>
+				set(() => ({
+					selectedAgnoTools: tools,
+				})),
 		}),
 		{
 			name: "ui-panel-config",
@@ -496,6 +512,23 @@ export const useUiStore = create<UiStoreState>()(
 								!validChatModes.includes(state.defaultChatMode)
 							) {
 								state.defaultChatMode = DEFAULT_PANEL_STATE.defaultChatMode;
+							}
+
+							// 校验 showAgnoToolSelector（默认 false）
+							if (typeof state.showAgnoToolSelector !== "boolean") {
+								state.showAgnoToolSelector =
+									DEFAULT_PANEL_STATE.showAgnoToolSelector;
+							}
+
+							// 校验 selectedAgnoTools（默认空数组）
+							if (!Array.isArray(state.selectedAgnoTools)) {
+								state.selectedAgnoTools =
+									DEFAULT_PANEL_STATE.selectedAgnoTools;
+							} else {
+								// 确保数组中的元素都是字符串
+								state.selectedAgnoTools = state.selectedAgnoTools.filter(
+									(tool: unknown): tool is string => typeof tool === "string",
+								);
 							}
 
 							// 如果有功能被禁用，确保对应位置不再保留

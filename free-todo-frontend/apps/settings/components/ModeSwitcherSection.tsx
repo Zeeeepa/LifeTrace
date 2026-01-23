@@ -25,6 +25,12 @@ export function ModeSwitcherSection({
 	const setShowModeSwitcher = useUiStore((state) => state.setShowModeSwitcher);
 	const defaultChatMode = useUiStore((state) => state.defaultChatMode);
 	const setDefaultChatMode = useUiStore((state) => state.setDefaultChatMode);
+	const showAgnoToolSelector = useUiStore(
+		(state) => state.showAgnoToolSelector,
+	);
+	const setShowAgnoToolSelector = useUiStore(
+		(state) => state.setShowAgnoToolSelector,
+	);
 
 	const handleToggle = (enabled: boolean) => {
 		setShowModeSwitcher(enabled);
@@ -38,6 +44,15 @@ export function ModeSwitcherSection({
 	const handleDefaultModeChange = (mode: ChatMode) => {
 		setDefaultChatMode(mode);
 		toastSuccess(tSettings("defaultChatModeChanged"));
+	};
+
+	const handleToolSelectorToggle = (enabled: boolean) => {
+		setShowAgnoToolSelector(enabled);
+		toastSuccess(
+			enabled
+				? tSettings("agnoToolSelectorEnabled")
+				: tSettings("agnoToolSelectorDisabled"),
+		);
 	};
 
 	const chatModes: ChatMode[] = ["ask", "plan", "edit", "difyTest", "agno"];
@@ -96,6 +111,29 @@ export function ModeSwitcherSection({
 			</div>
 			<p className="mt-2 text-xs text-muted-foreground">
 				{tSettings("defaultChatModeHint")}
+			</p>
+
+			{/* Agno 工具选择器开关 */}
+			<div className="mt-4 flex items-center justify-between">
+				<div className="flex-1 flex items-center gap-2">
+					<MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+					<label
+						htmlFor="agno-tool-selector-toggle"
+						className="text-sm font-medium text-foreground cursor-pointer"
+					>
+						{tSettings("agnoToolSelectorLabel")}
+					</label>
+				</div>
+				<ToggleSwitch
+					id="agno-tool-selector-toggle"
+					enabled={showAgnoToolSelector}
+					disabled={loading}
+					onToggle={handleToolSelectorToggle}
+					ariaLabel={tSettings("agnoToolSelectorLabel")}
+				/>
+			</div>
+			<p className="mt-2 text-xs text-muted-foreground">
+				{tSettings("agnoToolSelectorHint")}
 			</p>
 		</SettingsSection>
 	);
