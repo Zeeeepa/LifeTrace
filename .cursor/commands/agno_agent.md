@@ -25,18 +25,26 @@ lifetrace/
 │   │   └── tags.yaml              # Tag management messages
 │   └── en/                        # English messages (same structure)
 │
-└── llm/agno_tools/                # Python implementation
+├── llm/agno_tools/                # Python implementation
+│   ├── __init__.py                # Module exports
+│   ├── base.py                    # Message loader (AgnoToolsMessageLoader)
+│   ├── toolkit.py                 # Main FreeTodoToolkit class
+│   └── tools/                     # Individual tool implementations
+│       ├── __init__.py            # Tool exports
+│       ├── todo_tools.py          # Todo CRUD (6 methods)
+│       ├── breakdown_tools.py     # Task breakdown (1 method)
+│       ├── time_tools.py          # Time parsing (1 method)
+│       ├── conflict_tools.py      # Conflict detection (1 method)
+│       ├── stats_tools.py         # Statistics (2 methods)
+│       └── tag_tools.py           # Tag management (3 methods)
+│
+└── observability/                 # Agent monitoring (Phoenix + OpenInference)
     ├── __init__.py                # Module exports
-    ├── base.py                    # Message loader (AgnoToolsMessageLoader)
-    ├── toolkit.py                 # Main FreeTodoToolkit class
-    └── tools/                     # Individual tool implementations
-        ├── __init__.py            # Tool exports
-        ├── todo_tools.py          # Todo CRUD (6 methods)
-        ├── breakdown_tools.py     # Task breakdown (1 method)
-        ├── time_tools.py          # Time parsing (1 method)
-        ├── conflict_tools.py      # Conflict detection (1 method)
-        ├── stats_tools.py         # Statistics (2 methods)
-        └── tag_tools.py           # Tag management (3 methods)
+    ├── config.py                  # Observability configuration
+    ├── setup.py                   # Initialization entry point
+    └── exporters/
+        ├── __init__.py
+        └── file_exporter.py       # Local JSON file exporter
 ```
 
 ### Design Patterns
@@ -300,6 +308,80 @@ print(tk.parse_time('明天下午3点'))
 | `list_tags()` | List all tags with counts |
 | `get_todos_by_tag(tag)` | Get todos by tag |
 | `suggest_tags(todo_name)` | Suggest tags using LLM |
+
+---
+
+## 📊 Observability (Agent Monitoring)
+
+The Agno Agent integrates with [Arize Phoenix](https://arize.com/docs/phoenix) + [OpenInference](https://github.com/arize-ai/openinference) for tracing and monitoring.
+
+### Features
+
+- **Local JSON Export**: Cursor-friendly trace files for AI analysis
+- **Phoenix UI**: Optional web-based visualization
+- **Minimal Terminal Output**: One-line summary per trace
+
+### Configuration
+
+In `config/config.yaml`:
+
+```yaml
+observability:
+  enabled: true                    # Enable observability
+  mode: both                       # local | phoenix | both
+  local:
+    traces_dir: traces/            # Trace file directory
+    max_files: 100                 # Max files to keep
+    pretty_print: true             # Format JSON for readability
+  phoenix:
+    endpoint: http://localhost:6006
+    project_name: freetodo-agent
+  terminal:
+    summary_only: true             # One-line output (recommended)
+```
+
+### Trace File Format
+
+Each agent run generates a JSON file in `data/traces/`:
+
+```json
+{
+  "trace_id": "e078e147372a",
+  "timestamp": "2026-01-23T08:23:48.377470+00:00",
+  "duration_ms": 26910.94,
+  "agent": "breakdown_task",
+  "input": "{\"task_description\": \"Make a video\"}",
+  "output_preview": "Task breakdown:\n1. Define topic...",
+  "tool_calls": [
+    {
+      "name": "breakdown_task",
+      "args": {"task_description": "Make a video"},
+      "result_preview": "Task breakdown...",
+      "duration_ms": 26910.94
+    }
+  ],
+  "llm_calls": [],
+  "status": "success",
+  "span_count": 1
+}
+```
+
+### Terminal Output
+
+With `summary_only: true`:
+
+```
+[Trace] e078e147372a | 1 tools | 26.91s | traces/20260123_082348_e078e147372a.json
+```
+
+### Using Phoenix UI (Optional)
+
+```bash
+# Start Phoenix server
+uv run phoenix serve
+
+# Access http://localhost:6006
+```
 
 ---
 

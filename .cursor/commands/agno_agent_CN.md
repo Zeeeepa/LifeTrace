@@ -25,18 +25,26 @@ lifetrace/
 │   │   └── tags.yaml              # 标签管理消息
 │   └── en/                        # 英文消息（结构相同）
 │
-└── llm/agno_tools/                # Python 实现
+├── llm/agno_tools/                # Python 实现
+│   ├── __init__.py                # 模块导出
+│   ├── base.py                    # 消息加载器 (AgnoToolsMessageLoader)
+│   ├── toolkit.py                 # 主 FreeTodoToolkit 类
+│   └── tools/                     # 各工具实现
+│       ├── __init__.py            # 工具导出
+│       ├── todo_tools.py          # Todo CRUD (6 个方法)
+│       ├── breakdown_tools.py     # 任务拆解 (1 个方法)
+│       ├── time_tools.py          # 时间解析 (1 个方法)
+│       ├── conflict_tools.py      # 冲突检测 (1 个方法)
+│       ├── stats_tools.py         # 统计分析 (2 个方法)
+│       └── tag_tools.py           # 标签管理 (3 个方法)
+│
+└── observability/                 # Agent 监控（Phoenix + OpenInference）
     ├── __init__.py                # 模块导出
-    ├── base.py                    # 消息加载器 (AgnoToolsMessageLoader)
-    ├── toolkit.py                 # 主 FreeTodoToolkit 类
-    └── tools/                     # 各工具实现
-        ├── __init__.py            # 工具导出
-        ├── todo_tools.py          # Todo CRUD (6 个方法)
-        ├── breakdown_tools.py     # 任务拆解 (1 个方法)
-        ├── time_tools.py          # 时间解析 (1 个方法)
-        ├── conflict_tools.py      # 冲突检测 (1 个方法)
-        ├── stats_tools.py         # 统计分析 (2 个方法)
-        └── tag_tools.py           # 标签管理 (3 个方法)
+    ├── config.py                  # 观测配置
+    ├── setup.py                   # 初始化入口
+    └── exporters/
+        ├── __init__.py
+        └── file_exporter.py       # 本地 JSON 文件导出器
 ```
 
 ### 设计模式
@@ -300,6 +308,80 @@ print(tk.parse_time('明天下午3点'))
 | `list_tags()` | 列出所有标签及计数 |
 | `get_todos_by_tag(tag)` | 按标签获取待办 |
 | `suggest_tags(todo_name)` | 使用 LLM 推荐标签 |
+
+---
+
+## 📊 可观测性（Agent 监控）
+
+Agno Agent 集成了 [Arize Phoenix](https://arize.com/docs/phoenix) + [OpenInference](https://github.com/arize-ai/openinference) 进行链路追踪和监控。
+
+### 功能特性
+
+- **本地 JSON 导出**：Cursor 友好的 trace 文件，便于 AI 分析
+- **Phoenix UI**：可选的 Web 可视化界面
+- **精简终端输出**：每次 trace 仅输出一行摘要
+
+### 配置方法
+
+在 `config/config.yaml` 中：
+
+```yaml
+observability:
+  enabled: true                    # 启用观测功能
+  mode: both                       # local | phoenix | both
+  local:
+    traces_dir: traces/            # trace 文件目录
+    max_files: 100                 # 最大保留文件数
+    pretty_print: true             # 格式化 JSON 便于阅读
+  phoenix:
+    endpoint: http://localhost:6006
+    project_name: freetodo-agent
+  terminal:
+    summary_only: true             # 仅输出一行摘要（推荐）
+```
+
+### Trace 文件格式
+
+每次 Agent 运行会在 `data/traces/` 生成一个 JSON 文件：
+
+```json
+{
+  "trace_id": "e078e147372a",
+  "timestamp": "2026-01-23T08:23:48.377470+00:00",
+  "duration_ms": 26910.94,
+  "agent": "breakdown_task",
+  "input": "{\"task_description\": \"做视频\"}",
+  "output_preview": "任务拆解结果:\n1. 确定视频主题...",
+  "tool_calls": [
+    {
+      "name": "breakdown_task",
+      "args": {"task_description": "做视频"},
+      "result_preview": "任务拆解结果...",
+      "duration_ms": 26910.94
+    }
+  ],
+  "llm_calls": [],
+  "status": "success",
+  "span_count": 1
+}
+```
+
+### 终端输出
+
+启用 `summary_only: true` 时：
+
+```
+[Trace] e078e147372a | 1 tools | 26.91s | traces/20260123_082348_e078e147372a.json
+```
+
+### 使用 Phoenix UI（可选）
+
+```bash
+# 启动 Phoenix 服务
+uv run phoenix serve
+
+# 访问 http://localhost:6006
+```
 
 ---
 
