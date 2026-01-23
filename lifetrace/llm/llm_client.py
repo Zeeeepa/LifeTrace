@@ -132,11 +132,13 @@ class LLMClient:
         if not self.is_available():
             raise RuntimeError("LLM客户端不可用，无法进行流式生成")
         try:
+            # 关闭 enable_thinking 以提升性能（方案 B）
+            # 如果未来需要思考模式，可以通过参数控制
             stream = self.client.chat.completions.create(
                 model=model or self.model,
                 messages=messages,
                 temperature=temperature,
-                extra_body={"enable_thinking": True},
+                # extra_body={"enable_thinking": True},  # 已移除以提升性能
                 stream=True,
             )
             for chunk in stream:

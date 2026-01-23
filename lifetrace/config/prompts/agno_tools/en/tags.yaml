@@ -10,7 +10,23 @@ todos_by_tag_header: "Todos with tag \"{tag}\" ({count} items):\n"
 todos_by_tag_item: "- #{id} [{status}] {name}"
 todos_by_tag_empty: "No todos found with tag \"{tag}\""
 
-# Tag suggestion
+# Tag suggestion guide (for Agent to suggest directly, avoiding nested LLM calls)
+suggest_tags_guide: |
+  Please suggest 3-5 appropriate tags based on the following todo name.
+
+  **Todo name:** {todo_name}
+
+  **Existing tags (for reference, you can reuse or create new ones):** {existing_tags}
+
+  **Suggestion Requirements:**
+  1. Suggest 3-5 relevant tags
+  2. Prefer reusing existing tags when appropriate
+  3. Create new tags if existing ones don't fit
+  4. Tags should be concise, meaningful, and useful for categorization
+
+  Please suggest tags directly and display the results without calling other tools. Format: Suggested tags: tag1, tag2, tag3
+
+# Keep old message keys for compatibility (deprecated but kept for reference)
 suggest_tags_prompt: |
   Suggest 3-5 appropriate tags based on the following todo name.
 

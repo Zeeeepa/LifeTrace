@@ -1,12 +1,11 @@
 """Tag Management Tools
 
 Tag listing, filtering, and suggestion.
+The Agent directly suggests tags without nested LLM calls for better performance.
 """
 
 from __future__ import annotations
 
-import json
-import re
 from typing import TYPE_CHECKING
 
 from lifetrace.llm.agno_tools.base import get_message
@@ -94,21 +93,19 @@ class TagTools:
             return self._msg("todos_by_tag_empty", tag=tag)
 
     def suggest_tags(self, todo_name: str) -> str:
-        """Suggest tags based on todo name using LLM
+        """Suggest tags based on todo name
+
+        This tool provides context for tag suggestion. The Agent should directly
+        suggest tags without calling LLM again.
 
         Args:
             todo_name: Name of the todo to suggest tags for
 
         Returns:
-            Suggested tags or error message
+            Instructions for the Agent to suggest tags directly
         """
         try:
-            from lifetrace.llm.llm_client import LLMClient
-
-            llm_client = LLMClient()
-            if not llm_client.is_available():
-                return self._msg("suggest_tags_failed", error="LLM client not available")
-
+            # 获取现有标签作为参考
             todos = self.todo_repo.list_todos(limit=500, offset=0, status=None)
             existing_tags = set()
             for todo in todos:
@@ -117,36 +114,15 @@ class TagTools:
 
             existing_tags_str = ", ".join(sorted(existing_tags)) if existing_tags else "None"
 
-            prompt = self._msg(
-                "suggest_tags_prompt",
+            # 返回推荐指导信息，让 Agent 自己完成推荐
+            # 这样可以避免嵌套 LLM 调用，提升性能
+            suggestion_guide = self._msg(
+                "suggest_tags_guide",
                 todo_name=todo_name,
                 existing_tags=existing_tags_str,
             )
+            return suggestion_guide
 
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt},
-            ]
-
-            response_text = ""
-            for chunk in llm_client.stream_chat(messages, temperature=0.5):
-                response_text += chunk
-
-            json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_text)
-            if json_match:
-                result_json = json.loads(json_match.group(1))
-            else:
-                result_json = json.loads(response_text)
-
-            suggested = result_json.get("suggested_tags", [])
-            if suggested:
-                return self._msg("suggest_tags_result", tags=", ".join(suggested))
-            else:
-                return self._msg("suggest_tags_failed", error="No tags suggested")
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse tag suggestion response: {e}")
-            return self._msg("suggest_tags_failed", error="Failed to parse LLM response")
         except Exception as e:
-            logger.error(f"Failed to suggest tags: {e}")
+            logger.error(f"Failed to get tag suggestion context: {e}")
             return self._msg("suggest_tags_failed", error=str(e))
