@@ -3,6 +3,10 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { MessageTodoExtractionModal } from "@/apps/chat/components/message/MessageTodoExtractionModal";
+import {
+	getTranscriptionApiAudioTranscriptionRecordingIdGet,
+	linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost,
+} from "@/lib/generated/audio/audio";
 import { cn } from "@/lib/utils";
 
 type TodoItem = {
@@ -130,8 +134,6 @@ export function AudioExtractionPanel({
 	).length;
 	const hasExtraction = filteredTodoCount + filteredScheduleCount > 0;
 
-	const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-
 	return (
 		<>
 			{hasExtraction ? (
@@ -183,15 +185,7 @@ export function AudioExtractionPanel({
 
 					await Promise.all(
 						Array.from(byRec.entries()).map(async ([recId, links]) => {
-							// 始终使用优化文本的提取结果进行链接
-							await fetch(
-								`${apiBaseUrl}/api/audio/transcription/${recId}/link?optimized=true`,
-								{
-									method: "POST",
-									headers: { "Content-Type": "application/json" },
-									body: JSON.stringify({ links }),
-								}
-							);
+							await linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost(recId, { links });
 						}),
 					);
 
@@ -240,10 +234,7 @@ export function AudioExtractionPanel({
 					try {
 						const refreshed = await Promise.all(
 							Array.from(byRec.keys()).map(async (recId) => {
-								const resp = await fetch(
-									`${apiBaseUrl}/api/audio/transcription/${recId}?optimized=true`
-								);
-								const data = await resp.json();
+								const data = await getTranscriptionApiAudioTranscriptionRecordingIdGet(recId, { optimized: true }) as { todos?: TodoItem[]; schedules?: ScheduleItem[] };
 								return {
 									id: recId,
 									todos: Array.isArray(data.todos) ? data.todos : [],

@@ -7,7 +7,9 @@ repos:
       - id: check-toml
       - id: check-json
       - id: end-of-file-fixer
+        exclude: ^free-todo-frontend/lib/generated/
       - id: trailing-whitespace
+        exclude: ^free-todo-frontend/lib/generated/
         args: [--markdown-linebreak-ext=md]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.10
@@ -20,6 +22,7 @@ repos:
         # https://pre-commit.com/#top_level-default_language_version
         language_version: python3.12
         files: ^lifetrace/
+        exclude: ^lifetrace/migrations/versions/
         types_or: [ python, pyi ]
         args: [ --fix ]
       # Run the formatter.
