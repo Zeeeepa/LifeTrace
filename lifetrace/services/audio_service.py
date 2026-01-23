@@ -265,6 +265,7 @@ class AudioService:
         recording_id: int,
         segmented_text: str,
         optimized_text: str | None,
+        segment_timestamps_json: str | None = None,
     ) -> tuple[Transcription, bool]:
         """更新现有转录记录
 
@@ -290,6 +291,9 @@ class AudioService:
         # 文本变化了，更新文本字段（保留提取结果）
         existing.original_text = segmented_text
         existing.optimized_text = optimized_text
+        # 如果提供了新的时间戳，也更新
+        if segment_timestamps_json is not None:
+            existing.segment_timestamps = segment_timestamps_json
 
         has_extraction = self._check_has_extraction(existing)
         should_auto_extract = False
@@ -306,86 +310,160 @@ class AudioService:
         session.add(existing)
         return existing, should_auto_extract
 
+    def _prepare_transcription_data(
+        self,
+        original_text: str,
+        segment_timestamps: list[float] | None,
+        recording_id: int,
+    ) -> tuple[str, str | None]:
+        """准备转录数据（处理文本和时间戳）
+
+        Returns:
+            (display_text, segment_timestamps_json)
+        """
+        display_lines = [line.strip() for line in (original_text or "").split("\n") if line.strip()]
+        display_text = "\n".join(display_lines)
+
+        segment_timestamps_json = None
+        if segment_timestamps is not None:
+            import json
+
+            # 严格一致：不做插值/均分/猜测。长度不一致就丢弃时间戳，前端回退到均匀估算。
+            if len(segment_timestamps) == len(display_lines):
+                segment_timestamps_json = json.dumps(segment_timestamps, ensure_ascii=False)
+            else:
+                logger.warning(
+                    f"[save_transcription] segment_timestamps 行数不匹配，丢弃时间戳以避免错误跳转。"
+                    f" recording_id={recording_id}, timestamps={len(segment_timestamps)}, lines={len(display_lines)}"
+                )
+
+        return display_text, segment_timestamps_json
+
+    async def _optimize_text_if_needed(self, display_text: str, auto_optimize: bool) -> str | None:
+        """如果需要，优化文本"""
+        if not auto_optimize or not display_text:
+            return None
+        try:
+            return await self.optimize_transcription_text(display_text)
+        except Exception as e:
+            logger.error(f"自动优化文本失败: {e}")
+            return None
+
+    def _create_or_update_transcription(
+        self,
+        session: Any,
+        recording_id: int,
+        display_text: str,
+        optimized_text: str | None,
+        segment_timestamps_json: str | None,
+    ) -> tuple[Transcription, bool]:
+        """创建或更新转录记录
+
+        Returns:
+            (transcription, should_auto_extract)
+        """
+        from sqlmodel import select
+
+        # 检查是否已存在转录记录
+        existing = session.exec(
+            select(Transcription)
+            .where(Transcription.audio_recording_id == recording_id)
+            .order_by(Transcription.id.desc())
+        ).first()
+
+        # 清理重复记录
+        if existing:
+            existing = self._cleanup_duplicate_transcriptions(session, recording_id, existing)
+
+        # 更新或创建记录
+        if existing:
+            transcription, should_auto_extract = self._update_existing_transcription(
+                session,
+                existing,
+                recording_id,
+                display_text,
+                optimized_text,
+                segment_timestamps_json,
+            )
+        else:
+            logger.info(f"[save_transcription] 录音 {recording_id} 创建新转录记录")
+            transcription = Transcription(
+                audio_recording_id=recording_id,
+                original_text=display_text,
+                optimized_text=optimized_text,
+                extraction_status="pending",
+                segment_timestamps=segment_timestamps_json,
+            )
+            session.add(transcription)
+            should_auto_extract = True
+
+        return transcription, should_auto_extract
+
+    def _update_recording_status(self, session: Any, recording_id: int) -> None:
+        """更新录音记录的转录状态"""
+        recording = session.get(AudioRecording, recording_id)
+        if recording:
+            recording.transcription_status = "completed"
+            session.commit()
+
+    def _trigger_auto_extraction(
+        self, transcription_id: int, display_text: str, optimized_text: str | None
+    ) -> None:
+        """触发自动提取待办和日程（异步执行，不阻塞）"""
+        if display_text:
+            asyncio.create_task(
+                self._auto_extract_todos_and_schedules(
+                    transcription_id, display_text, optimized=False
+                )
+            )
+        if optimized_text:
+            asyncio.create_task(
+                self._auto_extract_todos_and_schedules(
+                    transcription_id, optimized_text, optimized=True
+                )
+            )
+
     async def save_transcription(
         self,
         recording_id: int,
         original_text: str,
         auto_optimize: bool = True,
+        segment_timestamps: list[float] | None = None,
     ) -> Transcription:
         """保存转录文本（自动优化和提取）
 
         Args:
             recording_id: 录音ID
-            original_text: 原始转录文本（自动分段）
+            original_text: 原始转录文本（前端展示用文本，final 一句一行）
             auto_optimize: 是否自动优化文本
+            segment_timestamps: 每段文本的精确时间戳（秒），相对于录音开始时间
 
         Returns:
             创建的Transcription对象
         """
-        # 自动分段：基于句子结束标记
-        segmented_text = self._auto_segment_text(original_text)
+        # 准备数据
+        display_text, segment_timestamps_json = self._prepare_transcription_data(
+            original_text, segment_timestamps, recording_id
+        )
 
-        # 自动优化文本
-        optimized_text = None
-        if auto_optimize and segmented_text:
-            try:
-                optimized_text = await self.optimize_transcription_text(segmented_text)
-            except Exception as e:
-                logger.error(f"自动优化文本失败: {e}")
+        # 优化文本
+        optimized_text = await self._optimize_text_if_needed(display_text, auto_optimize)
 
         with get_session() as session:
-            from sqlmodel import select
-
-            # 检查是否已存在转录记录
-            existing = session.exec(
-                select(Transcription)
-                .where(Transcription.audio_recording_id == recording_id)
-                .order_by(Transcription.id.desc())
-            ).first()
-
-            # 清理重复记录
-            if existing:
-                existing = self._cleanup_duplicate_transcriptions(session, recording_id, existing)
-
-            # 更新或创建记录
-            if existing:
-                transcription, should_auto_extract = self._update_existing_transcription(
-                    session, existing, recording_id, segmented_text, optimized_text
-                )
-            else:
-                logger.info(f"[save_transcription] 录音 {recording_id} 创建新转录记录")
-                transcription = Transcription(
-                    audio_recording_id=recording_id,
-                    original_text=segmented_text,
-                    optimized_text=optimized_text,
-                    extraction_status="pending",
-                )
-                session.add(transcription)
-                should_auto_extract = True
+            # 创建或更新转录记录
+            transcription, should_auto_extract = self._create_or_update_transcription(
+                session, recording_id, display_text, optimized_text, segment_timestamps_json
+            )
 
             session.commit()
             session.refresh(transcription)
 
             # 更新录音记录的转录状态
-            recording = session.get(AudioRecording, recording_id)
-            if recording:
-                recording.transcription_status = "completed"
-                session.commit()
+            self._update_recording_status(session, recording_id)
 
             # 自动提取待办和日程（异步执行，不阻塞）
             if should_auto_extract:
-                if segmented_text:
-                    asyncio.create_task(
-                        self._auto_extract_todos_and_schedules(
-                            transcription.id, segmented_text, optimized=False
-                        )
-                    )
-                if optimized_text:
-                    asyncio.create_task(
-                        self._auto_extract_todos_and_schedules(
-                            transcription.id, optimized_text, optimized=True
-                        )
-                    )
+                self._trigger_auto_extraction(transcription.id, display_text, optimized_text)
 
             return transcription
 
@@ -409,44 +487,6 @@ class AudioService:
             )
         except Exception as e:
             logger.error(f"自动提取待办和日程失败 (optimized={optimized}): {e}")
-
-    def _auto_segment_text(self, text: str) -> str:
-        """自动分段文本（基于句子结束标记和长度）
-
-        Args:
-            text: 原始文本
-
-        Returns:
-            分段后的文本（每段一行）
-        """
-        if not text:
-            return ""
-
-        # 句子结束标记
-        sentence_endings = ["。", "！", "？", ".", "!", "?", "\n"]
-        segments = []
-        current_segment = ""
-        max_segment_length = 200  # 最大段落长度
-
-        for char in text:
-            current_segment += char
-
-            # 如果遇到句子结束标记，或者达到最大长度，则分段
-            if char in sentence_endings or len(current_segment) >= max_segment_length:
-                if current_segment.strip():
-                    segments.append(current_segment.strip())
-                current_segment = ""
-
-        # 添加最后一段
-        if current_segment.strip():
-            segments.append(current_segment.strip())
-
-        # 如果没有任何分段，返回原文本
-        if not segments:
-            return text
-
-        # 用换行符连接各段
-        return "\n".join(segments)
 
     async def optimize_transcription_text(self, text: str) -> str:
         """使用LLM优化转录文本
@@ -546,6 +586,7 @@ class AudioService:
                 "extracted_todos_optimized": transcription.extracted_todos_optimized,
                 "extracted_schedules_optimized": transcription.extracted_schedules_optimized,
                 "extraction_status": transcription.extraction_status,
+                "segment_timestamps": transcription.segment_timestamps,
                 "created_at": transcription.created_at,
                 "updated_at": transcription.updated_at,
             }

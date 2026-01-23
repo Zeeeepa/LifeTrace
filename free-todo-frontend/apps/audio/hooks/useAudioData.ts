@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { formatDateTime } from "../utils/parseTimeToIsoWithDate";
+import {
+	calculateSegmentOffset,
+	formatDateTime,
+	getDateString,
+	getSegmentDate,
+	parseLocalDate,
+} from "../utils/timeUtils";
 
 type TodoItem = {
 	id?: string;
@@ -30,6 +36,7 @@ export function useAudioData(
 	activeTab: "original" | "optimized",
 	setTranscriptionText: (text: string) => void,
 	setOptimizedText: (text: string) => void,
+	isRecording?: boolean, // 是否正在录音，用于避免清空文本
 ) {
 	const [selectedRecordingId, setSelectedRecordingId] = useState<number | null>(null);
 	const [selectedRecordingDurationSec, setSelectedRecordingDurationSec] = useState<number>(0);
@@ -48,7 +55,7 @@ export function useAudioData(
 	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
 		try {
 			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-			const dateStr = selectedDate.toISOString().split("T")[0];
+			const dateStr = getDateString(selectedDate);
 			const response = await fetch(`${apiBaseUrl}/api/audio/recordings?date=${dateStr}`);
 			const data = await response.json();
 			if (data.recordings) {
@@ -71,15 +78,20 @@ export function useAudioData(
 		}
 	}, [selectedDate, selectedRecordingId]);
 
-	const loadTimeline = useCallback(async () => {
+	const loadTimeline = useCallback(async (onLoadingChange?: (loading: boolean) => void) => {
 		try {
+			// 通知开始加载
+			if (onLoadingChange) onLoadingChange(true);
+
 			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-			const dateStr = selectedDate.toISOString().split("T")[0];
+			const dateStr = getDateString(selectedDate);
 			const response = await fetch(
 				`${apiBaseUrl}/api/audio/timeline?date=${dateStr}&optimized=${activeTab === "optimized"}`
 			);
 			const data = await response.json();
+
 			if (Array.isArray(data.timeline)) {
+				// 先清空数据，但保持加载状态直到数据处理完成
 				setTranscriptionText("");
 				setOptimizedText("");
 				setSegmentOffsetsSec([]);
@@ -92,19 +104,41 @@ export function useAudioData(
 				const recIds: number[] = [];
 				const durationMap: Record<number, number> = {};
 
-				data.timeline.forEach((item: { id: number; start_time: string; duration: number; text: string }) => {
+				data.timeline.forEach((item: {
+					id: number;
+					start_time: string;
+					duration: number;
+					text: string;
+					segment_timestamps?: number[];
+				}) => {
 					durationMap[item.id] = item.duration;
 					const lines = (item.text || "").split("\n").filter((s: string) => s.trim());
 					const count = Math.max(1, lines.length);
-					const per = item.duration > 0 ? item.duration / count : 0;
+
+					// 使用本地时区解析录音开始时间
+					const recordingStartTime = parseLocalDate(item.start_time);
+
+					// 如果 API 返回了精确时间戳，使用它们；否则使用均匀分配
+					const hasPreciseTimestamps = Array.isArray(item.segment_timestamps) &&
+						item.segment_timestamps.length === lines.length;
+
 					lines.forEach((line: string, idx: number) => {
 						segments.push(line);
-						const offset = per * idx;
+						// 优先使用 API 返回的精确时间戳，否则使用均匀分配
+						const offset = hasPreciseTimestamps
+							? (item.segment_timestamps?.[idx] ?? 0)
+							: calculateSegmentOffset(
+									recordingStartTime,
+									idx,
+									count,
+									item.duration
+								);
 						offsets.push(offset);
 						recIds.push(item.id);
-						const start = new Date(item.start_time);
-						const labelDate = new Date(start.getTime() + offset * 1000);
-						const label = formatDateTime(labelDate);
+
+						// 计算文本段的绝对时间（处理跨日期情况）
+						const segmentDate = getSegmentDate(recordingStartTime, offset, selectedDate);
+						const label = formatDateTime(segmentDate);
 						timeLabels.push(label);
 					});
 				});
@@ -130,6 +164,9 @@ export function useAudioData(
 			}
 		} catch (error) {
 			console.error("Failed to load timeline:", error);
+		} finally {
+			// 通知加载完成
+			if (onLoadingChange) onLoadingChange(false);
 		}
 	}, [activeTab, selectedDate, setTranscriptionText, setOptimizedText]);
 
@@ -138,8 +175,18 @@ export function useAudioData(
 	}, [loadRecordings]);
 
 	useEffect(() => {
-		loadTimeline();
-	}, [loadTimeline]);
+		// 如果正在录音，不加载时间线，保留录音时的文本显示
+		if (isRecording) {
+			return;
+		}
+		// 停止录音后，延迟加载时间线，给后端时间保存录音
+		// 这样避免立即清空文本，让用户看到"获取中"状态
+		const timer = setTimeout(() => {
+			loadTimeline();
+		}, 1000); // 延迟 1 秒，给后端时间保存
+
+		return () => clearTimeout(timer);
+	}, [loadTimeline, isRecording]);
 
 	// 按录音ID加载对应的转录提取结果（用于整天时间线所有录音的持久化高亮）
 	useEffect(() => {
@@ -239,5 +286,6 @@ export function useAudioData(
 		optimizedExtractionsByRecordingId,
 		setOptimizedExtractionsByRecordingId,
 		loadRecordings,
+		loadTimeline, // 暴露 loadTimeline，允许手动触发
 	};
 }

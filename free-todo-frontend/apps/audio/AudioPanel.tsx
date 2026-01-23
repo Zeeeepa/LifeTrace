@@ -15,11 +15,12 @@ import { TranscriptionView } from "./components/TranscriptionView";
 import { useAudioData } from "./hooks/useAudioData";
 import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useAudioRecording } from "./hooks/useAudioRecording";
+import { parseTimeToIsoWithDate as parseTimeToIsoWithDateUtil } from "./utils/parseTimeToIsoWithDate";
 import {
 	formatDateTime,
 	formatTime,
-	parseTimeToIsoWithDate as parseTimeToIsoWithDateUtil,
-} from "./utils/parseTimeToIsoWithDate";
+	getSegmentDate,
+} from "./utils/timeUtils";
 
 export function AudioPanel() {
 	const t = useTranslations("page");
@@ -30,6 +31,10 @@ export function AudioPanel() {
 	const [partialText, setPartialText] = useState("");
 	const [optimizedText, setOptimizedText] = useState("");
 	const [selectedDate, setSelectedDate] = useState(new Date());
+
+	// 先初始化 useAudioRecording，因为 useAudioData 需要 isRecording
+	const { isRecording, startRecording, stopRecording } = useAudioRecording();
+
 	const {
 		selectedRecordingId,
 		setSelectedRecordingId,
@@ -48,7 +53,8 @@ export function AudioPanel() {
 		optimizedExtractionsByRecordingId,
 		setOptimizedExtractionsByRecordingId,
 		loadRecordings,
-	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText);
+		loadTimeline,
+	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText, isRecording);
 	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
 	const [liveTodos, setLiveTodos] = useState<
 		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
@@ -58,19 +64,23 @@ export function AudioPanel() {
 	>([]);
 	// 当前回看模式下选中的文本段索引，用于给点击过的段落加选中态
 	const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null);
-
-	const { isRecording, startRecording, stopRecording } = useAudioRecording();
 	const [showStopConfirm, setShowStopConfirm] = useState(false);
+	const [isExtracting, setIsExtracting] = useState(false); // 后端正在提取中（用于提取区域）
+	const [isLoadingTimeline, setIsLoadingTimeline] = useState(false); // 正在加载时间线（用于文本区域）
 	const recordingStartedAtMsRef = useRef<number>(0);
 	const recordingStartedAtRef = useRef<Date | null>(null);
+	// 记录前一个 final 文本的结束时间，作为当前文本的开始时间
+	const lastFinalEndMsRef = useRef<number | null>(null);
 	const {
 		audioRef,
 		isPlaying,
 		currentTime,
 		duration,
+		playbackRate,
 		ensureAudio,
 		playPause,
 		seekByRatio,
+		setPlaybackRate,
 	} = useAudioPlayback();
 
 	const handleToggleRecording = async () => {
@@ -99,6 +109,7 @@ export function AudioPanel() {
 		setSelectedSegmentIndex(null);
 		recordingStartedAtMsRef.current = performance.now();
 		recordingStartedAtRef.current = now;
+		lastFinalEndMsRef.current = null; // 重置，第一段文本使用录音开始时间
 		// 开始录音前，清空本次会话的实时高亮状态
 		setLiveTodos([]);
 		setLiveSchedules([]);
@@ -106,10 +117,18 @@ export function AudioPanel() {
 		await startRecording(
 			(text, isFinal) => {
 				// 规则：
-				// - final=false：作为“未完成文本”斜体显示（不落盘）
+				// - final=false：作为"未完成文本"斜体显示（不落盘）
 				// - final=true：替换掉未完成文本，并把最终句追加到正文
 				if (isFinal) {
-					const elapsedSec = (performance.now() - recordingStartedAtMsRef.current) / 1000;
+					// 使用前一个 final 文本的结束时间作为当前文本的开始时间
+					// 对于第一段文本，使用录音开始时间
+					// 这样能更准确地对应到音频开始位置，避免 ASR 处理延迟的影响
+					const segmentStartMs = lastFinalEndMsRef.current ?? recordingStartedAtMsRef.current;
+					const elapsedSec = (segmentStartMs - recordingStartedAtMsRef.current) / 1000;
+
+					// 记录当前 final 文本的结束时间，作为下一段文本的开始时间
+					lastFinalEndMsRef.current = performance.now();
+
 					setTranscriptionText((prev) => {
 						const needsGap = prev && !prev.endsWith("\n");
 						return `${prev}${needsGap ? "\n" : ""}${text}\n`;
@@ -120,8 +139,9 @@ export function AudioPanel() {
 					setSegmentRecordingIds((prev) => [...prev, 0]);
 					setSegmentTimeLabels((prev) => {
 						const start = recordingStartedAtRef.current ?? new Date();
-						const labelDate = new Date(start.getTime() + elapsedSec * 1000);
-						return [...prev, formatDateTime(labelDate)];
+						// 使用统一的时间计算函数（录音模式，使用精确时间戳）
+						const segmentDate = getSegmentDate(start, elapsedSec, selectedDate);
+						return [...prev, formatDateTime(segmentDate)];
 					});
 					setPartialText("");
 				} else {
@@ -146,12 +166,80 @@ export function AudioPanel() {
 
 	const handleConfirmStop = () => {
 		setShowStopConfirm(false);
-		stopRecording();
-		// 停止后后端才会落库录音记录：稍等一下再刷新列表并选中最新录音，确保播放器出现
-		setTimeout(() => {
-			loadRecordings({ forceSelectLatest: true });
-			// 不清空 live 高亮，让本次录音的文本在刷新时间线前继续使用录音时的高亮
-		}, 600);
+		// 传递时间戳数组给 stopRecording（segmentTimesSec 包含每段文本的精确时间戳）
+		stopRecording(segmentTimesSec.length > 0 ? segmentTimesSec : undefined);
+
+		// 停止后后端才会落库录音记录：轮询检查直到新录音出现
+		// 显示"获取中"状态，让用户知道后端正在处理
+		setIsExtracting(true); // 提取区域显示"提取中"
+		setIsLoadingTimeline(true); // 文本区域显示"获取中"
+
+		// 记录停止前的录音数量，用于判断是否有新录音
+		let previousRecordingCount = 0;
+		let pollCount = 0;
+		const maxPolls = 15; // 最多轮询 15 次（约 7.5 秒）
+
+		const checkNewRecording = async () => {
+			pollCount++;
+			try {
+				const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
+				const dateStr = selectedDate.toISOString().split("T")[0];
+				const response = await fetch(`${apiBaseUrl}/api/audio/recordings?date=${dateStr}`);
+				const data = await response.json();
+				if (data.recordings) {
+					const recordings: Array<{ id: number; durationSeconds?: number }> = data.recordings;
+					const currentCount = recordings.length;
+
+					// 首次记录数量
+					if (previousRecordingCount === 0) {
+						previousRecordingCount = currentCount;
+					}
+
+					// 如果有新录音，加载最新录音和时间线
+					if (currentCount > previousRecordingCount) {
+						// 先加载录音列表
+						await loadRecordings({ forceSelectLatest: true });
+						// 然后加载时间线（这会更新文本显示，包含新录音的内容）
+						await loadTimeline((loading) => {
+							setIsLoadingTimeline(loading);
+						});
+
+						// 延迟清除状态，给后端更多时间完成提取
+						setTimeout(() => {
+							setIsExtracting(false);
+							setIsLoadingTimeline(false);
+						}, 1500);
+						return; // 停止轮询
+					}
+
+					// 如果已经轮询了足够多次，仍然加载（可能后端处理较慢）
+					if (pollCount >= maxPolls) {
+						await loadRecordings({ forceSelectLatest: true });
+						await loadTimeline((loading) => {
+							setIsLoadingTimeline(loading);
+						});
+						setTimeout(() => {
+							setIsExtracting(false);
+							setIsLoadingTimeline(false);
+						}, 1000);
+						return; // 停止轮询
+					}
+				}
+			} catch (error) {
+				console.error("Failed to check new recording:", error);
+				// 出错时也停止轮询
+				if (pollCount >= maxPolls) {
+					setIsExtracting(false);
+					return;
+				}
+			}
+
+			// 继续轮询
+			setTimeout(checkNewRecording, 500);
+		};
+
+		// 首次延迟 800ms 后开始轮询
+		setTimeout(checkNewRecording, 800);
 	};
 
 
@@ -188,7 +276,8 @@ export function AudioPanel() {
 			const segmentsCount = Math.max(1, segmentOffsetsSec.length);
 			const duration = recordingDurations[recId] ?? selectedRecordingDurationSec;
 			const fallback = duration > 0 ? (index / segmentsCount) * duration : 0;
-			const target = Number.isFinite(direct) ? direct : fallback;
+			// 加 1 秒补偿，因为之前往前偏移了 1 秒
+			const target = (Number.isFinite(direct) ? direct : fallback) + 1;
 
 			try {
 				audio.currentTime = Math.max(0, target);
@@ -322,6 +411,10 @@ export function AudioPanel() {
 				extractionsByRecordingId={optimizedExtractionsByRecordingId}
 				setExtractionsByRecordingId={setOptimizedExtractionsByRecordingId}
 				parseTimeToIsoWithDate={parseTimeToIsoWithDate}
+				liveTodos={liveTodos}
+				liveSchedules={liveSchedules}
+				isRecording={isRecording}
+				isExtracting={isExtracting}
 			/>
 
 			{/* 转录内容区域（回看模式下点击即可播放对应录音） */}
@@ -330,7 +423,15 @@ export function AudioPanel() {
 				partialText={isRecording ? partialText : ""}
 				optimizedText={optimizedText}
 				activeTab={activeTab}
-				onTabChange={setActiveTab}
+				onTabChange={(tab) => {
+					setActiveTab(tab);
+					// 切换 tab 时显示加载状态
+					setIsLoadingTimeline(true);
+					// 手动触发 loadTimeline，传入加载状态回调
+					loadTimeline((loading) => {
+						setIsLoadingTimeline(loading);
+					});
+				}}
 				segmentTodos={segmentTodos}
 				segmentSchedules={segmentSchedules}
 				isRecording={isRecording}
@@ -338,6 +439,7 @@ export function AudioPanel() {
 				segmentTimeLabels={segmentTimeLabels}
 				selectedSegmentIndex={selectedSegmentIndex}
 				onSegmentClick={isRecording ? undefined : handleSeekToSegment}
+				isLoadingTimeline={isLoadingTimeline}
 			/>
 
 			{/* 底部：根据录音状态切换显示 */}
@@ -357,6 +459,8 @@ export function AudioPanel() {
 						progress={duration > 0 ? currentTime / duration : 0}
 						onSeek={handleSeekInPlayer}
 						currentSegmentText={currentSegmentText}
+						playbackRate={playbackRate}
+						onPlaybackRateChange={setPlaybackRate}
 					/>
 				)
 			)}

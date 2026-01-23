@@ -7,6 +7,7 @@ export function useAudioPlayback() {
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
+	const [playbackRate, setPlaybackRate] = useState(1.0);
 
 	const ensureAudio = useCallback((url: string) => {
 		if (!audioRef.current) {
@@ -23,12 +24,17 @@ export function useAudioPlayback() {
 			});
 			audio.addEventListener("play", () => setIsPlaying(true));
 			audio.addEventListener("pause", () => setIsPlaying(false));
+			audio.playbackRate = playbackRate; // 设置初始倍速
 			audioRef.current = audio;
 		} else if (audioRef.current.src !== url) {
 			audioRef.current.src = url;
 			audioRef.current.load();
+			audioRef.current.playbackRate = playbackRate; // 设置倍速
+		} else {
+			// 确保倍速设置正确
+			audioRef.current.playbackRate = playbackRate;
 		}
-	}, []);
+	}, [playbackRate]);
 
 	const playPause = useCallback((url?: string) => {
 		if (url) {
@@ -62,14 +68,23 @@ export function useAudioPlayback() {
 		seek(target);
 	}, [seek]);
 
+	const setPlaybackRateValue = useCallback((rate: number) => {
+		setPlaybackRate(rate);
+		if (audioRef.current) {
+			audioRef.current.playbackRate = rate;
+		}
+	}, []);
+
 	return {
 		audioRef,
 		isPlaying,
 		currentTime,
 		duration,
+		playbackRate,
 		ensureAudio,
 		playPause,
 		seek,
 		seekByRatio,
+		setPlaybackRate: setPlaybackRateValue,
 	};
 }

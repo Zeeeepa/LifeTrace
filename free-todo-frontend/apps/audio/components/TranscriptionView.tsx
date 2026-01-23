@@ -34,6 +34,7 @@ interface TranscriptionViewProps {
 	segmentTimeLabels?: string[];
 	selectedSegmentIndex?: number | null;
 	onSegmentClick?: (index: number) => void;
+	isLoadingTimeline?: boolean; // 正在加载时间线（显示在文本区域底部）
 }
 
 interface TextSegment {
@@ -54,6 +55,7 @@ export function TranscriptionView({
 	segmentTimeLabels = [],
 	selectedSegmentIndex = null,
 	onSegmentClick,
+	isLoadingTimeline = false,
 }: TranscriptionViewProps) {
 	const transcriptionRef = useRef<HTMLDivElement>(null);
 	const userNearBottomRef = useRef(true);
@@ -292,6 +294,8 @@ export function TranscriptionView({
 
 	const currentText = activeTab === "original" ? originalText : optimizedText;
 	const hasContent = currentText.length > 0 || (activeTab === "original" && partialText.length > 0);
+	// 如果正在加载，显示加载状态而不是空状态
+	const showLoading = isLoadingTimeline && !hasContent;
 
 	return (
 		<div className="flex-1 flex flex-col min-h-0">
@@ -334,7 +338,14 @@ export function TranscriptionView({
 					userNearBottomRef.current = distanceToBottom < 80;
 				}}
 			>
-				{hasContent ? (
+				{showLoading ? (
+					<div className="flex flex-col items-center justify-center h-full text-center">
+						<div className="flex items-center gap-2 py-4 text-sm text-[oklch(var(--muted-foreground))]">
+							<div className="h-4 w-4 border-2 border-[oklch(var(--primary))] border-t-transparent rounded-full animate-spin" />
+							<span>获取中...</span>
+						</div>
+					</div>
+				) : hasContent ? (
 					<div className="flex flex-col gap-5">
 						{highlightedContent.map((paragraph, paragraphIndex) => {
 							const paragraphKey = `${paragraphIndex}-${paragraph.map((s) => s.text).join("").slice(0, 20)}`;
@@ -424,6 +435,13 @@ export function TranscriptionView({
 							<li>检查音频是否已上传并处理</li>
 							<li>确认日期选择是否正确</li>
 						</ul>
+					</div>
+				)}
+				{/* 文本区域底部的加载状态（当有内容时显示在底部） */}
+				{isLoadingTimeline && hasContent && (
+					<div className="flex items-center justify-center gap-2 py-4 text-sm text-[oklch(var(--muted-foreground))]">
+						<div className="h-4 w-4 border-2 border-[oklch(var(--primary))] border-t-transparent rounded-full animate-spin" />
+						<span>获取中...</span>
 					</div>
 				)}
 			</div>

@@ -86,48 +86,76 @@ async def get_recordings(date: str | None = Query(None)):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _parse_date_param(date: str | None) -> datetime:
+    """解析日期参数"""
+    if date:
+        try:
+            if "T" in date or "Z" in date:
+                return datetime.fromisoformat(date.replace("Z", "+00:00"))
+            else:
+                from datetime import date as date_type
+
+                date_obj = date_type.fromisoformat(date)
+                return datetime.combine(date_obj, datetime.min.time())
+        except ValueError as e:
+            logger.error(f"日期格式错误: {date}, {e}")
+            raise ValueError(f"无效的日期格式: {date}") from e
+    else:
+        return datetime.now()
+
+
+def _build_timeline_item(
+    rec: dict[str, Any], transcription: dict[str, Any] | None, optimized: bool
+) -> dict[str, Any]:
+    """构建时间线项"""
+    text = ""
+    segment_timestamps: list[float] | None = None
+    if transcription:
+        if optimized and transcription.get("optimized_text"):
+            text = transcription.get("optimized_text") or ""
+        else:
+            text = transcription.get("original_text") or ""
+        # 解析时间戳（如果存在）
+        timestamps_str = transcription.get("segment_timestamps")
+        if timestamps_str:
+            try:
+                import json
+
+                segment_timestamps = json.loads(timestamps_str)
+                if not isinstance(segment_timestamps, list):
+                    segment_timestamps = None
+            except (json.JSONDecodeError, TypeError):
+                segment_timestamps = None
+    start_local = _to_local(rec["start_time"])
+    timeline_item: dict[str, Any] = {
+        "id": rec["id"],
+        "start_time": (start_local or rec["start_time"]).isoformat(),
+        "duration": float(rec["duration"]),
+        "text": text,
+    }
+    # 如果有时间戳，添加到返回数据中
+    if segment_timestamps:
+        timeline_item["segment_timestamps"] = segment_timestamps
+    return timeline_item
+
+
 @router.get("/timeline")
 async def get_timeline(date: str | None = Query(None), optimized: bool = Query(False)):
     """按日期返回录音时间线（含转录文本）"""
     try:
-        if date:
-            try:
-                if "T" in date or "Z" in date:
-                    target_date = datetime.fromisoformat(date.replace("Z", "+00:00"))
-                else:
-                    from datetime import date as date_type
-
-                    date_obj = date_type.fromisoformat(date)
-                    target_date = datetime.combine(date_obj, datetime.min.time())
-            except ValueError as e:
-                logger.error(f"日期格式错误: {date}, {e}")
-                return JSONResponse({"error": f"无效的日期格式: {date}"}, status_code=400)
-        else:
-            target_date = datetime.now()
-
+        target_date = _parse_date_param(date)
         recordings = audio_service.get_recordings_by_date(target_date)
         timeline: list[dict[str, Any]] = []
         for rec in recordings:
             if not rec:
                 continue
             transcription = audio_service.get_transcription(int(rec["id"]))
-            text = ""
-            if transcription:
-                if optimized and transcription.get("optimized_text"):
-                    text = transcription.get("optimized_text") or ""
-                else:
-                    text = transcription.get("original_text") or ""
-            start_local = _to_local(rec["start_time"])
-            timeline.append(
-                {
-                    "id": rec["id"],
-                    "start_time": (start_local or rec["start_time"]).isoformat(),
-                    "duration": float(rec["duration"]),
-                    "text": text,
-                }
-            )
+            timeline_item = _build_timeline_item(rec, transcription, optimized)
+            timeline.append(timeline_item)
 
         return JSONResponse({"timeline": timeline})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         logger.error(f"获取时间线失败: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)

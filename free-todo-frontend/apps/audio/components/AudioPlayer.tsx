@@ -14,6 +14,10 @@ interface AudioPlayerProps {
 	onSeek?: (ratio: number) => void;
 	/** 当前段落文本（随点击文本同步） */
 	currentSegmentText?: string;
+	/** 播放倍速 */
+	playbackRate?: number;
+	/** 设置播放倍速 */
+	onPlaybackRateChange?: (rate: number) => void;
 }
 
 export function AudioPlayer({
@@ -26,6 +30,8 @@ export function AudioPlayer({
 	progress = 0,
 	onSeek,
 	currentSegmentText = "",
+	playbackRate = 1.0,
+	onPlaybackRateChange,
 }: AudioPlayerProps) {
 	const clampedProgress = Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 1) : 0;
 
@@ -75,10 +81,23 @@ export function AudioPlayer({
 					<span className="text-xs text-[oklch(var(--muted-foreground))]">{totalTime}</span>
 				</div>
 			</div>
-			<select className="text-xs px-2 py-1 rounded border border-[oklch(var(--border))] bg-[oklch(var(--background))]">
-				<option>1x</option>
-				<option>1.5x</option>
-				<option>2x</option>
+			<select
+				value={playbackRate}
+				onChange={(e) => {
+					const rate = parseFloat(e.target.value);
+					if (onPlaybackRateChange) {
+						onPlaybackRateChange(rate);
+					}
+				}}
+				className="text-xs px-2 py-1 rounded border border-[oklch(var(--border))] bg-[oklch(var(--background))]"
+			>
+				<option value={0.5}>0.5x</option>
+				<option value={0.75}>0.75x</option>
+				<option value={1.0}>1x</option>
+				<option value={1.25}>1.25x</option>
+				<option value={1.5}>1.5x</option>
+				<option value={1.75}>1.75x</option>
+				<option value={2.0}>2x</option>
 			</select>
 		</div>
 	);

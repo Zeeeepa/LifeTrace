@@ -264,8 +264,17 @@ def _create_realtime_nlp_handler(  # noqa: C901
     return throttler.on_final_sentence, throttler.cancel
 
 
-async def _audio_stream_generator(websocket: WebSocket, logger, audio_chunks: list[bytes]):
-    """Yield audio bytes from websocket until stop signal."""
+async def _audio_stream_generator(
+    websocket: WebSocket,
+    logger,
+    audio_chunks: list[bytes],
+    segment_timestamps_ref: list[list[float] | None],
+):
+    """Yield audio bytes from websocket until stop signal.
+
+    Args:
+        segment_timestamps_ref: 用于存储从客户端接收的时间戳数组的引用
+    """
     while True:
         try:
             data = await websocket.receive()
@@ -279,7 +288,14 @@ async def _audio_stream_generator(websocket: WebSocket, logger, audio_chunks: li
                 try:
                     message = json.loads(data["text"])
                     if message.get("type") == "stop":
-                        logger.info("Received stop signal from client")
+                        segment_timestamps_from_frontend = message.get("segment_timestamps", [])
+                        if isinstance(segment_timestamps_from_frontend, list):
+                            segment_timestamps_ref[0] = segment_timestamps_from_frontend
+                            logger.info(
+                                f"Received stop signal from client with {len(segment_timestamps_from_frontend)} segment timestamps"
+                            )
+                        else:
+                            logger.info("Received stop signal from client")
                         break
                 except json.JSONDecodeError:
                     logger.debug(f"Ignoring non-JSON text message: {data.get('text', '')[:50]}")
@@ -365,13 +381,20 @@ def _persist_recording(
     return recording_id, duration
 
 
-async def _save_transcription_if_any(*, audio_service, recording_id: int | None, text: str) -> None:
+async def _save_transcription_if_any(
+    *,
+    audio_service,
+    recording_id: int | None,
+    text: str,
+    segment_timestamps: list[float] | None = None,
+) -> None:
     if not recording_id or not text:
         return
     await audio_service.save_transcription(
         recording_id=recording_id,
         original_text=text,
         auto_optimize=True,
+        segment_timestamps=segment_timestamps,
     )
 
 
@@ -385,6 +408,7 @@ async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, aud
     transcription_text_ref: list[str] = [""]
     audio_chunks: list[bytes] = []
     is_connected_ref: list[bool] = [True]
+    segment_timestamps_ref: list[list[float] | None] = [None]  # 存储从客户端接收的时间戳
 
     on_final_sentence, cancel_realtime_nlp = _create_realtime_nlp_handler(
         websocket=websocket,
@@ -415,7 +439,7 @@ async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, aud
         )
 
         await asr_client.transcribe_stream(
-            _audio_stream_generator(websocket, logger, audio_chunks),
+            _audio_stream_generator(websocket, logger, audio_chunks, segment_timestamps_ref),
             on_result=on_result,
             on_error=on_error,
         )
@@ -428,7 +452,10 @@ async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, aud
             is_24x7=is_24x7,
         )
         await _save_transcription_if_any(
-            audio_service=audio_service, recording_id=recording_id, text=transcription_text_ref[0]
+            audio_service=audio_service,
+            recording_id=recording_id,
+            text=transcription_text_ref[0],
+            segment_timestamps=segment_timestamps_ref[0],
         )
 
     except WebSocketDisconnect:
