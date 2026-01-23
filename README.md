@@ -56,7 +56,7 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 **Backend**:
 
 - Python 3.12
-- Supported OS: Windows, macOS
+- Supported OS: Windows, macOS, Linux
 - Optional: CUDA support (for GPU acceleration)
 
 **Frontend**:
@@ -86,6 +86,15 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 > Alternatively, you can simply open a new terminal window and `uv` will be available automatically.
 
 **Install dependencies and sync environment:**
+
+```bash
+# macOS prerequisites
+brew install portaudio
+
+# Linux prerequisites
+sudo apt install portaudio19-dev
+```
+
 
 ```bash
 # Sync dependencies from pyproject.toml and uv.lock

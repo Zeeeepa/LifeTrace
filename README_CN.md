@@ -56,7 +56,7 @@ FreeTodo 采用**前后端分离**架构：
 **后端**:
 
 - Python 3.12
-- 支持的操作系统：Windows、macOS
+- 支持的操作系统：Windows、macOS、Linux
 - 可选：CUDA 支持（用于 GPU 加速）
 
 **前端**:
@@ -86,6 +86,14 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 > 或者，您也可以直接打开一个新的终端窗口，`uv` 将自动可用。
 
 **安装依赖并同步环境:**
+
+```bash
+# macOS prerequisites
+brew install portaudio
+
+# Linux prerequisites
+sudo apt install portaudio19-dev
+```
 
 ```bash
 # 从 pyproject.toml 和 uv.lock 同步依赖

@@ -136,10 +136,9 @@ quote-style = "double"
 # 缩进使用 4 个空格
 indent-style = "space"
 
-# uv 配置 - 包管理器镜像源
 [tool.uv]
-# 使用清华大学 PyPI 镜像源（国内访问速度快）
 index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+extra-index-url = ["https://pypi.org/simple"]
 
 [dependency-groups]
 # 开发工具
