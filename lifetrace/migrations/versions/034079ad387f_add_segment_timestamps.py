@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "034079ad387f"
-down_revision: str = "89b2a1f0af8b"
+down_revision: str = "add_file_path_001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

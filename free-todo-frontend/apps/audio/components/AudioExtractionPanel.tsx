@@ -236,18 +236,20 @@ export function AudioExtractionPanel({
 						number,
 						Array<{ kind: "todo" | "schedule"; item_id: string; todo_id: number }>
 					>();
-					for (const row of created) {
-						const item = extractionTodosForModal[row.index] as unknown as {
-							_meta?: { recordingIds: number[]; kind: "todo" | "schedule"; itemKey: string };
-						};
-						const meta = item?._meta;
-						if (!meta?.recordingIds?.length || !meta.itemKey) continue;
-						for (const recId of meta.recordingIds) {
-							const arr = byRec.get(recId) ?? [];
-							arr.push({ kind: meta.kind, item_id: meta.itemKey, todo_id: row.todoId });
-							byRec.set(recId, arr);
-						}
+				for (const row of created) {
+					const item = extractionTodosForModal[row.index] as unknown as {
+						_meta?: { recordingIds: number[]; kind: "todo" | "schedule"; itemKey: string };
+					};
+					const meta = item?._meta;
+					if (!meta?.recordingIds?.length || !meta.itemKey) continue;
+					for (const recId of meta.recordingIds) {
+						// 跳过 recId=0（实时提取结果，还没有保存到数据库）
+						if (recId <= 0) continue;
+						const arr = byRec.get(recId) ?? [];
+						arr.push({ kind: meta.kind, item_id: meta.itemKey, todo_id: row.todoId });
+						byRec.set(recId, arr);
 					}
+				}
 
 					// 前端即时标记 linked，避免再次出现（优化用户体验）
 					setExtractionsByRecordingId((prev) => {
