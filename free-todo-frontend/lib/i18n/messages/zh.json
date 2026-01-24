@@ -411,13 +411,17 @@
 			"deselectAll": "取消全选",
 			"selectedCount": "已选择 {count} 个工具",
 			"allSelected": "使用所有工具",
+			"noneSelected": "未选择任何工具",
+			"externalTools": "外部工具",
+			"freetodoTools": "待办工具",
 			"categories": {
 				"todo": "待办管理",
 				"breakdown": "任务拆解",
 				"time": "时间解析",
 				"conflict": "冲突检测",
 				"stats": "统计分析",
-				"tags": "标签管理"
+				"tags": "标签管理",
+				"search": "联网搜索"
 			}
 		},
 		"sources": "来源",
@@ -456,6 +460,7 @@
 				"get_todos_by_tag": "按标签查询",
 				"suggest_tags": "标签推荐",
 				"web_search": "联网搜索",
+				"duckduckgo": "DuckDuckGo 搜索",
 				"unknown": "未知工具"
 			}
 		}

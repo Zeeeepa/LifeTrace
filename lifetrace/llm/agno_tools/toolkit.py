@@ -49,7 +49,7 @@ class FreeTodoToolkit(
 
         Args:
             lang: Language code for messages ('zh' or 'en'), defaults to 'en'
-            selected_tools: List of tool names to enable. If None or empty, all tools are enabled.
+            selected_tools: List of tool names to enable. If None or empty, no tools are enabled.
             **kwargs: Additional arguments passed to Toolkit base class
         """
         self.lang = lang
@@ -89,6 +89,7 @@ class FreeTodoToolkit(
         }
 
         # Filter tools based on selected_tools
+        # Default: no tools enabled (user must explicitly select tools)
         if selected_tools and len(selected_tools) > 0:
             tools = [all_tools[tool_name] for tool_name in selected_tools if tool_name in all_tools]
             logger.info(
@@ -96,9 +97,7 @@ class FreeTodoToolkit(
                 f"selected {len(tools)} tools: {selected_tools}"
             )
         else:
-            tools = list(all_tools.values())
-            logger.info(
-                f"FreeTodoToolkit initialized with lang={lang}, all {len(tools)} tools enabled"
-            )
+            tools = []
+            logger.info(f"FreeTodoToolkit initialized with lang={lang}, no tools enabled (default)")
 
         super().__init__(name="freetodo_toolkit", tools=tools, **kwargs)

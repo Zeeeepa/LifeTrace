@@ -410,13 +410,17 @@
 			"deselectAll": "Deselect All",
 			"selectedCount": "{count} tools selected",
 			"allSelected": "All tools enabled",
+			"noneSelected": "No tools selected",
+			"externalTools": "External Tools",
+			"freetodoTools": "Todo Tools",
 			"categories": {
 				"todo": "Todo Management",
 				"breakdown": "Task Breakdown",
 				"time": "Time Parsing",
 				"conflict": "Conflict Detection",
 				"stats": "Statistics",
-				"tags": "Tag Management"
+				"tags": "Tag Management",
+				"search": "Web Search"
 			}
 		},
 		"sources": "Sources",
@@ -455,6 +459,7 @@
 				"get_todos_by_tag": "Get by Tag",
 				"suggest_tags": "Suggest Tags",
 				"web_search": "Web Search",
+				"duckduckgo": "DuckDuckGo Search",
 				"unknown": "Unknown Tool"
 			}
 		}

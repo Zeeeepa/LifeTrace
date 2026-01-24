@@ -12,11 +12,15 @@ function getStreamApiBaseUrl(): string {
 // ============================================================================
 
 export interface SendChatParams {
-	message: string;
+	message: string; // 发送给 LLM 的完整消息（包含 system prompt + context + user input）
+	userInput?: string; // 用户真正输入的内容（用于保存到历史记录）
+	context?: string; // 待办上下文（可选）
+	systemPrompt?: string; // 系统提示词（可选）
 	conversationId?: string;
 	useRag?: boolean;
 	mode?: string;
 	selectedTools?: string[];
+	externalTools?: string[];
 }
 
 /**
@@ -113,10 +117,14 @@ export async function sendChatMessageStream(
 	try {
 		const requestBody = {
 			message: params.message,
+			user_input: params.userInput,
+			context: params.context,
+			system_prompt: params.systemPrompt,
 			conversation_id: params.conversationId,
 			use_rag: params.useRag,
 			mode: params.mode,
 			selected_tools: params.selectedTools,
+			external_tools: params.externalTools,
 		};
 		console.log("[sendChatMessageStream] Request body:", requestBody);
 

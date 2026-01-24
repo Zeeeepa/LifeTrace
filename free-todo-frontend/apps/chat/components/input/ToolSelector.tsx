@@ -1,16 +1,16 @@
 "use client";
 
-import { Check, Wrench } from "lucide-react";
+import { Check, Globe, Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
 
 /**
- * Agno 工具列表定义
+ * FreeTodo 工具列表定义
  * 基于 FreeTodoToolkit 的 14 个工具
  */
-const AGNO_TOOLS = [
+const FREETODO_TOOLS = [
 	// Todo 管理工具（6个）
 	{ id: "create_todo", category: "todo" },
 	{ id: "complete_todo", category: "todo" },
@@ -33,6 +33,14 @@ const AGNO_TOOLS = [
 	{ id: "suggest_tags", category: "tags" },
 ] as const;
 
+/**
+ * 外部工具列表定义
+ */
+const EXTERNAL_TOOLS = [
+	// 搜索工具
+	{ id: "duckduckgo", category: "search" },
+] as const;
+
 interface ToolSelectorProps {
 	/** 是否禁用 */
 	disabled?: boolean;
@@ -41,6 +49,7 @@ interface ToolSelectorProps {
 /**
  * Agno 模式工具选择器组件
  * 显示为一个按钮，点击后展开多选下拉框
+ * 支持 FreeTodo 工具和外部工具（如 DuckDuckGo 搜索）
  */
 export function ToolSelector({ disabled = false }: ToolSelectorProps) {
 	const tChat = useTranslations("chat");
@@ -48,9 +57,18 @@ export function ToolSelector({ disabled = false }: ToolSelectorProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
+	// FreeTodo 工具状态
 	const selectedAgnoTools = useUiStore((state) => state.selectedAgnoTools);
 	const setSelectedAgnoTools = useUiStore(
 		(state) => state.setSelectedAgnoTools,
+	);
+
+	// 外部工具状态
+	const selectedExternalTools = useUiStore(
+		(state) => state.selectedExternalTools,
+	);
+	const setSelectedExternalTools = useUiStore(
+		(state) => state.setSelectedExternalTools,
 	);
 
 	// 点击外部关闭下拉框
@@ -70,26 +88,48 @@ export function ToolSelector({ disabled = false }: ToolSelectorProps) {
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen]);
 
-	const handleToggleTool = (toolId: string) => {
+	// FreeTodo 工具切换
+	const handleToggleFreetodoTool = (toolId: string) => {
 		const newTools = selectedAgnoTools.includes(toolId)
 			? selectedAgnoTools.filter((id) => id !== toolId)
 			: [...selectedAgnoTools, toolId];
-		console.log("[ToolSelector] Toggling tool:", toolId);
+		console.log("[ToolSelector] Toggling FreeTodo tool:", toolId);
 		console.log("[ToolSelector] New selectedAgnoTools:", newTools);
 		setSelectedAgnoTools(newTools);
 	};
 
-	const handleSelectAll = () => {
-		setSelectedAgnoTools(AGNO_TOOLS.map((tool) => tool.id));
+	// 外部工具切换
+	const handleToggleExternalTool = (toolId: string) => {
+		const newTools = selectedExternalTools.includes(toolId)
+			? selectedExternalTools.filter((id) => id !== toolId)
+			: [...selectedExternalTools, toolId];
+		console.log("[ToolSelector] Toggling external tool:", toolId);
+		console.log("[ToolSelector] New selectedExternalTools:", newTools);
+		setSelectedExternalTools(newTools);
 	};
 
-	const handleDeselectAll = () => {
+	const handleSelectAllFreetodo = () => {
+		setSelectedAgnoTools(FREETODO_TOOLS.map((tool) => tool.id));
+	};
+
+	const handleDeselectAllFreetodo = () => {
 		setSelectedAgnoTools([]);
 	};
 
-	// 所有工具都被选中时视为全选
-	const isAllSelected = selectedAgnoTools.length === AGNO_TOOLS.length;
-	const selectedCount = selectedAgnoTools.length;
+	const handleSelectAllExternal = () => {
+		setSelectedExternalTools(EXTERNAL_TOOLS.map((tool) => tool.id));
+	};
+
+	const handleDeselectAllExternal = () => {
+		setSelectedExternalTools([]);
+	};
+
+	// 计算选中数量
+	const freetodoSelectedCount = selectedAgnoTools.length;
+	const externalSelectedCount = selectedExternalTools.length;
+	const totalSelectedCount = freetodoSelectedCount + externalSelectedCount;
+	const totalToolsCount = FREETODO_TOOLS.length + EXTERNAL_TOOLS.length;
+	const isAllSelected = totalSelectedCount === totalToolsCount;
 
 	return (
 		<div className="relative" ref={dropdownRef}>
@@ -108,98 +148,167 @@ export function ToolSelector({ disabled = false }: ToolSelectorProps) {
 			>
 				<Wrench className="h-3.5 w-3.5" />
 				<span>{tChat("toolSelector.label")}</span>
-				{!isAllSelected && (
-					<span className="text-muted-foreground">({selectedCount})</span>
+				{totalSelectedCount > 0 && (
+					<span className="text-muted-foreground">({totalSelectedCount})</span>
 				)}
 			</button>
 
 			{/* 下拉多选框 */}
 			{isOpen && (
-				<div className="absolute left-0 bottom-full z-50 mb-2 w-72 rounded-md border border-border bg-background shadow-lg">
+				<div className="absolute left-0 bottom-full z-50 mb-2 w-80 rounded-md border border-border bg-background shadow-lg">
 					{/* 标题栏 */}
 					<div className="flex items-center justify-between border-b border-border px-3 py-2">
 						<span className="text-sm font-medium">
 							{tChat("toolSelector.title")}
 						</span>
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={handleSelectAll}
-								className="text-xs text-primary hover:underline"
-							>
-								{tChat("toolSelector.selectAll")}
-							</button>
-							<span className="text-xs text-muted-foreground">|</span>
-							<button
-								type="button"
-								onClick={handleDeselectAll}
-								className="text-xs text-primary hover:underline"
-							>
-								{tChat("toolSelector.deselectAll")}
-							</button>
-						</div>
 					</div>
 
 					{/* 工具列表 */}
 					<div className="max-h-96 overflow-y-auto p-2">
-						{Object.entries(
-							AGNO_TOOLS.reduce(
-								(acc, tool) => {
-									if (!acc[tool.category]) {
-										acc[tool.category] = [];
-									}
-									acc[tool.category].push(tool);
-									return acc;
-								},
-								{} as Record<
-									string,
-									Array<(typeof AGNO_TOOLS)[number]>
-								>,
-							),
-						).map(([category, tools]) => (
-							<div key={category} className="mb-3 last:mb-0">
-								{/* 分类标题 */}
-								<div className="mb-1.5 px-2 text-xs font-medium text-muted-foreground">
-									{tChat(`toolSelector.categories.${category}`)}
+						{/* 外部工具区域 */}
+						<div className="mb-4">
+							<div className="flex items-center justify-between mb-2 px-2">
+								<div className="flex items-center gap-1.5">
+									<Globe className="h-3.5 w-3.5 text-muted-foreground" />
+									<span className="text-xs font-medium text-muted-foreground">
+										{tChat("toolSelector.externalTools")}
+									</span>
 								</div>
-								{/* 工具选项 */}
-								<div className="space-y-0.5">
-									{tools.map((tool) => {
-										const isSelected = selectedAgnoTools.includes(tool.id);
-										return (
-											<button
-												key={tool.id}
-												type="button"
-												onClick={() => handleToggleTool(tool.id)}
-												className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-											>
-												<div
-													className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-														isSelected
-															? "border-primary bg-primary text-primary-foreground"
-															: "border-input"
-													}`}
-												>
-													{isSelected && <Check className="h-3 w-3" />}
-												</div>
-												<span className="flex-1 text-left">
-													{tToolCall(`tools.${tool.id}`)}
-												</span>
-											</button>
-										);
-									})}
+								<div className="flex gap-2">
+									<button
+										type="button"
+										onClick={handleSelectAllExternal}
+										className="text-xs text-primary hover:underline"
+									>
+										{tChat("toolSelector.selectAll")}
+									</button>
+									<span className="text-xs text-muted-foreground">|</span>
+									<button
+										type="button"
+										onClick={handleDeselectAllExternal}
+										className="text-xs text-primary hover:underline"
+									>
+										{tChat("toolSelector.deselectAll")}
+									</button>
 								</div>
 							</div>
-						))}
+							<div className="space-y-0.5">
+								{EXTERNAL_TOOLS.map((tool) => {
+									const isSelected = selectedExternalTools.includes(tool.id);
+									return (
+										<button
+											key={tool.id}
+											type="button"
+											onClick={() => handleToggleExternalTool(tool.id)}
+											className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+										>
+											<div
+												className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+													isSelected
+														? "border-primary bg-primary text-primary-foreground"
+														: "border-input"
+												}`}
+											>
+												{isSelected && <Check className="h-3 w-3" />}
+											</div>
+											<span className="flex-1 text-left">
+												{tToolCall(`tools.${tool.id}`)}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+
+						{/* 分隔线 */}
+						<div className="border-t border-border my-2" />
+
+						{/* FreeTodo 工具区域 */}
+						<div>
+							<div className="flex items-center justify-between mb-2 px-2">
+								<div className="flex items-center gap-1.5">
+									<Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+									<span className="text-xs font-medium text-muted-foreground">
+										{tChat("toolSelector.freetodoTools")}
+									</span>
+								</div>
+								<div className="flex gap-2">
+									<button
+										type="button"
+										onClick={handleSelectAllFreetodo}
+										className="text-xs text-primary hover:underline"
+									>
+										{tChat("toolSelector.selectAll")}
+									</button>
+									<span className="text-xs text-muted-foreground">|</span>
+									<button
+										type="button"
+										onClick={handleDeselectAllFreetodo}
+										className="text-xs text-primary hover:underline"
+									>
+										{tChat("toolSelector.deselectAll")}
+									</button>
+								</div>
+							</div>
+							{Object.entries(
+								FREETODO_TOOLS.reduce(
+									(acc, tool) => {
+										if (!acc[tool.category]) {
+											acc[tool.category] = [];
+										}
+										acc[tool.category].push(tool);
+										return acc;
+									},
+									{} as Record<
+										string,
+										Array<(typeof FREETODO_TOOLS)[number]>
+									>,
+								),
+							).map(([category, tools]) => (
+								<div key={category} className="mb-3 last:mb-0">
+									{/* 分类标题 */}
+									<div className="mb-1.5 px-2 text-xs font-medium text-muted-foreground">
+										{tChat(`toolSelector.categories.${category}`)}
+									</div>
+									{/* 工具选项 */}
+									<div className="space-y-0.5">
+										{tools.map((tool) => {
+											const isSelected = selectedAgnoTools.includes(tool.id);
+											return (
+												<button
+													key={tool.id}
+													type="button"
+													onClick={() => handleToggleFreetodoTool(tool.id)}
+													className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+												>
+													<div
+														className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+															isSelected
+																? "border-primary bg-primary text-primary-foreground"
+																: "border-input"
+														}`}
+													>
+														{isSelected && <Check className="h-3 w-3" />}
+													</div>
+													<span className="flex-1 text-left">
+														{tToolCall(`tools.${tool.id}`)}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 
 					{/* 底部状态栏 */}
 					<div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-						{selectedCount === 0
-							? tChat("toolSelector.selectedCount", { count: 0 })
+						{totalSelectedCount === 0
+							? tChat("toolSelector.noneSelected")
 							: isAllSelected
 								? tChat("toolSelector.allSelected")
-								: tChat("toolSelector.selectedCount", { count: selectedCount })}
+								: tChat("toolSelector.selectedCount", { count: totalSelectedCount })}
 					</div>
 				</div>
 			)}

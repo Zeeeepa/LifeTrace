@@ -9,7 +9,7 @@ import type { TodoExtractionResponseAppName } from './todoExtractionResponseAppN
 import type { TodoExtractionResponseWindowTitle } from './todoExtractionResponseWindowTitle';
 import type { TodoExtractionResponseEventStartTime } from './todoExtractionResponseEventStartTime';
 import type { TodoExtractionResponseEventEndTime } from './todoExtractionResponseEventEndTime';
-import type { LifetraceSchemasTodoExtractionExtractedTodo } from './lifetraceSchemasTodoExtractionExtractedTodo';
+import type { ExtractedTodo } from './extractedTodo';
 import type { TodoExtractionResponseErrorMessage } from './todoExtractionResponseErrorMessage';
 
 /**
@@ -27,7 +27,7 @@ export interface TodoExtractionResponse {
   /** 事件结束时间 */
   event_end_time?: TodoExtractionResponseEventEndTime;
   /** 提取的待办列表 */
-  todos?: LifetraceSchemasTodoExtractionExtractedTodo[];
+  todos?: ExtractedTodo[];
   /** 提取时间戳 */
   extraction_timestamp?: string;
   /** 实际分析的截图数量 */

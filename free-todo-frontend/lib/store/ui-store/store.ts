@@ -35,8 +35,10 @@ export const useUiStore = create<UiStoreState>()(
 			defaultChatMode: DEFAULT_PANEL_STATE.defaultChatMode,
 			// 是否显示 Agno 工具选择器
 			showAgnoToolSelector: DEFAULT_PANEL_STATE.showAgnoToolSelector,
-			// Agno 模式下选中的工具
+			// Agno 模式下选中的 FreeTodo 工具
 			selectedAgnoTools: DEFAULT_PANEL_STATE.selectedAgnoTools,
+			// Agno 模式下选中的外部工具
+			selectedExternalTools: DEFAULT_PANEL_STATE.selectedExternalTools,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -402,10 +404,16 @@ export const useUiStore = create<UiStoreState>()(
 					showAgnoToolSelector: show,
 				})),
 
-			// 设置 Agno 模式下选中的工具
+			// 设置 Agno 模式下选中的 FreeTodo 工具
 			setSelectedAgnoTools: (tools) =>
 				set(() => ({
 					selectedAgnoTools: tools,
+				})),
+
+			// 设置 Agno 模式下选中的外部工具
+			setSelectedExternalTools: (tools) =>
+				set(() => ({
+					selectedExternalTools: tools,
 				})),
 		}),
 		{
@@ -527,6 +535,17 @@ export const useUiStore = create<UiStoreState>()(
 							} else {
 								// 确保数组中的元素都是字符串
 								state.selectedAgnoTools = state.selectedAgnoTools.filter(
+									(tool: unknown): tool is string => typeof tool === "string",
+								);
+							}
+
+							// 校验 selectedExternalTools（默认空数组）
+							if (!Array.isArray(state.selectedExternalTools)) {
+								state.selectedExternalTools =
+									DEFAULT_PANEL_STATE.selectedExternalTools;
+							} else {
+								// 确保数组中的元素都是字符串
+								state.selectedExternalTools = state.selectedExternalTools.filter(
 									(tool: unknown): tool is string => typeof tool === "string",
 								);
 							}

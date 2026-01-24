@@ -53,6 +53,8 @@ dependencies = [
     "dashscope>=1.17.0",
     # Agno Agent Framework
     "agno>=2.4.1",
+    # DuckDuckGo search for Agno Agent
+    "ddgs>=8.0.0",
     # PyAudio for microphone input
     "pyaudio>=0.2.14",
     # Tavily API for web search

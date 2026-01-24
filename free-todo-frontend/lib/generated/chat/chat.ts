@@ -793,6 +793,103 @@ export function useGetSupportedQueryTypesApiChatQueryTypesGet<TData = Awaited<Re
 
 
 /**
+ * 获取可用的 Agno Agent 工具列表
+
+返回两种类型的工具：
+1. FreeTodo 工具：待办管理相关（create_todo, list_todos 等）
+2. 外部工具：联网搜索等（duckduckgo 等）
+ * @summary Get Available Agno Tools
+ */
+export const getAvailableAgnoToolsApiChatAgnoToolsGet = (
+    
+ signal?: AbortSignal
+) => {
+      
+      
+      return customFetcher<unknown>(
+      {url: `/api/chat/agno/tools`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetAvailableAgnoToolsApiChatAgnoToolsGetQueryKey = () => {
+    return [
+    `/api/chat/agno/tools`
+    ] as const;
+    }
+
+    
+export const getGetAvailableAgnoToolsApiChatAgnoToolsGetQueryOptions = <TData = Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAvailableAgnoToolsApiChatAgnoToolsGetQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>> = ({ signal }) => getAvailableAgnoToolsApiChatAgnoToolsGet(signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAvailableAgnoToolsApiChatAgnoToolsGetQueryResult = NonNullable<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>>
+export type GetAvailableAgnoToolsApiChatAgnoToolsGetQueryError = unknown
+
+
+export function useGetAvailableAgnoToolsApiChatAgnoToolsGet<TData = Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAvailableAgnoToolsApiChatAgnoToolsGet<TData = Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>,
+          TError,
+          Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAvailableAgnoToolsApiChatAgnoToolsGet<TData = Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Available Agno Tools
+ */
+
+export function useGetAvailableAgnoToolsApiChatAgnoToolsGet<TData = Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAvailableAgnoToolsApiChatAgnoToolsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAvailableAgnoToolsApiChatAgnoToolsGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
  * Plan功能：生成选择题（流式输出）
  * @summary Plan Questionnaire Stream
  */

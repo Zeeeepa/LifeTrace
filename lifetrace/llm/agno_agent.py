@@ -4,6 +4,7 @@
 支持工具调用事件流，可在前端实时展示 Agent 执行步骤。
 支持 Phoenix + OpenInference 观测（通过配置启用）。
 支持 session_id 传递，实现按会话聚合 trace 文件。
+支持外部工具（如 DuckDuckGo 搜索）。
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from __future__ import annotations
 import json
 from collections.abc import Generator
 from contextvars import ContextVar
+from typing import TYPE_CHECKING
 
 from agno.agent import Agent, RunEvent
 from agno.models.openai.like import OpenAILike
@@ -20,6 +22,9 @@ from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.observability import setup_observability
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+
+if TYPE_CHECKING:
+    from agno.tools import Toolkit
 
 # 全局 ContextVar 用于跨 span 传递 session_id
 # file_exporter 可以读取这个值来按 session 聚合文件
@@ -41,68 +46,176 @@ TOOL_EVENT_SUFFIX = "]\n"
 # 工具结果预览最大长度
 RESULT_PREVIEW_MAX_LENGTH = 500
 
+# 可用的外部工具映射
+EXTERNAL_TOOLS_REGISTRY: dict[str, type[Toolkit]] = {}
+
+
+def _register_external_tools():
+    """注册可用的外部工具（延迟导入以避免启动时的依赖问题）"""
+    global EXTERNAL_TOOLS_REGISTRY  # noqa: PLW0603
+    if EXTERNAL_TOOLS_REGISTRY:
+        return  # 已经注册过
+
+    # DuckDuckGo 搜索工具
+    try:
+        from agno.tools.duckduckgo import DuckDuckGoTools
+
+        EXTERNAL_TOOLS_REGISTRY["duckduckgo"] = DuckDuckGoTools
+        logger.debug("已注册外部工具: duckduckgo")
+    except ImportError:
+        logger.warning("无法导入 DuckDuckGoTools，请确保已安装 ddgs 包")
+
+
+def get_available_external_tools() -> list[str]:
+    """获取可用的外部工具列表"""
+    _register_external_tools()
+    return list(EXTERNAL_TOOLS_REGISTRY.keys())
+
+
+def create_external_tool(tool_name: str) -> Toolkit | None:
+    """创建外部工具实例
+
+    Args:
+        tool_name: 工具名称（如 'duckduckgo'）
+
+    Returns:
+        工具实例，如果工具不存在则返回 None
+    """
+    _register_external_tools()
+    tool_class = EXTERNAL_TOOLS_REGISTRY.get(tool_name)
+    if tool_class:
+        return tool_class()
+    return None
+
+
+def _build_instructions(
+    lang: str,
+    has_tools: bool,
+    use_all_freetodo_tools: bool,
+    has_external_tools: bool,
+) -> list[str] | None:
+    """构建 Agent 的 instructions
+
+    Args:
+        lang: 语言代码
+        has_tools: 是否有任何工具启用
+        use_all_freetodo_tools: 是否使用全部 FreeTodo 工具
+        has_external_tools: 是否有外部工具
+
+    Returns:
+        instructions 列表或 None
+    """
+    if use_all_freetodo_tools and not has_external_tools:
+        # Load full instructions from agno_tools/{lang}/instructions.yaml
+        instructions = get_message(lang, "instructions")
+        return [instructions] if instructions and instructions != "[instructions]" else None
+
+    # 简化的 instructions
+    if lang == "zh":
+        if has_tools:
+            return [
+                "你是 FreeTodo 智能助手，可以帮助用户管理待办事项和执行各种任务。"
+                "请根据用户的问题选择合适的工具来完成任务。"
+            ]
+        return ["你是 FreeTodo 智能助手。当前没有启用任何工具，请直接回答用户的问题。"]
+
+    # English
+    if has_tools:
+        return [
+            "You are the FreeTodo assistant that helps users manage their todos "
+            "and perform various tasks. Use the appropriate tools to complete tasks."
+        ]
+    return [
+        "You are the FreeTodo assistant. No tools are currently enabled. "
+        "Please answer the user's questions directly."
+    ]
+
 
 class AgnoAgentService:
     """Agno Agent 服务，提供基于 Agno 框架的智能对话能力
 
     Supports:
     - FreeTodoToolkit for todo management
+    - External tools (DuckDuckGo search, etc.)
     - Internationalization (i18n) through lang parameter
     - Streaming responses
     """
 
-    def __init__(self, lang: str | None = None, selected_tools: list[str] | None = None):
+    def __init__(
+        self,
+        lang: str | None = None,
+        selected_tools: list[str] | None = None,
+        external_tools: list[str] | None = None,
+    ):
         """初始化 Agno Agent 服务
 
         Args:
             lang: Language code for messages ('zh' or 'en').
                   If None, uses DEFAULT_LANG or settings default.
-            selected_tools: List of tool names to enable. If None or empty, all tools are enabled.
+            selected_tools: List of FreeTodo tool names to enable.
+                           If None or empty, no FreeTodo tools are enabled.
+            external_tools: List of external tool names to enable (e.g., ['duckduckgo']).
+                           If None or empty, no external tools are enabled.
         """
         try:
-            # Determine language
             self.lang = lang or DEFAULT_LANG
+            tools_to_use = self._initialize_tools(selected_tools, external_tools)
 
-            # Initialize toolkit with language support
-            toolkit = FreeTodoToolkit(lang=self.lang, selected_tools=selected_tools)
+            # 判断工具配置
+            total_freetodo_tools_count = 14
+            use_all_freetodo_tools = bool(
+                selected_tools and len(selected_tools) == total_freetodo_tools_count
+            )
+            has_external_tools = bool(external_tools and len(external_tools) > 0)
 
-            # 判断是否使用全部工具（FreeTodoToolkit 有 14 个工具）
-            # 如果只选择了部分工具，使用简化的 instructions，避免 LLM 尝试调用不存在的工具
-            total_tools_count = 14
-            use_all_tools = not selected_tools or len(selected_tools) == total_tools_count
+            instructions_list = _build_instructions(
+                self.lang, bool(tools_to_use), use_all_freetodo_tools, has_external_tools
+            )
 
-            if use_all_tools:
-                # Load full instructions from agno_tools/{lang}/instructions.yaml
-                instructions = get_message(self.lang, "instructions")
-                instructions_list = (
-                    [instructions] if instructions and instructions != "[instructions]" else None
-                )
-            elif self.lang == "zh":
-                # 使用简化的 instructions，只告诉 LLM 使用提供的工具
-                instructions_list = ["你是 FreeTodo 智能助手，可以帮助用户管理待办事项。"]
-            else:
-                instructions_list = [
-                    "You are the FreeTodo assistant that helps users manage their todos. "
-                ]
-
-            # 复用现有 LLM 配置
             self.agent = Agent(
                 model=OpenAILike(
                     id=settings.llm.model,
                     api_key=settings.llm.api_key,
                     base_url=settings.llm.base_url,
                 ),
-                tools=[toolkit],
+                tools=tools_to_use if tools_to_use else None,
                 instructions=instructions_list,
                 markdown=True,
             )
             logger.info(
                 f"Agno Agent 初始化成功，模型: {settings.llm.model}, "
-                f"Base URL: {settings.llm.base_url}, lang: {self.lang}",
+                f"Base URL: {settings.llm.base_url}, lang: {self.lang}, "
+                f"工具数量: {len(tools_to_use)}",
             )
         except Exception as e:
             logger.error(f"Agno Agent 初始化失败: {e}")
             raise
+
+    def _initialize_tools(
+        self,
+        selected_tools: list[str] | None,
+        external_tools: list[str] | None,
+    ) -> list[Toolkit]:
+        """初始化工具列表"""
+        tools_to_use: list[Toolkit] = []
+
+        # Initialize FreeTodoToolkit if any tools are selected
+        if selected_tools and len(selected_tools) > 0:
+            toolkit = FreeTodoToolkit(lang=self.lang, selected_tools=selected_tools)
+            tools_to_use.append(toolkit)
+            logger.info(f"已启用 FreeTodo 工具: {selected_tools}")
+
+        # Initialize external tools
+        if external_tools and len(external_tools) > 0:
+            for tool_name in external_tools:
+                external_tool = create_external_tool(tool_name)
+                if external_tool:
+                    tools_to_use.append(external_tool)
+                    logger.info(f"已启用外部工具: {tool_name}")
+                else:
+                    logger.warning(f"未找到外部工具: {tool_name}")
+
+        return tools_to_use
 
     def _build_input_data(
         self,

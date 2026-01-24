@@ -183,11 +183,11 @@ def _create_dify_streaming_response(
     """
     logger.info("[stream] 进入 Dify 测试模式")
 
-    # 保存用户消息
+    # 保存用户消息（只保存用户真正输入的内容，不含系统提示词和上下文）
     chat_service.add_message(
         session_id=session_id,
         role="user",
-        content=message.message,
+        content=message.get_user_input_for_storage(),
     )
 
     # 从 message 中提取 Dify 相关参数
@@ -251,28 +251,35 @@ def _create_agent_streaming_response(
     """处理 Agent 模式，支持工具调用"""
     logger.info("[stream] 进入 Agent 模式")
 
-    # 保存用户消息
-    chat_service.add_message(
-        session_id=session_id,
-        role="user",
-        content=message.message,
-    )
-
     # 创建 Agent 服务
     agent_service = AgentService()
 
-    # 解析待办上下文
-    todo_context = None
-    user_query = message.message
-    if "用户输入:" in message.message or "User input:" in message.message:
-        markers = ["用户输入:", "User input:"]
-        for marker in markers:
-            if marker in message.message:
-                parts = message.message.split(marker, 1)
-                if len(parts) == 2:  # noqa: PLR2004
-                    todo_context = parts[0].strip()
-                    user_query = parts[1].strip()
-                    break
+    # 获取待办上下文和用户输入
+    # 优先使用新的 schema 字段，降级到老的解析方式（向后兼容）
+    if message.context is not None or message.user_input is not None:
+        # 新方式：使用 schema 字段
+        todo_context = message.context
+        user_query = message.get_user_input_for_storage()
+    else:
+        # 老方式：从 message 解析（向后兼容）
+        todo_context = None
+        user_query = message.message
+        if "用户输入:" in message.message or "User input:" in message.message:
+            markers = ["用户输入:", "User input:"]
+            for marker in markers:
+                if marker in message.message:
+                    parts = message.message.split(marker, 1)
+                    if len(parts) == 2:  # noqa: PLR2004
+                        todo_context = parts[0].strip()
+                        user_query = parts[1].strip()
+                        break
+
+    # 保存用户消息（只保存用户真正的输入，不含系统提示词和上下文）
+    chat_service.add_message(
+        session_id=session_id,
+        role="user",
+        content=user_query,
+    )
 
     def agent_token_generator():
         total_content = ""
@@ -373,19 +380,28 @@ def _create_agno_streaming_response(
     """
     logger.info(f"[stream] 进入 Agno 模式, lang={lang}")
 
-    # 保存用户消息
+    # 获取用户真正的输入（用于保存和过滤对话历史）
+    user_input_for_storage = message.get_user_input_for_storage()
+
+    # 保存用户消息（只保存用户真正输入的内容，不含系统提示词和上下文）
     chat_service.add_message(
         session_id=session_id,
         role="user",
-        content=message.message,
+        content=user_input_for_storage,
     )
 
     # 获取前端传递的工具选择列表
-    selected_tools = getattr(message, "selected_tools", None)
-    logger.info(f"[stream][agno] Received selected_tools from frontend: {selected_tools}")
+    selected_tools = message.selected_tools
+    external_tools = message.external_tools
+    logger.info(
+        f"[stream][agno] Received tools from frontend: "
+        f"selected_tools={selected_tools}, external_tools={external_tools}"
+    )
 
     # 创建 Agno Agent 服务（传入语言参数和工具选择）
-    agno_service = AgnoAgentService(lang=lang, selected_tools=selected_tools)
+    agno_service = AgnoAgentService(
+        lang=lang, selected_tools=selected_tools, external_tools=external_tools
+    )
 
     # 获取对话历史（用于上下文）
     conversation_history = None
@@ -398,7 +414,7 @@ def _create_agno_streaming_response(
             for msg in messages:
                 msg_role = msg.get("role", "")
                 msg_content = msg.get("content", "")
-                if msg_role in ("user", "assistant") and msg_content != message.message:
+                if msg_role in ("user", "assistant") and msg_content != user_input_for_storage:
                     conversation_history.append({"role": msg_role, "content": msg_content})
     except Exception as e:
         logger.warning(f"[stream][agno] 获取对话历史失败: {e}，将使用单次对话模式")
@@ -437,6 +453,52 @@ def _create_agno_streaming_response(
     )
 
 
+def _build_messages_from_new_schema(
+    message: ChatMessage,
+    user_message_to_save: str,
+    lang: str,
+) -> list[dict[str, str]]:
+    """使用新的 schema 字段构建 LLM 消息列表。"""
+    llm_messages = []
+    if message.system_prompt:
+        system_content = message.system_prompt
+        if message.context:
+            system_content += f"\n\n{message.context}"
+        system_content += get_language_instruction(lang)
+        llm_messages.append({"role": "system", "content": system_content})
+    elif message.context:
+        system_content = message.context + get_language_instruction(lang)
+        llm_messages.append({"role": "system", "content": system_content})
+
+    llm_messages.append({"role": "user", "content": user_message_to_save})
+    return llm_messages
+
+
+def _build_messages_from_legacy_format(
+    full_message: str,
+    lang: str,
+) -> tuple[list[dict[str, str]], str]:
+    """从老格式消息解析构建 LLM 消息列表（向后兼容）。
+
+    返回 (messages, user_message_to_save)。
+    """
+    marker = "用户输入:" if "用户输入:" in full_message else "User input:"
+    if marker not in full_message:
+        return [{"role": "user", "content": full_message}], full_message
+
+    parts = full_message.split(marker, 1)
+    if len(parts) != 2:  # noqa: PLR2004
+        return [{"role": "user", "content": full_message}], full_message
+
+    system_prompt = parts[0].strip() + get_language_instruction(lang)
+    user_input = parts[1].strip()
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_input},
+    ]
+    return messages, user_input
+
+
 async def _build_stream_messages_and_temperature(
     message: ChatMessage,
     session_id: str,
@@ -447,22 +509,14 @@ async def _build_stream_messages_and_temperature(
     返回 (messages, temperature, user_message_to_save, error_response)。
     当 RAG 失败时，error_response 不为 None，调用方应直接返回该响应。
     """
-    user_message_to_save = message.message
+    user_message_to_save = message.get_user_input_for_storage()
 
     if message.use_rag:
-        # 使用 RAG 服务的流式处理方法，避免重复的意图识别
         rag_service = get_rag_service()
-        rag_result = await rag_service.process_query_stream(
-            message.message,
-            session_id,
-            lang=lang,
-        )
+        rag_result = await rag_service.process_query_stream(message.message, session_id, lang=lang)
 
         if not rag_result.get("success", False):
-            error_msg = rag_result.get(
-                "response",
-                "处理您的查询时出现了错误，请稍后重试。",
-            )
+            error_msg = rag_result.get("response", "处理您的查询时出现了错误，请稍后重试。")
 
             async def error_generator():
                 yield error_msg
@@ -471,37 +525,20 @@ async def _build_stream_messages_and_temperature(
                 [],
                 0.7,
                 user_message_to_save,
-                StreamingResponse(
-                    error_generator(),
-                    media_type="text/plain; charset=utf-8",
-                ),
+                StreamingResponse(error_generator(), media_type="text/plain; charset=utf-8"),
             )
 
-        messages = rag_result.get("messages", [])
-        temperature = rag_result.get("temperature", 0.7)
-        return messages, temperature, user_message_to_save, None
+        return (
+            rag_result.get("messages", []),
+            rag_result.get("temperature", 0.7),
+            user_message_to_save,
+            None,
+        )
 
-    # 不使用 RAG，直接构建消息，兼容前端已构建好的 system prompt
-    full_message = message.message
-    if "用户输入:" in full_message or "User input:" in full_message:
-        if "用户输入:" in full_message:
-            parts = full_message.split("用户输入:", 1)
-        else:
-            parts = full_message.split("User input:", 1)
+    # 不使用 RAG：优先新 schema，降级老解析
+    if message.system_prompt is not None or message.user_input is not None:
+        llm_messages = _build_messages_from_new_schema(message, user_message_to_save, lang)
+        return llm_messages, 0.7, user_message_to_save, None
 
-        if len(parts) == 2:  # noqa: PLR2004
-            system_prompt = parts[0].strip()
-            # 注入语言指令
-            system_prompt += get_language_instruction(lang)
-            user_input = parts[1].strip()
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_input},
-            ]
-            user_message_to_save = user_input
-        else:
-            messages = [{"role": "user", "content": full_message}]
-    else:
-        messages = [{"role": "user", "content": full_message}]
-
+    messages, user_message_to_save = _build_messages_from_legacy_format(message.message, lang)
     return messages, 0.7, user_message_to_save, None

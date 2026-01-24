@@ -5,13 +5,23 @@
  * 智能生活记录系统 API
  * OpenAPI spec version: 0.1.0
  */
+import type { ChatMessageUserInput } from './chatMessageUserInput';
+import type { ChatMessageContext } from './chatMessageContext';
+import type { ChatMessageSystemPrompt } from './chatMessageSystemPrompt';
 import type { ChatMessageConversationId } from './chatMessageConversationId';
 import type { ChatMessageMode } from './chatMessageMode';
+import type { ChatMessageSelectedTools } from './chatMessageSelectedTools';
+import type { ChatMessageExternalTools } from './chatMessageExternalTools';
 
 export interface ChatMessage {
   message: string;
+  user_input?: ChatMessageUserInput;
+  context?: ChatMessageContext;
+  system_prompt?: ChatMessageSystemPrompt;
   conversation_id?: ChatMessageConversationId;
   use_rag?: boolean;
   mode?: ChatMessageMode;
+  selected_tools?: ChatMessageSelectedTools;
+  external_tools?: ChatMessageExternalTools;
   [key: string]: unknown;
  }

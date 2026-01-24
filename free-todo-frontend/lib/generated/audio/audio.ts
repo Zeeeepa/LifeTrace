@@ -31,6 +31,7 @@ import type {
   GetTimelineApiAudioTimelineGetParams,
   GetTranscriptionApiAudioTranscriptionRecordingIdGetParams,
   HTTPValidationError,
+  LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams,
   OptimizeTranscriptionApiAudioOptimizePostParams
 } from '.././schemas';
 
@@ -423,11 +424,17 @@ export function useGetTranscriptionApiAudioTranscriptionRecordingIdGet<TData = A
 
 /**
  * Mark extracted items as linked to todos (persisted in transcription JSON).
+
+Args:
+    recording_id: 录音ID
+    request: 链接请求
+    optimized: 是否更新优化文本的提取结果
  * @summary Link Extracted Items
  */
 export const linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost = (
     recordingId: number,
     audioLinkRequest: AudioLinkRequest,
+    params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams,
  signal?: AbortSignal
 ) => {
       
@@ -435,7 +442,8 @@ export const linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost = (
       return customFetcher<unknown>(
       {url: `/api/audio/transcription/${recordingId}/link`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: audioLinkRequest, signal
+      data: audioLinkRequest,
+        params, signal
     },
       );
     }
@@ -443,8 +451,8 @@ export const linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost = (
 
 
 export const getLinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest;params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest;params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams}, TContext> => {
 
 const mutationKey = ['linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost'];
 const {mutation: mutationOptions} = options ?
@@ -456,10 +464,10 @@ const {mutation: mutationOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, {recordingId: number;data: AudioLinkRequest}> = (props) => {
-          const {recordingId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, {recordingId: number;data: AudioLinkRequest;params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams}> = (props) => {
+          const {recordingId,data,params} = props ?? {};
 
-          return  linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost(recordingId,data,)
+          return  linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost(recordingId,data,params,)
         }
 
         
@@ -475,11 +483,11 @@ const {mutation: mutationOptions} = options ?
  * @summary Link Extracted Items
  */
 export const useLinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest}, TContext>, }
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>, TError,{recordingId: number;data: AudioLinkRequest;params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost>>,
         TError,
-        {recordingId: number;data: AudioLinkRequest},
+        {recordingId: number;data: AudioLinkRequest;params?: LinkExtractedItemsApiAudioTranscriptionRecordingIdLinkPostParams},
         TContext
       > => {
 
@@ -553,6 +561,10 @@ export const useOptimizeTranscriptionApiAudioOptimizePost = <TError = HTTPValida
     }
     /**
  * 提取待办事项和日程安排
+
+Args:
+    recording_id: 录音ID
+    optimized: 是否从优化文本提取（False=从原文提取）
  * @summary Extract Todos And Schedules
  */
 export const extractTodosAndSchedulesApiAudioExtractPost = (

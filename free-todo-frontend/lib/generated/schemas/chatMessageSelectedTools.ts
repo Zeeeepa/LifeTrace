@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ExtractTodosAndSchedulesApiAudioExtractPostParams = {
-recording_id: number;
-optimized?: boolean;
-};
+export type ChatMessageSelectedTools = string[] | null;

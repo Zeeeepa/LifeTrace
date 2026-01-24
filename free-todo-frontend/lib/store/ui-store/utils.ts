@@ -60,23 +60,10 @@ export const DEFAULT_PANEL_STATE = {
 	defaultChatMode: "ask" as ChatMode,
 	// 是否显示 Agno 模式的工具选择器（默认关闭）
 	showAgnoToolSelector: false,
-	// Agno 模式下选中的工具列表（默认全选所有 14 个工具）
-	selectedAgnoTools: [
-		"create_todo",
-		"complete_todo",
-		"update_todo",
-		"list_todos",
-		"search_todos",
-		"delete_todo",
-		"breakdown_task",
-		"parse_time",
-		"check_schedule_conflict",
-		"get_todo_stats",
-		"get_overdue_todos",
-		"list_tags",
-		"get_todos_by_tag",
-		"suggest_tags",
-	] as string[],
+	// Agno 模式下选中的 FreeTodo 工具列表（默认不选中任何工具）
+	selectedAgnoTools: [] as string[],
+	// Agno 模式下选中的外部工具列表（默认不选中任何工具）
+	selectedExternalTools: [] as string[],
 };
 
 /**
