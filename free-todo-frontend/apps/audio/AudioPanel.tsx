@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useConfig } from "@/lib/query";
+import { useAudioRecordingStore } from "@/lib/store/audio-recording-store";
 import { toastError } from "@/lib/toast";
 import { AudioExtractionPanel } from "./components/AudioExtractionPanel";
 import { AudioHeader } from "./components/AudioHeader";
@@ -27,13 +28,40 @@ export function AudioPanel() {
 	const { data: config } = useConfig();
 	const is24x7Enabled = (config?.audioIs24x7 as boolean | undefined) ?? true;
 	const [activeTab, setActiveTab] = useState<"original" | "optimized">("original");
-	const [transcriptionText, setTranscriptionText] = useState("");
-	const [partialText, setPartialText] = useState("");
-	const [optimizedText, setOptimizedText] = useState("");
 	const [selectedDate, setSelectedDate] = useState(new Date());
 
 	// 先初始化 useAudioRecording，因为 useAudioData 需要 isRecording
 	const { isRecording, startRecording, stopRecording } = useAudioRecording();
+
+	// 从全局 store 获取实时录音数据（用于面板切换时保持状态）
+	const storeTranscriptionText = useAudioRecordingStore((state) => state.transcriptionText);
+	const storePartialText = useAudioRecordingStore((state) => state.partialText);
+	const storeOptimizedText = useAudioRecordingStore((state) => state.optimizedText);
+	const storeSegmentTimesSec = useAudioRecordingStore((state) => state.segmentTimesSec);
+	const storeSegmentTimeLabels = useAudioRecordingStore((state) => state.segmentTimeLabels);
+	const storeSegmentRecordingIds = useAudioRecordingStore((state) => state.segmentRecordingIds);
+	const storeSegmentOffsetsSec = useAudioRecordingStore((state) => state.segmentOffsetsSec);
+	const storeLiveTodos = useAudioRecordingStore((state) => state.liveTodos);
+	const storeLiveSchedules = useAudioRecordingStore((state) => state.liveSchedules);
+
+	// 从全局 store 获取更新方法
+	const updateLastFinalEnd = useAudioRecordingStore((state) => state.updateLastFinalEnd);
+	const appendTranscriptionText = useAudioRecordingStore((state) => state.appendTranscriptionText);
+	const setStorePartialText = useAudioRecordingStore((state) => state.setPartialText);
+	const setStoreOptimizedText = useAudioRecordingStore((state) => state.setOptimizedText);
+	const appendSegmentData = useAudioRecordingStore((state) => state.appendSegmentData);
+	const setStoreLiveTodos = useAudioRecordingStore((state) => state.setLiveTodos);
+	const setStoreLiveSchedules = useAudioRecordingStore((state) => state.setLiveSchedules);
+	const clearSessionData = useAudioRecordingStore((state) => state.clearSessionData);
+
+	// 本地状态：用于回看模式（从后端加载的历史数据）
+	const [localTranscriptionText, setLocalTranscriptionText] = useState("");
+	const [localOptimizedText, setLocalOptimizedText] = useState("");
+
+	// 根据录音状态选择数据源：录音中使用 store 数据，回看使用本地数据
+	const transcriptionText = isRecording ? storeTranscriptionText : localTranscriptionText;
+	const partialText = isRecording ? storePartialText : "";
+	const optimizedText = isRecording ? storeOptimizedText : localOptimizedText;
 
 	const {
 		selectedRecordingId,
@@ -41,36 +69,35 @@ export function AudioPanel() {
 		selectedRecordingDurationSec,
 		setSelectedRecordingDurationSec,
 		recordingDurations,
-		segmentOffsetsSec,
-		setSegmentOffsetsSec,
-		segmentRecordingIds,
-		setSegmentRecordingIds,
-		segmentTimeLabels,
-		setSegmentTimeLabels,
-		segmentTimesSec,
-		setSegmentTimesSec,
+		segmentOffsetsSec: dataSegmentOffsetsSec,
+		setSegmentOffsetsSec: setDataSegmentOffsetsSec,
+		segmentRecordingIds: dataSegmentRecordingIds,
+		setSegmentRecordingIds: setDataSegmentRecordingIds,
+		segmentTimeLabels: dataSegmentTimeLabels,
+		setSegmentTimeLabels: setDataSegmentTimeLabels,
+		segmentTimesSec: dataSegmentTimesSec,
+		setSegmentTimesSec: setDataSegmentTimesSec,
 		extractionsByRecordingId,
 		optimizedExtractionsByRecordingId,
 		setOptimizedExtractionsByRecordingId,
 		loadRecordings,
 		loadTimeline,
-	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText, isRecording);
-	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
-	const [liveTodos, setLiveTodos] = useState<
-		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
-	>([]);
-	const [liveSchedules, setLiveSchedules] = useState<
-		Array<{ title: string; time?: string; description?: string; source_text?: string }>
-	>([]);
+	} = useAudioData(selectedDate, activeTab, setLocalTranscriptionText, setLocalOptimizedText, isRecording);
+
+	// 根据录音状态选择段落数据源
+	const segmentTimesSec = isRecording ? storeSegmentTimesSec : dataSegmentTimesSec;
+	const segmentTimeLabels = isRecording ? storeSegmentTimeLabels : dataSegmentTimeLabels;
+	const segmentRecordingIds = isRecording ? storeSegmentRecordingIds : dataSegmentRecordingIds;
+	const segmentOffsetsSec = isRecording ? storeSegmentOffsetsSec : dataSegmentOffsetsSec;
+	const liveTodos = isRecording ? storeLiveTodos : [];
+	const liveSchedules = isRecording ? storeLiveSchedules : [];
+
 	// 当前回看模式下选中的文本段索引，用于给点击过的段落加选中态
 	const [selectedSegmentIndex, setSelectedSegmentIndex] = useState<number | null>(null);
 	const [showStopConfirm, setShowStopConfirm] = useState(false);
 	const [isExtracting, setIsExtracting] = useState(false); // 后端正在提取中（用于提取区域）
 	const [isLoadingTimeline, setIsLoadingTimeline] = useState(false); // 正在加载时间线（用于文本区域）
-	const recordingStartedAtMsRef = useRef<number>(0);
-	const recordingStartedAtRef = useRef<Date | null>(null);
-	// 记录前一个 final 文本的结束时间，作为当前文本的开始时间
-	const lastFinalEndMsRef = useRef<number | null>(null);
+
 	const {
 		audioRef,
 		isPlaying,
@@ -94,25 +121,19 @@ export function AudioPanel() {
 		const nowDateStr = now.toISOString().split("T")[0];
 		if (selectedDateStr !== nowDateStr) {
 			// 日期不一致，切换到当前日期
-			// 注意：这会触发 loadTimeline 和 loadRecordings，但会在录音开始前完成
 			setSelectedDate(now);
-			// 清空当前显示的文本，因为切换到了新日期
-			setTranscriptionText("");
-			setOptimizedText("");
-			setSegmentOffsetsSec([]);
-			setSegmentRecordingIds([]);
-			setSegmentTimeLabels([]);
-			setSegmentTimesSec([]);
-			setPartialText("");
+			// 清空本地状态
+			setLocalTranscriptionText("");
+			setLocalOptimizedText("");
+			setDataSegmentOffsetsSec([]);
+			setDataSegmentRecordingIds([]);
+			setDataSegmentTimeLabels([]);
+			setDataSegmentTimesSec([]);
 		}
-		// 录制开始：保留当天已有文本，在末尾追加新内容；并记录起始时间用于段落时间标签
+		// 录制开始：清空全局 store 的会话数据
+		// 注意：录音开始时间由全局 store 自动管理
 		setSelectedSegmentIndex(null);
-		recordingStartedAtMsRef.current = performance.now();
-		recordingStartedAtRef.current = now;
-		lastFinalEndMsRef.current = null; // 重置，第一段文本使用录音开始时间
-		// 开始录音前，清空本次会话的实时高亮状态
-		setLiveTodos([]);
-		setLiveSchedules([]);
+		clearSessionData();
 
 		await startRecording(
 			(text, isFinal) => {
@@ -120,39 +141,39 @@ export function AudioPanel() {
 				// - final=false：作为"未完成文本"斜体显示（不落盘）
 				// - final=true：替换掉未完成文本，并把最终句追加到正文
 				if (isFinal) {
+					// 从全局 store 获取时间戳数据
+					const storeState = useAudioRecordingStore.getState();
+					const currentRecordingStartedAt = storeState.recordingStartedAt ?? Date.now();
+					const currentLastFinalEndMs = storeState.lastFinalEndMs;
+
 					// 使用前一个 final 文本的结束时间作为当前文本的开始时间
 					// 对于第一段文本，使用录音开始时间
-					// 这样能更准确地对应到音频开始位置，避免 ASR 处理延迟的影响
-					const segmentStartMs = lastFinalEndMsRef.current ?? recordingStartedAtMsRef.current;
-					const elapsedSec = (segmentStartMs - recordingStartedAtMsRef.current) / 1000;
+					const segmentStartMs = currentLastFinalEndMs ?? currentRecordingStartedAt;
+					const elapsedSec = (segmentStartMs - currentRecordingStartedAt) / 1000;
 
 					// 记录当前 final 文本的结束时间，作为下一段文本的开始时间
-					lastFinalEndMsRef.current = performance.now();
+					updateLastFinalEnd(Date.now());
 
-					setTranscriptionText((prev) => {
-						const needsGap = prev && !prev.endsWith("\n");
-						return `${prev}${needsGap ? "\n" : ""}${text}\n`;
+					// 使用全局 store 更新转录数据
+					appendTranscriptionText(text);
+					const start = storeState.recordingStartedDate ?? new Date();
+					const segmentDate = getSegmentDate(start, elapsedSec, selectedDate);
+					appendSegmentData({
+						timeSec: elapsedSec,
+						timeLabel: formatDateTime(segmentDate),
+						recordingId: 0, // 当前录音会话的临时段落
+						offsetSec: elapsedSec,
 					});
-					setSegmentTimesSec((prev) => [...prev, elapsedSec]);
-					setSegmentOffsetsSec((prev) => [...prev, elapsedSec]);
-					// 当前录音会话的临时段落，用 0 标记，避免误判为某个已保存录音
-					setSegmentRecordingIds((prev) => [...prev, 0]);
-					setSegmentTimeLabels((prev) => {
-						const start = recordingStartedAtRef.current ?? new Date();
-						// 使用统一的时间计算函数（录音模式，使用精确时间戳）
-						const segmentDate = getSegmentDate(start, elapsedSec, selectedDate);
-						return [...prev, formatDateTime(segmentDate)];
-					});
-					setPartialText("");
+					setStorePartialText("");
 				} else {
-					setPartialText(text);
+					setStorePartialText(text);
 				}
 			},
 			(data) => {
-				// 录制中实时优化/提取推送（仅作用于当前会话，不覆盖已有录音的持久化高亮）
-				if (typeof data.optimizedText === "string") setOptimizedText(data.optimizedText);
-				if (Array.isArray(data.todos)) setLiveTodos(data.todos);
-				if (Array.isArray(data.schedules)) setLiveSchedules(data.schedules);
+				// 录制中实时优化/提取推送（使用全局 store）
+				if (typeof data.optimizedText === "string") setStoreOptimizedText(data.optimizedText);
+				if (Array.isArray(data.todos)) setStoreLiveTodos(data.todos);
+				if (Array.isArray(data.schedules)) setStoreLiveSchedules(data.schedules);
 			},
 			(error) => {
 				console.error("Recording error:", error);
@@ -166,8 +187,10 @@ export function AudioPanel() {
 
 	const handleConfirmStop = () => {
 		setShowStopConfirm(false);
-		// 传递时间戳数组给 stopRecording（segmentTimesSec 包含每段文本的精确时间戳）
-		stopRecording(segmentTimesSec.length > 0 ? segmentTimesSec : undefined);
+		// 从 store 获取时间戳数组
+		const storeState = useAudioRecordingStore.getState();
+		const timestamps = storeState.segmentTimesSec;
+		stopRecording(timestamps.length > 0 ? timestamps : undefined);
 
 		// 停止后后端才会落库录音记录：轮询检查直到新录音出现
 		// 显示"获取中"状态，让用户知道后端正在处理
