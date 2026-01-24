@@ -10,7 +10,6 @@ import { HistoryDrawer } from "@/apps/chat/components/layout/HistoryDrawer";
 import { MessageList } from "@/apps/chat/components/message/MessageList";
 import { useBreakdownQuestionnaire } from "@/apps/chat/hooks/useBreakdownQuestionnaire";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
-import { usePromptHandlers } from "@/apps/chat/hooks/usePromptHandlers";
 import { useCreateTodo, useUpdateTodo } from "@/lib/query";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";
@@ -54,27 +53,13 @@ export function ChatPanel() {
 		createTodo: createTodoWithResult,
 	});
 
-	// 使用 Prompt Handlers hook
-	const { handleSelectPrompt } = usePromptHandlers({
-		chatMode: chatController.chatMode,
-		isStreaming: chatController.isStreaming,
-		planSystemPrompt: chatController.planSystemPrompt,
-		editSystemPrompt: chatController.editSystemPrompt,
-		hasSelection: chatController.hasSelection,
-		effectiveTodos: chatController.effectiveTodos,
-		todos: chatController.todos,
-		conversationId: chatController.conversationId,
-		setConversationId: chatController.setConversationId,
-		setMessages: chatController.setMessages,
-		setIsStreaming: chatController.setIsStreaming,
-		setError: chatController.setError,
-		parsePlanTodos: chatController.parsePlanTodos,
-		buildTodoPayloads: chatController.buildTodoPayloads,
-		createTodoWithResult,
-		// 共享 AbortController ref，使停止按钮能够取消通过建议按钮发起的请求
-		abortControllerRef: chatController.abortControllerRef,
-		locale,
-	});
+	// 处理预设 Prompt 选择：直接发送消息（复用 sendMessage 逻辑）
+	const handleSelectPrompt = useCallback(
+		(prompt: string) => {
+			void chatController.sendMessage(prompt);
+		},
+		[chatController],
+	);
 
 	const [modeMenuOpen, setModeMenuOpen] = useState(false);
 	const [showTodosExpanded, setShowTodosExpanded] = useState(false);
