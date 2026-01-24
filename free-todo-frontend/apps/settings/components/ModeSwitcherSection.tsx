@@ -3,6 +3,7 @@
 import { MessageSquare } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ChatMode } from "@/apps/chat/types";
+import { useChatStore } from "@/lib/store/chat-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import { toastSuccess } from "@/lib/toast";
 import { SettingsSection } from "./SettingsSection";
@@ -43,6 +44,8 @@ export function ModeSwitcherSection({
 
 	const handleDefaultModeChange = (mode: ChatMode) => {
 		setDefaultChatMode(mode);
+		// 同时更新当前的聊天模式，实现热更新（无需刷新页面）
+		useChatStore.getState().setChatMode(mode);
 		toastSuccess(tSettings("defaultChatModeChanged"));
 	};
 

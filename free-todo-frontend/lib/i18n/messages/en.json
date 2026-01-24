@@ -317,6 +317,7 @@
 		"customAnswerPlaceholder": "Enter your custom answer...",
 		"submitting": "Submitting...",
 		"submitAnswer": "Submit answer",
+		"answeredProgress": "Answered {answered}/{total} questions",
 		"generatingSummary": "AI is generating summary...",
 		"generatingSummaryDesc": "Please wait, AI is generating a detailed task summary and subtask list based on your answers",
 		"generating": "Generating...",

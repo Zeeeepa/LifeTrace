@@ -318,6 +318,7 @@
 		"customAnswerPlaceholder": "请输入您的自定义回答...",
 		"submitting": "提交中...",
 		"submitAnswer": "提交回答",
+		"answeredProgress": "已回答 {answered}/{total} 个问题",
 		"generatingSummary": "AI正在生成总结...",
 		"generatingSummaryDesc": "请稍候，AI正在根据您的回答生成详细的任务总结和子任务列表",
 		"generating": "生成中...",
