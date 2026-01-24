@@ -1,9 +1,13 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { listTodosApiTodosGet } from "@/lib/generated/todos/todos";
 import { IslandMode } from "@/lib/island/types";
+import { queryKeys } from "@/lib/query/keys";
+import { useUiStore } from "@/lib/store/ui-store";
 import {
   FloatContent,
   PopupContent,
@@ -17,6 +21,13 @@ interface DynamicIslandProps {
 
 const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => {
   const prevModeRef = useRef<IslandMode | null>(null);
+  const queryClient = useQueryClient();
+  const [popupTodos, setPopupTodos] = useState<{ id: number; name: string }[]>([]);
+  const lastTodoIdsRef = useRef<number[]>([]);
+  const seenDraftIdsRef = useRef<number[]>([]);
+  const setPanelFeature = useUiStore((state) => state.setPanelFeature);
+  const togglePanelB = useUiStore((state) => state.togglePanelB);
+  const isPanelBOpen = useUiStore((state) => state.isPanelBOpen);
   const [isDragging, setIsDragging] = useState(false);
   const [anchorPoint, setAnchorPoint] = useState<'top' | 'bottom' | null>('top');
   const [currentY, setCurrentY] = useState(20);
@@ -99,6 +110,91 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
       };
     }
   }, []);
+
+  // 监听 draft 状态的待办变化：有新 draft 待办时，如果当前是 FLOAT 模式，则切换到 POPUP 模式并展示待办名称。
+  // 用户从 POPUP 点击进入 SIDEBAR 后，同一批 draft 不会再次触发 POPUP。
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchDraftTodos = async () => {
+      try {
+        const result = await listTodosApiTodosGet({
+          status: "draft",
+          limit: 3,
+          offset: 0,
+        });
+
+        const todos = result.todos ?? [];
+        const ids = todos
+          .map((t) => t.id)
+          .filter((id): id is number => typeof id === "number");
+
+        if (!isMounted || ids.length === 0) {
+          return;
+        }
+
+        const lastTodoIds = lastTodoIdsRef.current;
+        const sameAsLast =
+          ids.length === lastTodoIds.length &&
+          ids.every((id, idx) => id === lastTodoIds[idx]);
+
+        if (sameAsLast) {
+          return;
+        }
+
+        lastTodoIdsRef.current = ids;
+
+        // 如果这一批 draft 已经通过 POPUP 被用户处理过，则不再弹出
+        const seenIds = seenDraftIdsRef.current;
+        const sameAsSeen =
+          ids.length === seenIds.length &&
+          ids.every((id, idx) => id === seenIds[idx]);
+
+        if (sameAsSeen) {
+          return;
+        }
+
+        const simplified = todos
+          .filter((t) => typeof t.id === "number")
+          .map((t) => ({
+            id: t.id as number,
+            name: t.name || "未命名待办",
+          }));
+
+        if (!isMounted || simplified.length === 0) {
+          return;
+        }
+
+        setPopupTodos(simplified);
+
+        // 草稿待办有更新时，让所有 Todo 查询变为 stale 并触发刷新，
+        // 确保 Sidebar 中的 Todo 列表能及时显示最新的 draft 任务。
+        try {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+        } catch {
+          // 静默失败，避免影响后续逻辑
+        }
+
+        if (mode === IslandMode.FLOAT && onModeChange) {
+          onModeChange(IslandMode.POPUP);
+        }
+      } catch {
+        // 静默失败，避免打扰用户
+      }
+    };
+
+    // 初次加载时获取一次
+    void fetchDraftTodos();
+
+    const timer = window.setInterval(() => {
+      void fetchDraftTodos();
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(timer);
+    };
+  }, [mode, onModeChange, queryClient]);
 
   // Electron Click-Through Handling & Window Resizing
   useEffect(() => {
@@ -281,7 +377,27 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
             )}
             {mode === IslandMode.POPUP && (
               <motion.div key="popup" className="absolute inset-0 w-full h-full">
-                <PopupContent />
+                <PopupContent
+                  todos={popupTodos}
+                  onOpenSidebar={() => {
+                    // 记录这一批 draft 已被用户查看，避免再次自动弹出 POPUP
+                    if (popupTodos.length > 0) {
+                      seenDraftIdsRef.current = popupTodos.map((t) => t.id);
+                    }
+                    // 确保 SIDEBAR 中有 TODO 面板：将 panelB 设为 todos 并打开
+                    try {
+                      setPanelFeature("panelB", "todos");
+                      if (!isPanelBOpen) {
+                        togglePanelB();
+                      }
+                    } catch {
+                      // 静默失败，避免影响模式切换
+                    }
+                    if (onModeChange) {
+                      onModeChange(IslandMode.SIDEBAR);
+                    }
+                  }}
+                />
               </motion.div>
             )}
             {mode === IslandMode.SIDEBAR && (

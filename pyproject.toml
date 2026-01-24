@@ -17,6 +17,7 @@ dependencies = [
     "mss>=9.0.0",
     "Pillow>=10.0.0",
     "imagehash>=4.3.0",
+    "opencv-python>=4.8.0",  # For proactive OCR image processing
     # OCR processing (rapidocr requires numpy)
     "rapidocr-onnxruntime",
     "numpy>=1.21.0,<2.0.0", # 限制到 1.x 版本以确保 PyInstaller 兼容性

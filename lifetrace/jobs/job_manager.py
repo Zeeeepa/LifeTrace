@@ -10,6 +10,7 @@ from lifetrace.jobs.activity_aggregator import (
 from lifetrace.jobs.clean_data import execute_clean_data_task, get_clean_data_instance
 from lifetrace.jobs.deadline_reminder import execute_deadline_reminder_task
 from lifetrace.jobs.ocr import execute_ocr_task
+from lifetrace.jobs.proactive_ocr import execute_proactive_ocr_task
 from lifetrace.jobs.recorder import execute_capture_task, get_recorder_instance
 from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.jobs.todo_recorder import execute_todo_capture_task, get_todo_recorder_instance
@@ -53,6 +54,9 @@ class JobManager:
 
         # 启动 DDL 提醒任务
         self._start_deadline_reminder_job()
+
+        # 启动主动OCR任务
+        self._start_proactive_ocr_job()
 
         logger.info("所有后台任务已启动")
 
@@ -249,6 +253,39 @@ class JobManager:
                 logger.info("DDL 提醒服务未启用，已暂停")
         except Exception as e:
             logger.error(f"启动 DDL 提醒任务失败: {e}", exc_info=True)
+
+    def _start_proactive_ocr_job(self):
+        """启动主动OCR任务"""
+        enabled = settings.get("jobs.proactive_ocr.enabled", False)
+
+        try:
+            # 预先初始化全局服务实例
+            from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
+
+            get_proactive_ocr_service()
+            logger.info("主动OCR服务实例已初始化")
+
+            # 添加到调度器（无论是否启用都添加）
+            interval = settings.get("jobs.proactive_ocr.interval", 1.0)
+            proactive_ocr_id = settings.get("jobs.proactive_ocr.id", "proactive_ocr")
+            self.scheduler_manager.add_interval_job(
+                func=execute_proactive_ocr_task,
+                job_id="proactive_ocr_job",
+                name=proactive_ocr_id,
+                seconds=interval,
+                replace_existing=True,
+            )
+            logger.info(f"主动OCR定时任务已添加，间隔: {interval}秒")
+
+            # 如果未启用，则暂停任务
+            if not enabled:
+                self.scheduler_manager.pause_job("proactive_ocr_job")
+                logger.info("主动OCR服务未启用，已暂停")
+            else:
+                # 如果启用，立即执行一次以启动服务
+                execute_proactive_ocr_task()
+        except Exception as e:
+            logger.error(f"启动主动OCR任务失败: {e}", exc_info=True)
 
 
 # 全局单例

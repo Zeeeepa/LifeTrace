@@ -109,7 +109,15 @@ export const FloatContent: React.FC<FloatContentProps> = ({ onModeChange }) => (
 );
 
 // --- 2. POPUP STATE: FreeTodo 风格的通知弹窗 ---
-export const PopupContent: React.FC = () => (
+interface PopupContentProps {
+  todos: { id: number; name: string }[];
+  onOpenSidebar?: () => void;
+}
+
+export const PopupContent: React.FC<PopupContentProps> = ({ todos, onOpenSidebar }) => {
+  const todoCount = todos.length;
+
+  return (
   <motion.div
     variants={fadeVariants}
     initial="initial"
@@ -122,7 +130,7 @@ export const PopupContent: React.FC = () => (
                     border-2 border-border/60 shadow-xl
                     p-4 flex items-center gap-4 relative overflow-hidden">
       {/* Background Accent */}
-      <div className="absolute -left-4 top-0 w-24 h-full bg-gradient-to-r from-primary/10 to-transparent blur-lg" />
+      <div className="absolute -left-4 top-0 w-24 h-full bg-linear-to-r from-primary/10 to-transparent blur-lg" />
 
       {/* Logo */}
       <div className="relative shrink-0 z-10">
@@ -158,15 +166,37 @@ export const PopupContent: React.FC = () => (
           <span className="text-[10px] text-muted-foreground font-medium">刚刚</span>
         </div>
         <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
-          您有 3 个任务即将到期，点击查看详情
+          {todoCount > 0
+            ? `已识别出 ${todoCount} 条待办，点击查看详情`
+            : "已识别出新的待办，点击查看详情"}
         </p>
+        {todoCount > 0 && (
+          <div className="mt-1.5 max-h-16 overflow-hidden">
+            <div className="flex flex-wrap gap-1.5">
+              {todos.map((todo) => (
+                <span
+                  key={todo.id}
+                  className="px-2 py-0.5 rounded-full bg-accent/70 border border-border/60 text-[11px] text-foreground/90 max-w-[140px] truncate"
+                  title={todo.name}
+                >
+                  {todo.name || "未命名待办"}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-2.5">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent border border-border hover:bg-accent/80 transition-colors cursor-pointer">
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent border border-border hover:bg-accent/80 transition-colors cursor-pointer"
+          >
             <MessageCircle size={12} className="text-primary" />
             <span className="text-[11px] text-muted-foreground font-medium">查看详情</span>
-          </div>
+          </button>
         </div>
       </div>
     </div>
   </motion.div>
-);
+  );
+};

@@ -305,6 +305,8 @@ def _sync_job_enabled_to_config(job_id: str, enabled: bool):
         "clean_data_job": "jobs.clean_data.enabled",
         "activity_aggregator_job": "jobs.activity_aggregator.enabled",
         "todo_recorder_job": "jobs.todo_recorder.enabled",
+        "deadline_reminder_job": "jobs.deadline_reminder.enabled",
+        "proactive_ocr_job": "jobs.proactive_ocr.enabled",
     }
 
     # 联动配置：todo_recorder_job 与 auto_todo_detection 联动
@@ -355,6 +357,8 @@ def _sync_job_interval_to_config(
         "clean_data_job": "jobs.clean_data.interval",
         "activity_aggregator_job": "jobs.activity_aggregator.interval",
         "todo_recorder_job": "jobs.todo_recorder.interval",
+        "deadline_reminder_job": "jobs.deadline_reminder.interval",
+        "proactive_ocr_job": "jobs.proactive_ocr.interval",
     }
 
     if job_id in job_config_map:

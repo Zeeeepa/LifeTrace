@@ -12,6 +12,13 @@ from lifetrace.util.logging_config import get_logger
 logger = get_logger()
 
 
+def _normalize_text(text: str | None) -> str:
+    """标准化 OCR 文本，用于稳定哈希计算。"""
+    if not text:
+        return ""
+    return " ".join(text.strip().split())
+
+
 class OCRManager:
     """OCR结果管理类"""
 
@@ -28,6 +35,11 @@ class OCRManager:
     ) -> int | None:
         """添加OCR结果"""
         try:
+            import hashlib
+
+            normalized = _normalize_text(text_content)
+            text_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest() if normalized else None
+
             with self.db_base.get_session() as session:
                 ocr_result = OCRResult(
                     screenshot_id=screenshot_id,
@@ -35,6 +47,7 @@ class OCRManager:
                     confidence=confidence,
                     language=language,
                     processing_time=processing_time,
+                    text_hash=text_hash,
                 )
 
                 session.add(ocr_result)
@@ -46,7 +59,7 @@ class OCRManager:
                     screenshot.is_processed = True
                     screenshot.processed_at = datetime.now()
 
-                logger.debug(f"添加OCR结果: {ocr_result.id}")
+                logger.debug(f"添加OCR结果: {ocr_result.id}, text_hash={text_hash}")
                 return ocr_result.id
 
         except SQLAlchemyError as e:
@@ -71,6 +84,7 @@ class OCRManager:
                             "language": ocr.language,
                             "processing_time": ocr.processing_time,
                             "created_at": ocr.created_at,
+                            "text_hash": ocr.text_hash,
                         }
                     )
 
@@ -79,3 +93,50 @@ class OCRManager:
         except SQLAlchemyError as e:
             logger.error(f"获取OCR结果失败: {e}")
             return []
+
+    def get_ocr_by_id(self, ocr_result_id: int) -> dict[str, Any] | None:
+        """根据 OCR 结果 ID 获取单条记录。"""
+        try:
+            with self.db_base.get_session() as session:
+                ocr = session.query(OCRResult).filter_by(id=ocr_result_id).first()
+                if not ocr:
+                    return None
+
+                return {
+                    "id": ocr.id,
+                    "screenshot_id": ocr.screenshot_id,
+                    "text_content": ocr.text_content,
+                    "confidence": ocr.confidence,
+                    "language": ocr.language,
+                    "processing_time": ocr.processing_time,
+                    "created_at": ocr.created_at,
+                    "text_hash": ocr.text_hash,
+                }
+        except SQLAlchemyError as e:
+            logger.error(f"根据ID获取OCR结果失败: {e}")
+            return None
+
+    def get_by_text_hash(self, text_hash: str) -> dict[str, Any] | None:
+        """根据文本哈希获取一条 OCR 结果，用于判断是否已处理过相同文本。"""
+        if not text_hash:
+            return None
+
+        try:
+            with self.db_base.get_session() as session:
+                ocr = session.query(OCRResult).filter_by(text_hash=text_hash).first()
+                if not ocr:
+                    return None
+
+                return {
+                    "id": ocr.id,
+                    "screenshot_id": ocr.screenshot_id,
+                    "text_content": ocr.text_content,
+                    "confidence": ocr.confidence,
+                    "language": ocr.language,
+                    "processing_time": ocr.processing_time,
+                    "created_at": ocr.created_at,
+                    "text_hash": ocr.text_hash,
+                }
+        except SQLAlchemyError as e:
+            logger.error(f"根据文本哈希获取OCR结果失败: {e}")
+            return None
