@@ -4,7 +4,7 @@
 
 This guide covers development of **Agno Agent Tools** - the AI-powered todo management toolkit based on the [Agno framework](https://docs.agno.com/).
 
-The FreeTodoToolkit provides 14 tools for the Agno Agent to manage todos, including CRUD operations, task breakdown, time parsing, conflict detection, statistics, and tag management.
+The FreeTodoToolkit provides a set of tools for the Agno Agent to manage todos. For the complete list of available tools, please refer to the source code in `llm/agno_tools/tools/` directory.
 
 ---
 
@@ -16,27 +16,13 @@ The FreeTodoToolkit provides 14 tools for the Agno Agent to manage todos, includ
 lifetrace/
 ├── config/prompts/agno_tools/     # Localized messages & prompts
 │   ├── zh/                        # Chinese messages
-│   │   ├── instructions.yaml      # Agent system instructions
-│   │   ├── todo.yaml              # Todo CRUD messages
-│   │   ├── breakdown.yaml         # Task breakdown prompts
-│   │   ├── time.yaml              # Time parsing messages
-│   │   ├── conflict.yaml          # Conflict detection messages
-│   │   ├── stats.yaml             # Statistics messages
-│   │   └── tags.yaml              # Tag management messages
 │   └── en/                        # English messages (same structure)
 │
 ├── llm/agno_tools/                # Python implementation
 │   ├── __init__.py                # Module exports
 │   ├── base.py                    # Message loader (AgnoToolsMessageLoader)
 │   ├── toolkit.py                 # Main FreeTodoToolkit class
-│   └── tools/                     # Individual tool implementations
-│       ├── __init__.py            # Tool exports
-│       ├── todo_tools.py          # Todo CRUD (6 methods)
-│       ├── breakdown_tools.py     # Task breakdown (1 method)
-│       ├── time_tools.py          # Time parsing (1 method)
-│       ├── conflict_tools.py      # Conflict detection (1 method)
-│       ├── stats_tools.py         # Statistics (2 methods)
-│       └── tag_tools.py           # Tag management (3 methods)
+│   └── tools/                     # Individual tool implementations (organized by category)
 │
 └── observability/                 # Agent monitoring (Phoenix + OpenInference)
     ├── __init__.py                # Module exports
@@ -164,17 +150,7 @@ class FreeTodoToolkit(
 
 ### YAML Structure
 
-Messages are organized by functionality:
-
-| File | Purpose |
-|------|---------|
-| `instructions.yaml` | Agent system prompt |
-| `todo.yaml` | Todo CRUD messages |
-| `breakdown.yaml` | Task breakdown prompts |
-| `time.yaml` | Time parsing messages |
-| `conflict.yaml` | Conflict detection |
-| `stats.yaml` | Statistics messages |
-| `tags.yaml` | Tag management |
+Messages are organized by functionality in `config/prompts/agno_tools/{lang}/` directory. Each YAML file corresponds to a category of messages.
 
 ### Message Format
 
@@ -260,54 +236,6 @@ tk = FreeTodoToolkit(lang='zh')
 print(tk.parse_time('明天下午3点'))
 "
 ```
-
----
-
-## 📋 Tool Reference
-
-### Todo Management (6 tools)
-
-| Method | Description |
-|--------|-------------|
-| `create_todo(name, description?, deadline?, priority?, tags?)` | Create new todo |
-| `complete_todo(todo_id)` | Mark as completed |
-| `update_todo(todo_id, name?, description?, deadline?, priority?)` | Update todo |
-| `list_todos(status?, limit?)` | List todos |
-| `search_todos(keyword)` | Search by keyword |
-| `delete_todo(todo_id)` | Delete todo |
-
-### Task Breakdown (1 tool)
-
-| Method | Description |
-|--------|-------------|
-| `breakdown_task(task_description)` | Break complex task into subtasks using LLM |
-
-### Time Parsing (1 tool)
-
-| Method | Description |
-|--------|-------------|
-| `parse_time(time_expression)` | Parse natural language time to ISO format |
-
-### Conflict Detection (1 tool)
-
-| Method | Description |
-|--------|-------------|
-| `check_schedule_conflict(start_time, end_time?)` | Check time conflicts |
-
-### Statistics (2 tools)
-
-| Method | Description |
-|--------|-------------|
-| `get_todo_stats(date_range?)` | Get statistics summary |
-| `get_overdue_todos()` | List overdue todos |
-
-### Tag Management (3 tools)
-
-| Method | Description |
-|--------|-------------|
-| `list_tags()` | List all tags with counts |
-| `get_todos_by_tag(tag)` | Get todos by tag |
-| `suggest_tags(todo_name)` | Suggest tags using LLM |
 
 ---
 
@@ -398,4 +326,3 @@ When adding new tools:
 - [ ] Add mixin to `FreeTodoToolkit` class
 - [ ] Register method in `tools` list
 - [ ] Test with both languages
-- [ ] Update tool reference documentation

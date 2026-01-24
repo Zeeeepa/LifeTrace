@@ -4,7 +4,7 @@
 
 本指南涵盖 **Agno Agent Tools** 的开发 - 基于 [Agno 框架](https://docs.agno.com/) 的 AI 待办管理工具包。
 
-FreeTodoToolkit 为 Agno Agent 提供 14 个工具，包括 Todo CRUD 操作、任务拆解、时间解析、冲突检测、统计分析和标签管理。
+FreeTodoToolkit 为 Agno Agent 提供一系列工具，用于管理待办事项。具体工具列表请查阅 `llm/agno_tools/tools/` 目录下的源代码。
 
 ---
 
@@ -16,27 +16,13 @@ FreeTodoToolkit 为 Agno Agent 提供 14 个工具，包括 Todo CRUD 操作、�
 lifetrace/
 ├── config/prompts/agno_tools/     # 本地化消息和提示词
 │   ├── zh/                        # 中文消息
-│   │   ├── instructions.yaml      # Agent 系统指令
-│   │   ├── todo.yaml              # Todo CRUD 消息
-│   │   ├── breakdown.yaml         # 任务拆解提示词
-│   │   ├── time.yaml              # 时间解析消息
-│   │   ├── conflict.yaml          # 冲突检测消息
-│   │   ├── stats.yaml             # 统计分析消息
-│   │   └── tags.yaml              # 标签管理消息
 │   └── en/                        # 英文消息（结构相同）
 │
 ├── llm/agno_tools/                # Python 实现
 │   ├── __init__.py                # 模块导出
 │   ├── base.py                    # 消息加载器 (AgnoToolsMessageLoader)
 │   ├── toolkit.py                 # 主 FreeTodoToolkit 类
-│   └── tools/                     # 各工具实现
-│       ├── __init__.py            # 工具导出
-│       ├── todo_tools.py          # Todo CRUD (6 个方法)
-│       ├── breakdown_tools.py     # 任务拆解 (1 个方法)
-│       ├── time_tools.py          # 时间解析 (1 个方法)
-│       ├── conflict_tools.py      # 冲突检测 (1 个方法)
-│       ├── stats_tools.py         # 统计分析 (2 个方法)
-│       └── tag_tools.py           # 标签管理 (3 个方法)
+│   └── tools/                     # 各工具实现（按功能分类）
 │
 └── observability/                 # Agent 监控（Phoenix + OpenInference）
     ├── __init__.py                # 模块导出
@@ -164,17 +150,7 @@ class FreeTodoToolkit(
 
 ### YAML 结构
 
-消息按功能组织：
-
-| 文件 | 用途 |
-|------|------|
-| `instructions.yaml` | Agent 系统提示词 |
-| `todo.yaml` | Todo CRUD 消息 |
-| `breakdown.yaml` | 任务拆解提示词 |
-| `time.yaml` | 时间解析消息 |
-| `conflict.yaml` | 冲突检测消息 |
-| `stats.yaml` | 统计分析消息 |
-| `tags.yaml` | 标签管理消息 |
+消息按功能组织在 `config/prompts/agno_tools/{lang}/` 目录下。每个 YAML 文件对应一类功能的消息。
 
 ### 消息格式
 
@@ -260,54 +236,6 @@ tk = FreeTodoToolkit(lang='zh')
 print(tk.parse_time('明天下午3点'))
 "
 ```
-
----
-
-## 📋 工具参考
-
-### Todo 管理（6 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `create_todo(name, description?, deadline?, priority?, tags?)` | 创建新待办 |
-| `complete_todo(todo_id)` | 标记为完成 |
-| `update_todo(todo_id, name?, description?, deadline?, priority?)` | 更新待办 |
-| `list_todos(status?, limit?)` | 列出待办 |
-| `search_todos(keyword)` | 按关键词搜索 |
-| `delete_todo(todo_id)` | 删除待办 |
-
-### 任务拆解（1 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `breakdown_task(task_description)` | 使用 LLM 将复杂任务拆解为子任务 |
-
-### 时间解析（1 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `parse_time(time_expression)` | 将自然语言时间解析为 ISO 格式 |
-
-### 冲突检测（1 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `check_schedule_conflict(start_time, end_time?)` | 检测时间冲突 |
-
-### 统计分析（2 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `get_todo_stats(date_range?)` | 获取统计摘要 |
-| `get_overdue_todos()` | 列出逾期待办 |
-
-### 标签管理（3 个工具）
-
-| 方法 | 描述 |
-|------|------|
-| `list_tags()` | 列出所有标签及计数 |
-| `get_todos_by_tag(tag)` | 按标签获取待办 |
-| `suggest_tags(todo_name)` | 使用 LLM 推荐标签 |
 
 ---
 
@@ -398,4 +326,3 @@ uv run phoenix serve
 - [ ] 将 mixin 添加到 `FreeTodoToolkit` 类
 - [ ] 在 `tools` 列表中注册方法
 - [ ] 使用两种语言测试
-- [ ] 更新工具参考文档
