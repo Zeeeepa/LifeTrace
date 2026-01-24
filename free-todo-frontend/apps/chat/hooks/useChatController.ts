@@ -13,6 +13,7 @@ import type { ChatHistoryItem, ToolCallEvent } from "@/lib/api";
 import { sendChatMessageStream } from "@/lib/api";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 import { useChatHistory, useChatSessions, useTodos } from "@/lib/query";
+import { useBreakdownStore } from "@/lib/store/breakdown-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { CreateTodoInput, Todo } from "@/lib/types";
@@ -79,6 +80,9 @@ export const useChatController = ({
 		setHistoryOpen,
 	} = useChatStore();
 
+	// 从 breakdown-store 获取重置函数（用于新建聊天时放弃正在进行的拆解）
+	const resetBreakdown = useBreakdownStore((state) => state.resetBreakdown);
+
 	// 从 ui-store 读取选中的 Agno 工具
 	const selectedAgnoTools = useUiStore((state) => state.selectedAgnoTools);
 
@@ -136,6 +140,8 @@ export const useChatController = ({
 				}
 				setIsStreaming(false);
 			}
+			// 如果正在进行待办拆解，放弃拆解并进入新聊天
+			resetBreakdown();
 			// 清空活跃请求 ID，让旧请求的回调忽略 UI 更新
 			activeRequestIdRef.current = null;
 			setConversationId(null);
@@ -144,7 +150,7 @@ export const useChatController = ({
 			setError(null);
 			setHistoryOpen(false);
 		},
-		[setConversationId, setHistoryOpen],
+		[setConversationId, setHistoryOpen, resetBreakdown],
 	);
 
 	const handleStop = useCallback(() => {
