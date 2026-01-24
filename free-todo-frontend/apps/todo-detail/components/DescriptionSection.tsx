@@ -108,6 +108,18 @@ export function DescriptionSection({
 		}
 	};
 
+	// 处理失去焦点 - 点击外部时自动保存
+	const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		// 检查焦点是否移动到操作按钮区域（取消/保存按钮）
+		// 如果是，则不自动保存，让按钮点击事件处理
+		const relatedTarget = e.relatedTarget as HTMLElement | null;
+		if (relatedTarget?.closest("[data-description-actions]")) {
+			return;
+		}
+		// 点击外部区域时自动保存
+		handleSave();
+	};
+
 	return (
 		<div
 			role="group"
@@ -134,10 +146,11 @@ export function DescriptionSection({
 									adjustTextareaHeight();
 								}}
 								onKeyDown={handleKeyDown}
+								onBlur={handleBlur}
 								placeholder="输入描述..."
 								className="w-full min-h-[80px] resize-none rounded-md border border-primary bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 							/>
-							<div className="mt-2 flex justify-end gap-2">
+							<div data-description-actions className="mt-2 flex justify-end gap-2">
 								<button
 									type="button"
 									onClick={handleCancel}
