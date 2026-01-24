@@ -1,7 +1,7 @@
 """add_text_hash_to_ocr_results
 
 Revision ID: add_text_hash_to_ocr_results
-Revises: 89b2a1f0af8b
+Revises: cff6e6d7a3cf
 Create Date: 2026-01-23 00:00:00.000000
 
 为 ocr_results 表添加 text_hash 列和索引，并为已有数据回填哈希值。
@@ -16,7 +16,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "add_text_hash_to_ocr_results"
-down_revision: str | None = "89b2a1f0af8b"
+down_revision: str | None = "cff6e6d7a3cf"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
