@@ -60,19 +60,15 @@ export function MessageItem({
 	const toolCallSteps = message.toolCallSteps || [];
 	const hasToolCallSteps = toolCallSteps.length > 0;
 
-	// 判断是否有正在执行的工具调用步骤
-	const hasRunningToolCall = toolCallSteps.some(
-		(step) => step.status === "running",
-	);
-
 	// 判断是否正在工具调用（有工具调用标记且移除标记后内容为空）
 	// 或者有新的 toolCallSteps 且没有内容
+	// 注意：只要有 toolCallSteps（无论是 running 还是 completed），就显示工具调用步骤
 	const isToolCallingOnly =
 		isStreaming &&
 		isLastMessage &&
 		message.role === "assistant" &&
 		((toolCalls.length > 0 && !contentWithoutToolCalls.trim()) ||
-			(hasRunningToolCall && !contentWithoutToolCalls.trim()));
+			(hasToolCallSteps && !contentWithoutToolCalls.trim()));
 
 	// 如果正在工具调用且没有实际内容，显示工具调用步骤
 	if (isToolCallingOnly) {

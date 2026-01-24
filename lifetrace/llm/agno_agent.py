@@ -276,6 +276,27 @@ class AgnoAgentService:
         )
         return self._format_tool_event(event_data)
 
+    def _handle_tool_call_error(self, chunk) -> str | None:
+        """处理工具调用错误事件"""
+        tool_info = getattr(chunk, "tool", None)
+        if not tool_info:
+            return None
+        error = getattr(tool_info, "error", None) or getattr(chunk, "error", None)
+        error_str = str(error) if error else "Unknown error"
+        error_preview = (
+            error_str[:RESULT_PREVIEW_MAX_LENGTH] + "..."
+            if len(error_str) > RESULT_PREVIEW_MAX_LENGTH
+            else error_str
+        )
+        event_data = {
+            "type": "tool_call_end",
+            "tool_name": getattr(tool_info, "tool_name", "unknown"),
+            "result_preview": f"[Error] {error_preview}",
+            "error": True,
+        }
+        logger.warning(f"工具调用错误: {event_data['tool_name']}, 错误: {error_preview[:100]}...")
+        return self._format_tool_event(event_data)
+
     def _process_stream_chunk(self, chunk, include_tool_events: bool) -> str | None:
         """处理单个流式输出块，返回需要 yield 的内容"""
         result = None
@@ -287,6 +308,9 @@ class AgnoAgentService:
                 result = self._handle_tool_call_started(chunk)
             elif chunk.event == RunEvent.tool_call_completed:
                 result = self._handle_tool_call_completed(chunk)
+            elif chunk.event == RunEvent.tool_call_error:
+                # 处理工具调用错误事件，发送 tool_call_end 以便前端更新状态
+                result = self._handle_tool_call_error(chunk)
             elif chunk.event == RunEvent.run_started:
                 logger.debug("Agent 运行开始")
                 result = self._format_tool_event({"type": "run_started"})

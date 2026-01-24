@@ -180,15 +180,29 @@ export const useSendMessage = ({
 			let assistantContent = "";
 			let requestSessionId = currentConversationId;
 
+			// 本地缓存当前消息的 toolCallSteps，避免竞态条件
+			let cachedToolCallSteps: ReturnType<
+				typeof toolCallTracker.getToolCallSteps
+			> = [];
+
 			// 辅助函数：更新消息
 			const updateAssistantMessage = (
 				content: string,
-				toolCallSteps?: ReturnType<typeof toolCallTracker.getToolCallSteps>,
+				newToolCallSteps?: ReturnType<typeof toolCallTracker.getToolCallSteps>,
 			) => {
+				// 如果传入了非空的新步骤，更新本地缓存
+				if (newToolCallSteps && newToolCallSteps.length > 0) {
+					cachedToolCallSteps = newToolCallSteps;
+				}
+
+				// 使用本地缓存的步骤，确保不会丢失
+				const stepsToUse =
+					cachedToolCallSteps.length > 0 ? cachedToolCallSteps : undefined;
+
 				const messageUpdater = (prev: ChatMessage[]) =>
 					prev.map((msg) =>
 						msg.id === assistantMessageId
-							? { ...msg, content, toolCallSteps }
+							? { ...msg, content, toolCallSteps: stepsToUse }
 							: msg,
 					);
 
@@ -285,6 +299,12 @@ export const useSendMessage = ({
 						}
 					},
 				);
+
+				// 流结束后，强制完成所有还在运行中的工具调用步骤（兜底清理）
+				const finalizedSteps = toolCallTracker.finalizeRunningSteps();
+				if (finalizedSteps) {
+					updateAssistantMessage(assistantContent, finalizedSteps);
+				}
 
 				// 处理响应完成后的逻辑
 				if (!assistantContent) {

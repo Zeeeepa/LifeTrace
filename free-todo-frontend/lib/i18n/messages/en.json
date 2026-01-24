@@ -459,6 +459,7 @@
 				"get_todos_by_tag": "Get by Tag",
 				"suggest_tags": "Suggest Tags",
 				"web_search": "Web Search",
+				"search_news": "News Search",
 				"duckduckgo": "DuckDuckGo Search",
 				"unknown": "Unknown Tool"
 			}

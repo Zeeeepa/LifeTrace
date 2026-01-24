@@ -41,8 +41,9 @@ type ToolCallStepItemProps = {
 function ToolCallStepItem({ step, t }: ToolCallStepItemProps) {
 	const { toolName, toolArgs, status, resultPreview } = step;
 
-	// 获取工具的本地化名称
-	const displayName = t(`tools.${toolName}`, { fallback: toolName });
+	// 获取工具的本地化名称，如果没有翻译则使用原始工具名
+	const toolKey = `tools.${toolName}` as Parameters<typeof t>[0];
+	const displayName = t.has(toolKey) ? t(toolKey) : toolName;
 
 	// 状态图标
 	const StatusIcon = {
@@ -139,10 +140,16 @@ function ToolCallStepItem({ step, t }: ToolCallStepItemProps) {
 					</div>
 				)}
 
-				{/* 结果预览（仅完成状态） */}
-				{status === "completed" && resultPreview && (
+				{/* 结果预览（完成或错误状态） */}
+				{(status === "completed" || status === "error") && resultPreview && (
 					<div className="mt-2 text-xs text-muted-foreground bg-background/50 rounded p-2 max-h-20 overflow-auto">
-						<span className="text-green-600 dark:text-green-400">
+						<span
+							className={cn(
+								status === "completed"
+									? "text-green-600 dark:text-green-400"
+									: "text-red-600 dark:text-red-400",
+							)}
+						>
 							{t("result")}:
 						</span>{" "}
 						{resultPreview.length > 200

@@ -460,6 +460,7 @@
 				"get_todos_by_tag": "按标签查询",
 				"suggest_tags": "标签推荐",
 				"web_search": "联网搜索",
+				"search_news": "新闻搜索",
 				"duckduckgo": "DuckDuckGo 搜索",
 				"unknown": "未知工具"
 			}
