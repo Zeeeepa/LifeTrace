@@ -1,7 +1,7 @@
 "use client";
 
 import { CSS } from "@dnd-kit/utilities";
-import { Paperclip, Sparkles } from "lucide-react";
+import { Hammer, Paperclip, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type React from "react";
 import { useMemo } from "react";
@@ -137,19 +137,35 @@ export function TodoCard({
 								onChange={state.setEditingName}
 							/>
 						</div>
-						{/* AI规划按钮 - hover时显示 */}
-						<button
-							type="button"
-							onClick={(e) => {
-								e.stopPropagation();
-								handlers.handleStartBreakdown();
-							}}
-							className="opacity-0 group-hover:opacity-100 shrink-0 flex h-4 w-4 items-center justify-center rounded-md hover:bg-muted/50 transition-all self-start mt-0.5"
-							aria-label={tTodoDetail("useAiPlan")}
-							title={tTodoDetail("useAiPlanTitle")}
-						>
-							<Sparkles className="h-3 w-3 text-primary" />
-						</button>
+						{/* AI 操作按钮组 - hover时显示 */}
+						<div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 shrink-0 self-start mt-0.5">
+							{/* AI 拆解任务按钮 */}
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									handlers.handleStartBreakdown();
+								}}
+								className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
+								aria-label={tTodoDetail("useAiPlan")}
+								title={tTodoDetail("useAiPlanTitle")}
+							>
+								<Hammer className="h-4 w-4 text-primary" />
+							</button>
+							{/* 获取建议按钮 */}
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									handlers.handleGetAdvice();
+								}}
+								className="flex h-5 w-5 items-center justify-center rounded-md hover:bg-muted/50 transition-all"
+								aria-label={tTodoDetail("getAdvice")}
+								title={tTodoDetail("getAdviceTitle")}
+							>
+								<Sparkles className="h-4 w-4 text-amber-500" />
+							</button>
+						</div>
 
 						<div className="flex items-center gap-2 shrink-0">
 							{todo.attachments && todo.attachments.length > 0 && (

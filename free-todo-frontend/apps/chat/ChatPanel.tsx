@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BreakdownStageRenderer } from "@/apps/chat/components/breakdown/BreakdownStageRenderer";
 import { ChatInputSection } from "@/apps/chat/components/input/ChatInputSection";
 import { PromptSuggestions } from "@/apps/chat/components/input/PromptSuggestions";
@@ -11,6 +11,7 @@ import { MessageList } from "@/apps/chat/components/message/MessageList";
 import { useBreakdownQuestionnaire } from "@/apps/chat/hooks/useBreakdownQuestionnaire";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
 import { useCreateTodo, useUpdateTodo } from "@/lib/query";
+import { useChatStore } from "@/lib/store/chat-store";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";
 import type { CreateTodoInput, Todo } from "@/lib/types";
@@ -43,6 +44,9 @@ export function ChatPanel() {
 	const { selectedTodoIds, clearTodoSelection, toggleTodoSelection } =
 		useTodoStore();
 
+	// 获取 pendingPrompt（其他组件触发的待发送消息）
+	const { pendingPrompt, pendingNewChat, setPendingPrompt } = useChatStore();
+
 	// 使用 Breakdown Questionnaire hook
 	const breakdownQuestionnaire = useBreakdownQuestionnaire();
 
@@ -60,6 +64,22 @@ export function ChatPanel() {
 		},
 		[chatController],
 	);
+
+	// 监听 pendingPrompt 变化，自动发送消息（由其他组件触发，如 TodoCard 的"获取建议"按钮）
+	useEffect(() => {
+		if (pendingPrompt) {
+			// 如果需要新开会话，先清空当前会话（keepStreaming=true 让旧的流式输出继续在后台运行）
+			if (pendingNewChat) {
+				chatController.handleNewChat(true);
+			}
+			// 使用 setTimeout 确保新会话状态已更新后再发送消息
+			setTimeout(() => {
+				void chatController.sendMessage(pendingPrompt);
+			}, 0);
+			// 清空 pendingPrompt，避免重复发送
+			setPendingPrompt(null);
+		}
+	}, [pendingPrompt, pendingNewChat, chatController, setPendingPrompt]);
 
 	const [modeMenuOpen, setModeMenuOpen] = useState(false);
 	const [showTodosExpanded, setShowTodosExpanded] = useState(false);

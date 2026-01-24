@@ -1,6 +1,6 @@
 "use client";
 
-import { Lightbulb, ListChecks, TrendingUp } from "lucide-react";
+import { Hammer, Sparkles, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ export function PromptSuggestions({
 	const suggestions: PromptSuggestion[] = [
 		{
 			id: "breakdown",
-			icon: ListChecks,
+			icon: Hammer,
 			label: t("suggestions.breakdown"),
 			prompt: t("suggestions.breakdownPrompt"),
 		},
@@ -38,7 +38,7 @@ export function PromptSuggestions({
 		},
 		{
 			id: "advice",
-			icon: Lightbulb,
+			icon: Sparkles,
 			label: t("suggestions.advice"),
 			prompt: t("suggestions.advicePrompt"),
 		},

@@ -6,9 +6,12 @@ interface ChatStoreState {
 	chatMode: ChatMode;
 	conversationId: string | null;
 	historyOpen: boolean;
+	pendingPrompt: string | null; // 待发送的预设消息（由其他组件触发）
+	pendingNewChat: boolean; // 是否需要先开启新会话再发送消息
 	setChatMode: (mode: ChatMode) => void;
 	setConversationId: (id: string | null) => void;
 	setHistoryOpen: (open: boolean) => void;
+	setPendingPrompt: (prompt: string | null, startNewChat?: boolean) => void;
 }
 
 export const useChatStore = create<ChatStoreState>()(
@@ -17,9 +20,13 @@ export const useChatStore = create<ChatStoreState>()(
 			chatMode: "ask",
 			conversationId: null,
 			historyOpen: false,
+			pendingPrompt: null,
+			pendingNewChat: false,
 			setChatMode: (mode) => set({ chatMode: mode }),
 			setConversationId: (id) => set({ conversationId: id }),
 			setHistoryOpen: (open) => set({ historyOpen: open }),
+			setPendingPrompt: (prompt, startNewChat = false) =>
+				set({ pendingPrompt: prompt, pendingNewChat: startNewChat }),
 		}),
 		{
 			name: "chat-config",

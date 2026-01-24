@@ -1,6 +1,9 @@
+import { useTranslations } from "next-intl";
 import type React from "react";
 import { useTodoMutations } from "@/lib/query";
 import { useBreakdownStore } from "@/lib/store/breakdown-store";
+import { useChatStore } from "@/lib/store/chat-store";
+import { useTodoStore } from "@/lib/store/todo-store";
 import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo } from "@/lib/types";
 
@@ -23,8 +26,11 @@ export function useTodoCardHandlers({
 	editingName,
 	setEditingName,
 }: UseTodoCardHandlersParams) {
+	const tChat = useTranslations("chat");
 	const { createTodo, updateTodo, toggleTodoStatus } = useTodoMutations();
 	const { startBreakdown } = useBreakdownStore();
+	const { setPendingPrompt } = useChatStore();
+	const { setSelectedTodoIds } = useTodoStore();
 	const { setPanelFeature, getFeatureByPosition } = useUiStore();
 
 	const handleCreateChild = async (e?: React.FormEvent) => {
@@ -41,8 +47,8 @@ export function useTodoCardHandlers({
 		}
 	};
 
-	const handleStartBreakdown = () => {
-		// 确保聊天Panel打开并切换到聊天功能
+	// 打开聊天面板的通用逻辑
+	const ensureChatPanelOpen = () => {
 		const chatPosition = getFeatureByPosition("panelA");
 		if (chatPosition !== "chat") {
 			// 找到聊天功能所在的位置，或分配到第一个可用位置
@@ -77,9 +83,22 @@ export function useTodoCardHandlers({
 				useUiStore.getState().togglePanelA();
 			}
 		}
+	};
 
+	const handleStartBreakdown = () => {
+		ensureChatPanelOpen();
 		// 开始Breakdown流程
 		startBreakdown(todo.id);
+	};
+
+	// 获取建议：选中当前 todo，打开聊天面板，新开会话并发送建议 prompt
+	const handleGetAdvice = () => {
+		// 选中当前 todo（让 ChatPanel 可以基于此 todo 的上下文）
+		setSelectedTodoIds([todo.id]);
+		// 打开聊天面板
+		ensureChatPanelOpen();
+		// 设置待发送的 prompt，并标记需要新开会话
+		setPendingPrompt(tChat("suggestions.advicePrompt"), true);
 	};
 
 	const handleToggleStatus = async (e: React.MouseEvent) => {
@@ -141,6 +160,7 @@ export function useTodoCardHandlers({
 	return {
 		handleCreateChild,
 		handleStartBreakdown,
+		handleGetAdvice,
 		handleToggleStatus,
 		handleAddChildFromMenu,
 		handleStartEditName,

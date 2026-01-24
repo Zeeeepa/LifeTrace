@@ -110,6 +110,8 @@ export const useChatController = ({
 	const isLoadingSessionRef = useRef<boolean>(false);
 	// 用于取消流式请求的 AbortController
 	const abortControllerRef = useRef<AbortController | null>(null);
+	// 跟踪当前活跃的请求 ID，用于在切换对话时忽略旧请求的 UI 更新
+	const activeRequestIdRef = useRef<string | null>(null);
 
 	const historyError = sessionsError ? t("loadHistoryFailed") : null;
 
@@ -123,19 +125,27 @@ export const useChatController = ({
 	);
 	const hasSelection = selectedTodoIds.length > 0;
 
-	const handleNewChat = useCallback(() => {
-		// 如果正在流式输出，先停止
-		if (abortControllerRef.current) {
-			abortControllerRef.current.abort();
-			abortControllerRef.current = null;
-		}
-		setIsStreaming(false);
-		setConversationId(null);
-		setMessages([]);
-		setInputValue("");
-		setError(null);
-		setHistoryOpen(false);
-	}, [setConversationId, setHistoryOpen]);
+	// keepStreaming: 如果为 true，不中断当前流式输出，让它在后台继续
+	const handleNewChat = useCallback(
+		(keepStreaming = false) => {
+			if (!keepStreaming) {
+				// 如果正在流式输出，先停止
+				if (abortControllerRef.current) {
+					abortControllerRef.current.abort();
+					abortControllerRef.current = null;
+				}
+				setIsStreaming(false);
+			}
+			// 清空活跃请求 ID，让旧请求的回调忽略 UI 更新
+			activeRequestIdRef.current = null;
+			setConversationId(null);
+			setMessages([]);
+			setInputValue("");
+			setError(null);
+			setHistoryOpen(false);
+		},
+		[setConversationId, setHistoryOpen],
+	);
 
 	const handleStop = useCallback(() => {
 		if (abortControllerRef.current) {
@@ -196,7 +206,11 @@ export const useChatController = ({
 	const sendMessage = useCallback(
 		async (text: string, clearInput = false) => {
 			const trimmedText = text.trim();
-			if (!trimmedText || isStreaming) return;
+			if (!trimmedText) return;
+
+			// 生成当前请求的唯一 ID
+			const requestId = createId();
+			activeRequestIdRef.current = requestId;
 
 			// 检查 prompt 是否已加载（plan 和 edit 模式需要）
 			if (chatMode === "plan" && !planSystemPrompt) {
@@ -291,8 +305,11 @@ export const useChatController = ({
 						selectedTools: chatMode === "agno" ? selectedAgnoTools : undefined,
 					},
 					(chunk) => {
-						// 检查是否已取消
-						if (abortController.signal.aborted) {
+						// 检查是否已取消或请求已不再活跃（用户切换到了新对话）
+						if (
+							abortController.signal.aborted ||
+							activeRequestIdRef.current !== requestId
+						) {
 							return;
 						}
 						assistantContent += chunk;
@@ -318,7 +335,11 @@ export const useChatController = ({
 					locale,
 					// 工具调用事件处理器
 					(event: ToolCallEvent) => {
-						if (abortController.signal.aborted) {
+						// 检查是否已取消或请求已不再活跃
+						if (
+							abortController.signal.aborted ||
+							activeRequestIdRef.current !== requestId
+						) {
 							return;
 						}
 
@@ -470,8 +491,11 @@ export const useChatController = ({
 					setError(fallback);
 				}
 			} finally {
-				abortControllerRef.current = null;
-				setIsStreaming(false);
+				// 只有当这个请求仍然是活跃请求时，才更新全局状态
+				if (activeRequestIdRef.current === requestId) {
+					abortControllerRef.current = null;
+					setIsStreaming(false);
+				}
 			}
 		},
 		[
@@ -482,7 +506,6 @@ export const useChatController = ({
 			editSystemPrompt,
 			effectiveTodos,
 			hasSelection,
-			isStreaming,
 			locale,
 			parsePlanTodos,
 			planSystemPrompt,
