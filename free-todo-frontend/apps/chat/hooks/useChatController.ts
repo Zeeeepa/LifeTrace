@@ -212,6 +212,10 @@ export const useChatController = ({
 			const requestId = createId();
 			activeRequestIdRef.current = requestId;
 
+			// 关键：直接从 store 获取最新的 conversationId，避免闭包陷阱
+			// 当 handleNewChat 把 conversationId 设为 null 后，这里能获取到最新值
+			const currentConversationId = useChatStore.getState().conversationId;
+
 			// 检查 prompt 是否已加载（plan 和 edit 模式需要）
 			if (chatMode === "plan" && !planSystemPrompt) {
 				setError(t("promptNotLoaded") || "提示词正在加载中，请稍候...");
@@ -295,7 +299,7 @@ export const useChatController = ({
 				await sendChatMessageStream(
 					{
 						message: payloadMessage,
-						conversationId: conversationId || undefined,
+						conversationId: currentConversationId || undefined,
 						// 当发送格式化消息（包含todo上下文）时，设置useRag=false
 						// 因为前端已经构建了完整的prompt，后端只需要解析并保存用户输入部分
 						// agent 模式使用 useRag=false，因为工具调用逻辑在后端独立处理
@@ -329,7 +333,10 @@ export const useChatController = ({
 						});
 					},
 					(sessionId) => {
-						setConversationId(conversationId || sessionId);
+						// 只有当这个请求仍然是活跃请求时，才更新 conversationId
+						if (activeRequestIdRef.current === requestId) {
+							setConversationId(currentConversationId || sessionId);
+						}
 					},
 					abortController.signal,
 					locale,
@@ -501,7 +508,6 @@ export const useChatController = ({
 		[
 			buildTodoPayloads,
 			chatMode,
-			conversationId,
 			createTodo,
 			editSystemPrompt,
 			effectiveTodos,
