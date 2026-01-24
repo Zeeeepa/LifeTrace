@@ -1,6 +1,6 @@
 [project]
 name = "lifetrace"
-version = "0.1.0"
+version = "0.1.2"
 description = "LifeTrace - A cross-platform screen recording and activity tracking application"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
