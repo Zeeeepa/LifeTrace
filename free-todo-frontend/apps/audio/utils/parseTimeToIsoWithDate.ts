@@ -55,20 +55,6 @@ export function parseTimeToIsoWithDate(raw: string | null | undefined, selectedD
 	return d.toISOString();
 }
 
-export function formatDateTime(date: Date) {
-	return date.toLocaleString("zh-CN", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour12: false,
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-	});
-}
-
-export function formatTime(seconds: number) {
-	const mins = Math.floor(seconds / 60);
-	const secs = Math.floor(seconds % 60);
-	return `${mins}:${secs.toString().padStart(2, "0")}`;
-}
+// formatDateTime 和 formatTime 已移至 timeUtils.ts
+// 请使用 timeUtils 中的函数以保持一致性
+export { formatDateTime, formatTime } from "./timeUtils";

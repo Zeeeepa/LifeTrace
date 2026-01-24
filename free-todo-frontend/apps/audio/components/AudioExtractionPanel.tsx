@@ -3,11 +3,8 @@
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { MessageTodoExtractionModal } from "@/apps/chat/components/message/MessageTodoExtractionModal";
-import {
-	getTranscriptionApiAudioTranscriptionRecordingIdGet,
-	linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost,
-} from "@/lib/generated/audio/audio";
 import { cn } from "@/lib/utils";
+import { useAudioLink } from "../hooks/useAudioLink";
 
 type TodoItem = {
 	id?: string;
@@ -39,6 +36,11 @@ interface ExtractionPanelProps {
 		React.SetStateAction<Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>>
 	>;
 	parseTimeToIsoWithDate: (raw?: string | null) => string | undefined;
+	// 录音中的实时提取结果（recId=0 表示录音中）
+	liveTodos?: Array<{ title: string; description?: string; deadline?: string; source_text?: string }>;
+	liveSchedules?: Array<{ title: string; time?: string; description?: string; source_text?: string }>;
+	isRecording?: boolean;
+	isExtracting?: boolean; // 后端正在提取中
 }
 
 export function AudioExtractionPanel({
@@ -47,10 +49,15 @@ export function AudioExtractionPanel({
 	extractionsByRecordingId,
 	setExtractionsByRecordingId,
 	parseTimeToIsoWithDate,
+	liveTodos = [],
+	liveSchedules = [],
+	isRecording = false,
+	isExtracting = false,
 }: ExtractionPanelProps) {
 	const tAudio = useTranslations("audio");
 	const [showExtractionModal, setShowExtractionModal] = useState(false);
 	const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(new Set());
+	const { linkAndRefresh } = useAudioLink();
 
 	type ModalItem = {
 		key: string;
@@ -66,6 +73,44 @@ export function AudioExtractionPanel({
 		const uniqueIds = Array.from(new Set(segmentRecordingIds.filter((id) => id && id > 0)));
 		const aggregated = new Map<string, ModalItem>();
 
+		// 先处理录音中的实时提取结果（recId=0）
+		if (isRecording && (liveTodos.length > 0 || liveSchedules.length > 0)) {
+			for (const item of liveTodos) {
+				const itemKey = (item.source_text || item.title || "").toString();
+				if (!itemKey) continue;
+				const mapKey = `todo:${itemKey}`;
+				if (!aggregated.has(mapKey)) {
+					aggregated.set(mapKey, {
+						key: `audio:${dateKey}:${mapKey}:live`,
+						name: item.source_text || item.title,
+						description: item.source_text || item.description || undefined,
+						deadline: parseTimeToIsoWithDate(item.deadline || null),
+						rawTime: item.deadline || item.source_text || undefined,
+						tags: [tAudio("linkTodoTag")],
+						_meta: { recordingIds: [0], kind: "todo", itemKey },
+					});
+				}
+			}
+
+			for (const item of liveSchedules) {
+				const itemKey = (item.source_text || item.title || "").toString();
+				if (!itemKey) continue;
+				const mapKey = `schedule:${itemKey}`;
+				if (!aggregated.has(mapKey)) {
+					aggregated.set(mapKey, {
+						key: `audio:${dateKey}:${mapKey}:live`,
+						name: item.source_text || item.title || tAudio("scheduleFallbackTitle"),
+						description: item.source_text || item.description || item.time || undefined,
+						deadline: parseTimeToIsoWithDate(item.time || null),
+						rawTime: item.time || item.source_text || undefined,
+						tags: [tAudio("scheduleTag")],
+						_meta: { recordingIds: [0], kind: "schedule", itemKey },
+					});
+				}
+			}
+		}
+
+		// 然后处理已保存录音的提取结果
 		for (const recId of uniqueIds) {
 			const ext = extractionsByRecordingId[recId];
 			if (!ext) continue;
@@ -124,7 +169,16 @@ export function AudioExtractionPanel({
 		}
 
 		return Array.from(aggregated.values());
-	}, [dateKey, segmentRecordingIds, extractionsByRecordingId, parseTimeToIsoWithDate, tAudio]);
+	}, [
+		dateKey,
+		segmentRecordingIds,
+		extractionsByRecordingId,
+		parseTimeToIsoWithDate,
+		tAudio,
+		isRecording,
+		liveTodos,
+		liveSchedules,
+	]);
 
 	const filteredTodoCount = extractionTodosForModal.filter((x) =>
 		x.tags.includes(tAudio("linkTodoTag"))
@@ -136,24 +190,36 @@ export function AudioExtractionPanel({
 
 	return (
 		<>
-			{hasExtraction ? (
+			{(hasExtraction || isExtracting || (isRecording && (liveTodos.length > 0 || liveSchedules.length > 0))) ? (
 				<div className="flex items-center justify-between px-4 py-2 border-b border-[oklch(var(--border))] bg-[oklch(var(--muted))]/40">
-					<div className="text-sm text-[oklch(var(--muted-foreground))]">
-						{`待添加 ${filteredTodoCount} 个待办，${filteredScheduleCount} 个日程`}
-					</div>
-					<button
-						type="button"
-						onClick={() => {
-							setSelectedIndexes(new Set());
-							setShowExtractionModal(true);
-						}}
-						className={cn(
-							"px-3 py-1.5 text-sm rounded-md",
-							"bg-[oklch(var(--primary))] text-white hover:opacity-90 transition-colors",
+					<div className="flex items-center gap-2">
+						{isExtracting && (
+							<div className="flex items-center gap-1.5 text-xs text-[oklch(var(--muted-foreground))]">
+								<div className="h-3 w-3 border-2 border-[oklch(var(--primary))] border-t-transparent rounded-full animate-spin" />
+								<span>提取中...</span>
+							</div>
 						)}
-					>
-						{tAudio("linkTodo")}
-					</button>
+						{(hasExtraction || (isRecording && (liveTodos.length > 0 || liveSchedules.length > 0))) && (
+							<div className="text-sm text-[oklch(var(--muted-foreground))]">
+								{`待添加 ${filteredTodoCount} 个待办，${filteredScheduleCount} 个日程`}
+							</div>
+						)}
+					</div>
+					{hasExtraction && (
+						<button
+							type="button"
+							onClick={() => {
+								setSelectedIndexes(new Set());
+								setShowExtractionModal(true);
+							}}
+							className={cn(
+								"px-3 py-1.5 text-sm rounded-md",
+								"bg-[oklch(var(--primary))] text-white hover:opacity-90 transition-colors",
+							)}
+						>
+							{tAudio("linkTodo")}
+						</button>
+					)}
 				</div>
 			) : null}
 
@@ -183,13 +249,7 @@ export function AudioExtractionPanel({
 						}
 					}
 
-					await Promise.all(
-						Array.from(byRec.entries()).map(async ([recId, links]) => {
-							await linkExtractedItemsApiAudioTranscriptionRecordingIdLinkPost(recId, { links });
-						}),
-					);
-
-					// 前端即时标记 linked，避免再次出现
+					// 前端即时标记 linked，避免再次出现（优化用户体验）
 					setExtractionsByRecordingId((prev) => {
 						const next = { ...prev };
 						for (const [recId, links] of byRec.entries()) {
@@ -230,27 +290,18 @@ export function AudioExtractionPanel({
 						return next;
 					});
 
-					// 兜底：重新拉取，防止状态偏差
+					// 使用 hook 进行链接和刷新（始终使用优化文本的提取结果）
 					try {
-						const refreshed = await Promise.all(
-							Array.from(byRec.keys()).map(async (recId) => {
-								const data = await getTranscriptionApiAudioTranscriptionRecordingIdGet(recId) as { todos?: TodoItem[]; schedules?: ScheduleItem[] };
-								return {
-									id: recId,
-									todos: Array.isArray(data.todos) ? data.todos : [],
-									schedules: Array.isArray(data.schedules) ? data.schedules : [],
-								};
-							}),
-						);
-						setExtractionsByRecordingId((prev) => {
-							const next = { ...prev };
-							for (const r of refreshed) {
-								next[r.id] = { todos: r.todos, schedules: r.schedules };
-							}
-							return next;
+						await linkAndRefresh(byRec, (recordingId, data) => {
+							setExtractionsByRecordingId((prev) => {
+								const next = { ...prev };
+								next[recordingId] = { todos: data.todos, schedules: data.schedules };
+								return next;
+							});
 						});
-					} catch {
-						// ignore
+					} catch (error) {
+						console.error("Failed to link and refresh extraction data:", error);
+						// 即使失败，前端已经标记了 linked，所以用户体验不受影响
 					}
 
 					setShowExtractionModal(false);

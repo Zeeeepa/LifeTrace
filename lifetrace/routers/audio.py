@@ -86,48 +86,76 @@ async def get_recordings(date: str | None = Query(None)):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _parse_date_param(date: str | None) -> datetime:
+    """解析日期参数"""
+    if date:
+        try:
+            if "T" in date or "Z" in date:
+                return datetime.fromisoformat(date.replace("Z", "+00:00"))
+            else:
+                from datetime import date as date_type
+
+                date_obj = date_type.fromisoformat(date)
+                return datetime.combine(date_obj, datetime.min.time())
+        except ValueError as e:
+            logger.error(f"日期格式错误: {date}, {e}")
+            raise ValueError(f"无效的日期格式: {date}") from e
+    else:
+        return datetime.now()
+
+
+def _build_timeline_item(
+    rec: dict[str, Any], transcription: dict[str, Any] | None, optimized: bool
+) -> dict[str, Any]:
+    """构建时间线项"""
+    text = ""
+    segment_timestamps: list[float] | None = None
+    if transcription:
+        if optimized and transcription.get("optimized_text"):
+            text = transcription.get("optimized_text") or ""
+        else:
+            text = transcription.get("original_text") or ""
+        # 解析时间戳（如果存在）
+        timestamps_str = transcription.get("segment_timestamps")
+        if timestamps_str:
+            try:
+                import json
+
+                segment_timestamps = json.loads(timestamps_str)
+                if not isinstance(segment_timestamps, list):
+                    segment_timestamps = None
+            except (json.JSONDecodeError, TypeError):
+                segment_timestamps = None
+    start_local = _to_local(rec["start_time"])
+    timeline_item: dict[str, Any] = {
+        "id": rec["id"],
+        "start_time": (start_local or rec["start_time"]).isoformat(),
+        "duration": float(rec["duration"]),
+        "text": text,
+    }
+    # 如果有时间戳，添加到返回数据中
+    if segment_timestamps:
+        timeline_item["segment_timestamps"] = segment_timestamps
+    return timeline_item
+
+
 @router.get("/timeline")
 async def get_timeline(date: str | None = Query(None), optimized: bool = Query(False)):
     """按日期返回录音时间线（含转录文本）"""
     try:
-        if date:
-            try:
-                if "T" in date or "Z" in date:
-                    target_date = datetime.fromisoformat(date.replace("Z", "+00:00"))
-                else:
-                    from datetime import date as date_type
-
-                    date_obj = date_type.fromisoformat(date)
-                    target_date = datetime.combine(date_obj, datetime.min.time())
-            except ValueError as e:
-                logger.error(f"日期格式错误: {date}, {e}")
-                return JSONResponse({"error": f"无效的日期格式: {date}"}, status_code=400)
-        else:
-            target_date = datetime.now()
-
+        target_date = _parse_date_param(date)
         recordings = audio_service.get_recordings_by_date(target_date)
         timeline: list[dict[str, Any]] = []
         for rec in recordings:
             if not rec:
                 continue
             transcription = audio_service.get_transcription(int(rec["id"]))
-            text = ""
-            if transcription:
-                if optimized and transcription.get("optimized_text"):
-                    text = transcription.get("optimized_text") or ""
-                else:
-                    text = transcription.get("original_text") or ""
-            start_local = _to_local(rec["start_time"])
-            timeline.append(
-                {
-                    "id": rec["id"],
-                    "start_time": (start_local or rec["start_time"]).isoformat(),
-                    "duration": float(rec["duration"]),
-                    "text": text,
-                }
-            )
+            timeline_item = _build_timeline_item(rec, transcription, optimized)
+            timeline.append(timeline_item)
 
         return JSONResponse({"timeline": timeline})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:
         logger.error(f"获取时间线失败: {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -158,41 +186,81 @@ async def get_recording_file(recording_id: int):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def _load_extracted_json(transcription: dict[str, Any], field: str) -> list[dict[str, Any]]:
+    """从转录数据中加载 JSON 字段。
+
+    Args:
+        transcription: 转录数据字典
+        field: 字段名
+
+    Returns:
+        解析后的列表，如果解析失败则返回空列表
+    """
+    value = transcription.get(field)
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except Exception:
+        return []
+
+
+def _refresh_extracted_from_db(
+    transcription_id: int, recording_id: int, optimized: bool
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """从数据库刷新提取结果（只读取，不清空）。
+
+    Args:
+        transcription_id: 转录ID
+        recording_id: 录音ID
+        optimized: 是否使用优化文本的提取结果
+
+    Returns:
+        (todos, schedules) 元组
+    """
+    try:
+        # 直接读取数据库，不要调用 update_extraction（会清空数据）
+        refreshed = audio_service.get_transcription(recording_id)
+        if not refreshed:
+            return [], []
+
+        if optimized:
+            todos = _load_extracted_json(refreshed, "extracted_todos_optimized")
+            schedules = _load_extracted_json(refreshed, "extracted_schedules_optimized")
+        else:
+            todos = _load_extracted_json(refreshed, "extracted_todos")
+            schedules = _load_extracted_json(refreshed, "extracted_schedules")
+        return todos, schedules
+    except Exception:
+        return [], []
+
+
 def _parse_extracted(
     transcription: dict[str, Any],
+    optimized: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Parse extracted todos/schedules and backfill legacy fields."""
-    todos: list[dict[str, Any]] = []
-    schedules: list[dict[str, Any]] = []
+    """Parse extracted todos/schedules and backfill legacy fields.
 
-    if transcription.get("extracted_todos"):
-        try:
-            todos = json.loads(transcription["extracted_todos"])
-        except Exception:
-            todos = []
+    Args:
+        transcription: 转录数据字典
+        optimized: 是否使用优化文本的提取结果
 
-    if transcription.get("extracted_schedules"):
-        try:
-            schedules = json.loads(transcription["extracted_schedules"])
-        except Exception:
-            schedules = []
+    Returns:
+        (todos, schedules) 元组
+    """
+    if optimized:
+        todos = _load_extracted_json(transcription, "extracted_todos_optimized")
+        schedules = _load_extracted_json(transcription, "extracted_schedules_optimized")
+    else:
+        todos = _load_extracted_json(transcription, "extracted_todos")
+        schedules = _load_extracted_json(transcription, "extracted_schedules")
 
     # Backfill legacy items and persist so clients always get id/dedupe_key/linked
-    try:
-        audio_service.update_extraction(
-            transcription_id=int(transcription["id"]),
-            todos=todos,
-            schedules=schedules,
-        )
-        refreshed = audio_service.get_transcription(transcription["audio_recording_id"])
-        if refreshed:
-            if refreshed.get("extracted_todos"):
-                todos = json.loads(refreshed["extracted_todos"])
-            if refreshed.get("extracted_schedules"):
-                schedules = json.loads(refreshed["extracted_schedules"])
-    except Exception:
-        # best-effort; return parsed data even if persist fails
-        pass
+    refreshed_todos, refreshed_schedules = _refresh_extracted_from_db(
+        int(transcription["id"]), transcription["audio_recording_id"], optimized
+    )
+    if refreshed_todos or refreshed_schedules:
+        return refreshed_todos, refreshed_schedules
 
     return todos, schedules
 
@@ -209,7 +277,8 @@ async def get_transcription(recording_id: int, optimized: bool = Query(False)):
         if not text:
             text = ""
 
-        todos, schedules = _parse_extracted(transcription)
+        # 根据 optimized 参数选择对应的提取结果
+        todos, schedules = _parse_extracted(transcription, optimized=optimized)
 
         return JSONResponse(
             {
@@ -235,12 +304,21 @@ class AudioLinkRequest(BaseModel):
 
 
 @router.post("/transcription/{recording_id}/link")
-async def link_extracted_items(recording_id: int, request: AudioLinkRequest):
-    """Mark extracted items as linked to todos (persisted in transcription JSON)."""
+async def link_extracted_items(
+    recording_id: int, request: AudioLinkRequest, optimized: bool = Query(False)
+):
+    """Mark extracted items as linked to todos (persisted in transcription JSON).
+
+    Args:
+        recording_id: 录音ID
+        request: 链接请求
+        optimized: 是否更新优化文本的提取结果
+    """
     try:
-        result = audio_service.link_extracted_items(
+        result = audio_service.extraction_service.link_extracted_items(
             recording_id=recording_id,
             links=[link.model_dump() for link in request.links],
+            optimized=optimized,
         )
         return JSONResponse(result)
     except Exception as e:
@@ -263,14 +341,24 @@ async def optimize_transcription(recording_id: int):
         # 使用LLM优化
         optimized_text = await audio_service.optimize_transcription_text(text)
 
-        # 更新转录记录
+        # 更新转录记录（保留提取结果）
+        from sqlmodel import select
+
         from lifetrace.storage import get_session
+        from lifetrace.storage.models import Transcription
 
         with get_session() as session:
-            transcription.optimized_text = optimized_text
-            session.add(transcription)
-            session.commit()
-            session.refresh(transcription)
+            # 获取 ORM 对象（不是字典）
+            trans = session.exec(
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
+            ).first()
+            if trans:
+                # 只更新优化文本，保留提取结果等其他字段
+                trans.optimized_text = optimized_text
+                session.add(trans)
+                session.commit()
 
         return JSONResponse({"optimized_text": optimized_text})
     except Exception as e:
@@ -279,26 +367,49 @@ async def optimize_transcription(recording_id: int):
 
 
 @router.post("/extract")
-async def extract_todos_and_schedules(recording_id: int):
-    """提取待办事项和日程安排"""
+async def extract_todos_and_schedules(recording_id: int, optimized: bool = Query(False)):
+    """提取待办事项和日程安排
+
+    Args:
+        recording_id: 录音ID
+        optimized: 是否从优化文本提取（False=从原文提取）
+    """
     try:
         transcription = audio_service.get_transcription(recording_id)
         if not transcription:
             return JSONResponse({"error": "转录不存在"}, status_code=404)
 
-        text = transcription.original_text or ""
+        text = (
+            transcription.get("optimized_text") or ""
+            if optimized
+            else transcription.get("original_text") or ""
+        )
         if not text:
             return JSONResponse({"error": "转录文本为空"}, status_code=400)
 
         # 使用LLM提取
-        result = await audio_service.extract_todos_and_schedules(text)
+        result = await audio_service.extraction_service.extract_todos_and_schedules(text)
 
-        # 更新提取结果
-        audio_service.update_extraction(
-            transcription_id=transcription.id,
-            todos=result.get("todos", []),
-            schedules=result.get("schedules", []),
-        )
+        # 更新提取结果（根据 optimized 参数更新对应字段）
+        from sqlmodel import select
+
+        from lifetrace.storage import get_session
+        from lifetrace.storage.models import Transcription
+
+        with get_session() as session:
+            # 查询转录记录（一个 recording_id 只应该有一条）
+            trans = session.exec(
+                select(Transcription)
+                .where(Transcription.audio_recording_id == recording_id)
+                .order_by(Transcription.id.desc())
+            ).first()
+            if trans:
+                audio_service.update_extraction(
+                    transcription_id=trans.id,
+                    todos=result.get("todos", []),
+                    schedules=result.get("schedules", []),
+                    optimized=optimized,
+                )
 
         return JSONResponse(result)
     except Exception as e:

@@ -217,7 +217,7 @@ export function useAudioRecording() {
 		[]
 	);
 
-	const stopRecording = useCallback(() => {
+	const stopRecording = useCallback((segmentTimestamps?: number[]) => {
 		// 停止 WebAudio
 		if (processorRef.current) {
 			try {
@@ -239,7 +239,12 @@ export function useAudioRecording() {
 			mediaStreamRef.current = null;
 		}
 		if (wsRef.current) {
-			wsRef.current.send(JSON.stringify({ type: "stop" }));
+			// 发送停止消息，包含时间戳数组（如果提供）
+			const stopMessage: { type: string; segment_timestamps?: number[] } = { type: "stop" };
+			if (segmentTimestamps && segmentTimestamps.length > 0) {
+				stopMessage.segment_timestamps = segmentTimestamps;
+			}
+			wsRef.current.send(JSON.stringify(stopMessage));
 			wsRef.current.close();
 			wsRef.current = null;
 		}
