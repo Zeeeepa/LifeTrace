@@ -12,6 +12,56 @@ from datetime import datetime
 from fastapi import WebSocket, WebSocketDisconnect
 
 
+async def _handle_json_error(websocket: WebSocket, logger, e: json.JSONDecodeError) -> None:
+    """处理 JSON 解析错误"""
+    logger.error(f"Failed to parse WebSocket message: {e}")
+    try:
+        await websocket.close(code=1003, reason="Invalid message format")
+    except Exception:
+        pass
+
+
+async def _handle_websocket_error(websocket: WebSocket, logger, e: Exception) -> None:
+    """处理 WebSocket 错误"""
+    logger.error(f"WebSocket error: {e}", exc_info=True)
+    try:
+        await websocket.close(code=1011, reason=str(e))
+    except Exception:
+        pass
+
+
+class _RunTranscriptionStreamContext:
+    """运行转录流的上下文，用于减少参数数量"""
+
+    def __init__(self, **kwargs):
+        self.asr_client = kwargs["asr_client"]
+        self.websocket = kwargs["websocket"]
+        self.logger = kwargs["logger"]
+        self.audio_chunks = kwargs["audio_chunks"]
+        self.segment_timestamps_ref = kwargs["segment_timestamps_ref"]
+        self.should_segment_ref = kwargs["should_segment_ref"]
+        self.on_result = kwargs["on_result"]
+        self.on_error = kwargs["on_error"]
+
+
+async def _run_transcription_stream(*, ctx: _RunTranscriptionStreamContext) -> None:
+    """运行 ASR 转录流"""
+    from lifetrace.routers.audio_ws import _audio_stream_generator
+
+    audio_stream = _audio_stream_generator(
+        websocket=ctx.websocket,
+        logger=ctx.logger,
+        audio_chunks=ctx.audio_chunks,
+        segment_timestamps_ref=ctx.segment_timestamps_ref,
+        should_segment_ref=ctx.should_segment_ref,
+    )
+    await ctx.asr_client.transcribe_stream(
+        audio_stream=audio_stream,
+        on_result=ctx.on_result,
+        on_error=ctx.on_error,
+    )
+
+
 def _get_audio_ws_functions():
     """延迟导入 audio_ws 模块的函数"""
     from lifetrace.routers.audio_ws import (
@@ -20,11 +70,8 @@ def _get_audio_ws_functions():
         _create_realtime_nlp_handler,
         _create_result_callback,
         _get_segment_functions,
-        _handle_json_error,
-        _handle_websocket_error,
         _parse_init_message,
         _persist_recording,
-        _run_transcription_stream,
         _save_transcription_if_any,
     )
 
@@ -214,16 +261,17 @@ async def _run_transcription_with_handlers(
     _run_transcription_stream,
 ):
     """运行转录流处理"""
-    await _run_transcription_stream(
-        asr_client,
-        websocket,
-        logger,
-        state["audio_chunks"],
-        state["segment_timestamps_ref"],
-        state["should_segment_ref"],
-        on_result,
-        on_error,
+    ctx = _RunTranscriptionStreamContext(
+        asr_client=asr_client,
+        websocket=websocket,
+        logger=logger,
+        audio_chunks=state["audio_chunks"],
+        segment_timestamps_ref=state["segment_timestamps_ref"],
+        should_segment_ref=state["should_segment_ref"],
+        on_result=on_result,
+        on_error=on_error,
     )
+    await _run_transcription_stream(ctx=ctx)
 
 
 async def _setup_websocket_connection(*, websocket: WebSocket, logger) -> dict:
