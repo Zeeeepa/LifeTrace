@@ -491,7 +491,8 @@
 			"clean_data_job": "数据清理",
 			"activity_aggregator_job": "活动聚合",
 			"deadline_reminder_job": "DDL提醒",
-			"todo_recorder_job": "屏幕录制（Todo生成）"
+			"todo_recorder_job": "屏幕录制（Todo生成）",
+			"audio_recording_job": "音频录制"
 		},
 		"jobDescriptions": {
 			"recorder_job": "定时截取屏幕截图",
@@ -501,7 +502,8 @@
 			"clean_data_job": "清理过期的截图和数据",
 			"activity_aggregator_job": "聚合用户活动事件",
 			"deadline_reminder_job": "检查待办事项的截止日期，在 DDL 前 5 分钟发送提醒通知",
-			"todo_recorder_job": "仅录制白名单应用的截图，用于自动待办检测"
+			"todo_recorder_job": "仅录制白名单应用的截图，用于自动待办检测",
+			"audio_recording_job": "7x24小时持续录音，实时转录和提取信息（间隔为状态检查间隔，非录音间隔）"
 		}
 	},
 	"common": {

@@ -1,23 +1,25 @@
 "use client";
 
-import { Calendar, ChevronLeft, ChevronRight, Mic, Upload } from "lucide-react";
+import { motion } from "framer-motion";
+import { Calendar, ChevronLeft, ChevronRight, Mic, Radio, Upload } from "lucide-react";
 import { useRef } from "react";
-import { cn } from "@/lib/utils";
 
 interface AudioHeaderProps {
 	isRecording: boolean;
 	selectedDate: Date;
 	onDateChange: (date: Date) => void;
-	onToggleRecording: () => void;
+	is24x7Enabled: boolean;
 	onUpload?: () => void;
+	onJumpToCurrentDate?: () => void; // 跳转到当前日期
 }
 
 export function AudioHeader({
 	isRecording,
 	selectedDate,
 	onDateChange,
-	onToggleRecording,
+	is24x7Enabled,
 	onUpload,
+	onJumpToCurrentDate,
 }: AudioHeaderProps) {
 	const dateInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -90,7 +92,7 @@ export function AudioHeader({
 				</span>
 			</div>
 
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-3">
 				{onUpload && (
 					<button
 						type="button"
@@ -101,18 +103,67 @@ export function AudioHeader({
 						测试音频
 					</button>
 				)}
+				{/* 录音状态指示器 */}
 				<button
 					type="button"
-					onClick={onToggleRecording}
-					className={cn(
-						"px-4 py-2 text-sm font-medium rounded-md transition-colors",
-						isRecording
-							? "bg-red-500 text-white hover:bg-red-600"
-							: "bg-[oklch(var(--primary))] text-white hover:opacity-60"
-					)}
+					onClick={() => {
+						if (isRecording && onJumpToCurrentDate) {
+							onJumpToCurrentDate();
+						}
+					}}
+					className={`flex items-center gap-2 px-3 py-2 rounded-md bg-[oklch(var(--muted))]/50 transition-colors ${
+						isRecording && onJumpToCurrentDate
+							? "hover:bg-[oklch(var(--muted))]/70 cursor-pointer"
+							: "cursor-default"
+					}`}
+					title={isRecording && onJumpToCurrentDate ? "点击跳转到当前录音日期" : undefined}
 				>
-					<Mic className="h-4 w-4 inline mr-1" />
-					{isRecording ? "停止录音" : "开始录音"}
+					<div className="relative flex items-center justify-center flex-shrink-0">
+						{isRecording ? (
+							<>
+								{/* 脉冲动画 */}
+								<motion.div
+									className="absolute w-full h-full bg-red-500/30 rounded-full"
+									animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+									transition={{
+										duration: 1.5,
+										repeat: Infinity,
+										ease: "easeOut",
+									}}
+								/>
+								<div className="relative z-10 p-1.5 rounded-full bg-red-500/20">
+									<Mic className="h-4 w-4 text-red-500" />
+								</div>
+							</>
+						) : (
+							<div className="p-1.5 rounded-full bg-[oklch(var(--muted))]">
+								<Mic className="h-4 w-4 text-[oklch(var(--muted-foreground))]" />
+							</div>
+						)}
+					</div>
+					<div className="flex items-center gap-2">
+						{isRecording ? (
+							<>
+								<span className="text-sm font-medium text-red-500">正在录音</span>
+								<motion.div
+									className="flex items-center"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: [0, 1, 0] }}
+									transition={{
+										duration: 1.5,
+										repeat: Infinity,
+										ease: "easeInOut",
+									}}
+								>
+									<Radio className="h-3 w-3 text-red-500" />
+								</motion.div>
+							</>
+						) : is24x7Enabled ? (
+							<span className="text-sm text-[oklch(var(--muted-foreground))]">待机中</span>
+						) : (
+							<span className="text-sm text-[oklch(var(--muted-foreground))]">已关闭</span>
+						)}
+					</div>
 				</button>
 			</div>
 		</div>

@@ -14,6 +14,21 @@ export function useAudioRecording() {
 	const audioContextRef = useRef<AudioContext | null>(null);
 	const processorRef = useRef<ScriptProcessorNode | null>(null);
 	const mediaStreamRef = useRef<MediaStream | null>(null);
+	const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const reconnectAttemptsRef = useRef(0);
+	const maxReconnectAttempts = 5;
+	const reconnectDelayMs = 3000; // 3秒后重连
+	const shouldReconnectRef = useRef(false); // 标记是否应该重连
+	const recordingCallbacksRef = useRef<{
+		onTranscription?: (text: string, isFinal: boolean) => void;
+		onRealtimeNlp?: (data: {
+			optimizedText?: string;
+			todos?: Array<{ title: string; description?: string; deadline?: string }>;
+			schedules?: Array<{ title: string; time?: string; description?: string }>;
+		}) => void;
+		onError?: (error: Error) => void;
+		is24x7?: boolean;
+	} | null>(null);
 
 	const startRecording = useCallback(
 		async (
@@ -27,7 +42,53 @@ export function useAudioRecording() {
 			is24x7: boolean = false
 		) => {
 			try {
+				// 如果已经有连接，先关闭它（防止重复连接）
+				if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+					console.warn("检测到已有 WebSocket 连接，先关闭它");
+					try {
+						wsRef.current.close();
+					} catch (e) {
+						console.error("关闭已有连接失败:", e);
+					}
+					wsRef.current = null;
+				}
+
+				// 如果已经有音频流，先停止它
+				if (mediaStreamRef.current) {
+					mediaStreamRef.current.getTracks().forEach((track) => {
+						track.stop();
+					});
+					mediaStreamRef.current = null;
+				}
+
+				// 如果已经有音频上下文，先关闭它
+				if (audioContextRef.current) {
+					try {
+						audioContextRef.current.close();
+					} catch (e) {
+						console.error("关闭音频上下文失败:", e);
+					}
+					audioContextRef.current = null;
+				}
+
+				console.log("请求麦克风权限...");
+				// 保存回调函数，用于重连
+				recordingCallbacksRef.current = {
+					onTranscription,
+					onRealtimeNlp,
+					onError,
+					is24x7,
+				};
+				shouldReconnectRef.current = is24x7; // 7x24小时模式启用自动重连
+
+				// 如果是重连，重置重连计数
+				if (reconnectAttemptsRef.current > 0) {
+					reconnectAttemptsRef.current = 0;
+					console.log("WebSocket重连成功");
+				}
+
 				const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+				console.log("✅ 麦克风权限已获取");
 				mediaStreamRef.current = stream
 
 				// 连接到后端 WebSocket
@@ -42,8 +103,10 @@ export function useAudioRecording() {
 				ws.binaryType = "arraybuffer";
 
 				ws.onopen = () => {
+					console.log("✅ WebSocket连接已建立，发送初始化消息...");
 					// 发送初始化消息
 					ws.send(JSON.stringify({ is_24x7: is24x7 }));
+					console.log("初始化消息已发送，is_24x7:", is24x7);
 					// 使用 WebAudio 直接发送 PCM16(16k) 到后端，保证 ASR 可识别
 					type AudioContextCtor = typeof AudioContext & {
 						webkitAudioContext?: typeof AudioContext;
@@ -110,6 +173,15 @@ export function useAudioRecording() {
 								}
 								return;
 							}
+							// 分段保存通知
+							if (data.header?.name === "SegmentSaved") {
+								// 通知前端分段已保存，需要重置时间戳和文本
+								// 通过特殊标记传递给 onTranscription，并传递原因
+								const reason = data.payload?.message || "分段保存";
+								onTranscription(`__SEGMENT_SAVED__:${reason}`, true);
+								console.log("收到分段保存通知:", reason);
+								return;
+							}
 						}
 						// 二进制消息由后端处理，前端不需要处理
 					} catch (error) {
@@ -135,6 +207,34 @@ export function useAudioRecording() {
 
 					// 正常关闭（用户主动停止或服务器正常关闭）不需要触发错误
 					if (event.wasClean) {
+						shouldReconnectRef.current = false;
+						return;
+					}
+
+					// 异常关闭：如果是7x24小时模式，尝试自动重连
+					if (is24x7 && shouldReconnectRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
+						reconnectAttemptsRef.current++;
+						console.log(`WebSocket连接断开，${reconnectDelayMs / 1000}秒后尝试重连 (${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+
+						reconnectTimeoutRef.current = setTimeout(() => {
+							if (recordingCallbacksRef.current && shouldReconnectRef.current) {
+								const callbacks = recordingCallbacksRef.current;
+								if (callbacks.onTranscription && callbacks.is24x7 !== undefined) {
+									console.log("尝试重新连接WebSocket...");
+									startRecording(
+										callbacks.onTranscription,
+										callbacks.onRealtimeNlp,
+										callbacks.onError,
+										callbacks.is24x7
+									).catch((error) => {
+										console.error("重连失败:", error);
+										if (callbacks.onError) {
+											callbacks.onError(error as Error);
+										}
+									});
+								}
+							}
+						}, reconnectDelayMs);
 						return;
 					}
 
@@ -218,6 +318,15 @@ export function useAudioRecording() {
 	);
 
 	const stopRecording = useCallback((segmentTimestamps?: number[]) => {
+		// 停止自动重连
+		shouldReconnectRef.current = false;
+		if (reconnectTimeoutRef.current) {
+			clearTimeout(reconnectTimeoutRef.current);
+			reconnectTimeoutRef.current = null;
+		}
+		reconnectAttemptsRef.current = 0;
+		recordingCallbacksRef.current = null;
+
 		// 停止 WebAudio
 		if (processorRef.current) {
 			try {
@@ -244,8 +353,16 @@ export function useAudioRecording() {
 			if (segmentTimestamps && segmentTimestamps.length > 0) {
 				stopMessage.segment_timestamps = segmentTimestamps;
 			}
-			wsRef.current.send(JSON.stringify(stopMessage));
-			wsRef.current.close();
+			try {
+				wsRef.current.send(JSON.stringify(stopMessage));
+			} catch (e) {
+				console.error("Failed to send stop message:", e);
+			}
+			try {
+				wsRef.current.close();
+			} catch (e) {
+				console.error("Failed to close WebSocket:", e);
+			}
 			wsRef.current = null;
 		}
 		setIsRecording(false);

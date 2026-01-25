@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { FEATURE_ICON_MAP } from "@/lib/config/panel-config";
 import { useConfig } from "@/lib/query";
-import { toastError } from "@/lib/toast";
 import { AudioExtractionPanel } from "./components/AudioExtractionPanel";
 import { AudioHeader } from "./components/AudioHeader";
 import { AudioPlayer } from "./components/AudioPlayer";
@@ -13,8 +12,10 @@ import { RecordingStatus } from "./components/RecordingStatus";
 import { StopRecordingConfirm } from "./components/StopRecordingConfirm";
 import { TranscriptionView } from "./components/TranscriptionView";
 import { useAudioData } from "./hooks/useAudioData";
+import { useAudioDateSwitching } from "./hooks/useAudioDateSwitching";
 import { useAudioPlayback } from "./hooks/useAudioPlayback";
 import { useAudioRecording } from "./hooks/useAudioRecording";
+import { useAudioRecordingControl } from "./hooks/useAudioRecordingControl";
 import { parseTimeToIsoWithDate as parseTimeToIsoWithDateUtil } from "./utils/parseTimeToIsoWithDate";
 import {
 	formatDateTime,
@@ -24,7 +25,7 @@ import {
 
 export function AudioPanel() {
 	const t = useTranslations("page");
-	const { data: config } = useConfig();
+	const { data: config, isLoading: configLoading } = useConfig();
 	const is24x7Enabled = (config?.audioIs24x7 as boolean | undefined) ?? true;
 	const [activeTab, setActiveTab] = useState<"original" | "optimized">("original");
 	const [transcriptionText, setTranscriptionText] = useState("");
@@ -33,7 +34,8 @@ export function AudioPanel() {
 	const [selectedDate, setSelectedDate] = useState(new Date());
 
 	// 先初始化 useAudioRecording，因为 useAudioData 需要 isRecording
-	const { isRecording, startRecording, stopRecording } = useAudioRecording();
+	const { isRecording: isRecordingFromHook } = useAudioRecording();
+
 
 	const {
 		selectedRecordingId,
@@ -54,7 +56,7 @@ export function AudioPanel() {
 		setOptimizedExtractionsByRecordingId,
 		loadRecordings,
 		loadTimeline,
-	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText, isRecording);
+	} = useAudioData(selectedDate, activeTab, setTranscriptionText, setOptimizedText);
 	// 录音时的实时高亮数据，与已有录音的持久化高亮分开，避免互相覆盖
 	const [liveTodos, setLiveTodos] = useState<
 		Array<{ title: string; description?: string; deadline?: string; source_text?: string }>
@@ -83,86 +85,117 @@ export function AudioPanel() {
 		setPlaybackRate,
 	} = useAudioPlayback();
 
-	const handleToggleRecording = async () => {
-		if (isRecording) {
-			setShowStopConfirm(true);
-			return;
-		}
-		// 检查当前日期，如果与选择的日期不同，自动切换到当前日期
+	// 记录当前录音的日期（用于区分实时录音和回看模式）
+	const currentRecordingDateRef = useRef<Date | null>(null);
+	// 使用 ref 存储最新的 selectedDate，确保回调函数能访问到最新的日期
+	const selectedDateRef = useRef<Date>(selectedDate);
+
+	// 更新 selectedDateRef
+	useEffect(() => {
+		selectedDateRef.current = selectedDate;
+	}, [selectedDate]);
+
+	// 辅助函数：获取本地日期字符串（用于日期比较）
+	const getLocalDateStringForCompare = useCallback((date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}, []);
+
+	// 用于存储实时录音的完整状态（持久化，不被清空）
+	// 这个状态应该一直保持，无论用户查看哪个日期
+	const liveRecordingStateRef = useRef<{
+		text: string;
+		optimizedText: string;
+		partialText: string;
+		segmentTimesSec: number[];
+		segmentOffsetsSec: number[];
+		segmentRecordingIds: number[];
+		segmentTimeLabels: string[];
+		todos: Array<{ title: string; description?: string; deadline?: string; source_text?: string }>;
+		schedules: Array<{ title: string; time?: string; description?: string; source_text?: string }>;
+	}>({
+		text: "",
+		optimizedText: "",
+		partialText: "",
+		segmentTimesSec: [],
+		segmentOffsetsSec: [],
+		segmentRecordingIds: [],
+		segmentTimeLabels: [],
+		todos: [],
+		schedules: [],
+	});
+
+	// 使用录音控制 hook
+	const { isRecording: isRecordingFromControl, stopRecording: stopRecordingFromControl } = useAudioRecordingControl({
+		is24x7Enabled,
+		configLoading,
+		selectedDateRef,
+		currentRecordingDateRef,
+		liveRecordingStateRef,
+		recordingStartedAtMsRef,
+		recordingStartedAtRef,
+		lastFinalEndMsRef,
+		setTranscriptionText,
+		setOptimizedText,
+		setPartialText,
+		setSegmentTimesSec,
+		setSegmentOffsetsSec,
+		setSegmentRecordingIds,
+		setSegmentTimeLabels,
+		setLiveTodos,
+		setLiveSchedules,
+		setSelectedSegmentIndex,
+		loadTimeline,
+		setIsLoadingTimeline,
+		formatDateTime,
+		getSegmentDate,
+	});
+
+	// 使用 hook 返回的值
+	const isRecording = isRecordingFromControl ?? isRecordingFromHook;
+	const stopRecording = stopRecordingFromControl;
+
+	// 计算是否正在查看当前日期
+	const isViewingCurrentDate = useMemo(() => {
 		const now = new Date();
-		const selectedDateStr = selectedDate.toISOString().split("T")[0];
-		const nowDateStr = now.toISOString().split("T")[0];
-		if (selectedDateStr !== nowDateStr) {
-			// 日期不一致，切换到当前日期
-			// 注意：这会触发 loadTimeline 和 loadRecordings，但会在录音开始前完成
-			setSelectedDate(now);
-			// 清空当前显示的文本，因为切换到了新日期
-			setTranscriptionText("");
-			setOptimizedText("");
-			setSegmentOffsetsSec([]);
-			setSegmentRecordingIds([]);
-			setSegmentTimeLabels([]);
-			setSegmentTimesSec([]);
-			setPartialText("");
-		}
-		// 录制开始：保留当天已有文本，在末尾追加新内容；并记录起始时间用于段落时间标签
-		setSelectedSegmentIndex(null);
-		recordingStartedAtMsRef.current = performance.now();
-		recordingStartedAtRef.current = now;
-		lastFinalEndMsRef.current = null; // 重置，第一段文本使用录音开始时间
-		// 开始录音前，清空本次会话的实时高亮状态
-		setLiveTodos([]);
-		setLiveSchedules([]);
+		const nowDateStr = getLocalDateStringForCompare(now);
+		const selectedDateStr = getLocalDateStringForCompare(selectedDate);
+		return selectedDateStr === nowDateStr;
+	}, [selectedDate, getLocalDateStringForCompare]);
 
-		await startRecording(
-			(text, isFinal) => {
-				// 规则：
-				// - final=false：作为"未完成文本"斜体显示（不落盘）
-				// - final=true：替换掉未完成文本，并把最终句追加到正文
-				if (isFinal) {
-					// 使用前一个 final 文本的结束时间作为当前文本的开始时间
-					// 对于第一段文本，使用录音开始时间
-					// 这样能更准确地对应到音频开始位置，避免 ASR 处理延迟的影响
-					const segmentStartMs = lastFinalEndMsRef.current ?? recordingStartedAtMsRef.current;
-					const elapsedSec = (segmentStartMs - recordingStartedAtMsRef.current) / 1000;
+	// 跳转到当前日期
+	const handleJumpToCurrentDate = useCallback(() => {
+		const now = new Date();
+		setSelectedDate(now);
+	}, []);
 
-					// 记录当前 final 文本的结束时间，作为下一段文本的开始时间
-					lastFinalEndMsRef.current = performance.now();
+	// 用于防止数据加载错乱：记录当前加载请求的日期
+	const currentLoadingDateRef = useRef<string | null>(null);
 
-					setTranscriptionText((prev) => {
-						const needsGap = prev && !prev.endsWith("\n");
-						return `${prev}${needsGap ? "\n" : ""}${text}\n`;
-					});
-					setSegmentTimesSec((prev) => [...prev, elapsedSec]);
-					setSegmentOffsetsSec((prev) => [...prev, elapsedSec]);
-					// 当前录音会话的临时段落，用 0 标记，避免误判为某个已保存录音
-					setSegmentRecordingIds((prev) => [...prev, 0]);
-					setSegmentTimeLabels((prev) => {
-						const start = recordingStartedAtRef.current ?? new Date();
-						// 使用统一的时间计算函数（录音模式，使用精确时间戳）
-						const segmentDate = getSegmentDate(start, elapsedSec, selectedDate);
-						return [...prev, formatDateTime(segmentDate)];
-					});
-					setPartialText("");
-				} else {
-					setPartialText(text);
-				}
-			},
-			(data) => {
-				// 录制中实时优化/提取推送（仅作用于当前会话，不覆盖已有录音的持久化高亮）
-				if (typeof data.optimizedText === "string") setOptimizedText(data.optimizedText);
-				if (Array.isArray(data.todos)) setLiveTodos(data.todos);
-				if (Array.isArray(data.schedules)) setLiveSchedules(data.schedules);
-			},
-			(error) => {
-				console.error("Recording error:", error);
-				// 显示用户友好的错误提示
-				const errorMessage = error instanceof Error ? error.message : "录音过程中发生错误";
-				toastError(errorMessage, { duration: 5000 });
-			},
-			is24x7Enabled
-		);
-	};
+	// 使用日期切换 hook
+	useAudioDateSwitching({
+		selectedDate,
+		isRecording,
+		isViewingCurrentDate,
+		liveRecordingStateRef,
+		currentLoadingDateRef,
+		setTranscriptionText,
+		setOptimizedText,
+		setPartialText,
+		setSegmentTimesSec,
+		setSegmentOffsetsSec,
+		setSegmentRecordingIds,
+		setSegmentTimeLabels,
+		setLiveTodos,
+		setLiveSchedules,
+		setIsLoadingTimeline,
+		loadTimeline,
+	});
+
+	// 注意：现在录音完全由配置控制，不需要手动启动/停止按钮
+	// 自动启动/停止逻辑已在 useAudioRecordingControl hook 中处理
 
 	const handleConfirmStop = () => {
 		setShowStopConfirm(false);
@@ -402,7 +435,8 @@ export function AudioPanel() {
 				isRecording={isRecording}
 				selectedDate={selectedDate}
 				onDateChange={setSelectedDate}
-				onToggleRecording={handleToggleRecording}
+				is24x7Enabled={is24x7Enabled}
+				onJumpToCurrentDate={handleJumpToCurrentDate}
 			/>
 
 			<AudioExtractionPanel
@@ -417,37 +451,46 @@ export function AudioPanel() {
 				isExtracting={isExtracting}
 			/>
 
-			{/* 转录内容区域（回看模式下点击即可播放对应录音） */}
+			{/* 转录内容区域 */}
 			<TranscriptionView
 				originalText={transcriptionText}
-				partialText={isRecording ? partialText : ""}
+				partialText={isRecording && isViewingCurrentDate ? partialText : ""}
 				optimizedText={optimizedText}
 				activeTab={activeTab}
 				onTabChange={(tab) => {
 					setActiveTab(tab);
-					// 切换 tab 时显示加载状态
+					// 切换 tab 时，如果缓存中有数据，直接恢复，否则加载
 					setIsLoadingTimeline(true);
-					// 手动触发 loadTimeline，传入加载状态回调
+					// 手动触发 loadTimeline，传入加载状态回调，不强制重新加载（使用缓存）
 					loadTimeline((loading) => {
 						setIsLoadingTimeline(loading);
-					});
+					}, false);
 				}}
 				segmentTodos={segmentTodos}
 				segmentSchedules={segmentSchedules}
-				isRecording={isRecording}
+				isRecording={isRecording && isViewingCurrentDate}
 				segmentTimesSec={segmentTimesSec}
 				segmentTimeLabels={segmentTimeLabels}
 				selectedSegmentIndex={selectedSegmentIndex}
-				onSegmentClick={isRecording ? undefined : handleSeekToSegment}
+				onSegmentClick={(index) => {
+					// 只有已保存的录音（recordingId > 0）才能播放
+					const recordingId = segmentRecordingIds[index];
+					if (recordingId && recordingId > 0) {
+						handleSeekToSegment(index);
+					}
+				}}
 				isLoadingTimeline={isLoadingTimeline}
 			/>
 
-			{/* 底部：根据录音状态切换显示 */}
-			{isRecording ? (
-				/* 录音模式：显示录音状态指示器 */
-				<RecordingStatus isRecording={isRecording} />
+			{/* 底部：根据查看模式和录音状态显示 */}
+			{isRecording && isViewingCurrentDate ? (
+				/* 当前日期 + 正在录音：显示录音状态指示器 */
+				<RecordingStatus
+					isRecording={isRecording}
+					recordingStartedAt={recordingStartedAtMsRef.current || undefined}
+				/>
 			) : (
-				/* 回看模式：显示播放器 */
+				/* 回看模式或未录音：显示播放器 */
 				selectedRecordingId && (
 					<AudioPlayer
 						title={formatDate(selectedDate)}

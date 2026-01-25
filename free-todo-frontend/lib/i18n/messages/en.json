@@ -490,7 +490,8 @@
 			"clean_data_job": "Data Cleanup",
 			"activity_aggregator_job": "Activity Aggregator",
 			"deadline_reminder_job": "DDL Reminder",
-			"todo_recorder_job": "Screen Recorder (Todo)"
+			"todo_recorder_job": "Screen Recorder (Todo)",
+			"audio_recording_job": "Audio Recording"
 		},
 		"jobDescriptions": {
 			"recorder_job": "Capture screenshots periodically",
@@ -500,7 +501,8 @@
 			"clean_data_job": "Clean up expired screenshots and data",
 			"activity_aggregator_job": "Aggregate user activity events",
 			"deadline_reminder_job": "Check todo deadlines and send reminder notifications 5 minutes before DDL",
-			"todo_recorder_job": "Only capture screenshots from whitelisted apps for auto todo detection"
+			"todo_recorder_job": "Only capture screenshots from whitelisted apps for auto todo detection",
+			"audio_recording_job": "7x24 continuous audio recording with real-time transcription and information extraction"
 		}
 	},
 	"common": {

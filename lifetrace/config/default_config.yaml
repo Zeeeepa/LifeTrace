@@ -79,6 +79,14 @@ jobs:
       use_gpu: false
       language: ['ch', 'en']
       confidence_threshold: 0.5
+  audio_recording:
+    id: audio_recording # 任务ID
+    name: 音频录制 # 任务显示名称（中文）
+    enabled: true # 是否启用音频录制（默认开启，7x24小时录制）
+    interval: 60 # 状态检查间隔（秒），用于监控录音状态
+    params:
+      segment_duration_minutes: 30 # 分段时长（分钟）
+      silence_threshold_seconds: 600 # 静音检测阈值（秒）
   activity_aggregator:
     id: activity_aggregator # 任务ID
     name: 活动聚合 # 任务显示名称（中文）

@@ -29,6 +29,11 @@ INT16_MAX = 32767
 INT16_MIN = -32768
 AGC_TARGET_PEAK_RATIO = 0.85
 
+# 分段存储配置
+SEGMENT_DURATION_MINUTES = 30  # 30分钟分段
+SILENCE_DETECTION_THRESHOLD_SECONDS = 600  # 10分钟静音检测阈值
+SILENCE_CHECK_INTERVAL_SECONDS = 60  # 每60秒检查一次静音
+
 
 def _to_local(dt: datetime | None) -> datetime | None:
     """Convert datetime to local timezone (timezone-aware)."""
@@ -264,16 +269,48 @@ def _create_realtime_nlp_handler(  # noqa: C901
     return throttler.on_final_sentence, throttler.cancel
 
 
+def _handle_websocket_text_message(
+    message: dict,
+    logger,
+    segment_timestamps_ref: list[list[float] | None],
+    should_segment_ref: list[bool] | None = None,
+) -> bool:
+    """处理 WebSocket 文本消息，返回是否应该停止流。
+
+    Returns:
+        True 如果应该停止流，False 如果继续
+    """
+    msg_type = message.get("type")
+    if msg_type == "stop":
+        segment_timestamps_from_frontend = message.get("segment_timestamps", [])
+        if isinstance(segment_timestamps_from_frontend, list):
+            segment_timestamps_ref[0] = segment_timestamps_from_frontend
+            logger.info(
+                f"Received stop signal from client with {len(segment_timestamps_from_frontend)} segment timestamps"
+            )
+        else:
+            logger.info("Received stop signal from client")
+        return True
+    if msg_type == "segment":
+        # 客户端请求分段（用于手动分段或同步）
+        if should_segment_ref:
+            should_segment_ref[0] = True
+            logger.info("Received segment request from client")
+    return False
+
+
 async def _audio_stream_generator(
     websocket: WebSocket,
     logger,
     audio_chunks: list[bytes],
     segment_timestamps_ref: list[list[float] | None],
+    should_segment_ref: list[bool] | None = None,
 ):
     """Yield audio bytes from websocket until stop signal.
 
     Args:
         segment_timestamps_ref: 用于存储从客户端接收的时间戳数组的引用
+        should_segment_ref: 用于标记是否需要分段（外部可以设置此标志来触发分段）
     """
     while True:
         try:
@@ -287,15 +324,10 @@ async def _audio_stream_generator(
             if "text" in data:
                 try:
                     message = json.loads(data["text"])
-                    if message.get("type") == "stop":
-                        segment_timestamps_from_frontend = message.get("segment_timestamps", [])
-                        if isinstance(segment_timestamps_from_frontend, list):
-                            segment_timestamps_ref[0] = segment_timestamps_from_frontend
-                            logger.info(
-                                f"Received stop signal from client with {len(segment_timestamps_from_frontend)} segment timestamps"
-                            )
-                        else:
-                            logger.info("Received stop signal from client")
+                    should_stop = _handle_websocket_text_message(
+                        message, logger, segment_timestamps_ref, should_segment_ref
+                    )
+                    if should_stop:
                         break
                 except json.JSONDecodeError:
                     logger.debug(f"Ignoring non-JSON text message: {data.get('text', '')[:50]}")
@@ -350,6 +382,36 @@ def _apply_agc_to_pcm(logger, pcm_bytes: bytes) -> bytes:
         return pcm_bytes
 
 
+def _detect_silence(
+    pcm_bytes: bytes,
+    threshold_max_abs: int = PCM_SILENCE_MAX_ABS,
+    threshold_rms: float = PCM_SILENCE_RMS,
+) -> bool:
+    """检测音频是否为静音
+
+    Args:
+        pcm_bytes: PCM音频数据
+        threshold_max_abs: 最大振幅阈值
+        threshold_rms: RMS阈值
+
+    Returns:
+        True if silent, False otherwise
+    """
+    try:
+        import array
+
+        samples = array.array("h")
+        samples.frombytes(pcm_bytes)
+        if not samples:
+            return True
+
+        max_abs = max(abs(s) for s in samples)
+        rms = (sum(s * s for s in samples) / len(samples)) ** 0.5
+        return max_abs < threshold_max_abs and rms < threshold_rms
+    except Exception:
+        return False
+
+
 def _persist_recording(
     *,
     logger,
@@ -398,86 +460,23 @@ async def _save_transcription_if_any(
     )
 
 
-async def _handle_transcribe_ws(*, websocket: WebSocket, logger, asr_client, audio_service) -> None:
-    await websocket.accept()
-    logger.info(
-        f"WebSocket client connected: application_state={websocket.application_state}, client_state={websocket.client_state}"
+# 导入分段相关功能（延迟导入以避免循环依赖）
+def _get_segment_functions():
+    """延迟导入分段函数以避免循环依赖"""
+    from lifetrace.routers.audio_ws_segment import (
+        _save_current_segment,
+        _segment_monitor_task,
     )
 
-    recording_started_at = datetime.now()
-    transcription_text_ref: list[str] = [""]
-    audio_chunks: list[bytes] = []
-    is_connected_ref: list[bool] = [True]
-    segment_timestamps_ref: list[list[float] | None] = [None]  # 存储从客户端接收的时间戳
+    return _save_current_segment, _segment_monitor_task
 
-    on_final_sentence, cancel_realtime_nlp = _create_realtime_nlp_handler(
-        websocket=websocket,
-        logger=logger,
-        audio_service=audio_service,
-        is_connected_ref=is_connected_ref,
-        throttle_seconds=8.0,
-    )
 
-    try:
-        init_message = await websocket.receive_json()
-        is_24x7 = _parse_init_message(logger, init_message)
+# 导入 WebSocket 处理函数（延迟导入以避免循环依赖）
+def _get_transcribe_handler():
+    """延迟导入 WebSocket 处理函数以避免循环依赖"""
+    from lifetrace.routers.audio_ws_handler import _handle_transcribe_ws
 
-        on_result_base = _create_result_callback(
-            websocket=websocket,
-            logger=logger,
-            transcription_text_ref=transcription_text_ref,
-            is_connected_ref=is_connected_ref,
-        )
-
-        def on_result(text: str, is_final: bool) -> None:
-            on_result_base(text, is_final)
-            if is_final:
-                on_final_sentence(text)
-
-        on_error = _create_error_callback(
-            websocket=websocket, logger=logger, is_connected_ref=is_connected_ref
-        )
-
-        await asr_client.transcribe_stream(
-            _audio_stream_generator(websocket, logger, audio_chunks, segment_timestamps_ref),
-            on_result=on_result,
-            on_error=on_error,
-        )
-
-        recording_id, _duration = _persist_recording(
-            logger=logger,
-            audio_service=audio_service,
-            audio_chunks=audio_chunks,
-            recording_started_at=recording_started_at,
-            is_24x7=is_24x7,
-        )
-        await _save_transcription_if_any(
-            audio_service=audio_service,
-            recording_id=recording_id,
-            text=transcription_text_ref[0],
-            segment_timestamps=segment_timestamps_ref[0],
-        )
-
-    except WebSocketDisconnect:
-        logger.info("WebSocket client disconnected")
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse WebSocket message: {e}")
-        try:
-            await websocket.close(code=1003, reason="Invalid message format")
-        except Exception:
-            pass
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}", exc_info=True)
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass
-    finally:
-        is_connected_ref[0] = False
-        cancel_realtime_nlp()
-        logger.info(
-            f"WebSocket handler finished: application_state={websocket.application_state}, client_state={websocket.client_state}"
-        )
+    return _handle_transcribe_ws
 
 
 def register_audio_ws_routes(*, router: APIRouter, logger, asr_client, audio_service) -> None:
@@ -485,6 +484,7 @@ def register_audio_ws_routes(*, router: APIRouter, logger, asr_client, audio_ser
 
     @router.websocket("/transcribe")
     async def websocket_transcribe(websocket: WebSocket) -> None:
+        _handle_transcribe_ws = _get_transcribe_handler()
         await _handle_transcribe_ws(
             websocket=websocket, logger=logger, asr_client=asr_client, audio_service=audio_service
         )

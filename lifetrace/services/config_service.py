@@ -45,12 +45,14 @@ JOB_ENABLED_CONFIG_TO_JOB_ID = {
     "jobs.clean_data.enabled": "clean_data_job",
     "jobs.activity_aggregator.enabled": "activity_aggregator_job",
     "jobs.todo_recorder.enabled": "todo_recorder_job",
+    "jobs.audio_recording.enabled": "audio_recording_job",
     # snake_case 格式（前端 fetcher 转换后发送的格式）
     "jobs_recorder_enabled": "recorder_job",
     "jobs_ocr_enabled": "ocr_job",
     "jobs_clean_data_enabled": "clean_data_job",
     "jobs_activity_aggregator_enabled": "activity_aggregator_job",
     "jobs_todo_recorder_enabled": "todo_recorder_job",
+    "jobs_audio_recording_enabled": "audio_recording_job",
 }
 
 # 联动配置映射：配置键 -> 需要联动的配置键列表
@@ -318,6 +320,9 @@ class ConfigService:
             "tavily.api_key",
             # 音频录制配置
             "audio.is_24x7",
+            # 音频录制任务配置
+            "jobs.audio_recording.enabled",
+            "jobs.audio_recording.interval",
             # 音频识别（ASR）配置
             "audio.asr.api_key",
             "audio.asr.base_url",
