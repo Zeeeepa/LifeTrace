@@ -20,6 +20,25 @@ from lifetrace.util.settings import settings
 logger = get_logger()
 
 
+def execute_audio_recording_status_check():
+    """音频录制状态检查任务（用于监控录音状态）
+
+    注意：音频录制实际上由前端WebSocket控制，此任务仅用于状态监控和日志记录
+    """
+    try:
+        # 检查配置
+        enabled = settings.get("jobs.audio_recording.enabled", True)
+        audio_is_24x7 = settings.get("audio.is_24x7", True)
+
+        # 如果配置开启，记录状态（实际启动由前端控制）
+        if enabled and audio_is_24x7:
+            logger.debug("音频录制服务已启用（由前端WebSocket控制）")
+        else:
+            logger.debug("音频录制服务未启用")
+    except Exception as e:
+        logger.error(f"音频录制状态检查失败: {e}", exc_info=True)
+
+
 class JobManager:
     """后台任务管理器"""
 
@@ -57,6 +76,9 @@ class JobManager:
 
         # 启动主动OCR任务
         self._start_proactive_ocr_job()
+
+        # 启动音频录制状态检查任务
+        self._start_audio_recording_job()
 
         logger.info("所有后台任务已启动")
 
@@ -286,6 +308,35 @@ class JobManager:
                 execute_proactive_ocr_task()
         except Exception as e:
             logger.error(f"启动主动OCR任务失败: {e}", exc_info=True)
+
+    def _start_audio_recording_job(self):
+        """启动音频录制状态检查任务
+
+        注意：音频录制实际上由前端WebSocket控制，此任务仅用于状态监控
+        """
+        enabled = settings.get("jobs.audio_recording.enabled", True)
+
+        try:
+            # 添加到调度器（无论是否启用都添加）
+            interval = settings.get("jobs.audio_recording.interval", 60)
+            audio_recording_id = settings.get("jobs.audio_recording.id", "audio_recording")
+            self.scheduler_manager.add_interval_job(
+                func=execute_audio_recording_status_check,
+                job_id="audio_recording_job",
+                name=audio_recording_id,
+                seconds=interval,
+                replace_existing=True,
+            )
+            logger.info(f"音频录制状态检查任务已添加，间隔: {interval}秒")
+
+            # 如果未启用，则暂停任务
+            if not enabled:
+                self.scheduler_manager.pause_job("audio_recording_job")
+                logger.info("音频录制服务未启用，已暂停")
+            else:
+                logger.info("音频录制服务已启用（由前端WebSocket控制）")
+        except Exception as e:
+            logger.error(f"启动音频录制任务失败: {e}", exc_info=True)
 
 
 # 全局单例

@@ -3,7 +3,7 @@
 import { Check, Clock, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import type { ExtractedTodo } from "@/lib/generated/schemas";
+import type { LifetraceSchemasTodoExtractionExtractedTodo } from "@/lib/generated/schemas";
 import { useCreateTodo } from "@/lib/query";
 import { toastError, toastSuccess } from "@/lib/toast";
 import type { CreateTodoInput } from "@/lib/types";
@@ -12,7 +12,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 interface TodoExtractionModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	todos: ExtractedTodo[];
+	todos: LifetraceSchemasTodoExtractionExtractedTodo[];
 	eventId?: number; // 可选，手动截图可能没有 event_id
 	appName?: string | null;
 }
@@ -105,7 +105,7 @@ export function TodoExtractionModal({
 		setSelectedTodos(new Set());
 	};
 
-	const formatTimeDisplay = (todo: ExtractedTodo): string => {
+	const formatTimeDisplay = (todo: LifetraceSchemasTodoExtractionExtractedTodo): string => {
 		if (todo.scheduled_time) {
 			const scheduled = formatDateTime(todo.scheduled_time, "YYYY-MM-DD HH:mm");
 			const rawTime = todo.time_info.raw_text;

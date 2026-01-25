@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { PanelRegion } from "@/components/layout/PanelRegion";
 import { GlobalDndProvider } from "@/lib/dnd";
+import { useAutoRecording } from "@/lib/hooks/useAutoRecording";
 import { useOnboardingTour } from "@/lib/hooks/useOnboardingTour";
 import { usePanelResize } from "@/lib/hooks/usePanelResize";
 import { useWindowAdaptivePanels } from "@/lib/hooks/useWindowAdaptivePanels";
@@ -16,6 +17,9 @@ import { isElectronEnvironment } from "@/lib/utils/electron";
 
 
 export default function HomePage() {
+	// 全局自动录音：根据配置决定是否在应用启动时自动开始录音
+	useAutoRecording();
+
 	// 使用 mounted 状态来避免 SSR 水合不匹配
 	const [mounted, setMounted] = useState(false);
 	useEffect(() => {

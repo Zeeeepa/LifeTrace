@@ -1,24 +1,30 @@
 "use client";
 
-import { Calendar, ChevronLeft, ChevronRight, Mic, Upload } from "lucide-react";
+import { motion } from "framer-motion";
+import { Calendar, ChevronLeft, ChevronRight, Mic, MicOff, Radio, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useRef } from "react";
-import { cn } from "@/lib/utils";
 
 interface AudioHeaderProps {
 	isRecording: boolean;
 	selectedDate: Date;
 	onDateChange: (date: Date) => void;
-	onToggleRecording: () => void;
 	onUpload?: () => void;
+	onJumpToCurrentDate?: () => void; // 跳转到当前日期
+	onStartRecording?: () => void; // 手动开始录音
+	onStopRecording?: () => void; // 手动停止录音
 }
 
 export function AudioHeader({
 	isRecording,
 	selectedDate,
 	onDateChange,
-	onToggleRecording,
 	onUpload,
+	onJumpToCurrentDate,
+	onStartRecording,
+	onStopRecording,
 }: AudioHeaderProps) {
+	const t = useTranslations("page");
 	const dateInputRef = useRef<HTMLInputElement | null>(null);
 
 	const formatDate = (date: Date) => {
@@ -90,7 +96,7 @@ export function AudioHeader({
 				</span>
 			</div>
 
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-3">
 				{onUpload && (
 					<button
 						type="button"
@@ -101,19 +107,81 @@ export function AudioHeader({
 						测试音频
 					</button>
 				)}
-				<button
-					type="button"
-					onClick={onToggleRecording}
-					className={cn(
-						"px-4 py-2 text-sm font-medium rounded-md transition-colors",
-						isRecording
-							? "bg-red-500 text-white hover:bg-red-600"
-							: "bg-[oklch(var(--primary))] text-white hover:opacity-60"
+				{/* 录音控制开关 */}
+				<div className="flex items-center gap-2">
+					{/* 录音状态指示器（点击可跳转到当前日期） */}
+					{isRecording && (
+						<button
+							type="button"
+							onClick={() => {
+								if (onJumpToCurrentDate) {
+									onJumpToCurrentDate();
+								}
+							}}
+							className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors cursor-pointer"
+							title={t("audioRecordingStatus")}
+						>
+							<div className="relative flex items-center justify-center flex-shrink-0">
+								{/* 脉冲动画 */}
+								<motion.div
+									className="absolute w-full h-full bg-red-500/30 rounded-full"
+									animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+									transition={{
+										duration: 1.5,
+										repeat: Infinity,
+										ease: "easeOut",
+									}}
+								/>
+								<div className="relative z-10 p-1.5 rounded-full bg-red-500/20">
+									<Mic className="h-4 w-4 text-red-500" />
+								</div>
+							</div>
+							<span className="text-sm font-medium text-red-500">{t("audioRecording")}</span>
+							<motion.div
+								className="flex items-center"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: [0, 1, 0] }}
+								transition={{
+									duration: 1.5,
+									repeat: Infinity,
+									ease: "easeInOut",
+								}}
+							>
+								<Radio className="h-3 w-3 text-red-500" />
+							</motion.div>
+						</button>
 					)}
-				>
-					<Mic className="h-4 w-4 inline mr-1" />
-					{isRecording ? "停止录音" : "开始录音"}
-				</button>
+
+					{/* 录音开关按钮 */}
+					<button
+						type="button"
+						onClick={() => {
+							if (isRecording) {
+								onStopRecording?.();
+							} else {
+								onStartRecording?.();
+							}
+						}}
+						className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+							isRecording
+								? "bg-red-500/10 hover:bg-red-500/20 text-red-500"
+								: "bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400"
+						}`}
+						title={isRecording ? t("audioStopRecording") : t("audioStartRecording")}
+					>
+						{isRecording ? (
+							<>
+								<MicOff className="h-4 w-4" />
+								<span className="text-sm font-medium">{t("audioStopRecording")}</span>
+							</>
+						) : (
+							<>
+								<Mic className="h-4 w-4" />
+								<span className="text-sm font-medium">{t("audioStartRecording")}</span>
+							</>
+						)}
+					</button>
+				</div>
 			</div>
 		</div>
 	);

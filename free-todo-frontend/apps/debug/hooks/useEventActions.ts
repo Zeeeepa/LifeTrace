@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import type { ExtractedTodo, TodoExtractionResponse } from "@/lib/api";
 import { useCreateActivityManualApiActivitiesManualPost } from "@/lib/generated/activity/activity";
+import type {
+	LifetraceSchemasTodoExtractionExtractedTodo,
+	TodoExtractionResponse,
+} from "@/lib/generated/schemas";
 import { useExtractTodosFromEventApiTodoExtractionExtractPost } from "@/lib/generated/todo-extraction/todo-extraction";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import type { Event } from "@/lib/types";
 import { isWhitelistApp } from "../utils";
 
 interface ExtractionResult {
-	todos: ExtractedTodo[];
+	todos: LifetraceSchemasTodoExtractionExtractedTodo[];
 	eventId: number;
 	appName: string | null;
 }

@@ -14,7 +14,7 @@ interface AudioConfigSectionProps {
 
 /**
  * 音频录制配置区块组件
- * 配置7x24小时录制开关
+ * 配置自动启动录音开关
  */
 export function AudioConfigSection({
 	config,
@@ -47,7 +47,7 @@ export function AudioConfigSection({
 			toastSuccess(t("saveSuccess"));
 		} catch (error) {
 			setIs24x7Enabled(!newValue);
-			console.error("保存7x24小时录制配置失败:", error);
+			console.error("保存自动启动录音配置失败:", error);
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			toastError(t("saveFailed", { error: errorMsg }));
 		}
@@ -56,7 +56,7 @@ export function AudioConfigSection({
 	return (
 		<SettingsSection title={t("audioSettings")}>
 			<div className="space-y-4">
-				{/* 7x24小时录制开关 */}
+				{/* 自动启动录音开关 */}
 				<div className="flex items-center justify-between">
 					<div className="flex-1">
 						<p className="text-sm font-medium text-foreground">

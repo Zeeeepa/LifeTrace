@@ -406,7 +406,19 @@ export function TranscriptionView({
 							</p>
 						) : null}
 					</div>
+				) : showLoading ? (
+					// 加载状态：显示获取中动效
+					<div className="flex flex-col items-center justify-center h-full text-center">
+						<div className="mb-4">
+							<div className="h-12 w-12 border-4 border-[oklch(var(--primary))] border-t-transparent rounded-full animate-spin mx-auto" />
+						</div>
+						<p className="text-sm font-medium text-[oklch(var(--foreground))] mb-1">获取中...</p>
+						<p className="text-xs text-[oklch(var(--muted-foreground))]">
+							正在加载该日期的转录内容
+						</p>
+					</div>
 				) : (
+					// 空状态：没有内容且不在加载中
 					<div className="flex flex-col items-center justify-center h-full text-center">
 						<div className="mb-4 text-[oklch(var(--muted-foreground))]">
 							<svg

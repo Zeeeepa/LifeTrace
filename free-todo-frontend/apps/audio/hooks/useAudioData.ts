@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	calculateSegmentOffset,
 	formatDateTime,
@@ -8,6 +8,23 @@ import {
 	getSegmentDate,
 	parseLocalDate,
 } from "../utils/timeUtils";
+
+// 日期数据缓存（最多保存7天）
+type DateCacheData = {
+	transcriptionText: string;
+	optimizedText: string;
+	segmentOffsetsSec: number[];
+	segmentRecordingIds: number[];
+	segmentTimeLabels: string[];
+	segmentTimesSec: number[];
+	recordingDurations: Record<number, number>;
+	extractionsByRecordingId: Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>;
+	optimizedExtractionsByRecordingId: Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>;
+	timestamp: number; // 缓存时间戳
+};
+
+const MAX_CACHE_DAYS = 7;
+const CACHE_EXPIRY_MS = MAX_CACHE_DAYS * 24 * 60 * 60 * 1000; // 7天过期
 
 type TodoItem = {
 	id?: string;
@@ -36,7 +53,7 @@ export function useAudioData(
 	activeTab: "original" | "optimized",
 	setTranscriptionText: (text: string) => void,
 	setOptimizedText: (text: string) => void,
-	isRecording?: boolean, // 是否正在录音，用于避免清空文本
+	// isRecording 参数已移除，日期切换逻辑现在在 AudioPanel 中处理
 ) {
 	const [selectedRecordingId, setSelectedRecordingId] = useState<number | null>(null);
 	const [selectedRecordingDurationSec, setSelectedRecordingDurationSec] = useState<number>(0);
@@ -51,6 +68,65 @@ export function useAudioData(
 	const [optimizedExtractionsByRecordingId, setOptimizedExtractionsByRecordingId] = useState<
 		Record<number, { todos?: TodoItem[]; schedules?: ScheduleItem[] }>
 	>({});
+
+	// 数据缓存：按日期字符串存储
+	const dateCacheRef = useRef<Map<string, DateCacheData>>(new Map());
+
+	// 清理过期缓存
+	const cleanExpiredCache = useCallback(() => {
+		const now = Date.now();
+		for (const [dateStr, cache] of dateCacheRef.current.entries()) {
+			if (now - cache.timestamp > CACHE_EXPIRY_MS) {
+				dateCacheRef.current.delete(dateStr);
+			}
+		}
+	}, []);
+
+	// 从缓存恢复数据
+	const restoreFromCache = useCallback((dateStr: string, tab: "original" | "optimized") => {
+		const cache = dateCacheRef.current.get(dateStr);
+		if (!cache) return false;
+
+		// 检查缓存是否过期
+		if (Date.now() - cache.timestamp > CACHE_EXPIRY_MS) {
+			dateCacheRef.current.delete(dateStr);
+			return false;
+		}
+
+		// 恢复数据：恢复当前 tab 的文本，但保留另一个 tab 的文本（如果存在）
+		if (tab === "original") {
+			setTranscriptionText(cache.transcriptionText);
+			// 如果缓存中有 optimized 文本，也恢复它（避免切换 tab 时丢失）
+			if (cache.optimizedText) {
+				setOptimizedText(cache.optimizedText);
+			}
+		} else {
+			setOptimizedText(cache.optimizedText);
+			// 如果缓存中有 original 文本，也恢复它（避免切换 tab 时丢失）
+			if (cache.transcriptionText) {
+				setTranscriptionText(cache.transcriptionText);
+			}
+		}
+		setSegmentOffsetsSec(cache.segmentOffsetsSec);
+		setSegmentRecordingIds(cache.segmentRecordingIds);
+		setSegmentTimeLabels(cache.segmentTimeLabels);
+		setSegmentTimesSec(cache.segmentTimesSec);
+		setRecordingDurations(cache.recordingDurations);
+		setExtractionsByRecordingId(cache.extractionsByRecordingId);
+		setOptimizedExtractionsByRecordingId(cache.optimizedExtractionsByRecordingId);
+
+		// 恢复选中的录音ID
+		if (cache.segmentRecordingIds.length > 0) {
+			const lastRecId = cache.segmentRecordingIds[cache.segmentRecordingIds.length - 1];
+			setSelectedRecordingId(lastRecId);
+			if (cache.recordingDurations[lastRecId]) {
+				setSelectedRecordingDurationSec(cache.recordingDurations[lastRecId]);
+			}
+		}
+
+		return true;
+	}, [setTranscriptionText, setOptimizedText]);
+
 
 	const loadRecordings = useCallback(async (opts?: { forceSelectLatest?: boolean }) => {
 		try {
@@ -78,13 +154,24 @@ export function useAudioData(
 		}
 	}, [selectedDate, selectedRecordingId]);
 
-	const loadTimeline = useCallback(async (onLoadingChange?: (loading: boolean) => void) => {
+	const loadTimeline = useCallback(async (onLoadingChange?: (loading: boolean) => void, forceReload = false) => {
 		try {
+			const dateStr = getDateString(selectedDate);
+
+			// 检查缓存
+			if (!forceReload) {
+				const cached = restoreFromCache(dateStr, activeTab);
+				if (cached) {
+					console.log("从缓存恢复数据:", dateStr);
+					if (onLoadingChange) onLoadingChange(false);
+					return;
+				}
+			}
+
 			// 通知开始加载
 			if (onLoadingChange) onLoadingChange(true);
 
 			const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8100";
-			const dateStr = getDateString(selectedDate);
 			const response = await fetch(
 				`${apiBaseUrl}/api/audio/timeline?date=${dateStr}&optimized=${activeTab === "optimized"}`
 			);
@@ -161,6 +248,27 @@ export function useAudioData(
 						setSelectedRecordingDurationSec(durationMap[lastRecId]);
 					}
 				}
+
+				// 保存到缓存：保留之前 tab 的文本（如果存在），更新当前 tab 的文本
+				const existingCache = dateCacheRef.current.get(dateStr);
+				const cacheData: DateCacheData = {
+					transcriptionText: activeTab === "original"
+						? combinedText
+						: (existingCache?.transcriptionText || ""),
+					optimizedText: activeTab === "optimized"
+						? combinedText
+						: (existingCache?.optimizedText || ""),
+					segmentOffsetsSec: offsets,
+					segmentRecordingIds: recIds,
+					segmentTimeLabels: timeLabels,
+					segmentTimesSec: offsets,
+					recordingDurations: durationMap,
+					extractionsByRecordingId: extractionsByRecordingId, // 使用当前状态
+					optimizedExtractionsByRecordingId: optimizedExtractionsByRecordingId, // 使用当前状态
+					timestamp: Date.now(),
+				};
+				dateCacheRef.current.set(dateStr, cacheData);
+				cleanExpiredCache();
 			}
 		} catch (error) {
 			console.error("Failed to load timeline:", error);
@@ -168,25 +276,39 @@ export function useAudioData(
 			// 通知加载完成
 			if (onLoadingChange) onLoadingChange(false);
 		}
-	}, [activeTab, selectedDate, setTranscriptionText, setOptimizedText]);
+	}, [activeTab, selectedDate, setTranscriptionText, setOptimizedText, restoreFromCache, cleanExpiredCache, extractionsByRecordingId, optimizedExtractionsByRecordingId]);
 
 	useEffect(() => {
 		loadRecordings();
 	}, [loadRecordings]);
 
-	useEffect(() => {
-		// 如果正在录音，不加载时间线，保留录音时的文本显示
-		if (isRecording) {
-			return;
-		}
-		// 停止录音后，延迟加载时间线，给后端时间保存录音
-		// 这样避免立即清空文本，让用户看到"获取中"状态
-		const timer = setTimeout(() => {
-			loadTimeline();
-		}, 1000); // 延迟 1 秒，给后端时间保存
+	// 注意：这个 useEffect 已经被 AudioPanel 中的日期切换逻辑替代
+	// 保留此逻辑作为备用，但主要逻辑在 AudioPanel 中处理
+	// useEffect(() => {
+	// 	// 如果正在录音，需要判断是否查看当前日期
+	// 	// - 如果查看当前日期：不加载时间线，保留实时录音文本显示
+	// 	// - 如果查看其他日期：加载该日期的时间线（回看模式），不影响录音
+	// 	if (isRecording) {
+	// 		const now = new Date();
+	// 		const nowDateStr = now.toISOString().split("T")[0];
+	// 		const selectedDateStr = getDateString(selectedDate);
+	// 		const isViewingCurrentDate = selectedDateStr === nowDateStr;
+	//
+	// 		// 如果查看其他日期，加载该日期的时间线（回看模式）
+	// 		if (!isViewingCurrentDate) {
+	// 			loadTimeline();
+	// 		}
+	// 		// 如果查看当前日期，不加载时间线，保留实时录音文本
+	// 		return;
+	// 	}
+	// 	// 停止录音后，延迟加载时间线，给后端时间保存录音
+	// 	// 这样避免立即清空文本，让用户看到"获取中"状态
+	// 	const timer = setTimeout(() => {
+	// 		loadTimeline();
+	// 	}, 1000); // 延迟 1 秒，给后端时间保存
 
-		return () => clearTimeout(timer);
-	}, [loadTimeline, isRecording]);
+	// 	return () => clearTimeout(timer);
+	// }, [loadTimeline, isRecording, selectedDate]);
 
 	// 按录音ID加载对应的转录提取结果（用于整天时间线所有录音的持久化高亮）
 	useEffect(() => {
@@ -215,6 +337,13 @@ export function useAudioData(
 					for (const r of results) {
 						next[r.id] = { todos: r.todos, schedules: r.schedules };
 					}
+					// 更新缓存
+					const dateStr = getDateString(selectedDate);
+					const cache = dateCacheRef.current.get(dateStr);
+					if (cache) {
+						cache.extractionsByRecordingId = next;
+						cache.timestamp = Date.now();
+					}
 					return next;
 				});
 			} catch (e) {
@@ -225,7 +354,7 @@ export function useAudioData(
 		})();
 
 		return () => controller.abort();
-	}, [segmentRecordingIds, activeTab]);
+	}, [segmentRecordingIds, activeTab, selectedDate]);
 
 	// 单独加载优化文本的提取结果，用于"关联到待办"弹窗
 	useEffect(() => {
@@ -254,6 +383,13 @@ export function useAudioData(
 					for (const r of results) {
 						next[r.id] = { todos: r.todos, schedules: r.schedules };
 					}
+					// 更新缓存
+					const dateStr = getDateString(selectedDate);
+					const cache = dateCacheRef.current.get(dateStr);
+					if (cache) {
+						cache.optimizedExtractionsByRecordingId = next;
+						cache.timestamp = Date.now();
+					}
 					return next;
 				});
 			} catch (e) {
@@ -264,7 +400,7 @@ export function useAudioData(
 		})();
 
 		return () => controller.abort();
-	}, [segmentRecordingIds, optimizedExtractionsByRecordingId]);
+	}, [segmentRecordingIds, optimizedExtractionsByRecordingId, selectedDate]);
 
 	return {
 		selectedRecordingId,

@@ -118,6 +118,14 @@ let currentOnTranscription: TranscriptionCallback | null = null;
 let currentOnRealtimeNlp: RealtimeNlpCallback | null = null;
 let currentOnError: ErrorCallback | null = null;
 
+// ========== 7×24 自动重连相关变量 ==========
+let reconnectTimeoutRef: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttemptsRef = 0;
+const maxReconnectAttempts = 5;
+const reconnectDelayMs = 3000; // 3秒后重连
+let shouldReconnectRef = false; // 标记是否应该重连
+let currentIs24x7 = false; // 当前是否为 7×24 模式
+
 // ========== 内部辅助函数 ==========
 
 /**
@@ -134,8 +142,10 @@ function getApiBaseUrl(): string {
 
 /**
  * 清理录音资源
+ * @param segmentTimestamps 段落时间戳数组
+ * @param isReconnecting 是否正在重连（重连时不清理回调）
  */
-function cleanupRecordingResources(segmentTimestamps?: number[]): void {
+function cleanupRecordingResources(segmentTimestamps?: number[], isReconnecting = false): void {
 	// 停止 WebAudio
 	if (processorRef) {
 		try {
@@ -177,10 +187,20 @@ function cleanupRecordingResources(segmentTimestamps?: number[]): void {
 		wsRef = null;
 	}
 
-	// 清理回调引用
-	currentOnTranscription = null;
-	currentOnRealtimeNlp = null;
-	currentOnError = null;
+	// 如果不是重连，清理回调引用和重连状态
+	if (!isReconnecting) {
+		currentOnTranscription = null;
+		currentOnRealtimeNlp = null;
+		currentOnError = null;
+		// 停止自动重连
+		shouldReconnectRef = false;
+		if (reconnectTimeoutRef) {
+			clearTimeout(reconnectTimeoutRef);
+			reconnectTimeoutRef = null;
+		}
+		reconnectAttemptsRef = 0;
+		currentIs24x7 = false;
+	}
 }
 
 // ========== Zustand Store ==========
@@ -213,8 +233,20 @@ export const useAudioRecordingStore = create<AudioRecordingStore>((set, get) => 
 		}
 
 		try {
+			// 设置 7×24 模式标志
+			currentIs24x7 = is24x7;
+			shouldReconnectRef = is24x7; // 7×24 模式启用自动重连
+
+			// 如果是重连成功，重置重连计数
+			if (reconnectAttemptsRef > 0) {
+				reconnectAttemptsRef = 0;
+				console.log("[AudioRecordingStore] WebSocket 重连成功");
+			}
+
 			// 获取麦克风权限
+			console.log("[AudioRecordingStore] 请求麦克风权限...");
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			console.log("[AudioRecordingStore] ✅ 麦克风权限已获取");
 			mediaStreamRef = stream;
 
 			// 保存回调引用
@@ -309,6 +341,18 @@ export const useAudioRecordingStore = create<AudioRecordingStore>((set, get) => 
 							}
 							return;
 						}
+
+						// 分段保存通知（7×24 模式）
+						if (data.header?.name === "SegmentSaved") {
+							// 通知前端分段已保存，需要重置时间戳和文本
+							// 通过特殊标记传递给 onTranscription，并传递原因
+							const reason = data.payload?.message || "分段保存";
+							if (currentOnTranscription) {
+								currentOnTranscription(`__SEGMENT_SAVED__:${reason}`, true);
+							}
+							console.log("[AudioRecordingStore] 收到分段保存通知:", reason);
+							return;
+						}
 					}
 				} catch (error) {
 					console.error("Failed to parse transcription data:", error);
@@ -335,8 +379,46 @@ export const useAudioRecordingStore = create<AudioRecordingStore>((set, get) => 
 					lastFinalEndMs: null,
 				});
 
-				// 正常关闭不触发错误
+				// 正常关闭（用户主动停止或服务器正常关闭）不需要触发错误
 				if (event.wasClean) {
+					shouldReconnectRef = false;
+					currentIs24x7 = false;
+					return;
+				}
+
+				// 如果已经被标记为不应该重连（用户主动关闭），直接返回
+				if (!shouldReconnectRef) {
+					console.log("[AudioRecordingStore] 已禁用自动重连，跳过重连");
+					return;
+				}
+
+				// 异常关闭：如果是 7×24 模式，尝试自动重连
+				if (currentIs24x7 && shouldReconnectRef && reconnectAttemptsRef < maxReconnectAttempts) {
+					reconnectAttemptsRef++;
+					console.log(
+						`[AudioRecordingStore] WebSocket 连接断开，${reconnectDelayMs / 1000}秒后尝试重连 (${reconnectAttemptsRef}/${maxReconnectAttempts})`
+					);
+
+					// 清理资源但保留回调（用于重连）
+					cleanupRecordingResources(undefined, true);
+
+					reconnectTimeoutRef = setTimeout(() => {
+						if (currentOnTranscription && shouldReconnectRef) {
+							console.log("[AudioRecordingStore] 尝试重新连接 WebSocket...");
+							// 使用保存的回调重新启动录音
+							get().startRecording(
+								currentOnTranscription,
+								currentOnRealtimeNlp || undefined,
+								currentOnError || undefined,
+								currentIs24x7
+							).catch((error) => {
+								console.error("[AudioRecordingStore] 重连失败:", error);
+								if (currentOnError) {
+									currentOnError(error as Error);
+								}
+							});
+						}
+					}, reconnectDelayMs);
 					return;
 				}
 
@@ -352,14 +434,38 @@ export const useAudioRecordingStore = create<AudioRecordingStore>((set, get) => 
 					case 1001:
 						errorMessage = "服务器主动断开连接（端点离开）";
 						break;
+					case 1002:
+						errorMessage = "协议错误导致连接关闭";
+						break;
+					case 1003:
+						errorMessage = "不支持的数据类型导致连接关闭";
+						break;
+					case 1007:
+						errorMessage = "数据格式错误导致连接关闭";
+						break;
+					case 1008:
+						errorMessage = "策略违规导致连接关闭";
+						break;
+					case 1009:
+						errorMessage = "消息过大导致连接关闭";
+						break;
+					case 1010:
+						errorMessage = "扩展协商失败导致连接关闭";
+						break;
 					case 1011:
 						errorMessage = "服务器内部错误导致连接关闭";
+						break;
+					case 1012:
+						errorMessage = "服务重启导致连接关闭";
+						break;
+					case 1013:
+						errorMessage = "服务过载导致连接关闭";
 						break;
 					default:
 						errorMessage = `WebSocket连接异常关闭: ${event.reason || `错误代码 ${event.code}`}`;
 				}
 
-				console.error("WebSocket closed abnormally:", {
+				console.error("[AudioRecordingStore] WebSocket closed abnormally:", {
 					code: event.code,
 					reason: event.reason,
 					wasClean: event.wasClean,
@@ -380,6 +486,16 @@ export const useAudioRecordingStore = create<AudioRecordingStore>((set, get) => 
 	},
 
 	stopRecording: (segmentTimestamps) => {
+		// 停止自动重连
+		shouldReconnectRef = false;
+		if (reconnectTimeoutRef) {
+			clearTimeout(reconnectTimeoutRef);
+			reconnectTimeoutRef = null;
+		}
+		reconnectAttemptsRef = 0;
+		currentIs24x7 = false;
+
+		// 清理录音资源
 		cleanupRecordingResources(segmentTimestamps);
 		set({
 			isRecording: false,

@@ -6,7 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * 待办描述
- */
-export type ExtractedTodoDescription = string | null;
+export type ExtractedTodoTimeInfoAnyOf = { [key: string]: unknown };

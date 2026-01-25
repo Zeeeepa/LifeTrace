@@ -63,6 +63,12 @@
 		"debugShotsPlaceholder": "Placeholder: manage debugging screenshots (dev mode only)",
 		"audioLabel": "Audio Recording",
 		"audioPlaceholder": "Placeholder: plug an audio recording component here",
+		"audioRecording": "Recording",
+		"audioRecordingStopped": "Stopped",
+		"audioStandby": "Standby",
+		"audioStartRecording": "Start Recording",
+		"audioStopRecording": "Stop Recording",
+		"audioRecordingStatus": "Recording Status",
 		"settings": {
 			"autoTodoDetectionTitle": "Auto Todo Detection",
 			"autoTodoDetectionDescription": "Automatically detect todos from screenshots of whitelisted apps and create draft todos for confirmation",
@@ -141,8 +147,8 @@
 			"agnoToolSelectorEnabled": "Tool selector enabled",
 			"agnoToolSelectorDisabled": "Tool selector disabled",
 			"audioSettings": "Audio Recording Settings",
-			"enable24x7Recording": "7x24 Hour Recording",
-			"enable24x7RecordingDesc": "When enabled, recordings will be automatically marked as 7x24 hour recording mode",
+			"enable24x7Recording": "Auto Start Recording",
+			"enable24x7RecordingDesc": "When enabled, recording will automatically start when opening the app",
 			"audioAsrConfig": "Audio Recognition (ASR) Configuration",
 			"currentVersion": "Current Version"
 		},
@@ -550,7 +556,8 @@
 			"activity_aggregator_job": "Activity Aggregator",
 			"deadline_reminder_job": "DDL Reminder",
 			"todo_recorder_job": "Screen Recorder (Todo)",
-			"proactive_ocr_job": "Proactive OCR"
+			"proactive_ocr_job": "Proactive OCR",
+			"audio_recording_job": "Audio Recording"
 		},
 		"jobDescriptions": {
 			"recorder_job": "Capture screenshots periodically",
@@ -561,7 +568,8 @@
 			"activity_aggregator_job": "Aggregate user activity events",
 			"deadline_reminder_job": "Check todo deadlines and send reminder notifications 5 minutes before DDL",
 			"todo_recorder_job": "Only capture screenshots from whitelisted apps for auto todo detection",
-			"proactive_ocr_job": "Automatically detect and process WeChat/Feishu windows for OCR (Windows only)"
+			"proactive_ocr_job": "Automatically detect and process WeChat/Feishu windows for OCR (Windows only)",
+			"audio_recording_job": "7x24 continuous audio recording with real-time transcription and information extraction"
 		}
 	},
 	"common": {

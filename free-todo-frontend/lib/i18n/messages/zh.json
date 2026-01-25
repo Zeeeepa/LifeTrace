@@ -63,6 +63,12 @@
 		"debugShotsPlaceholder": "占位：用于截图采集/管理的调试面板（仅开发模式可见）",
 		"audioLabel": "音频录制",
 		"audioPlaceholder": "占位：在这里接入音频录制组件",
+		"audioRecording": "录音中",
+		"audioRecordingStopped": "已停止",
+		"audioStandby": "待机中",
+		"audioStartRecording": "开始录音",
+		"audioStopRecording": "停止录音",
+		"audioRecordingStatus": "录音状态",
 		"settings": {
 
 			"autoTodoDetectionTitle": "自动待办检测",
@@ -142,8 +148,8 @@
 			"agnoToolSelectorEnabled": "已启用工具选择器",
 			"agnoToolSelectorDisabled": "已关闭工具选择器",
 			"audioSettings": "音频录制设置",
-			"enable24x7Recording": "7x24小时录制",
-			"enable24x7RecordingDesc": "启用后，录音将自动标记为7x24小时录制模式",
+			"enable24x7Recording": "自动启动录音",
+			"enable24x7RecordingDesc": "启用后，打开应用时将自动开始录音",
 			"audioAsrConfig": "音频识别（ASR）配置",
 			"currentVersion": "当前版本"
 		},
@@ -551,7 +557,8 @@
 			"activity_aggregator_job": "活动聚合",
 			"deadline_reminder_job": "DDL提醒",
 			"todo_recorder_job": "屏幕录制（Todo生成）",
-			"proactive_ocr_job": "主动OCR"
+			"proactive_ocr_job": "主动OCR",
+			"audio_recording_job": "音频录制"
 		},
 		"jobDescriptions": {
 			"recorder_job": "定时截取屏幕截图",
@@ -562,7 +569,8 @@
 			"activity_aggregator_job": "聚合用户活动事件",
 			"deadline_reminder_job": "检查待办事项的截止日期，在 DDL 前 5 分钟发送提醒通知",
 			"todo_recorder_job": "仅录制白名单应用的截图，用于自动待办检测",
-			"proactive_ocr_job": "自动检测并处理微信/飞书窗口进行OCR识别（仅Windows）"
+			"proactive_ocr_job": "自动检测并处理微信/飞书窗口进行OCR识别（仅Windows）",
+			"audio_recording_job": "7x24小时持续录音，实时转录和提取信息（间隔为状态检查间隔，非录音间隔）"
 		}
 	},
 	"common": {

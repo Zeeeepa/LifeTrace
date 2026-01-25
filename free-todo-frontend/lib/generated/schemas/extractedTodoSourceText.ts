@@ -7,6 +7,6 @@
  */
 
 /**
- * 待办描述
+ * 来源文本
  */
-export type ExtractedTodoDescription = string | null;
+export type ExtractedTodoSourceText = string | null;

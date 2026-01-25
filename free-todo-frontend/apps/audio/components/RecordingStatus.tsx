@@ -6,25 +6,32 @@ import { useEffect, useState } from "react";
 
 interface RecordingStatusProps {
 	isRecording: boolean;
+	recordingStartedAt?: number; // 录音开始时间（performance.now()，毫秒）
 	duration?: number; // 录音时长（秒，预留用于外部传入）
 }
 
-export function RecordingStatus({ isRecording }: RecordingStatusProps) {
+export function RecordingStatus({ isRecording, recordingStartedAt }: RecordingStatusProps) {
 	const [elapsedTime, setElapsedTime] = useState(0);
 
-	// 实时更新录音时长
+	// 实时更新录音时长（基于录音开始时间，不会因为组件重新挂载而重置）
 	useEffect(() => {
-		if (!isRecording) {
+		if (!isRecording || !recordingStartedAt) {
 			setElapsedTime(0);
 			return;
 		}
 
-		const interval = setInterval(() => {
-			setElapsedTime((prev) => prev + 1);
-		}, 1000);
+		// 立即计算一次当前已录音时长
+		const updateElapsedTime = () => {
+			const elapsed = Math.floor((performance.now() - recordingStartedAt) / 1000);
+			setElapsedTime(Math.max(0, elapsed));
+		};
+
+		updateElapsedTime(); // 立即更新一次
+
+		const interval = setInterval(updateElapsedTime, 1000);
 
 		return () => clearInterval(interval);
-	}, [isRecording]);
+	}, [isRecording, recordingStartedAt]);
 
 	const formatTime = (seconds: number) => {
 		const mins = Math.floor(seconds / 60);
