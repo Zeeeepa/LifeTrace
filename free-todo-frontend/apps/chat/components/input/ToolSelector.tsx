@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Globe, Wrench } from "lucide-react";
+import { Check, Globe, Terminal, Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { useUiStore } from "@/lib/store/ui-store";
@@ -35,10 +35,19 @@ const FREETODO_TOOLS = [
 
 /**
  * 外部工具列表定义
+ * 分为搜索类和本地类两大类
  */
 const EXTERNAL_TOOLS = [
-	// 搜索工具
-	{ id: "duckduckgo", category: "search" },
+	// 搜索类工具
+	{ id: "websearch", category: "search" }, // 通用网页搜索（Auto 模式）
+	{ id: "arxiv", category: "search" }, // 论文搜索
+	{ id: "hackernews", category: "search" }, // Hacker News
+	{ id: "wikipedia", category: "search" }, // 维基百科
+	// 本地类工具
+	{ id: "file", category: "local" }, // 文件操作（需要 workspace_path）
+	{ id: "local_fs", category: "local" }, // 简化文件写入
+	{ id: "shell", category: "local" }, // 命令行执行
+	{ id: "sleep", category: "local" }, // 暂停执行
 ] as const;
 
 interface ToolSelectorProps {
@@ -192,32 +201,60 @@ export function ToolSelector({ disabled = false }: ToolSelectorProps) {
 									</button>
 								</div>
 							</div>
-							<div className="space-y-0.5">
-								{EXTERNAL_TOOLS.map((tool) => {
-									const isSelected = selectedExternalTools.includes(tool.id);
-									return (
-										<button
-											key={tool.id}
-											type="button"
-											onClick={() => handleToggleExternalTool(tool.id)}
-											className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
-										>
-											<div
-												className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-													isSelected
-														? "border-primary bg-primary text-primary-foreground"
-														: "border-input"
-												}`}
-											>
-												{isSelected && <Check className="h-3 w-3" />}
-											</div>
-											<span className="flex-1 text-left">
-												{tToolCall(`tools.${tool.id}`)}
-											</span>
-										</button>
-									);
-								})}
-							</div>
+							{/* 按分类显示外部工具 */}
+							{Object.entries(
+								EXTERNAL_TOOLS.reduce(
+									(acc, tool) => {
+										if (!acc[tool.category]) {
+											acc[tool.category] = [];
+										}
+										acc[tool.category].push(tool);
+										return acc;
+									},
+									{} as Record<string, Array<(typeof EXTERNAL_TOOLS)[number]>>,
+								),
+							).map(([category, tools]) => (
+								<div key={category} className="mb-3 last:mb-0">
+									{/* 分类标题 */}
+									<div className="mb-1.5 px-2 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+										{category === "search" ? (
+											<Globe className="h-3 w-3" />
+										) : (
+											<Terminal className="h-3 w-3" />
+										)}
+										{tChat(`toolSelector.externalCategories.${category}`)}
+									</div>
+									{/* 工具选项 */}
+									<div className="space-y-0.5">
+										{tools.map((tool) => {
+											const isSelected = selectedExternalTools.includes(
+												tool.id,
+											);
+											return (
+												<button
+													key={tool.id}
+													type="button"
+													onClick={() => handleToggleExternalTool(tool.id)}
+													className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+												>
+													<div
+														className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+															isSelected
+																? "border-primary bg-primary text-primary-foreground"
+																: "border-input"
+														}`}
+													>
+														{isSelected && <Check className="h-3 w-3" />}
+													</div>
+													<span className="flex-1 text-left">
+														{tToolCall(`tools.${tool.id}`)}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+								</div>
+							))}
 						</div>
 
 						{/* 分隔线 */}

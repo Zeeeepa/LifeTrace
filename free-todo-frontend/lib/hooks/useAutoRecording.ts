@@ -19,7 +19,7 @@ import { useAudioRecordingStore } from "@/lib/store/audio-recording-store";
  */
 export function useAutoRecording() {
 	const { data: config, isLoading: configLoading } = useConfig();
-	const autoStartEnabled = (config?.audioIs24x7 as boolean | undefined) ?? true;
+	const autoStartEnabled = (config?.audioIs24x7 as boolean | undefined) ?? false;
 
 	// 从全局 store 获取状态和方法
 	const isRecording = useAudioRecordingStore((state) => state.isRecording);

@@ -27,8 +27,8 @@ def execute_audio_recording_status_check():
     """
     try:
         # 检查配置
-        enabled = settings.get("jobs.audio_recording.enabled", True)
-        audio_is_24x7 = settings.get("audio.is_24x7", True)
+        enabled = settings.get("jobs.audio_recording.enabled", False)
+        audio_is_24x7 = settings.get("audio.is_24x7", False)
 
         # 如果配置开启，记录状态（实际启动由前端控制）
         if enabled and audio_is_24x7:
@@ -314,7 +314,7 @@ class JobManager:
 
         注意：音频录制实际上由前端WebSocket控制，此任务仅用于状态监控
         """
-        enabled = settings.get("jobs.audio_recording.enabled", True)
+        enabled = settings.get("jobs.audio_recording.enabled", False)
 
         try:
             # 添加到调度器（无论是否启用都添加）

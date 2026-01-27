@@ -24,7 +24,7 @@ export function AudioConfigSection({
 	const saveConfigMutation = useSaveConfig();
 
 	const [is24x7Enabled, setIs24x7Enabled] = useState<boolean>(
-		(config?.audioIs24x7 as boolean | undefined) ?? true,
+		(config?.audioIs24x7 as boolean | undefined) ?? false,
 	);
 
 	const isLoading = loading || saveConfigMutation.isPending;
@@ -32,7 +32,7 @@ export function AudioConfigSection({
 	// 当配置加载完成后，同步本地状态
 	useEffect(() => {
 		if (config && config.audioIs24x7 !== undefined) {
-			setIs24x7Enabled((config.audioIs24x7 as boolean) ?? true);
+			setIs24x7Enabled((config.audioIs24x7 as boolean) ?? false);
 		}
 	}, [config]);
 

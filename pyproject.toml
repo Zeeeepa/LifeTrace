@@ -77,6 +77,8 @@ dependencies = [
     "pywin32>=306; sys_platform == 'win32'",
     "openinference-instrumentation-openai>=0.1.41",
     "agno-infra>=1.0.7",
+    "wikipedia>=1.4.0",
+    "arxiv>=2.4.0",
 ]
 
 # Ruff 配置 - Python linter 和 formatter

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from collections.abc import Generator
 from contextvars import ContextVar
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agno.agent import Agent, RunEvent
@@ -50,20 +51,41 @@ RESULT_PREVIEW_MAX_LENGTH = 500
 EXTERNAL_TOOLS_REGISTRY: dict[str, type[Toolkit]] = {}
 
 
+def _try_register_tool(name: str, module_path: str, class_name: str, warning: str = ""):
+    """尝试注册单个工具"""
+    try:
+        import importlib
+
+        module = importlib.import_module(module_path)
+        tool_class = getattr(module, class_name)
+        EXTERNAL_TOOLS_REGISTRY[name] = tool_class
+        logger.debug(f"已注册外部工具: {name}")
+    except ImportError:
+        logger.warning(warning or f"无法导入 {class_name}")
+
+
 def _register_external_tools():
     """注册可用的外部工具（延迟导入以避免启动时的依赖问题）"""
     global EXTERNAL_TOOLS_REGISTRY  # noqa: PLW0603
     if EXTERNAL_TOOLS_REGISTRY:
-        return  # 已经注册过
+        return
 
-    # DuckDuckGo 搜索工具
-    try:
-        from agno.tools.duckduckgo import DuckDuckGoTools
+    # 工具注册配置: (名称, 模块路径, 类名, 警告信息)
+    tools_config = [
+        # 搜索类工具
+        ("websearch", "agno.tools.websearch", "WebSearchTools", "请确保已安装 ddgs 包"),
+        ("arxiv", "agno.tools.arxiv", "ArxivTools", "请确保已安装 arxiv 包"),
+        ("hackernews", "agno.tools.hackernews", "HackerNewsTools", ""),
+        ("wikipedia", "agno.tools.wikipedia", "WikipediaTools", "请确保已安装 wikipedia 包"),
+        # 本地工具
+        ("file", "agno.tools.file", "FileTools", ""),
+        ("local_fs", "agno.tools.local_file_system", "LocalFileSystemTools", ""),
+        ("shell", "agno.tools.shell", "ShellTools", ""),
+        ("sleep", "agno.tools.sleep", "SleepTools", ""),
+    ]
 
-        EXTERNAL_TOOLS_REGISTRY["duckduckgo"] = DuckDuckGoTools
-        logger.debug("已注册外部工具: duckduckgo")
-    except ImportError:
-        logger.warning("无法导入 DuckDuckGoTools，请确保已安装 ddgs 包")
+    for name, module_path, class_name, warning in tools_config:
+        _try_register_tool(name, module_path, class_name, warning)
 
 
 def get_available_external_tools() -> list[str]:
@@ -72,20 +94,61 @@ def get_available_external_tools() -> list[str]:
     return list(EXTERNAL_TOOLS_REGISTRY.keys())
 
 
-def create_external_tool(tool_name: str) -> Toolkit | None:
+def _create_file_tool(tool_class, **kwargs) -> Toolkit | None:
+    """创建 FileTools 实例"""
+    base_dir = kwargs.get("base_dir")
+    if not base_dir:
+        logger.warning("FileTools 需要 base_dir 参数，跳过创建")
+        return None
+    # FileTools 需要 Path 对象，而不是字符串
+    base_dir_path = Path(base_dir) if isinstance(base_dir, str) else base_dir
+    return tool_class(
+        base_dir=base_dir_path,
+        enable_save_file=True,
+        enable_read_file=True,
+        enable_read_file_chunk=True,
+        enable_replace_file_chunk=True,
+        enable_list_files=True,
+        enable_search_files=True,
+        enable_delete_file=kwargs.get("enable_delete", False),
+    )
+
+
+def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: PLR0911
     """创建外部工具实例
 
-    Args:
-        tool_name: 工具名称（如 'duckduckgo'）
-
-    Returns:
-        工具实例，如果工具不存在则返回 None
+    可用工具:
+        搜索类: websearch, arxiv, hackernews, wikipedia
+        本地类: file(需要base_dir), local_fs, shell, sleep
     """
     _register_external_tools()
     tool_class = EXTERNAL_TOOLS_REGISTRY.get(tool_name)
-    if tool_class:
+    if not tool_class:
+        return None
+
+    base_dir = kwargs.get("base_dir")
+
+    # 搜索类工具
+    if tool_name == "websearch":
+        return tool_class(backend="auto", search=True, news=True)
+    if tool_name == "arxiv":
+        return tool_class(search_arxiv=True, read_arxiv_papers=True)
+    if tool_name in ("hackernews", "wikipedia", "sleep"):
         return tool_class()
-    return None
+
+    # 本地工具
+    if tool_name == "file":
+        return _create_file_tool(tool_class, **kwargs)
+    if tool_name == "local_fs":
+        # 确保使用 Path 对象
+        base_dir_path = Path(base_dir) if isinstance(base_dir, str) else base_dir
+        return tool_class(target_directory=base_dir_path) if base_dir else tool_class()
+    if tool_name == "shell":
+        # 确保使用 Path 对象
+        base_dir_path = Path(base_dir) if isinstance(base_dir, str) else base_dir
+        return tool_class(base_dir=base_dir_path) if base_dir else tool_class()
+
+    return tool_class()
 
 
 def _build_instructions(
@@ -146,6 +209,7 @@ class AgnoAgentService:
         lang: str | None = None,
         selected_tools: list[str] | None = None,
         external_tools: list[str] | None = None,
+        external_tools_config: dict[str, dict] | None = None,
     ):
         """初始化 Agno Agent 服务
 
@@ -154,12 +218,16 @@ class AgnoAgentService:
                   If None, uses DEFAULT_LANG or settings default.
             selected_tools: List of FreeTodo tool names to enable.
                            If None or empty, no FreeTodo tools are enabled.
-            external_tools: List of external tool names to enable (e.g., ['duckduckgo']).
+            external_tools: List of external tool names to enable (e.g., ['duckduckgo', 'file']).
                            If None or empty, no external tools are enabled.
+            external_tools_config: Configuration dict for external tools.
+                           Example: {"file": {"base_dir": "/path/to/workspace", "enable_delete": False}}
         """
         try:
             self.lang = lang or DEFAULT_LANG
-            tools_to_use = self._initialize_tools(selected_tools, external_tools)
+            tools_to_use = self._initialize_tools(
+                selected_tools, external_tools, external_tools_config
+            )
 
             # 判断工具配置
             total_freetodo_tools_count = 14
@@ -195,9 +263,17 @@ class AgnoAgentService:
         self,
         selected_tools: list[str] | None,
         external_tools: list[str] | None,
+        external_tools_config: dict[str, dict] | None = None,
     ) -> list[Toolkit]:
-        """初始化工具列表"""
+        """初始化工具列表
+
+        Args:
+            selected_tools: FreeTodo 工具名称列表
+            external_tools: 外部工具名称列表
+            external_tools_config: 外部工具配置字典，如 {"file": {"base_dir": "/path"}}
+        """
         tools_to_use: list[Toolkit] = []
+        external_tools_config = external_tools_config or {}
 
         # Initialize FreeTodoToolkit if any tools are selected
         if selected_tools and len(selected_tools) > 0:
@@ -205,15 +281,17 @@ class AgnoAgentService:
             tools_to_use.append(toolkit)
             logger.info(f"已启用 FreeTodo 工具: {selected_tools}")
 
-        # Initialize external tools
+        # Initialize external tools with config
         if external_tools and len(external_tools) > 0:
             for tool_name in external_tools:
-                external_tool = create_external_tool(tool_name)
+                # 获取该工具的配置
+                config = external_tools_config.get(tool_name, {})
+                external_tool = create_external_tool(tool_name, **config)
                 if external_tool:
                     tools_to_use.append(external_tool)
-                    logger.info(f"已启用外部工具: {tool_name}")
+                    logger.info(f"已启用外部工具: {tool_name}, 配置: {config}")
                 else:
-                    logger.warning(f"未找到外部工具: {tool_name}")
+                    logger.warning(f"未找到或无法创建外部工具: {tool_name}")
 
         return tools_to_use
 

@@ -427,6 +427,10 @@
 				"stats": "Statistics",
 				"tags": "Tag Management",
 				"search": "Web Search"
+			},
+			"externalCategories": {
+				"search": "Search",
+				"local": "Local"
 			}
 		},
 		"sources": "Sources",
@@ -467,6 +471,14 @@
 				"web_search": "Web Search",
 				"search_news": "News Search",
 				"duckduckgo": "DuckDuckGo Search",
+				"websearch": "Web Search",
+				"arxiv": "ArXiv Papers",
+				"hackernews": "Hacker News",
+				"wikipedia": "Wikipedia",
+				"file": "File Operations",
+				"local_fs": "File Write",
+				"shell": "Shell Command",
+				"sleep": "Sleep",
 				"unknown": "Unknown Tool"
 			}
 		}

@@ -428,6 +428,10 @@
 				"stats": "统计分析",
 				"tags": "标签管理",
 				"search": "联网搜索"
+			},
+			"externalCategories": {
+				"search": "搜索类",
+				"local": "本地类"
 			}
 		},
 		"sources": "来源",
@@ -468,6 +472,14 @@
 				"web_search": "联网搜索",
 				"search_news": "新闻搜索",
 				"duckduckgo": "DuckDuckGo 搜索",
+				"websearch": "网页搜索",
+				"arxiv": "论文搜索",
+				"hackernews": "Hacker News",
+				"wikipedia": "维基百科",
+				"file": "文件操作",
+				"local_fs": "文件写入",
+				"shell": "命令行",
+				"sleep": "暂停执行",
 				"unknown": "未知工具"
 			}
 		}
