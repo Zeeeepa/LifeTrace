@@ -127,6 +127,20 @@ settings = Dynaconf(
         Validator("tavily.max_results", default=5, is_type_of=int),
         Validator("tavily.include_domains", default=[]),
         Validator("tavily.exclude_domains", default=[]),
+        # 音频配置
+        Validator("audio.is_24x7", default=False, is_type_of=bool),
+        Validator("audio.asr.api_key", default="YOUR_LLM_KEY_HERE"),
+        Validator(
+            "audio.asr.base_url", default="wss://dashscope.aliyuncs.com/api-ws/v1/inference/"
+        ),
+        Validator("audio.asr.model", default="fun-asr-realtime"),
+        Validator("audio.asr.sample_rate", default=16000, is_type_of=int),
+        Validator("audio.asr.format", default="pcm"),
+        Validator("audio.asr.semantic_punctuation_enabled", default=False, is_type_of=bool),
+        Validator("audio.asr.max_sentence_silence", default=1300, is_type_of=int),
+        Validator("audio.asr.heartbeat", default=False, is_type_of=bool),
+        Validator("audio.storage.audio_dir", default="audio/"),
+        Validator("audio.storage.temp_audio_dir", default="temp_audio/"),
     ],
 )
 
