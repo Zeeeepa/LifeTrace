@@ -105,7 +105,7 @@ echo "Using PyInstaller: $VENV_PYINSTALLER"
 
 # Verify critical dependencies are available in .venv
 echo "Verifying dependencies in .venv..."
-"$VENV_PYTHON" -c "import fastapi, uvicorn, pydantic; print('✓ All critical dependencies found')" || {
+"$VENV_PYTHON" -c "import fastapi, uvicorn, pydantic; print('All critical dependencies found')" || {
     echo "Error: Missing dependencies in .venv. Please run 'uv sync --group dev' first."
     exit 1
 }
@@ -137,8 +137,8 @@ if [ -d "$BUILD_DIR" ]; then
     echo "Copying build output to $DIST_DIR..."
     cp -r "$BUILD_DIR"/* "$DIST_DIR/"
 
-    # 将 config 和 models 从 _internal 复制到 app 根目录（与 _internal 同级别）
-    # 这样在打包环境中，路径为 backend/config/ 和 backend/models/
+    # Copy config and models from _internal to app root (same level as _internal)
+    # So in packaged environment, paths are backend/config/ and backend/models/
     if [ -d "$DIST_DIR/_internal/config" ]; then
         echo "Copying config files to app root..."
         mkdir -p "$DIST_DIR/config"
