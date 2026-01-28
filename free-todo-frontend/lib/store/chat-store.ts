@@ -17,7 +17,7 @@ interface ChatStoreState {
 export const useChatStore = create<ChatStoreState>()(
 	persist(
 		(set) => ({
-			chatMode: "ask",
+			chatMode: "agno",
 			conversationId: null,
 			historyOpen: false,
 			pendingPrompt: null,
@@ -41,7 +41,7 @@ export const useChatStore = create<ChatStoreState>()(
 							const state = parsed?.state || parsed || {};
 
 							// 从 ui-store 读取默认聊天模式
-							let defaultChatMode: ChatMode = "ask";
+							let defaultChatMode: ChatMode = "agno";
 							try {
 								const uiConfig = localStorage.getItem("ui-panel-config");
 								if (uiConfig) {
@@ -57,7 +57,7 @@ export const useChatStore = create<ChatStoreState>()(
 									}
 								}
 							} catch (e) {
-								// 如果读取 ui-store 失败，使用默认值 "ask"
+								// 如果读取 ui-store 失败，使用默认值 "agno"
 								console.warn("Failed to read default chat mode from ui-store:", e);
 							}
 

@@ -99,9 +99,12 @@ export function ChatInputSection({
 						onToggleTodo={onToggleTodo}
 					/>
 				}
-				modeSwitcher={
-					showModeSwitcher ? (
-						<div className="flex items-center gap-2" ref={modeMenuRef}>
+			modeSwitcher={
+				// 只要 showModeSwitcher 或工具选择器需要显示，就渲染容器
+				showModeSwitcher ||
+				(chatMode === "agno" && showAgnoToolSelector) ? (
+					<div className="flex items-center gap-2" ref={modeMenuRef}>
+						{showModeSwitcher && (
 							<ModeSwitcher
 								chatMode={chatMode}
 								locale={locale}
@@ -113,13 +116,14 @@ export function ChatInputSection({
 								}}
 								variant="inline"
 							/>
-							{/* 在 Agno 模式下显示工具选择器 */}
-							{chatMode === "agno" && showAgnoToolSelector && (
-								<ToolSelector disabled={isStreaming} />
-							)}
-						</div>
-					) : null
-				}
+						)}
+						{/* 在 Agno 模式下显示工具选择器（独立于模式切换器开关） */}
+						{chatMode === "agno" && showAgnoToolSelector && (
+							<ToolSelector disabled={isStreaming} />
+						)}
+					</div>
+				) : null
+			}
 				modeMenuOpen={modeMenuOpen}
 				inputValue={inputValue}
 				placeholder={inputPlaceholder}

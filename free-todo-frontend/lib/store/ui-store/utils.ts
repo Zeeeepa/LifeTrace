@@ -57,13 +57,29 @@ export const DEFAULT_PANEL_STATE = {
 	// 是否显示 Chat 模式切换器（开发者选项，默认关闭）
 	showModeSwitcher: false,
 	// 默认聊天模式（页面刷新时使用）
-	defaultChatMode: "ask" as ChatMode,
-	// 是否显示 Agno 模式的工具选择器（默认关闭）
-	showAgnoToolSelector: false,
-	// Agno 模式下选中的 FreeTodo 工具列表（默认不选中任何工具）
-	selectedAgnoTools: [] as string[],
-	// Agno 模式下选中的外部工具列表（默认不选中任何工具）
-	selectedExternalTools: [] as string[],
+	defaultChatMode: "agno" as ChatMode,
+	// 是否显示 Agno 模式的工具选择器（默认开启）
+	showAgnoToolSelector: true,
+	// Agno 模式下选中的 FreeTodo 工具列表（默认只选中 todo 管理类工具）
+	selectedAgnoTools: [
+		"create_todo",
+		"complete_todo",
+		"update_todo",
+		"list_todos",
+		"search_todos",
+		"delete_todo",
+	] as string[],
+	// Agno 模式下选中的外部工具列表（默认全部选中）
+	selectedExternalTools: [
+		"websearch",
+		"arxiv",
+		"hackernews",
+		"wikipedia",
+		"file",
+		"local_fs",
+		"shell",
+		"sleep",
+	] as string[],
 };
 
 /**
