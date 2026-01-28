@@ -1,6 +1,7 @@
 #!/bin/bash
 # Build script for LifeTrace backend using PyInstaller
 # Usage: ./build-backend.sh
+# Supports: macOS, Linux, Windows (via WSL/Git Bash/MSYS2)
 
 set -e  # Exit on error
 
@@ -11,6 +12,45 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LIFETRACE_DIR="$SCRIPT_DIR/.."
 DIST_DIR="$PROJECT_ROOT/dist-backend"
 VENV_DIR="$PROJECT_ROOT/.venv"
+
+# Detect platform and set paths accordingly
+detect_platform() {
+    case "$(uname -s)" in
+        Linux*)
+            # Check if running in WSL
+            if grep -qi microsoft /proc/version 2>/dev/null; then
+                echo "windows"
+            else
+                echo "linux"
+            fi
+            ;;
+        Darwin*)
+            echo "macos"
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            echo "windows"
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
+
+PLATFORM=$(detect_platform)
+echo "Detected platform: $PLATFORM"
+
+# Set platform-specific paths
+if [ "$PLATFORM" = "windows" ]; then
+    # Windows uses Scripts/ directory and .exe extension
+    VENV_BIN_DIR="$VENV_DIR/Scripts"
+    VENV_PYTHON="$VENV_BIN_DIR/python.exe"
+    VENV_PYINSTALLER="$VENV_BIN_DIR/pyinstaller.exe"
+else
+    # macOS and Linux use bin/ directory
+    VENV_BIN_DIR="$VENV_DIR/bin"
+    VENV_PYTHON="$VENV_BIN_DIR/python"
+    VENV_PYINSTALLER="$VENV_BIN_DIR/pyinstaller"
+fi
 
 echo "Building LifeTrace backend..."
 echo "Project root: $PROJECT_ROOT"
@@ -26,19 +66,39 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 # Check if PyInstaller is installed in .venv
-VENV_PYINSTALLER="$VENV_DIR/bin/pyinstaller"
 if [ ! -f "$VENV_PYINSTALLER" ]; then
-    echo "PyInstaller not found in .venv. Installing via uv..."
+    echo "PyInstaller not found in .venv at: $VENV_PYINSTALLER"
+    echo "Attempting to install via uv..."
     cd "$PROJECT_ROOT"
-    uv sync --group dev
+
+    # Try to find uv command
+    if command -v uv &> /dev/null; then
+        uv sync --group dev
+    elif [ "$PLATFORM" = "windows" ]; then
+        # On Windows/WSL, try common paths for uv
+        if [ -f "$HOME/.local/bin/uv" ]; then
+            "$HOME/.local/bin/uv" sync --group dev
+        elif [ -f "$HOME/.cargo/bin/uv" ]; then
+            "$HOME/.cargo/bin/uv" sync --group dev
+        else
+            echo "Error: 'uv' command not found."
+            echo "Please install dependencies manually:"
+            echo "  1. In PowerShell: uv sync --group dev"
+            echo "  2. Or install uv in WSL: curl -LsSf https://astral.sh/uv/install.sh | sh"
+            exit 1
+        fi
+    else
+        echo "Error: 'uv' command not found. Please install it first:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        exit 1
+    fi
+
     if [ ! -f "$VENV_PYINSTALLER" ]; then
         echo "Error: Failed to install PyInstaller in .venv"
+        echo "Expected location: $VENV_PYINSTALLER"
         exit 1
     fi
 fi
-
-# Use .venv Python and PyInstaller
-VENV_PYTHON="$VENV_DIR/bin/python"
 
 echo "Using Python: $VENV_PYTHON"
 echo "Using PyInstaller: $VENV_PYINSTALLER"
@@ -92,7 +152,11 @@ if [ -d "$BUILD_DIR" ]; then
     fi
 
     echo "Backend build complete! Output: $DIST_DIR"
-    echo "Backend executable location: $DIST_DIR/lifetrace"
+    if [ "$PLATFORM" = "windows" ]; then
+        echo "Backend executable location: $DIST_DIR/lifetrace.exe"
+    else
+        echo "Backend executable location: $DIST_DIR/lifetrace"
+    fi
     echo "Config directory: $DIST_DIR/config"
     echo "Models directory: $DIST_DIR/models"
 else
