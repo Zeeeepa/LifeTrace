@@ -23,3 +23,10 @@ class SystemResourcesResponse(BaseModel):
     storage: dict[str, Any]
     summary: dict[str, Any]
     timestamp: datetime
+
+
+class CapabilitiesResponse(BaseModel):
+    enabled_modules: list[str]
+    available_modules: list[str]
+    disabled_modules: list[str]
+    missing_deps: dict[str, list[str]]

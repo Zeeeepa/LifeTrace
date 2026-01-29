@@ -4,7 +4,7 @@ import type { LayoutPreset } from "./types";
 export const LAYOUT_PRESETS: LayoutPreset[] = [
 	{
 		id: "default",
-		name: "待办模式",
+		name: "待办列表模式",
 		panelFeatureMap: {
 			panelA: "todos",
 			panelB: "chat",
@@ -14,6 +14,20 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
 		isPanelBOpen: true,
 		isPanelCOpen: true,
 		panelAWidth: 1 / 3, // panelA 占左边 1/4，panelC 占右边 1/4，所以 panelA 占剩余空间的 1/3 (即 0.25/0.75)
+		panelCWidth: 0.25, // panelC 占右边 1/4
+	},
+	{
+		id: "calendar",
+		name: "待办日历模式",
+		panelFeatureMap: {
+			panelA: "calendar",
+			panelB: "todoDetail",
+			panelC: "chat",
+		},
+		isPanelAOpen: true,
+		isPanelBOpen: true,
+		isPanelCOpen: true,
+		panelAWidth: 0.5, // panelA 占左边 1/2
 		panelCWidth: 0.25, // panelC 占右边 1/4
 	},
 	{

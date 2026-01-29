@@ -56,7 +56,7 @@ export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHead
 
 			{/* 右侧：工具 */}
 			<div className="flex items-center gap-2 shrink-0">
-				<LayoutSelector showChevron={false} />
+				<LayoutSelector />
 				<ThemeToggle />
 				<LanguageToggle />
 				<SettingsToggle />

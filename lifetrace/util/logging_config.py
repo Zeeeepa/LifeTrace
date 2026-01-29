@@ -1,14 +1,14 @@
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 
 from loguru import logger
 
 
-def _get_utc_date_string() -> str:
-    """获取当前 UTC 日期字符串（YYYY-MM-DD）"""
-    return datetime.now(UTC).strftime("%Y-%m-%d")
+def _get_local_date_string() -> str:
+    """获取当前本地日期字符串（YYYY-MM-DD）"""
+    return datetime.now().strftime("%Y-%m-%d")
 
 
 def _generate_log_file_path(log_dir: str, suffix: str = "") -> str:
@@ -23,7 +23,7 @@ def _generate_log_file_path(log_dir: str, suffix: str = "") -> str:
     Returns:
         完整的日志文件路径
     """
-    date_str = _get_utc_date_string()
+    date_str = _get_local_date_string()
     # 匹配当天的日志文件，格式：YYYY-MM-DD-N.log 或 YYYY-MM-DD-N.error.log
     pattern = re.compile(rf"^{re.escape(date_str)}-(\d+){re.escape(suffix)}\.log$")
 
@@ -50,6 +50,28 @@ class LoggerManager:
     def __init__(self):
         logger.remove()
 
+    def _build_filter(self, quiet_modules: list[str] | None):
+        if not quiet_modules:
+            return None
+
+        lowered = [item.lower() for item in quiet_modules if isinstance(item, str)]
+
+        if not lowered:
+            return None
+
+        def _filter(record):
+            name = str(record.get("name", "")).lower()
+            module = str(record.get("module", "")).lower()
+            function = str(record.get("function", "")).lower()
+            file_path = ""
+            file_info = record.get("file")
+            if file_info is not None:
+                file_path = str(getattr(file_info, "path", "")).lower()
+            target = f"{name} {module} {function} {file_path}"
+            return not any(item in target for item in lowered)
+
+        return _filter
+
     def configure(self, config: dict):
         if "level" not in config:
             raise KeyError("配置中缺少 'level' 键")
@@ -57,15 +79,19 @@ class LoggerManager:
             raise KeyError("配置中缺少 'log_path' 键")
 
         level = config["level"]
+        console_level = config.get("console_level", level)
+        file_level = config.get("file_level", level)
         log_path = config["log_path"]
+        quiet_modules = config.get("quiet_modules", [])
+        log_filter = self._build_filter(quiet_modules)
 
-        # 控制台格式（使用 UTC 时间）
+        # 控制台格式（使用本地时间）
         console_format = (
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS!UTC}</green> | "
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
             "<level>{level}</level> | "
             "<cyan>{file}:{line}</cyan> | <cyan>{message}</cyan>"
         )
-        logger.add(sys.stderr, level=level, format=console_format)
+        logger.add(sys.stderr, level=console_level, format=console_format, filter=log_filter)
 
         if log_path:
             # 如果 log_path 是目录或以 / 结尾，直接使用目录作为日志目录
@@ -79,17 +105,18 @@ class LoggerManager:
             else:
                 raise ValueError("log_path must be a directory")
 
-            # 文件日志格式（使用 UTC 时间）
-            file_format = "{time:YYYY-MM-DD HH:mm:ss.SSS!UTC} | {level} | {file}:{line} | {message}"
+            # 文件日志格式（使用本地时间）
+            file_format = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {file}:{line} | {message}"
 
             # 添加主日志文件（静态文件名，不使用 rotation）
             logger.add(
                 log_file_path,
-                level=level,
+                level=file_level,
                 format=file_format,
                 rotation=None,  # 不自动轮转，每次启动一个新文件
                 retention=7,
                 encoding="utf-8",
+                filter=log_filter,
             )
 
             # 添加单独的 error 日志文件
@@ -100,6 +127,7 @@ class LoggerManager:
                 rotation=None,  # 不自动轮转
                 retention=30,
                 encoding="utf-8",
+                filter=log_filter,
             )
 
     def get_logger(self):

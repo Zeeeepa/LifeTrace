@@ -47,6 +47,7 @@ export const DEFAULT_PANEL_STATE = {
 	panelCWidth: 0.25, // panelC 占右边 1/4
 	// 默认关闭的功能：开发中的面板（用户可在设置中手动开启）
 	disabledFeatures: DEV_IN_PROGRESS_FEATURES as PanelFeature[],
+	backendDisabledFeatures: [] as PanelFeature[],
 	panelFeatureMap: {
 		panelA: "todos" as PanelFeature,
 		panelB: "chat" as PanelFeature,
@@ -78,6 +79,7 @@ export const DEFAULT_PANEL_STATE = {
 		"shell",
 		"sleep",
 	] as string[],
+	customLayouts: [],
 };
 
 /**

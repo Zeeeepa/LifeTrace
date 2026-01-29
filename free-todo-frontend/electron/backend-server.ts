@@ -8,6 +8,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { app, dialog } from "electron";
+import { emitLog, emitStatus } from "./bootstrap-status";
 import {
 	getServerMode,
 	HEALTH_CHECK_INTERVAL,
@@ -19,16 +20,23 @@ import {
 import { logger } from "./logger";
 import { portManager } from "./port-manager";
 import { ProcessManager } from "./process-manager";
+import { ensurePythonRuntime } from "./python-runtime";
 
 /**
  * 后端服务器管理类
  * 负责启动、监控和停止 Python 后端服务器
  */
 export class BackendServer extends ProcessManager {
-	/** 后端可执行文件路径 */
-	private backendPath: string | null = null;
-	/** 后端工作目录 */
-	private backendDir: string | null = null;
+	/** 后端源码根目录（包含 lifetrace/ 和 requirements 文件） */
+	private backendSourceDir: string | null = null;
+	/** 后端入口脚本路径 */
+	private backendEntryScript: string | null = null;
+	/** 后端依赖 requirements 路径 */
+	private backendRequirementsPath: string | null = null;
+	/** 后端虚拟环境目录 */
+	private venvDir: string | null = null;
+	/** 虚拟环境 Python 路径 */
+	private venvPythonPath: string | null = null;
 	/** 数据目录路径 */
 	private dataDir: string | null = null;
 	/** 服务器模式（dev 或 build） */
@@ -56,36 +64,52 @@ export class BackendServer extends ProcessManager {
 	}
 
 	/**
-	 * 解析后端可执行文件路径
+	 * 解析后端源码与运行时路径
 	 * 根据打包状态和平台确定正确的路径
 	 */
 	private resolveBackendPaths(): void {
 		if (app.isPackaged) {
-			// 打包环境：后端在 Resources/backend/lifetrace
-			this.backendDir = path.join(process.resourcesPath, "backend");
+			// 打包环境：后端源码在 Resources/backend
+			this.backendSourceDir = path.join(process.resourcesPath, "backend");
 		} else {
-			// 开发环境：使用根目录下的 dist-backend
+			// 开发环境：使用项目根目录
 			// __dirname 指向 dist-electron 目录，需要向上两级到达项目根目录
 			const projectRoot = path.resolve(__dirname, "../..");
-			this.backendDir = path.join(projectRoot, "dist-backend");
+			this.backendSourceDir = projectRoot;
 		}
 
-		this.backendPath = path.join(
-			this.backendDir,
-			PROCESS_CONFIG.backendExecName,
-		);
+		if (this.backendSourceDir) {
+			this.backendEntryScript = path.join(
+				this.backendSourceDir,
+				PROCESS_CONFIG.backendEntryScript,
+			);
+			this.backendRequirementsPath = path.join(
+				this.backendSourceDir,
+				PROCESS_CONFIG.backendRequirementsFile,
+			);
+		}
 
 		// 数据目录
 		const userDataDir = app.getPath("userData");
 		this.dataDir = path.join(userDataDir, PROCESS_CONFIG.backendDataDir);
+		this.venvDir = path.join(userDataDir, PROCESS_CONFIG.backendVenvDir);
 	}
 
 	/**
-	 * 检查后端可执行文件是否存在
+	 * 检查后端脚本与依赖文件是否存在
 	 */
 	private checkBackendExists(): boolean {
-		if (!this.backendPath || !fs.existsSync(this.backendPath)) {
-			const errorMsg = `The backend executable was not found at: ${this.backendPath}\n\nPlease rebuild the application.`;
+		if (
+			!this.backendEntryScript ||
+			!fs.existsSync(this.backendEntryScript) ||
+			!this.backendRequirementsPath ||
+			!fs.existsSync(this.backendRequirementsPath)
+		) {
+			const errorMsg =
+				`The backend source files were not found.\n\n` +
+				`Entry: ${this.backendEntryScript ?? "unknown"}\n` +
+				`Requirements: ${this.backendRequirementsPath ?? "unknown"}\n\n` +
+				"Please reinstall or rebuild the application.";
 			logger.error(errorMsg);
 			dialog.showErrorBox("Backend Not Found", errorMsg);
 			return false;
@@ -215,13 +239,13 @@ export class BackendServer extends ProcessManager {
 		// 解析路径
 		this.resolveBackendPaths();
 
-		// 检查可执行文件
+		// 检查后端脚本与依赖文件
 		if (!this.checkBackendExists()) {
-			// 在开发模式下，如果可执行文件不存在，尝试使用默认端口
+			// 在开发模式下，如果文件不存在，尝试使用默认端口
 			// 可能后端是通过其他方式启动的
 			if (!app.isPackaged) {
 				logger.warn(
-					"Backend executable not found, but will try to connect to default port",
+					"Backend source not found, but will try to connect to default port",
 				);
 				this.port = PORT_CONFIG.backend.default;
 				// 等待后端就绪
@@ -246,9 +270,41 @@ export class BackendServer extends ProcessManager {
 					throw error;
 				}
 			}
-			// 打包模式下必须找到可执行文件
-			throw new Error("Backend executable not found");
+			// 打包模式下必须找到运行时文件
+			throw new Error("Backend runtime files not found");
 		}
+
+		// 确保路径已解析（用于类型收窄）
+		if (
+			!this.backendEntryScript ||
+			!this.backendRequirementsPath ||
+			!this.backendSourceDir ||
+			!this.dataDir ||
+			!this.venvDir
+		) {
+			throw new Error("Backend paths not resolved");
+		}
+
+		// 确保 Python 运行时与依赖已安装
+		try {
+			emitStatus({ message: "准备后端运行时", progress: 30 });
+			this.venvPythonPath = await ensurePythonRuntime(
+				this.venvDir,
+				this.backendRequirementsPath,
+			);
+		} catch (error) {
+			const errorMsg = `Failed to prepare Python runtime: ${error instanceof Error ? error.message : String(error)}`;
+			logger.error(errorMsg);
+			dialog.showErrorBox(
+				"Python Runtime Error",
+				`${errorMsg}\n\nCheck logs at: ${logger.getLogFilePath()}`,
+			);
+			throw error;
+		}
+		if (!this.venvPythonPath) {
+			throw new Error("Python runtime not available");
+		}
+		emitStatus({ message: "启动后端服务", progress: 75 });
 
 		// 动态端口分配
 		try {
@@ -264,21 +320,21 @@ export class BackendServer extends ProcessManager {
 			throw error;
 		}
 
-		// 确保路径已解析（用于类型收窄）
-		if (!this.backendPath || !this.backendDir || !this.dataDir) {
-			throw new Error("Backend paths not resolved");
-		}
-
 		logger.info("Starting backend server...");
-		logger.info(`Backend path: ${this.backendPath}`);
-		logger.info(`Backend directory: ${this.backendDir}`);
+		emitLog(`Backend entry: ${this.backendEntryScript}`);
+		emitLog(`Backend venv: ${this.venvDir}`);
+		logger.info(`Backend entry: ${this.backendEntryScript}`);
+		logger.info(`Backend source dir: ${this.backendSourceDir}`);
+		logger.info(`Backend requirements: ${this.backendRequirementsPath}`);
+		logger.info(`Backend venv: ${this.venvDir}`);
 		logger.info(`Data directory: ${this.dataDir}`);
 		logger.info(`Backend port: ${this.port}`);
 
 		// 启动后端进程，传递模式参数
 		this.process = spawn(
-			this.backendPath,
+			this.venvPythonPath,
 			[
+				this.backendEntryScript,
 				"--port",
 				String(this.port),
 				"--data-dir",
@@ -287,10 +343,11 @@ export class BackendServer extends ProcessManager {
 				this.serverMode,
 			],
 			{
-				cwd: this.backendDir,
+				cwd: this.backendSourceDir,
 				env: {
 					...process.env,
 					PYTHONUNBUFFERED: "1",
+					PYTHONUTF8: "1",
 				},
 				stdio: ["ignore", "pipe", "pipe"],
 			},
@@ -327,7 +384,7 @@ export class BackendServer extends ProcessManager {
 			if (code !== 0 && code !== null) {
 				dialog.showErrorBox(
 					"Backend Server Exited",
-					`The backend server exited unexpectedly.\n\n${exitMsg}\n\nCheck logs at: ${logger.getLogFilePath()}\n\nBackend path: ${this.backendPath}\nData directory: ${this.dataDir}`,
+					`The backend server exited unexpectedly.\n\n${exitMsg}\n\nCheck logs at: ${logger.getLogFilePath()}\n\nBackend entry: ${this.backendEntryScript}\nData directory: ${this.dataDir}`,
 				);
 			}
 		});
@@ -336,6 +393,7 @@ export class BackendServer extends ProcessManager {
 		logger.console(`Waiting for backend server at ${this.getUrl()} to be ready...`);
 		await this.waitForReady(this.getUrl(), this.config.readyTimeout);
 		logger.console(`Backend server is ready at ${this.getUrl()}!`);
+		emitStatus({ message: "后端服务已就绪", progress: 78 });
 
 		// 验证后端模式是否匹配
 		await this.verifyBackendMode();

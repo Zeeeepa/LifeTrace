@@ -13,6 +13,7 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "alembic>=1.14.0",
     "python-multipart>=0.0.6",   # 文件上传支持（Form data）
+    "icalendar>=6.0.0",          # iCalendar (ICS) 导入/导出
     # Screenshot and image processing
     "mss>=9.0.0",
     "Pillow>=10.0.0",

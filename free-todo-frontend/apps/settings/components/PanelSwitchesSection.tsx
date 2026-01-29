@@ -28,6 +28,9 @@ export function PanelSwitchesSection({
 	const tBottomDock = useTranslations("bottomDock");
 	const setFeatureEnabled = useUiStore((state) => state.setFeatureEnabled);
 	const isFeatureEnabled = useUiStore((state) => state.isFeatureEnabled);
+	const backendDisabledFeatures = useUiStore(
+		(state) => state.backendDisabledFeatures,
+	);
 	const [showDevPanels, setShowDevPanels] = useState(false);
 
 	// 获取所有可用的面板（排除 settings）
@@ -70,6 +73,7 @@ export function PanelSwitchesSection({
 			<div className="space-y-3">
 				{regularPanels.map((feature) => {
 					const enabled = isFeatureEnabled(feature);
+					const backendDisabled = backendDisabledFeatures.includes(feature);
 					const panelLabel = tBottomDock(feature) || feature;
 					const Icon = FEATURE_ICON_MAP[feature];
 
@@ -89,7 +93,7 @@ export function PanelSwitchesSection({
 							<ToggleSwitch
 								id={`panel-toggle-${feature}`}
 								enabled={enabled}
-								disabled={loading}
+								disabled={loading || backendDisabled}
 								onToggle={(newEnabled) =>
 									handleTogglePanel(feature, newEnabled)
 								}
@@ -115,6 +119,8 @@ export function PanelSwitchesSection({
 							<div className="space-y-3">
 								{devPanels.map((feature) => {
 									const enabled = isFeatureEnabled(feature);
+									const backendDisabled =
+										backendDisabledFeatures.includes(feature);
 									const panelLabel = tBottomDock(feature) || feature;
 									const Icon = FEATURE_ICON_MAP[feature];
 
@@ -137,7 +143,7 @@ export function PanelSwitchesSection({
 											<ToggleSwitch
 												id={`panel-toggle-${feature}`}
 												enabled={enabled}
-												disabled={loading}
+												disabled={loading || backendDisabled}
 												onToggle={(newEnabled) =>
 													handleTogglePanel(feature, newEnabled)
 												}

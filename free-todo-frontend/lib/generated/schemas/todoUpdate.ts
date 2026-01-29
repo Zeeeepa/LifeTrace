@@ -13,6 +13,9 @@ import type { TodoUpdateDeadline } from './todoUpdateDeadline';
 import type { TodoUpdateStartTime } from './todoUpdateStartTime';
 import type { TodoUpdateStatus } from './todoUpdateStatus';
 import type { TodoUpdatePriority } from './todoUpdatePriority';
+import type { TodoUpdateCompletedAt } from './todoUpdateCompletedAt';
+import type { TodoUpdatePercentComplete } from './todoUpdatePercentComplete';
+import type { TodoUpdateRrule } from './todoUpdateRrule';
 import type { TodoUpdateOrder } from './todoUpdateOrder';
 import type { TodoUpdateTags } from './todoUpdateTags';
 import type { TodoUpdateRelatedActivities } from './todoUpdateRelatedActivities';
@@ -37,6 +40,12 @@ export interface TodoUpdate {
   status?: TodoUpdateStatus;
   /** 优先级 */
   priority?: TodoUpdatePriority;
+  /** 完成时间（显式传 null 可清空） */
+  completed_at?: TodoUpdateCompletedAt;
+  /** 完成百分比（0-100） */
+  percent_complete?: TodoUpdatePercentComplete;
+  /** iCalendar RRULE（显式传 null 可清空） */
+  rrule?: TodoUpdateRrule;
   /** 同级待办之间的展示排序 */
   order?: TodoUpdateOrder;
   /** 标签名称列表（显式传空数组将清空） */

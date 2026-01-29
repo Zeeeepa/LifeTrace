@@ -5,6 +5,7 @@
  * 智能生活记录系统 API
  * OpenAPI spec version: 0.1.0
  */
+import type { TodoCreateUid } from './todoCreateUid';
 import type { TodoCreateDescription } from './todoCreateDescription';
 import type { TodoCreateUserNotes } from './todoCreateUserNotes';
 import type { TodoCreateParentTodoId } from './todoCreateParentTodoId';
@@ -12,11 +13,16 @@ import type { TodoCreateDeadline } from './todoCreateDeadline';
 import type { TodoCreateStartTime } from './todoCreateStartTime';
 import type { TodoStatus } from './todoStatus';
 import type { TodoPriority } from './todoPriority';
+import type { TodoCreateCompletedAt } from './todoCreateCompletedAt';
+import type { TodoCreatePercentComplete } from './todoCreatePercentComplete';
+import type { TodoCreateRrule } from './todoCreateRrule';
 
 /**
  * 创建 Todo 请求模型
  */
 export interface TodoCreate {
+  /** iCalendar UID */
+  uid?: TodoCreateUid;
   /**
    * 待办名称
    * @minLength 1
@@ -37,6 +43,12 @@ export interface TodoCreate {
   status?: TodoStatus;
   /** 优先级 */
   priority?: TodoPriority;
+  /** 完成时间 */
+  completed_at?: TodoCreateCompletedAt;
+  /** 完成百分比（0-100） */
+  percent_complete?: TodoCreatePercentComplete;
+  /** iCalendar RRULE */
+  rrule?: TodoCreateRrule;
   /** 同级待办之间的展示排序 */
   order?: number;
   /** 标签名称列表 */

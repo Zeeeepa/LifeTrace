@@ -1,15 +1,14 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import type { ChatMode } from "@/apps/chat/types";
+import { persist } from "zustand/middleware";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
-import { LAYOUT_PRESETS } from "./layout-presets";
-import type { DockDisplayMode, UiStoreState } from "./types";
+import { createLayoutActions } from "./layout-actions";
+import { createUiStoreStorage } from "./storage";
+import type { UiStoreState } from "./types";
 import {
 	clampWidth,
 	DEFAULT_PANEL_STATE,
 	getPositionByFeature,
-	validatePanelFeatureMap,
 } from "./utils";
 
 export const useUiStore = create<UiStoreState>()(
@@ -25,6 +24,7 @@ export const useUiStore = create<UiStoreState>()(
 			panelFeatureMap: DEFAULT_PANEL_STATE.panelFeatureMap,
 			// 默认没有禁用的功能
 			disabledFeatures: DEFAULT_PANEL_STATE.disabledFeatures,
+			backendDisabledFeatures: DEFAULT_PANEL_STATE.backendDisabledFeatures,
 			// 自动关闭的panel栈
 			autoClosedPanels: DEFAULT_PANEL_STATE.autoClosedPanels,
 			// Dock 显示模式
@@ -39,6 +39,8 @@ export const useUiStore = create<UiStoreState>()(
 			selectedAgnoTools: DEFAULT_PANEL_STATE.selectedAgnoTools,
 			// Agno 模式下选中的外部工具
 			selectedExternalTools: DEFAULT_PANEL_STATE.selectedExternalTools,
+			// 用户自定义布局
+			customLayouts: DEFAULT_PANEL_STATE.customLayouts,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -110,7 +112,10 @@ export const useUiStore = create<UiStoreState>()(
 			setPanelFeature: (position, feature) =>
 				set((state) => {
 					// 禁用的功能不允许分配
-					if (state.disabledFeatures.includes(feature)) {
+					if (
+						state.disabledFeatures.includes(feature) ||
+						state.backendDisabledFeatures.includes(feature)
+					) {
 						return state;
 					}
 					// 如果该功能已经在其他位置，先清除那个位置的分配
@@ -132,18 +137,23 @@ export const useUiStore = create<UiStoreState>()(
 				const state = get();
 				const feature = state.panelFeatureMap[position];
 				if (!feature) return null;
-				return state.disabledFeatures.includes(feature) ? null : feature;
+				if (state.disabledFeatures.includes(feature)) return null;
+				if (state.backendDisabledFeatures.includes(feature)) return null;
+				return feature;
 			},
 
 			getAvailableFeatures: () => {
 				const state = get();
+				const disabledSet = new Set([
+					...state.disabledFeatures,
+					...state.backendDisabledFeatures,
+				]);
 				const assignedFeatures = Object.values(state.panelFeatureMap).filter(
 					(f): f is PanelFeature => f !== null,
 				);
 				return ALL_PANEL_FEATURES.filter(
 					(feature) =>
-						!assignedFeatures.includes(feature) &&
-						!state.disabledFeatures.includes(feature),
+						!assignedFeatures.includes(feature) && !disabledSet.has(feature),
 				);
 			},
 
@@ -163,7 +173,9 @@ export const useUiStore = create<UiStoreState>()(
 							}
 						}
 					} else {
-						disabledFeatures.delete(feature);
+						if (!state.backendDisabledFeatures.includes(feature)) {
+							disabledFeatures.delete(feature);
+						}
 					}
 
 					return {
@@ -174,14 +186,23 @@ export const useUiStore = create<UiStoreState>()(
 
 			isFeatureEnabled: (feature) => {
 				const state = get();
-				return !state.disabledFeatures.includes(feature);
+				return (
+					!state.disabledFeatures.includes(feature) &&
+					!state.backendDisabledFeatures.includes(feature)
+				);
 			},
 
 			// 兼容性方法：基于功能的访问
 			getIsFeatureOpen: (feature) => {
 				const position = getPositionByFeature(feature, get().panelFeatureMap);
 				const state = get();
-				if (!position || state.disabledFeatures.includes(feature)) return false;
+				if (
+					!position ||
+					state.disabledFeatures.includes(feature) ||
+					state.backendDisabledFeatures.includes(feature)
+				) {
+					return false;
+				}
 				switch (position) {
 					case "panelA":
 						return state.isPanelAOpen;
@@ -243,23 +264,7 @@ export const useUiStore = create<UiStoreState>()(
 				}
 			},
 
-			applyLayout: (layoutId) => {
-				const layout = LAYOUT_PRESETS.find((l) => l.id === layoutId);
-				if (!layout) return;
-
-				set({
-					panelFeatureMap: { ...layout.panelFeatureMap },
-					isPanelAOpen: layout.isPanelAOpen,
-					isPanelBOpen: layout.isPanelBOpen,
-					isPanelCOpen: layout.isPanelCOpen,
-					...(layout.panelAWidth !== undefined && {
-						panelAWidth: layout.panelAWidth,
-					}),
-					...(layout.panelCWidth !== undefined && {
-						panelCWidth: layout.panelCWidth,
-					}),
-				});
-			},
+			...createLayoutActions(set, get),
 
 			swapPanelPositions: (position1, position2) => {
 				set((state) => {
@@ -415,176 +420,32 @@ export const useUiStore = create<UiStoreState>()(
 				set(() => ({
 					selectedExternalTools: tools,
 				})),
+
+			setBackendDisabledFeatures: (features) =>
+				set((state) => {
+					const sanitized = features.filter((feature) =>
+						ALL_PANEL_FEATURES.includes(feature),
+					);
+					const panelFeatureMap = { ...state.panelFeatureMap };
+
+					for (const position of Object.keys(
+						panelFeatureMap,
+					) as PanelPosition[]) {
+						const feature = panelFeatureMap[position];
+						if (feature && sanitized.includes(feature)) {
+							panelFeatureMap[position] = null;
+						}
+					}
+
+					return {
+						backendDisabledFeatures: sanitized,
+						panelFeatureMap,
+					};
+				}),
 		}),
 		{
 			name: "ui-panel-config",
-			storage: createJSONStorage(() => {
-				const customStorage = {
-					getItem: (name: string): string | null => {
-						if (typeof window === "undefined") return null;
-
-						try {
-							const stored = localStorage.getItem(name);
-							if (!stored) return null;
-
-							const parsed = JSON.parse(stored);
-							const state = parsed.state || parsed;
-
-							// 验证并修复 panelFeatureMap
-							if (state.panelFeatureMap) {
-								state.panelFeatureMap = validatePanelFeatureMap(
-									state.panelFeatureMap,
-								);
-							}
-
-							// 验证宽度值
-							if (
-								typeof state.panelAWidth === "number" &&
-								!Number.isNaN(state.panelAWidth)
-							) {
-								state.panelAWidth = clampWidth(state.panelAWidth);
-							} else {
-								state.panelAWidth = DEFAULT_PANEL_STATE.panelAWidth;
-							}
-
-							if (
-								typeof state.panelCWidth === "number" &&
-								!Number.isNaN(state.panelCWidth)
-							) {
-								state.panelCWidth = clampWidth(state.panelCWidth);
-							} else {
-								state.panelCWidth = DEFAULT_PANEL_STATE.panelCWidth;
-							}
-
-							// 验证布尔值
-							if (typeof state.isPanelAOpen !== "boolean") {
-								state.isPanelAOpen = DEFAULT_PANEL_STATE.isPanelAOpen;
-							}
-							if (typeof state.isPanelBOpen !== "boolean") {
-								state.isPanelBOpen = DEFAULT_PANEL_STATE.isPanelBOpen;
-							}
-							if (typeof state.isPanelCOpen !== "boolean") {
-								state.isPanelCOpen = DEFAULT_PANEL_STATE.isPanelCOpen;
-							}
-
-							// 校验禁用功能列表
-							if (Array.isArray(state.disabledFeatures)) {
-								state.disabledFeatures = state.disabledFeatures.filter(
-									(feature: PanelFeature): feature is PanelFeature =>
-										ALL_PANEL_FEATURES.includes(feature),
-								);
-							} else {
-								state.disabledFeatures = DEFAULT_PANEL_STATE.disabledFeatures;
-							}
-
-							// 校验自动关闭的panel栈
-							if (Array.isArray(state.autoClosedPanels)) {
-								const validPositions: PanelPosition[] = [
-									"panelA",
-									"panelB",
-									"panelC",
-								];
-								state.autoClosedPanels = state.autoClosedPanels.filter(
-									(pos: unknown): pos is PanelPosition =>
-										typeof pos === "string" &&
-										validPositions.includes(pos as PanelPosition),
-								);
-							} else {
-								state.autoClosedPanels = DEFAULT_PANEL_STATE.autoClosedPanels;
-							}
-
-							// 校验 dock 显示模式
-							const validDockModes: DockDisplayMode[] = ["fixed", "auto-hide"];
-							if (
-								!state.dockDisplayMode ||
-								!validDockModes.includes(state.dockDisplayMode)
-							) {
-								state.dockDisplayMode = DEFAULT_PANEL_STATE.dockDisplayMode;
-							}
-
-							// 校验 showModeSwitcher（默认 false）
-							if (typeof state.showModeSwitcher !== "boolean") {
-								state.showModeSwitcher = DEFAULT_PANEL_STATE.showModeSwitcher;
-							}
-
-							// 校验 defaultChatMode
-							const validChatModes: ChatMode[] = [
-								"ask",
-								"plan",
-								"edit",
-								"difyTest",
-								"agno",
-							];
-							if (
-								!state.defaultChatMode ||
-								!validChatModes.includes(state.defaultChatMode)
-							) {
-								state.defaultChatMode = DEFAULT_PANEL_STATE.defaultChatMode;
-							}
-
-							// 校验 showAgnoToolSelector（默认 false）
-							if (typeof state.showAgnoToolSelector !== "boolean") {
-								state.showAgnoToolSelector =
-									DEFAULT_PANEL_STATE.showAgnoToolSelector;
-							}
-
-							// 校验 selectedAgnoTools（默认空数组）
-							if (!Array.isArray(state.selectedAgnoTools)) {
-								state.selectedAgnoTools =
-									DEFAULT_PANEL_STATE.selectedAgnoTools;
-							} else {
-								// 确保数组中的元素都是字符串
-								state.selectedAgnoTools = state.selectedAgnoTools.filter(
-									(tool: unknown): tool is string => typeof tool === "string",
-								);
-							}
-
-							// 校验 selectedExternalTools（默认空数组）
-							if (!Array.isArray(state.selectedExternalTools)) {
-								state.selectedExternalTools =
-									DEFAULT_PANEL_STATE.selectedExternalTools;
-							} else {
-								// 确保数组中的元素都是字符串
-								state.selectedExternalTools = state.selectedExternalTools.filter(
-									(tool: unknown): tool is string => typeof tool === "string",
-								);
-							}
-
-							// 如果有功能被禁用，确保对应位置不再保留
-							for (const position of Object.keys(
-								state.panelFeatureMap,
-							) as PanelPosition[]) {
-								const feature = state.panelFeatureMap[position];
-								if (
-									feature &&
-									state.disabledFeatures.includes(feature as PanelFeature)
-								) {
-									state.panelFeatureMap[position] = null;
-								}
-							}
-
-							return JSON.stringify({ state });
-						} catch (e) {
-							console.error("Error loading panel config:", e);
-							return null;
-						}
-					},
-					setItem: (name: string, value: string): void => {
-						if (typeof window === "undefined") return;
-
-						try {
-							localStorage.setItem(name, value);
-						} catch (e) {
-							console.error("Error saving panel config:", e);
-						}
-					},
-					removeItem: (name: string): void => {
-						if (typeof window === "undefined") return;
-						localStorage.removeItem(name);
-					},
-				};
-				return customStorage;
-			}),
+			storage: createUiStoreStorage(),
 		},
 	),
 );

@@ -19,12 +19,12 @@ Run from the repository root:
 cd free-todo-frontend
 
 # Web mode (default)
-pnpm tauri:build-web
+pnpm build:tauri:web:full
 
 # Platform specific
-pnpm tauri:build-web-win
-pnpm tauri:build-web-mac
-pnpm tauri:build-web-linux
+pnpm build:tauri:web:full:win
+pnpm build:tauri:web:full:mac
+pnpm build:tauri:web:full:linux
 ```
 
 ## Build Outputs
@@ -89,7 +89,7 @@ This page redirects to the running Next.js server.
 The build command runs:
 
 ```
-pnpm build
+pnpm build:frontend:web
 ```
 
 Next.js artifacts:

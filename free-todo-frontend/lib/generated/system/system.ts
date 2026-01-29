@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CapabilitiesResponse,
   CleanupOldDataApiCleanupPostParams,
   HTTPValidationError,
   StatisticsResponse,
@@ -275,6 +276,99 @@ export function useGetSystemResourcesApiSystemResourcesGet<TData = Awaited<Retur
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetSystemResourcesApiSystemResourcesGetQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * 获取后端模块能力状态
+ * @summary Get Capabilities
+ */
+export const getCapabilitiesApiCapabilitiesGet = (
+    
+ signal?: AbortSignal
+) => {
+      
+      
+      return customFetcher<CapabilitiesResponse>(
+      {url: `/api/capabilities`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetCapabilitiesApiCapabilitiesGetQueryKey = () => {
+    return [
+    `/api/capabilities`
+    ] as const;
+    }
+
+    
+export const getGetCapabilitiesApiCapabilitiesGetQueryOptions = <TData = Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCapabilitiesApiCapabilitiesGetQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>> = ({ signal }) => getCapabilitiesApiCapabilitiesGet(signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetCapabilitiesApiCapabilitiesGetQueryResult = NonNullable<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>>
+export type GetCapabilitiesApiCapabilitiesGetQueryError = unknown
+
+
+export function useGetCapabilitiesApiCapabilitiesGet<TData = Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCapabilitiesApiCapabilitiesGet<TData = Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>,
+          TError,
+          Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetCapabilitiesApiCapabilitiesGet<TData = Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Capabilities
+ */
+
+export function useGetCapabilitiesApiCapabilitiesGet<TData = Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCapabilitiesApiCapabilitiesGet>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetCapabilitiesApiCapabilitiesGetQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

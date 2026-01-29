@@ -13,8 +13,10 @@ if (process.platform === "win32") {
 		}
 }
 
-import { app, dialog } from "electron";
+import { app, dialog, ipcMain } from "electron";
 import { BackendServer } from "./backend-server";
+import { emitComplete, emitStatus } from "./bootstrap-status";
+import { closeBootstrapWindow, createBootstrapWindow } from "./bootstrap-window";
 import { getServerMode, getWindowMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
 import { GlobalShortcutManager } from "./global-shortcut-manager";
 import { setupIpcHandlers } from "./ipc-handlers";
@@ -194,6 +196,9 @@ if (!gotTheLock) {
 
 	// 应用准备就绪后启动
 	app.whenReady().then(async () => {
+		if (app.isPackaged) {
+			createBootstrapWindow();
+		}
 		const managers = await bootstrap(backendServer, windowManager, islandWindowManager);
 		trayManager = managers.trayManager;
 		shortcutManager = managers.shortcutManager;
@@ -216,6 +221,12 @@ function setupGlobalErrorHandlers(): void {
 	});
 }
 
+function waitForBootstrapContinue(): Promise<void> {
+	return new Promise((resolve) => {
+		ipcMain.once("bootstrap:continue", () => resolve());
+	});
+}
+
 /**
  * 应用启动流程
  */
@@ -227,6 +238,7 @@ async function bootstrap(
 	try {
 		// 记录启动信息
 		logStartupInfo();
+		emitStatus({ message: "启动初始化", progress: 0 });
 
 			// 设置 IPC 处理器（包含 Island 相关）
 		setupIpcHandlers(windowManager, islandWindowManager);
@@ -236,10 +248,12 @@ async function bootstrap(
 
 		// 1. 自动检测后端端口（如果后端已运行）
 		logger.info("Detecting running backend server...");
+		emitStatus({ message: "检测后端服务", progress: 15 });
 		const detectedBackendPort = await backendServer.detectRunningBackendPort();
 		if (detectedBackendPort) {
 			backendServer.setPort(detectedBackendPort);
 			logger.info(`Detected backend running on port: ${detectedBackendPort}`);
+			emitStatus({ message: "检测到已运行后端", progress: 20 });
 		} else {
 			// 如果检测不到，启动后端服务器
 			logger.info("No running backend detected, will start backend server...");
@@ -257,6 +271,7 @@ async function bootstrap(
 				TIMEOUT_CONFIG.backendReady * 6, // 3分钟超时
 			);
 			logger.console(`Backend server is ready at ${backendUrl}!`);
+			emitStatus({ message: "后端健康检查通过", progress: 80 });
 			// 确保健康检查已启动
 			backendServer.ensureHealthCheck();
 		} catch (error) {
@@ -282,6 +297,7 @@ async function bootstrap(
 		try {
 			await waitForServerPublic(serverUrl, 30000);
 			logger.console(`Next.js server is ready at ${serverUrl}!`);
+			emitStatus({ message: "前端服务已就绪", progress: 92 });
 		} catch (error) {
 			const errorMsg = `Next.js server did not start within 30000ms: ${error instanceof Error ? error.message : String(error)}`;
 			logger.error(errorMsg);
@@ -292,6 +308,16 @@ async function bootstrap(
 		}
 
 		// 4. 根据窗口模式创建主窗口
+		if (app.isPackaged) {
+			emitStatus({
+				message: "安装完成",
+				detail: "点击“开始使用”进入应用",
+				progress: 100,
+			});
+			emitComplete();
+			await waitForBootstrapContinue();
+		}
+
 		if (windowMode === "web") {
 			// Web 模式：创建普通窗口，加载主页面
 			windowManager.create(serverUrl);
@@ -301,6 +327,7 @@ async function bootstrap(
 			islandWindowManager.create(serverUrl);
 			logger.info("Island main window created");
 		}
+		closeBootstrapWindow();
 
 		// 5. 初始化 Tray 和 Global Shortcuts
 		// 注意：Web 模式下 TrayManager 和 GlobalShortcutManager 仍然使用 islandWindowManager

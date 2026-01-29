@@ -5,8 +5,13 @@ from datetime import datetime
 import psutil
 from fastapi import APIRouter, HTTPException, Query
 
+from lifetrace.core.module_registry import get_capabilities_report
 from lifetrace.schemas.stats import StatisticsResponse
-from lifetrace.schemas.system import ProcessInfo, SystemResourcesResponse
+from lifetrace.schemas.system import (
+    CapabilitiesResponse,
+    ProcessInfo,
+    SystemResourcesResponse,
+)
 from lifetrace.storage import stats_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path, get_screenshots_dir
@@ -174,3 +179,9 @@ async def get_system_resources():
     except Exception as e:
         logger.error(f"获取系统资源信息失败: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/capabilities", response_model=CapabilitiesResponse)
+async def get_capabilities():
+    """获取后端模块能力状态"""
+    return get_capabilities_report()

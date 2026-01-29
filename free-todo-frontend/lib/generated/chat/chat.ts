@@ -181,6 +181,7 @@ export const useChatWithLlmApiChatPost = <TError = HTTPValidationError,
 支持额外的 mode 字段：
 - 默认为现有行为（走本地 LLM + RAG）
 - 当 mode == "dify_test" 时，走 Dify 测试通道
+- 当 mode == "agno" 时，走 Agno Agent 通道（支持 file/shell 等外部工具）
  * @summary Chat With Llm Stream
  */
 export const chatWithLlmStreamApiChatStreamPost = (

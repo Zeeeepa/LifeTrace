@@ -3,6 +3,7 @@
 负责管理所有后台任务的启动、停止和配置更新
 """
 
+from lifetrace.core.module_registry import get_module_states
 from lifetrace.jobs.activity_aggregator import (
     execute_activity_aggregation_task,
     get_aggregator_instance,
@@ -46,12 +47,30 @@ class JobManager:
         """初始化任务管理器"""
         # 后台服务实例
         self.scheduler_manager = None
+        self.module_states = {}
 
         logger.info("任务管理器已初始化")
+
+    def _is_module_active(self, *module_ids: str) -> bool:
+        """检查模块是否启用且依赖可用"""
+        if not self.module_states:
+            self.module_states = get_module_states()
+
+        for module_id in module_ids:
+            state = self.module_states.get(module_id)
+            if not state or not state.enabled or not state.available:
+                return False
+        return True
 
     def start_all(self):
         """启动所有后台任务"""
         logger.info("开始启动所有后台任务")
+
+        self.module_states = get_module_states()
+
+        if not self._is_module_active("scheduler"):
+            logger.warning("调度器模块未启用或依赖缺失，跳过后台任务启动")
+            return
 
         # 启动调度器
         self._start_scheduler()
@@ -112,6 +131,9 @@ class JobManager:
 
     def _start_recorder_job(self):
         """启动录制器任务"""
+        if not self._is_module_active("screenshot"):
+            logger.info("截图模块未启用，跳过录制器任务")
+            return
         enabled = settings.get("jobs.recorder.enabled")
 
         try:
@@ -146,6 +168,9 @@ class JobManager:
         - 截图后直接触发自动待办检测
         - 与通用录制器完全独立
         """
+        if not self._is_module_active("todo_extraction", "todo"):
+            logger.info("待办提取模块未启用，跳过 Todo 录制器任务")
+            return
         enabled = settings.get("jobs.todo_recorder.enabled", False)
 
         try:
@@ -174,6 +199,9 @@ class JobManager:
 
     def _start_ocr_job(self):
         """启动OCR任务"""
+        if not self._is_module_active("ocr"):
+            logger.info("OCR 模块未启用，跳过 OCR 任务")
+            return
         enabled = settings.get("jobs.ocr.enabled")
 
         try:
@@ -198,6 +226,9 @@ class JobManager:
 
     def _start_activity_aggregator(self):
         """启动活动聚合任务"""
+        if not self._is_module_active("activity"):
+            logger.info("活动模块未启用，跳过活动聚合任务")
+            return
         enabled = settings.get("jobs.activity_aggregator.enabled")
 
         try:
@@ -254,6 +285,9 @@ class JobManager:
 
     def _start_deadline_reminder_job(self):
         """启动 DDL 提醒任务"""
+        if not self._is_module_active("todo", "notification"):
+            logger.info("待办/通知模块未启用，跳过 DDL 提醒任务")
+            return
         enabled = settings.get("jobs.deadline_reminder.enabled")
 
         try:
@@ -278,6 +312,9 @@ class JobManager:
 
     def _start_proactive_ocr_job(self):
         """启动主动OCR任务"""
+        if not self._is_module_active("proactive_ocr"):
+            logger.info("主动 OCR 模块未启用，跳过主动 OCR 任务")
+            return
         enabled = settings.get("jobs.proactive_ocr.enabled", False)
 
         try:
@@ -314,6 +351,9 @@ class JobManager:
 
         注意：音频录制实际上由前端WebSocket控制，此任务仅用于状态监控
         """
+        if not self._is_module_active("audio"):
+            logger.info("音频模块未启用，跳过音频录制状态检查任务")
+            return
         enabled = settings.get("jobs.audio_recording.enabled", False)
 
         try:

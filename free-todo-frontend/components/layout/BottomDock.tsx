@@ -216,6 +216,7 @@ export function BottomDock({
 		dockDisplayMode,
 		panelFeatureMap, // ✅ 直接订阅 panelFeatureMap，确保交换位置后能触发重新渲染
 		disabledFeatures, // ✅ 也需要订阅 disabledFeatures，确保禁用功能被正确处理
+		backendDisabledFeatures,
 		getFeatureByPosition, // ✅ 用于根据位置获取功能（用于引导流程）
 	} = useUiStore();
 	const { locale: _ } = useLocaleStore();
@@ -309,7 +310,13 @@ export function BottomDock({
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	// 在 SSR 时使用默认值，避免 hydration 错误
-	const DOCK_ITEMS: DockItem[] = useMemo(() => visiblePositionsResolved.map((position) => {
+	const DOCK_ITEMS: DockItem[] = useMemo(() => {
+		const disabledSet = new Set([
+			...disabledFeatures,
+			...backendDisabledFeatures,
+		]);
+
+		return visiblePositionsResolved.map((position) => {
 		// 在 SSR 时使用默认功能分配，客户端挂载后使用实际值
 		const defaultFeatureMap: Record<PanelPosition, PanelFeature> = {
 			panelA: "todos",
@@ -319,7 +326,7 @@ export function BottomDock({
 		// ✅ 修复：直接使用 panelFeatureMap，而不是 getFeatureByPosition，确保交换位置后能触发重新计算
 		// 同时检查功能是否被禁用
 		const rawFeature = mounted ? (panelFeatureMap[position] || null) : defaultFeatureMap[position];
-		const feature = rawFeature && disabledFeatures.includes(rawFeature) ? null : rawFeature;
+		const feature = rawFeature && disabledSet.has(rawFeature) ? null : rawFeature;
 
 		// 获取位置对应的状态和 toggle 方法（无论是否分配功能都需要）
 		let isActive: boolean;
@@ -362,7 +369,8 @@ export function BottomDock({
 			onClick,
 			group: "views",
 		};
-	}), [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
+		});
+	}, [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, backendDisabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
 
 	// 测量 dock 实际高度
 	useEffect(() => {

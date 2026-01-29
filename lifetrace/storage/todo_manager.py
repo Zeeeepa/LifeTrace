@@ -17,6 +17,7 @@ from lifetrace.storage.models import (
     TodoTagRelation,
 )
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -42,6 +43,16 @@ def _safe_int_list(value: Any) -> list[int]:
         except Exception:
             return []
     return []
+
+
+def _normalize_percent(value: Any) -> int:
+    if value is None:
+        return 0
+    try:
+        percent = int(value)
+    except Exception:
+        return 0
+    return max(0, min(100, percent))
 
 
 class TodoManager:
@@ -84,6 +95,7 @@ class TodoManager:
     def _todo_to_dict(self, session, todo: Todo) -> dict[str, Any]:
         return {
             "id": todo.id,
+            "uid": getattr(todo, "uid", None),
             "name": todo.name,
             "description": todo.description,
             "user_notes": todo.user_notes,
@@ -92,6 +104,11 @@ class TodoManager:
             "start_time": todo.start_time,
             "status": todo.status,
             "priority": todo.priority,
+            "completed_at": getattr(todo, "completed_at", None),
+            "percent_complete": (
+                todo.percent_complete if getattr(todo, "percent_complete", None) is not None else 0
+            ),
+            "rrule": getattr(todo, "rrule", None),
             "order": getattr(todo, "order", 0),
             "tags": self._get_todo_tags(session, todo.id),
             "attachments": self._get_todo_attachments(session, todo.id),
@@ -177,24 +194,48 @@ class TodoManager:
         start_time: datetime | None = None,
         status: str = "active",
         priority: str = "none",
+        completed_at: datetime | None = None,
+        percent_complete: int | None = None,
+        rrule: str | None = None,
+        uid: str | None = None,
         order: int = 0,
         tags: list[str] | None = None,
         related_activities: list[int] | None = None,
     ) -> int | None:
         try:
+            resolved_percent = (
+                _normalize_percent(percent_complete) if percent_complete is not None else None
+            )
+            if resolved_percent is None:
+                resolved_percent = 100 if status == "completed" else 0
+
+            resolved_completed_at = completed_at
+            if resolved_completed_at is None and status == "completed":
+                resolved_completed_at = get_utc_now()
+
+            cleaned_rrule = (rrule or "").strip() or None
+            cleaned_uid = (uid or "").strip() or None
+
             with self.db_base.get_session() as session:
-                todo = Todo(
-                    name=name,
-                    description=description,
-                    user_notes=user_notes,
-                    parent_todo_id=parent_todo_id,
-                    deadline=deadline,
-                    start_time=start_time,
-                    status=status,
-                    priority=priority,
-                    order=order,
-                    related_activities=json.dumps(_safe_int_list(related_activities)),
-                )
+                todo_kwargs: dict[str, Any] = {
+                    "name": name,
+                    "description": description,
+                    "user_notes": user_notes,
+                    "parent_todo_id": parent_todo_id,
+                    "deadline": deadline,
+                    "start_time": start_time,
+                    "status": status,
+                    "priority": priority,
+                    "completed_at": resolved_completed_at,
+                    "percent_complete": resolved_percent,
+                    "rrule": cleaned_rrule,
+                    "order": order,
+                    "related_activities": json.dumps(_safe_int_list(related_activities)),
+                }
+                if cleaned_uid:
+                    todo_kwargs["uid"] = cleaned_uid
+
+                todo = Todo(**todo_kwargs)
                 session.add(todo)
                 session.flush()
 
@@ -216,6 +257,19 @@ class TodoManager:
                 return self._todo_to_dict(session, todo)
         except SQLAlchemyError as e:
             logger.error(f"获取 todo 失败: {e}")
+            return None
+
+    def get_todo_by_uid(self, uid: str) -> dict[str, Any] | None:
+        if not uid:
+            return None
+        try:
+            with self.db_base.get_session() as session:
+                todo = session.query(Todo).filter_by(uid=uid).first()
+                if not todo:
+                    return None
+                return self._todo_to_dict(session, todo)
+        except SQLAlchemyError as e:
+            logger.error(f"根据 uid 获取 todo 失败: {e}")
             return None
 
     def list_todos(
@@ -302,11 +356,19 @@ class TodoManager:
         start_time: datetime | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
+        completed_at: datetime | None | Any = _UNSET,
+        percent_complete: int | Any = _UNSET,
+        rrule: str | None | Any = _UNSET,
         order: int | Any = _UNSET,
         related_activities: list[int] | Any = _UNSET,
     ) -> None:
         """应用待办字段更新"""
         # 使用字典映射来减少复杂度
+        if percent_complete is not _UNSET:
+            percent_complete = _normalize_percent(percent_complete)
+        if rrule is not _UNSET:
+            rrule = (rrule or "").strip() or None
+
         updates = {
             "name": name,
             "description": description,
@@ -316,6 +378,9 @@ class TodoManager:
             "start_time": start_time,
             "status": status,
             "priority": priority,
+            "completed_at": completed_at,
+            "percent_complete": percent_complete,
+            "rrule": rrule,
             "order": order,
         }
 
@@ -339,6 +404,9 @@ class TodoManager:
         start_time: datetime | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
+        completed_at: datetime | None | Any = _UNSET,
+        percent_complete: int | Any = _UNSET,
+        rrule: str | None | Any = _UNSET,
         order: int | Any = _UNSET,
         tags: list[str] | Any = _UNSET,
         related_activities: list[int] | Any = _UNSET,
@@ -350,6 +418,21 @@ class TodoManager:
                     logger.warning(f"todo 不存在: {todo_id}")
                     return False
 
+                resolved_completed_at = completed_at
+                resolved_percent = percent_complete
+
+                if status is not _UNSET:
+                    if status == "completed":
+                        if completed_at is _UNSET:
+                            resolved_completed_at = get_utc_now()
+                        if percent_complete is _UNSET:
+                            resolved_percent = 100
+                    else:
+                        if completed_at is _UNSET:
+                            resolved_completed_at = None
+                        if percent_complete is _UNSET:
+                            resolved_percent = 0
+
                 self._apply_todo_updates(
                     todo,
                     name=name,
@@ -360,11 +443,14 @@ class TodoManager:
                     start_time=start_time,
                     status=status,
                     priority=priority,
+                    completed_at=resolved_completed_at,
+                    percent_complete=resolved_percent,
+                    rrule=rrule,
                     order=order,
                     related_activities=related_activities,
                 )
 
-                todo.updated_at = datetime.now()
+                todo.updated_at = get_utc_now()
                 session.flush()
 
                 if tags is not _UNSET:
@@ -444,7 +530,7 @@ class TodoManager:
                     if "parent_todo_id" in item:
                         todo.parent_todo_id = item["parent_todo_id"]
 
-                    todo.updated_at = datetime.now()
+                    todo.updated_at = get_utc_now()
 
                 session.flush()
                 logger.info(f"批量重排序 {len(items)} 个待办")

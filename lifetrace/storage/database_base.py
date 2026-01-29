@@ -137,6 +137,12 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                     ),
                     (
+                        "idx_todos_uid",
+                        "todos",
+                        ["uid"],
+                        "CREATE INDEX IF NOT EXISTS idx_todos_uid ON todos(uid)",
+                    ),
+                    (
                         "idx_todos_order",
                         "todos",
                         ["order"],

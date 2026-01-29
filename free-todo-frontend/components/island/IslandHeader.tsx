@@ -115,7 +115,7 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false, onDragSta
         {/* 工具按钮 - 全屏模式或 SIDEBAR 已展开时显示 */}
         {shouldShowTools && (
           <>
-            <LayoutSelector showChevron={false} />
+            <LayoutSelector />
             <ThemeToggle />
             <LanguageToggle />
             <SettingsToggle />

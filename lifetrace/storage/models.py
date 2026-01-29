@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime
+from uuid import uuid4
 
 from sqlmodel import Column, Field, SQLModel, Text
 
@@ -97,6 +98,9 @@ class Todo(TimestampMixin, table=True):
     __tablename__ = "todos"
 
     id: int | None = Field(default=None, primary_key=True)
+    uid: str = Field(
+        default_factory=lambda: str(uuid4()), max_length=64, index=True
+    )  # iCalendar UID
     name: str = Field(max_length=200)  # 待办名称
     description: str | None = Field(default=None, sa_column=Column(Text))  # 描述
     user_notes: str | None = Field(default=None, sa_column=Column(Text))  # 用户笔记
@@ -105,6 +109,9 @@ class Todo(TimestampMixin, table=True):
     start_time: datetime | None = None  # 开始时间
     status: str = Field(default="active", max_length=20)  # active/completed/canceled
     priority: str = Field(default="none", max_length=20)  # high/medium/low/none
+    completed_at: datetime | None = None  # 完成时间（iCalendar COMPLETED）
+    percent_complete: int = Field(default=0, ge=0, le=100)  # 完成百分比（PERCENT-COMPLETE）
+    rrule: str | None = Field(default=None, max_length=500)  # iCalendar RRULE
     order: int = 0  # 同级待办之间的展示排序
     related_activities: str | None = Field(
         default=None, sa_column=Column(Text)

@@ -27,6 +27,11 @@ class TodoService:
             raise HTTPException(status_code=404, detail="todo 不存在")
         return TodoResponse(**todo)
 
+    def get_todo_by_uid(self, uid: str) -> TodoResponse | None:
+        """根据 UID 获取单个 Todo"""
+        todo = self.repository.get_by_uid(uid)
+        return TodoResponse(**todo) if todo else None
+
     def list_todos(self, limit: int, offset: int, status: str | None) -> dict[str, Any]:
         """获取 Todo 列表"""
         todos = self.repository.list_todos(limit, offset, status)
@@ -36,6 +41,7 @@ class TodoService:
     def create_todo(self, data: TodoCreate) -> TodoResponse:
         """创建 Todo"""
         todo_id = self.repository.create(
+            uid=data.uid,
             name=data.name,
             description=data.description,
             user_notes=data.user_notes,
@@ -44,6 +50,9 @@ class TodoService:
             start_time=data.start_time,
             status=data.status.value if data.status else "active",
             priority=data.priority.value if data.priority else "none",
+            completed_at=data.completed_at,
+            percent_complete=data.percent_complete,
+            rrule=data.rrule,
             order=data.order,
             tags=data.tags,
             related_activities=data.related_activities,

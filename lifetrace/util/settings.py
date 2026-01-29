@@ -104,6 +104,9 @@ settings = Dynaconf(
         # 日志配置
         Validator("logging.level", default="INFO"),
         Validator("logging.log_path", default="logs/"),
+        Validator("logging.console_level", default="INFO"),
+        Validator("logging.file_level", default="INFO"),
+        Validator("logging.quiet_modules", default=[], is_type_of=list),
         # 调度器配置
         Validator("scheduler.enabled", default=True, is_type_of=bool),
         Validator("scheduler.database_path", default="scheduler.db"),
@@ -141,6 +144,10 @@ settings = Dynaconf(
         Validator("audio.asr.heartbeat", default=False, is_type_of=bool),
         Validator("audio.storage.audio_dir", default="audio/"),
         Validator("audio.storage.temp_audio_dir", default="temp_audio/"),
+        # 后端模块启用配置
+        Validator("backend_modules.enabled", default=[], is_type_of=list),
+        Validator("backend_modules.disabled", default=[], is_type_of=list),
+        Validator("backend_modules.unavailable", default=[], is_type_of=list),
     ],
 )
 

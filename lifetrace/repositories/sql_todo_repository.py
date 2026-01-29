@@ -20,6 +20,9 @@ class SqlTodoRepository(ITodoRepository):
     def get_by_id(self, todo_id: int) -> dict[str, Any] | None:
         return self._manager.get_todo(todo_id)
 
+    def get_by_uid(self, uid: str) -> dict[str, Any] | None:
+        return self._manager.get_todo_by_uid(uid)
+
     def list_todos(self, limit: int, offset: int, status: str | None) -> list[dict[str, Any]]:
         return self._manager.list_todos(limit=limit, offset=offset, status=status)
 

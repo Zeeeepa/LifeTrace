@@ -7,6 +7,7 @@ import { type ChildProcess, fork, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
+import { emitStatus } from "./bootstrap-status";
 import {
 	isDevelopment,
 	LOG_CONFIG,
@@ -117,6 +118,7 @@ export function getBackendUrl(): string {
 	 */
 export async function startNextServer(): Promise<void> {
 	const isDev = isDevelopment(app.isPackaged);
+	emitStatus({ message: "启动前端服务", progress: 82 });
 
 	// 如果应用已打包，必须启动内置服务器，不允许依赖外部 dev 服务器
 		if (app.isPackaged) {
@@ -247,6 +249,7 @@ export async function startNextServer(): Promise<void> {
 	const msg = `Starting Next.js server from: ${serverPath}`;
 	logger.console(msg);
 	logger.info(msg);
+	emitStatus({ message: "启动前端服务", progress: 85, detail: serverPath });
 
 	// 检查服务器文件是否存在
 		if (!fs.existsSync(serverPath)) {
@@ -317,7 +320,7 @@ export async function startNextServer(): Promise<void> {
 	// 监听进程的 spawn 事件
 	nextProcess.on("spawn", () => {
 		logger.info(`Process spawned successfully with PID: ${nextProcess?.pid}`);
-		});
+	});
 
 	// 收集所有输出用于日志
 	let stdoutBuffer = "";

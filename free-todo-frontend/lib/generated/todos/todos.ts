@@ -25,6 +25,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BodyImportIcsApiTodosImportIcsPost,
+  ExportIcsApiTodosExportIcsGetParams,
   HTTPValidationError,
   ListTodosApiTodosGetParams,
   TodoCreate,
@@ -480,6 +482,167 @@ export const useReorderTodosApiTodosReorderPost = <TError = HTTPValidationError,
       > => {
 
       const mutationOptions = getReorderTodosApiTodosReorderPostMutationOptions(options);
+
+      return useMutation(mutationOptions, queryClient);
+    }
+    /**
+ * 导出 Todo 为 ICS 文件
+ * @summary Export Ics
+ */
+export const exportIcsApiTodosExportIcsGet = (
+    params?: ExportIcsApiTodosExportIcsGetParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customFetcher<unknown>(
+      {url: `/api/todos/export/ics`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getExportIcsApiTodosExportIcsGetQueryKey = (params?: ExportIcsApiTodosExportIcsGetParams,) => {
+    return [
+    `/api/todos/export/ics`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getExportIcsApiTodosExportIcsGetQueryOptions = <TData = Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError = HTTPValidationError>(params?: ExportIcsApiTodosExportIcsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportIcsApiTodosExportIcsGetQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>> = ({ signal }) => exportIcsApiTodosExportIcsGet(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ExportIcsApiTodosExportIcsGetQueryResult = NonNullable<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>>
+export type ExportIcsApiTodosExportIcsGetQueryError = HTTPValidationError
+
+
+export function useExportIcsApiTodosExportIcsGet<TData = Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError = HTTPValidationError>(
+ params: undefined |  ExportIcsApiTodosExportIcsGetParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>,
+          TError,
+          Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useExportIcsApiTodosExportIcsGet<TData = Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError = HTTPValidationError>(
+ params?: ExportIcsApiTodosExportIcsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>,
+          TError,
+          Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useExportIcsApiTodosExportIcsGet<TData = Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError = HTTPValidationError>(
+ params?: ExportIcsApiTodosExportIcsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Export Ics
+ */
+
+export function useExportIcsApiTodosExportIcsGet<TData = Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError = HTTPValidationError>(
+ params?: ExportIcsApiTodosExportIcsGetParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportIcsApiTodosExportIcsGet>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getExportIcsApiTodosExportIcsGetQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * 从 ICS 文件导入 Todo
+ * @summary Import Ics
+ */
+export const importIcsApiTodosImportIcsPost = (
+    bodyImportIcsApiTodosImportIcsPost: BodyImportIcsApiTodosImportIcsPost,
+ signal?: AbortSignal
+) => {
+      
+      const formData = new FormData();
+formData.append(`file`, bodyImportIcsApiTodosImportIcsPost.file)
+
+      return customFetcher<TodoResponse[]>(
+      {url: `/api/todos/import/ics`, method: 'POST',
+      headers: {'Content-Type': 'multipart/form-data', },
+       data: formData, signal
+    },
+      );
+    }
+  
+
+
+export const getImportIcsApiTodosImportIcsPostMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>, TError,{data: BodyImportIcsApiTodosImportIcsPost}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>, TError,{data: BodyImportIcsApiTodosImportIcsPost}, TContext> => {
+
+const mutationKey = ['importIcsApiTodosImportIcsPost'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>, {data: BodyImportIcsApiTodosImportIcsPost}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importIcsApiTodosImportIcsPost(data,)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportIcsApiTodosImportIcsPostMutationResult = NonNullable<Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>>
+    export type ImportIcsApiTodosImportIcsPostMutationBody = BodyImportIcsApiTodosImportIcsPost
+    export type ImportIcsApiTodosImportIcsPostMutationError = HTTPValidationError
+
+    /**
+ * @summary Import Ics
+ */
+export const useImportIcsApiTodosImportIcsPost = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>, TError,{data: BodyImportIcsApiTodosImportIcsPost}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof importIcsApiTodosImportIcsPost>>,
+        TError,
+        {data: BodyImportIcsApiTodosImportIcsPost},
+        TContext
+      > => {
+
+      const mutationOptions = getImportIcsApiTodosImportIcsPostMutationOptions(options);
 
       return useMutation(mutationOptions, queryClient);
     }

@@ -35,11 +35,19 @@ extraResources:
     to: 'standalone/public'
     filter:
       - '**/*'
-  # 复制后端可执行文件（PyInstaller 打包结果）
-  - from: '../dist-backend'
-    to: 'backend'
+  # 复制后端源码与依赖清单（运行时使用本机 Python）
+  - from: '../lifetrace'
+    to: 'backend/lifetrace'
     filter:
       - '**/*'
+      - '!**/__pycache__/**'
+      - '!**/*.pyc'
+      - '!**/data/**'
+      - '!**/config/config.yaml'
+      - '!**/.venv/**'
+      - '!**/.ruff_cache/**'
+  - from: '../requirements-runtime.txt'
+    to: 'backend/requirements-runtime.txt'
 
 # Windows 配置
 win:

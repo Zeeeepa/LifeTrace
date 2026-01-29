@@ -113,6 +113,11 @@ class ITodoRepository(ABC):
         pass
 
     @abstractmethod
+    def get_by_uid(self, uid: str) -> dict[str, Any] | None:
+        """根据UID获取单个todo"""
+        pass
+
+    @abstractmethod
     def list_todos(self, limit: int, offset: int, status: str | None) -> list[dict[str, Any]]:
         """获取todo列表"""
         pass

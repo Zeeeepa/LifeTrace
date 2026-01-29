@@ -141,7 +141,7 @@ export type WindowMode = "island" | "web";
 /**
  * 编译时注入的默认窗口模式
  * 由 esbuild 在构建时通过 define 选项设置
- * 如果未定义，默认为 "island"
+ * 如果未定义，默认为 "web"
  */
 declare const __DEFAULT_WINDOW_MODE__: string | undefined;
 
@@ -151,7 +151,7 @@ declare const __DEFAULT_WINDOW_MODE__: string | undefined;
  * 优先级：
  * 1. 运行时环境变量 WINDOW_MODE（方便调试）
  * 2. 编译时注入的默认值 __DEFAULT_WINDOW_MODE__
- * 3. 硬编码默认值 "island"
+ * 3. 硬编码默认值 "web"
  */
 export function getWindowMode(): WindowMode {
 	// 运行时环境变量优先（方便调试和开发）
@@ -173,7 +173,7 @@ export function getWindowMode(): WindowMode {
 	}
 
 	// 硬编码默认值
-	return "island";
+	return "web";
 }
 
 /**
@@ -190,8 +190,12 @@ export const LOG_CONFIG = {
  * 进程配置
  */
 export const PROCESS_CONFIG = {
-	/** 后端可执行文件名 */
-	backendExecName: process.platform === "win32" ? "lifetrace.exe" : "lifetrace",
+	/** 后端入口脚本（相对 backend 根目录） */
+	backendEntryScript: "lifetrace/scripts/start_backend.py",
+	/** 后端依赖清单（相对 backend 根目录） */
+	backendRequirementsFile: "requirements-runtime.txt",
+	/** 后端虚拟环境目录名（userData 下） */
+	backendVenvDir: "python-venv",
 	/** 后端数据目录名 */
 	backendDataDir: "lifetrace-data",
 } as const;

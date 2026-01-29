@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Response, UploadFile
 
 from lifetrace.core.dependencies import get_todo_service
 from lifetrace.schemas.todo import (
@@ -12,6 +12,7 @@ from lifetrace.schemas.todo import (
     TodoResponse,
     TodoUpdate,
 )
+from lifetrace.services.icalendar_service import ICalendarService
 from lifetrace.services.todo_service import TodoService
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
@@ -80,3 +81,55 @@ async def reorder_todos(
         for item in request.items
     ]
     return service.reorder_todos(items)
+
+
+@router.get("/export/ics")
+async def export_ics(
+    limit: int = Query(2000, ge=1, le=2000, description="导出数量限制"),
+    offset: int = Query(0, ge=0, description="导出偏移量"),
+    status: str | None = Query(None, description="状态筛选：active/completed/canceled"),
+    service: TodoService = Depends(get_todo_service),
+):
+    """导出 Todo 为 ICS 文件"""
+    payload = service.list_todos(limit, offset, status)
+    todos = [t.model_dump() if hasattr(t, "model_dump") else t for t in payload.get("todos", [])]
+    ics_content = ICalendarService().export_todos(todos)
+    filename = "lifetrace-todos.ics" if not status else f"lifetrace-todos-{status}.ics"
+    return Response(
+        content=ics_content,
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import/ics", response_model=list[TodoResponse])
+async def import_ics(
+    file: UploadFile = File(...),
+    service: TodoService = Depends(get_todo_service),
+):
+    """从 ICS 文件导入 Todo"""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="未提供 ICS 文件")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="ICS 文件为空")
+
+    try:
+        ics_text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        ics_text = content.decode("utf-8", errors="ignore")
+
+    todos = ICalendarService().import_todos(ics_text)
+    created: list[TodoResponse] = []
+    seen_uids: set[str] = set()
+    for todo in todos:
+        uid = (todo.uid or "").strip()
+        if uid:
+            if uid in seen_uids:
+                continue
+            seen_uids.add(uid)
+            if service.get_todo_by_uid(uid):
+                continue
+        created.append(service.create_todo(todo))
+    return created

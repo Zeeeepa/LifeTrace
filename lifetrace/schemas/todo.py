@@ -47,6 +47,7 @@ class TodoAttachmentResponse(BaseModel):
 class TodoCreate(BaseModel):
     """创建 Todo 请求模型"""
 
+    uid: str | None = Field(None, max_length=64, description="iCalendar UID")
     name: str = Field(..., min_length=1, max_length=200, description="待办名称")
     description: str | None = Field(None, description="描述")
     user_notes: str | None = Field(None, description="用户笔记")
@@ -55,6 +56,9 @@ class TodoCreate(BaseModel):
     start_time: datetime | None = Field(None, description="开始时间")
     status: TodoStatus = Field(TodoStatus.ACTIVE, description="状态")
     priority: TodoPriority = Field(TodoPriority.NONE, description="优先级")
+    completed_at: datetime | None = Field(None, description="完成时间")
+    percent_complete: int | None = Field(None, ge=0, le=100, description="完成百分比（0-100）")
+    rrule: str | None = Field(None, description="iCalendar RRULE")
     order: int = Field(0, description="同级待办之间的展示排序")
     tags: list[str] = Field(default_factory=list, description="标签名称列表")
     related_activities: list[int] = Field(default_factory=list, description="关联活动ID列表")
@@ -71,6 +75,9 @@ class TodoUpdate(BaseModel):
     start_time: datetime | None = Field(None, description="开始时间（显式传 null 可清空）")
     status: TodoStatus | None = Field(None, description="状态")
     priority: TodoPriority | None = Field(None, description="优先级")
+    completed_at: datetime | None = Field(None, description="完成时间（显式传 null 可清空）")
+    percent_complete: int | None = Field(None, ge=0, le=100, description="完成百分比（0-100）")
+    rrule: str | None = Field(None, description="iCalendar RRULE（显式传 null 可清空）")
     order: int | None = Field(None, description="同级待办之间的展示排序")
     tags: list[str] | None = Field(None, description="标签名称列表（显式传空数组将清空）")
     related_activities: list[int] | None = Field(
@@ -82,6 +89,7 @@ class TodoResponse(BaseModel):
     """Todo 响应模型"""
 
     id: int = Field(..., description="待办ID")
+    uid: str = Field(..., description="iCalendar UID")
     name: str = Field(..., description="待办名称")
     description: str | None = Field(None, description="描述")
     user_notes: str | None = Field(None, description="用户笔记")
@@ -90,6 +98,9 @@ class TodoResponse(BaseModel):
     start_time: datetime | None = Field(None, description="开始时间")
     status: str = Field(..., description="状态")
     priority: str = Field(..., description="优先级")
+    completed_at: datetime | None = Field(None, description="完成时间")
+    percent_complete: int = Field(0, description="完成百分比（0-100）")
+    rrule: str | None = Field(None, description="iCalendar RRULE")
     order: int = Field(0, description="同级待办之间的展示排序")
     tags: list[str] = Field(default_factory=list, description="标签名称列表")
     attachments: list[TodoAttachmentResponse] = Field(default_factory=list, description="附件列表")

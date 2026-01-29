@@ -10,6 +10,8 @@ import type { TodoResponseUserNotes } from './todoResponseUserNotes';
 import type { TodoResponseParentTodoId } from './todoResponseParentTodoId';
 import type { TodoResponseDeadline } from './todoResponseDeadline';
 import type { TodoResponseStartTime } from './todoResponseStartTime';
+import type { TodoResponseCompletedAt } from './todoResponseCompletedAt';
+import type { TodoResponseRrule } from './todoResponseRrule';
 import type { TodoAttachmentResponse } from './todoAttachmentResponse';
 
 /**
@@ -18,6 +20,8 @@ import type { TodoAttachmentResponse } from './todoAttachmentResponse';
 export interface TodoResponse {
   /** 待办ID */
   id: number;
+  /** iCalendar UID */
+  uid: string;
   /** 待办名称 */
   name: string;
   /** 描述 */
@@ -34,6 +38,12 @@ export interface TodoResponse {
   status: string;
   /** 优先级 */
   priority: string;
+  /** 完成时间 */
+  completed_at?: TodoResponseCompletedAt;
+  /** 完成百分比（0-100） */
+  percent_complete?: number;
+  /** iCalendar RRULE */
+  rrule?: TodoResponseRrule;
   /** 同级待办之间的展示排序 */
   order?: number;
   /** 标签名称列表 */

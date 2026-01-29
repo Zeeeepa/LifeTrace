@@ -8,6 +8,12 @@ import { Jimp } from "jimp";
 import { logger } from "./logger";
 import type { WindowManager } from "./window-manager";
 
+type JimpScanContext = {
+	bitmap: {
+		data: Buffer;
+	};
+};
+
 /**
  * 发送截图到后端进行待办提取
  */
@@ -150,8 +156,7 @@ async function maskWindowArea(
 			maskY,
 			maskWidth,
 			maskHeight,
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			function (this: any, _x: number, _y: number, idx: number) {
+			function (this: JimpScanContext, _x: number, _y: number, idx: number) {
 				// 获取当前像素的颜色（RGBA 格式）
 				// Jimp 的 bitmap.data 是 RGBA 格式：R, G, B, A
 				const r = this.bitmap.data[idx] || 0;

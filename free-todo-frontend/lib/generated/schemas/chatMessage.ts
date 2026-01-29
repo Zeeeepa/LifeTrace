@@ -12,6 +12,7 @@ import type { ChatMessageConversationId } from './chatMessageConversationId';
 import type { ChatMessageMode } from './chatMessageMode';
 import type { ChatMessageSelectedTools } from './chatMessageSelectedTools';
 import type { ChatMessageExternalTools } from './chatMessageExternalTools';
+import type { ChatMessageWorkspacePath } from './chatMessageWorkspacePath';
 
 export interface ChatMessage {
   message: string;
@@ -23,5 +24,7 @@ export interface ChatMessage {
   mode?: ChatMessageMode;
   selected_tools?: ChatMessageSelectedTools;
   external_tools?: ChatMessageExternalTools;
+  workspace_path?: ChatMessageWorkspacePath;
+  enable_file_delete?: boolean;
   [key: string]: unknown;
  }

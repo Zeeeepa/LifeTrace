@@ -65,7 +65,7 @@ export function AppHeader({
 
 			{/* 右侧：工具按钮 */}
 			<div className="flex items-center gap-2 min-w-0 shrink-0">
-				<LayoutSelector showChevron={false} />
+				<LayoutSelector />
 				<ThemeToggle />
 				<LanguageToggle />
 				<SettingsToggle />

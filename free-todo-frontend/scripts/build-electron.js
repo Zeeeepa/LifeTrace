@@ -8,8 +8,8 @@ const path = require("node:path");
 
 const isWatch = process.argv.includes("--watch");
 
-// 获取窗口模式（默认为 island）
-const windowMode = process.env.WINDOW_MODE || "island";
+// 获取窗口模式（默认为 web）
+const windowMode = process.env.WINDOW_MODE || "web";
 
 async function build() {
 	console.log(`Building Electron with WINDOW_MODE=${windowMode}`);

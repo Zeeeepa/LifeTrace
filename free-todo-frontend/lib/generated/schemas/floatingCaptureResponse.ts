@@ -5,7 +5,7 @@
  * 智能生活记录系统 API
  * OpenAPI spec version: 0.1.0
  */
-import type { ExtractedTodo } from './extractedTodo';
+import type { LifetraceSchemasFloatingCaptureExtractedTodo } from './lifetraceSchemasFloatingCaptureExtractedTodo';
 import type { CreatedTodo } from './createdTodo';
 
 /**
@@ -17,7 +17,7 @@ export interface FloatingCaptureResponse {
   /** 处理消息 */
   message: string;
   /** 提取的待办列表 */
-  extracted_todos?: ExtractedTodo[];
+  extracted_todos?: LifetraceSchemasFloatingCaptureExtractedTodo[];
   /** 创建的待办列表 */
   created_todos?: CreatedTodo[];
   /** 创建的待办数量 */

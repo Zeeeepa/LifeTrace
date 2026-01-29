@@ -9,8 +9,35 @@
 # 服务器配置
 server:
   host: 127.0.0.1
-  port: 8002 # 默认端口 8001，保留 8000 给其他服务
+  port: 8001 # 默认端口 8001，保留 8000 给其他服务
   debug: false
+
+# 后端模块启用配置（轻量插件化）
+backend_modules:
+  enabled:
+    - health
+    - config
+    - system
+    - logs
+    - chat
+    - activity
+    - search
+    - screenshot
+    - event
+    - ocr
+    - vector
+    - rag
+    - scheduler
+    - cost_tracking
+    - time_allocation
+    - todo
+    - todo_extraction
+    - journal
+    - vision
+    - notification
+    - floating_capture
+    - audio
+    - proactive_ocr
 
 # 基础目录配置
 base_dir: data
@@ -20,6 +47,9 @@ screenshots_dir: screenshots/
 # 日志配置
 logging:
   level: INFO
+  console_level: INFO
+  file_level: INFO
+  quiet_modules: [] # 示例: ["activity_service", "event_service"]
   log_path: logs/
 
 # 调度器配置

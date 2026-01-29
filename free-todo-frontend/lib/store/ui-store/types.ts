@@ -30,6 +30,8 @@ export interface UiStoreState {
 	panelFeatureMap: Record<PanelPosition, PanelFeature | null>;
 	// 被禁用的功能列表
 	disabledFeatures: PanelFeature[];
+	// 后端能力不足导致的禁用功能列表
+	backendDisabledFeatures: PanelFeature[];
 	// 自动关闭的panel栈（记录因窗口缩小而自动关闭的panel，从右到左的顺序）
 	autoClosedPanels: PanelPosition[];
 	// Dock 显示模式：固定显示或鼠标离开时自动隐藏
@@ -57,6 +59,7 @@ export interface UiStoreState {
 	getFeatureByPosition: (position: PanelPosition) => PanelFeature | null;
 	getAvailableFeatures: () => PanelFeature[];
 	setFeatureEnabled: (feature: PanelFeature, enabled: boolean) => void;
+	setBackendDisabledFeatures: (features: PanelFeature[]) => void;
 	isFeatureEnabled: (feature: PanelFeature) => boolean;
 	// 兼容性方法：为了保持向后兼容，保留基于功能的访问方法
 	// 这些方法内部会通过动态映射查找位置
@@ -71,6 +74,15 @@ export interface UiStoreState {
 		position1: PanelPosition,
 		position2: PanelPosition,
 	) => void;
+	// 用户自定义布局
+	customLayouts: LayoutPreset[];
+	saveCustomLayout: (name: string, options?: { overwrite?: boolean }) => boolean;
+	renameCustomLayout: (
+		layoutId: string,
+		name: string,
+		options?: { overwrite?: boolean },
+	) => boolean;
+	deleteCustomLayout: (layoutId: string) => void;
 	// 自动关闭panel管理方法
 	setAutoClosePanel: (position: PanelPosition) => void;
 	restoreAutoClosedPanel: () => void;
