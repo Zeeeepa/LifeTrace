@@ -64,3 +64,19 @@ repos:
         language: system
         files: ^lifetrace/.*\.py$
         pass_filenames: true
+
+      # Rust format check (rustfmt)
+      - id: rustfmt
+        name: Rust format (rustfmt)
+        entry: bash -c 'cd free-todo-frontend/src-tauri && cargo fmt --all -- --check'
+        language: system
+        files: ^free-todo-frontend/src-tauri/.*\.rs$
+        pass_filenames: false
+
+      # Rust linter (clippy)
+      - id: clippy
+        name: Rust linter (clippy)
+        entry: bash -c 'cd free-todo-frontend/src-tauri && cargo clippy --all-targets --all-features -- -D warnings'
+        language: system
+        files: ^free-todo-frontend/src-tauri/.*\.rs$
+        pass_filenames: false

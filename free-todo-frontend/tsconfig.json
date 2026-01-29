@@ -42,6 +42,7 @@
 		"dist-electron-app",
 		"dist",
 		"dist-backend",
-		"../dist-backend"
+		"../dist-backend",
+		"src-tauri"
 	]
 }

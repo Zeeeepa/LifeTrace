@@ -68,3 +68,10 @@ AGENTS.md
 
 # Build
 dist-backend/
+
+# Rust / Tauri
+**/target/
+**/*.rs.bk
+**/Cargo.lock
+**/WixTools/
+**/gen/
