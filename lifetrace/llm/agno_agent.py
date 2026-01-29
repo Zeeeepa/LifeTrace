@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from collections.abc import Generator
 from contextvars import ContextVar
@@ -114,6 +115,23 @@ def _create_file_tool(tool_class, **kwargs) -> Toolkit | None:
     )
 
 
+def _safe_tool_init(tool_class, **kwargs) -> Toolkit:
+    """安全初始化工具，兼容不同版本的构造参数"""
+    try:
+        return tool_class(**kwargs)
+    except TypeError as exc:
+        if "unexpected keyword argument" not in str(exc):
+            raise
+        try:
+            sig = inspect.signature(tool_class.__init__)
+        except (TypeError, ValueError):
+            return tool_class()
+        allowed_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
+        if not allowed_kwargs:
+            return tool_class()
+        return tool_class(**allowed_kwargs)
+
+
 def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: PLR0911
     """创建外部工具实例
 
@@ -130,11 +148,11 @@ def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: P
 
     # 搜索类工具
     if tool_name == "websearch":
-        return tool_class(backend="auto", search=True, news=True)
+        return _safe_tool_init(tool_class, backend="auto", search=True, news=True)
     if tool_name == "arxiv":
-        return tool_class(search_arxiv=True, read_arxiv_papers=True)
+        return _safe_tool_init(tool_class, search_arxiv=True, read_arxiv_papers=True)
     if tool_name in ("hackernews", "wikipedia", "sleep"):
-        return tool_class()
+        return _safe_tool_init(tool_class)
 
     # 本地工具
     if tool_name == "file":
@@ -142,13 +160,21 @@ def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: P
     if tool_name == "local_fs":
         # 确保使用 Path 对象
         base_dir_path = Path(base_dir) if isinstance(base_dir, str) else base_dir
-        return tool_class(target_directory=base_dir_path) if base_dir else tool_class()
+        return (
+            _safe_tool_init(tool_class, target_directory=base_dir_path)
+            if base_dir
+            else _safe_tool_init(tool_class)
+        )
     if tool_name == "shell":
         # 确保使用 Path 对象
         base_dir_path = Path(base_dir) if isinstance(base_dir, str) else base_dir
-        return tool_class(base_dir=base_dir_path) if base_dir else tool_class()
+        return (
+            _safe_tool_init(tool_class, base_dir=base_dir_path)
+            if base_dir
+            else _safe_tool_init(tool_class)
+        )
 
-    return tool_class()
+    return _safe_tool_init(tool_class)
 
 
 def _build_instructions(
