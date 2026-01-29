@@ -59,9 +59,7 @@ def create_agno_streaming_response(
     支持的外部工具：
         搜索类（无需配置）：
         - websearch: 通用网页搜索（自动选择后端）
-        - arxiv: 论文搜索和阅读
         - hackernews: Hacker News 新闻
-        - wikipedia: 维基百科搜索
 
         本地类（需要 workspace_path）：
         - file: 文件操作（读写、搜索）

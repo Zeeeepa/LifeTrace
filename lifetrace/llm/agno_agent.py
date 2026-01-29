@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 from collections.abc import Generator
@@ -55,8 +56,6 @@ EXTERNAL_TOOLS_REGISTRY: dict[str, type[Toolkit]] = {}
 def _try_register_tool(name: str, module_path: str, class_name: str, warning: str = ""):
     """尝试注册单个工具"""
     try:
-        import importlib
-
         module = importlib.import_module(module_path)
         tool_class = getattr(module, class_name)
         EXTERNAL_TOOLS_REGISTRY[name] = tool_class
@@ -65,27 +64,37 @@ def _try_register_tool(name: str, module_path: str, class_name: str, warning: st
         logger.warning(warning or f"无法导入 {class_name}")
 
 
+def _ensure_tool_dependency(tool_name: str, package_name: str) -> bool:
+    """检查外部工具依赖是否可用"""
+    try:
+        importlib.import_module(package_name)
+    except ImportError:
+        logger.warning(f"{tool_name} 工具依赖 {package_name} 包，未安装，跳过注册")
+        return False
+    return True
+
+
 def _register_external_tools():
     """注册可用的外部工具（延迟导入以避免启动时的依赖问题）"""
     global EXTERNAL_TOOLS_REGISTRY  # noqa: PLW0603
     if EXTERNAL_TOOLS_REGISTRY:
         return
 
-    # 工具注册配置: (名称, 模块路径, 类名, 警告信息)
+    # 工具注册配置: (名称, 模块路径, 类名, 警告信息, 依赖包)
     tools_config = [
         # 搜索类工具
-        ("websearch", "agno.tools.websearch", "WebSearchTools", "请确保已安装 ddgs 包"),
-        ("arxiv", "agno.tools.arxiv", "ArxivTools", "请确保已安装 arxiv 包"),
-        ("hackernews", "agno.tools.hackernews", "HackerNewsTools", ""),
-        ("wikipedia", "agno.tools.wikipedia", "WikipediaTools", "请确保已安装 wikipedia 包"),
+        ("websearch", "agno.tools.websearch", "WebSearchTools", "请确保已安装 ddgs 包", "ddgs"),
+        ("hackernews", "agno.tools.hackernews", "HackerNewsTools", "", None),
         # 本地工具
-        ("file", "agno.tools.file", "FileTools", ""),
-        ("local_fs", "agno.tools.local_file_system", "LocalFileSystemTools", ""),
-        ("shell", "agno.tools.shell", "ShellTools", ""),
-        ("sleep", "agno.tools.sleep", "SleepTools", ""),
+        ("file", "agno.tools.file", "FileTools", "", None),
+        ("local_fs", "agno.tools.local_file_system", "LocalFileSystemTools", "", None),
+        ("shell", "agno.tools.shell", "ShellTools", "", None),
+        ("sleep", "agno.tools.sleep", "SleepTools", "", None),
     ]
 
-    for name, module_path, class_name, warning in tools_config:
+    for name, module_path, class_name, warning, dependency in tools_config:
+        if dependency and not _ensure_tool_dependency(name, dependency):
+            continue
         _try_register_tool(name, module_path, class_name, warning)
 
 
@@ -136,7 +145,7 @@ def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: P
     """创建外部工具实例
 
     可用工具:
-        搜索类: websearch, arxiv, hackernews, wikipedia
+        搜索类: websearch, hackernews
         本地类: file(需要base_dir), local_fs, shell, sleep
     """
     _register_external_tools()
@@ -149,9 +158,7 @@ def create_external_tool(tool_name: str, **kwargs) -> Toolkit | None:  # noqa: P
     # 搜索类工具
     if tool_name == "websearch":
         return _safe_tool_init(tool_class, backend="auto", search=True, news=True)
-    if tool_name == "arxiv":
-        return _safe_tool_init(tool_class, search_arxiv=True, read_arxiv_papers=True)
-    if tool_name in ("hackernews", "wikipedia", "sleep"):
+    if tool_name in ("hackernews", "sleep"):
         return _safe_tool_init(tool_class)
 
     # 本地工具

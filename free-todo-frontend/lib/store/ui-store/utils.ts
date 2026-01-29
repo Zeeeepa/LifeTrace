@@ -72,9 +72,7 @@ export const DEFAULT_PANEL_STATE = {
 	// Agno 模式下选中的外部工具列表（默认全部选中）
 	selectedExternalTools: [
 		"websearch",
-		"arxiv",
 		"hackernews",
-		"wikipedia",
 		"file",
 		"local_fs",
 		"shell",

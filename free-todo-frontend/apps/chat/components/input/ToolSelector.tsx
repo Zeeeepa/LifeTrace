@@ -40,9 +40,7 @@ const FREETODO_TOOLS = [
 const EXTERNAL_TOOLS = [
 	// 搜索类工具
 	{ id: "websearch", category: "search" }, // 通用网页搜索（Auto 模式）
-	{ id: "arxiv", category: "search" }, // 论文搜索
 	{ id: "hackernews", category: "search" }, // Hacker News
-	{ id: "wikipedia", category: "search" }, // 维基百科
 	// 本地类工具
 	{ id: "file", category: "local" }, // 文件操作（需要 workspace_path）
 	{ id: "local_fs", category: "local" }, // 简化文件写入

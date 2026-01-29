@@ -304,19 +304,6 @@ wheels = [
 ]
 
 [[package]]
-name = "arxiv"
-version = "2.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "feedparser" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/aa/dc1c6c633f63fce090e7c067af8c528a5e61218a61c266ff615d46cbde0a/arxiv-2.4.0.tar.gz", hash = "sha256:cabe5470d031aa3f22d2744a7600391c62c3489653f0c62bec9019e62bb0554b", size = 74546, upload-time = "2026-01-05T02:43:16.823Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/63/9e71153b2d48c98f8079c90d7211bc65515cc1ad18c3328c3c0472e68f44/arxiv-2.4.0-py3-none-any.whl", hash = "sha256:c02ccb09a777aaadd75d3bc1d2627894ef9c987c651d0dacd864b9f69fb0569f", size = 12065, upload-time = "2026-01-05T02:43:12.542Z" },
-]
-
-[[package]]
 name = "attrs"
 version = "25.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1414,7 +1401,6 @@ dependencies = [
     { name = "apscheduler" },
     { name = "arize-phoenix" },
     { name = "arize-phoenix-otel" },
-    { name = "arxiv" },
     { name = "chromadb" },
     { name = "dashscope" },
     { name = "ddgs" },
@@ -1453,7 +1439,6 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
     { name = "websockets" },
     { name = "whisperlivekit" },
-    { name = "wikipedia" },
 ]
 
 [package.dev-dependencies]
@@ -1471,7 +1456,6 @@ requires-dist = [
     { name = "apscheduler", specifier = ">=3.10.0" },
     { name = "arize-phoenix", specifier = ">=8.0.0" },
     { name = "arize-phoenix-otel", specifier = ">=0.11.0" },
-    { name = "arxiv", specifier = ">=2.4.0" },
     { name = "chromadb", specifier = ">=0.4.0" },
     { name = "dashscope", specifier = ">=1.17.0" },
     { name = "ddgs", specifier = ">=8.0.0" },
@@ -1510,7 +1494,6 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.20.0" },
     { name = "websockets", specifier = ">=12.0" },
     { name = "whisperlivekit", specifier = ">=0.1.0" },
-    { name = "wikipedia", specifier = ">=1.4.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -3593,16 +3576,6 @@ dependencies = [
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/72/a21657038658f75a091c6eaa5e5d756d98bb9210f4c04db08ca06e57a3f9/whisperlivekit-0.2.17.post1-py3-none-any.whl", hash = "sha256:4d5c3a51c36c3a84fecb859e2b942066a4fe1f6491268499f7a10f210871b757", size = 7023246, upload-time = "2026-01-16T09:47:03.729Z" },
 ]
-
-[[package]]
-name = "wikipedia"
-version = "1.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "beautifulsoup4" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/67/35/25e68fbc99e672127cc6fbb14b8ec1ba3dfef035bf1e4c90f78f24a80b7d/wikipedia-1.4.0.tar.gz", hash = "sha256:db0fad1829fdd441b1852306e9856398204dc0786d2996dd2e0c8bb8e26133b2", size = 27748, upload-time = "2014-11-15T15:59:49.808Z" }
 
 [[package]]
 name = "win32-setctime"
