@@ -63,9 +63,6 @@ lifetrace/config/config.yaml
 *.tmp
 .cache/
 
-# Chatgpt
-AGENTS.md
-
 # Build
 dist-backend/
 
