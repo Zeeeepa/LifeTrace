@@ -2,6 +2,14 @@
 //!
 //! This module contains the core functionality for the FreeTodo desktop application,
 //! including backend management, Next.js server management, system tray, and global shortcuts.
+//!
+//! ## Window Modes
+//!
+//! The application supports two window modes (matching Electron implementation):
+//! - **Web Mode**: Standard window with decorations (currently implemented)
+//! - **Island Mode**: Transparent floating window like Dynamic Island (TODO: not yet implemented)
+//!
+//! Currently only Web mode is supported. Island mode is still in development.
 
 pub mod backend;
 pub mod config;
@@ -12,7 +20,20 @@ pub mod tray;
 use log::info;
 use tauri::Manager;
 
+/// Window mode configuration
+/// Currently only Web mode is supported
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(dead_code)]
+pub enum WindowMode {
+    /// Standard window with decorations (default, currently supported)
+    #[default]
+    Web,
+    /// Transparent floating window like Dynamic Island (TODO: not yet implemented)
+    Island,
+}
+
 /// Initialize the Tauri application with all required plugins and setup
+/// Note: Currently only Web mode is supported
 pub fn run() {
     // Initialize logger
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();

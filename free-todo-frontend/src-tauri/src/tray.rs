@@ -2,6 +2,8 @@
 //!
 //! This module handles the system tray icon and context menu,
 //! providing quick access to common application functions.
+//!
+//! Note: Currently designed for Web mode. Island mode features are placeholders.
 
 use log::{error, info};
 use tauri::{

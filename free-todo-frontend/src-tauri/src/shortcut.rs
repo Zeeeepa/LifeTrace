@@ -2,6 +2,8 @@
 //!
 //! This module handles global keyboard shortcuts for the application,
 //! providing quick access to common functions from anywhere in the system.
+//!
+//! Note: Currently designed for Web mode. Island mode may require different shortcuts.
 
 use log::{error, info, warn};
 use tauri::{App, AppHandle, Manager};

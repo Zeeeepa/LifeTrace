@@ -1,6 +1,14 @@
 //! Configuration constants for FreeTodo
 //!
 //! Centralized configuration management for ports, timeouts, and paths.
+//!
+//! ## Window Modes
+//!
+//! The application supports two window modes (matching Electron):
+//! - **Web**: Standard window (1200x800, with decorations) - currently supported
+//! - **Island**: Transparent floating window - TODO: not yet implemented
+//!
+//! Tauri currently only builds the Web mode version.
 
 use std::env;
 
