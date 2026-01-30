@@ -4,7 +4,7 @@
   "version": "0.1.2",
   "identifier": "com.freeugroup.freetodo.island",
   "build": {
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:frontend:island",
     "devUrl": "http://localhost:3001",
     "frontendDist": "dist"
   },
