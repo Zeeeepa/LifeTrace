@@ -55,7 +55,7 @@ function Ensure-Junction {
     }
 
     New-Item -ItemType Junction -Path $Dest -Target $Source | Out-Null
-    Write-Host "Linked $Name: $Dest -> $Source"
+    Write-Host "Linked ${Name}: $Dest -> $Source"
 }
 
 $mainRoot = Resolve-FullPath $Main
