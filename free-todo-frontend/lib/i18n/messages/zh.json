@@ -4,6 +4,7 @@
 		"en": "English"
 	},
 	"colorTheme": {
+		"amberCoast": "Catppuccin",
 		"blue": "蓝色",
 		"neutral": "中性",
 		"label": "配色风格"

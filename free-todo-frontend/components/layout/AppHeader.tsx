@@ -9,6 +9,7 @@
 
 import Image from "next/image";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
+import { ThemeStyleSelect } from "@/components/common/theme/ThemeStyleSelect";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
@@ -66,6 +67,7 @@ export function AppHeader({
 			{/* 右侧：工具按钮 */}
 			<div className="flex items-center gap-2 min-w-0 shrink-0">
 				<LayoutSelector />
+				<ThemeStyleSelect />
 				<ThemeToggle />
 				<LanguageToggle />
 				<SettingsToggle />

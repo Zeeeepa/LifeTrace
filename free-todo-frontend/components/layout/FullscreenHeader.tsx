@@ -6,6 +6,7 @@
 
 import Image from "next/image";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
+import { ThemeStyleSelect } from "@/components/common/theme/ThemeStyleSelect";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
@@ -57,6 +58,7 @@ export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHead
 			{/* 右侧：工具 */}
 			<div className="flex items-center gap-2 shrink-0">
 				<LayoutSelector />
+				<ThemeStyleSelect />
 				<ThemeToggle />
 				<LanguageToggle />
 				<SettingsToggle />

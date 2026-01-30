@@ -54,21 +54,21 @@ function ToolCallStepItem({ step, t }: ToolCallStepItemProps) {
 
 	// 状态颜色
 	const statusColorClass = {
-		running: "text-blue-500",
+		running: "text-primary",
 		completed: "text-green-500",
 		error: "text-red-500",
 	}[status];
 
 	// 边框颜色
 	const borderColorClass = {
-		running: "border-blue-200 dark:border-blue-800",
+		running: "border-primary/30 dark:border-primary/50",
 		completed: "border-green-200 dark:border-green-800",
 		error: "border-red-200 dark:border-red-800",
 	}[status];
 
 	// 背景颜色
 	const bgColorClass = {
-		running: "bg-blue-50/50 dark:bg-blue-950/30",
+		running: "bg-primary/5 dark:bg-primary/20",
 		completed: "bg-green-50/50 dark:bg-green-950/30",
 		error: "bg-red-50/50 dark:bg-red-950/30",
 	}[status];
@@ -105,7 +105,7 @@ function ToolCallStepItem({ step, t }: ToolCallStepItemProps) {
 			<div
 				className={cn(
 					"shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-					status === "running" ? "bg-blue-100 dark:bg-blue-900" : "",
+					status === "running" ? "bg-primary/10 dark:bg-primary/25" : "",
 					status === "completed" ? "bg-green-100 dark:bg-green-900" : "",
 					status === "error" ? "bg-red-100 dark:bg-red-900" : "",
 				)}

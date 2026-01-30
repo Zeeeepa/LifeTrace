@@ -97,8 +97,8 @@ export const FloatContent: React.FC<FloatContentProps> = ({ onModeChange }) => (
       <IconButton
         icon={<Hexagon size={16} strokeWidth={2.5} />}
         title="展开"
-        color="text-blue-500 hover:text-blue-400"
-        hoverBgColor="hover:bg-blue-500/10"
+        color="text-primary hover:text-primary/80"
+        hoverBgColor="hover:bg-primary/10"
         onClick={() => {
           // 切换到侧边栏模式（形态3）
           onModeChange?.(IslandMode.SIDEBAR);

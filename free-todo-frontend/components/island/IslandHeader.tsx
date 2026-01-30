@@ -12,6 +12,7 @@ import Image from "next/image";
 import type React from "react";
 import { useState } from "react";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
+import { ThemeStyleSelect } from "@/components/common/theme/ThemeStyleSelect";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
@@ -116,6 +117,7 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false, onDragSta
         {shouldShowTools && (
           <>
             <LayoutSelector />
+            <ThemeStyleSelect />
             <ThemeToggle />
             <LanguageToggle />
             <SettingsToggle />

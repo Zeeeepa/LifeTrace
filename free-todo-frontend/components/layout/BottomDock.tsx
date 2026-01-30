@@ -167,7 +167,7 @@ function DockItemButton({
 				isDraggingItem && "opacity-50",
 				isOverItem && !isDraggingItem && "ring-2 ring-primary/50 ring-offset-2",
 				item.isActive
-					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
+					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
 					: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
 			)}
 			aria-label={item.label}
@@ -177,22 +177,22 @@ function DockItemButton({
 				className={cn(
 					"h-5 w-5",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			/>
 			<span
 				className={cn(
-					"text-sm font-medium",
+					"text-sm font-semibold",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			>
 				{item.label}
 			</span>
 			{item.isActive && (
-				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
+				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))]" />
 			)}
 		</button>
 	);
@@ -508,10 +508,10 @@ export function BottomDock({
 			data-tour="bottom-dock"
 			className={cn(
 				"flex items-center gap-2",
-				"bg-[oklch(var(--card))]/80 dark:bg-background",
+				"bg-[oklch(var(--card))] dark:bg-[oklch(var(--card))]/90",
 				"backdrop-blur-md",
 				"border border-[oklch(var(--border))]",
-				"shadow-lg",
+				"shadow-lg dark:shadow-[0_12px_32px_-18px_oklch(var(--overlay))]",
 				"px-2 py-1.5",
 				"rounded-xl",
 			)}

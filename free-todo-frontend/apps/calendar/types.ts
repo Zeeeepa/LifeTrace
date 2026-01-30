@@ -26,7 +26,7 @@ export function getStatusStyle(status: TodoStatus): string {
 		case "draft":
 			return "bg-orange-500/15 text-orange-600 border-orange-500/30";
 		default:
-			return "bg-blue-500/10 text-blue-600 border-blue-500/25";
+			return "bg-primary/10 text-primary border-primary/25";
 	}
 }
 

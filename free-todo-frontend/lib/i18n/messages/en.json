@@ -4,6 +4,7 @@
 		"en": "English"
 	},
 	"colorTheme": {
+		"amberCoast": "Catppuccin",
 		"blue": "Blue",
 		"neutral": "Neutral",
 		"label": "Theme Style"
