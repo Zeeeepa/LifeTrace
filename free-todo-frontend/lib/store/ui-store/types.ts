@@ -1,4 +1,3 @@
-import type { ChatMode } from "@/apps/chat/types";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 
 // Dock 显示模式类型
@@ -36,10 +35,6 @@ export interface UiStoreState {
 	autoClosedPanels: PanelPosition[];
 	// Dock 显示模式：固定显示或鼠标离开时自动隐藏
 	dockDisplayMode: DockDisplayMode;
-	// 是否显示 Chat 模式切换器（开发者选项，默认关闭）
-	showModeSwitcher: boolean;
-	// 默认聊天模式（页面刷新时使用）
-	defaultChatMode: ChatMode;
 	// 是否显示 Agno 模式的工具选择器（默认关闭）
 	showAgnoToolSelector: boolean;
 	// Agno 模式下选中的 FreeTodo 工具列表（空数组表示不使用任何工具）
@@ -89,10 +84,6 @@ export interface UiStoreState {
 	clearAutoClosedPanels: () => void;
 	// Dock 显示模式设置方法
 	setDockDisplayMode: (mode: DockDisplayMode) => void;
-	// 设置是否显示 Chat 模式切换器
-	setShowModeSwitcher: (show: boolean) => void;
-	// 设置默认聊天模式
-	setDefaultChatMode: (mode: ChatMode) => void;
 	// 设置是否显示 Agno 工具选择器
 	setShowAgnoToolSelector: (show: boolean) => void;
 	// 设置 Agno 模式下选中的 FreeTodo 工具

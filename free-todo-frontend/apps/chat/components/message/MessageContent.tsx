@@ -7,6 +7,7 @@ import {
 	parseWebSearchMessage,
 	processBodyWithCitations,
 	removeToolCalls,
+	removeToolEvents,
 	type WebSearchSources,
 } from "./utils/messageContentUtils";
 
@@ -17,7 +18,7 @@ type MessageContentProps = {
 export function MessageContent({ message }: MessageContentProps) {
 	// 移除工具调用标记后的内容
 	const contentWithoutToolCalls = message.content
-		? removeToolCalls(message.content)
+		? removeToolCalls(removeToolEvents(message.content))
 		: "";
 
 	// 无论是否启用联网搜索，只要消息内容包含 Sources 标记就解析

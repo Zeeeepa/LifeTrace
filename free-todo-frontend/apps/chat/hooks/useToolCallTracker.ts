@@ -55,33 +55,33 @@ export const useToolCallTracker = (): ToolCallTrackerReturn => {
 				return Array.from(toolCallStepsMapRef.current.values());
 			}
 
-		if (event.type === "tool_call_end" && event.tool_name) {
-			// 找到对应的工具调用步骤并更新状态
-			// 优先匹配还在 running 状态的步骤
-			const stepKey = Array.from(toolCallStepsMapRef.current.keys()).find(
-				(key) => {
-					if (!key.startsWith(event.tool_name as string)) return false;
-					const step = toolCallStepsMapRef.current.get(key);
-					return step?.status === "running";
-				},
-			);
+			if (event.type === "tool_call_end" && event.tool_name) {
+				// 找到对应的工具调用步骤并更新状态
+				// 优先匹配还在 running 状态的步骤
+				const stepKey = Array.from(toolCallStepsMapRef.current.keys()).find(
+					(key) => {
+						if (!key.startsWith(event.tool_name as string)) return false;
+						const step = toolCallStepsMapRef.current.get(key);
+						return step?.status === "running";
+					},
+				);
 
-			if (stepKey) {
-				const existingStep = toolCallStepsMapRef.current.get(stepKey);
-				if (existingStep) {
-					// 检查是否是错误事件
-					const isError = (event as { error?: boolean }).error === true;
-					toolCallStepsMapRef.current.set(stepKey, {
-						...existingStep,
-						status: isError ? "error" : "completed",
-						resultPreview: event.result_preview,
-						endTime: Date.now(),
-					});
+				if (stepKey) {
+					const existingStep = toolCallStepsMapRef.current.get(stepKey);
+					if (existingStep) {
+						// 检查是否是错误事件
+						const isError = (event as { error?: boolean }).error === true;
+						toolCallStepsMapRef.current.set(stepKey, {
+							...existingStep,
+							status: isError ? "error" : "completed",
+							resultPreview: event.result_preview,
+							endTime: Date.now(),
+						});
 
-					return Array.from(toolCallStepsMapRef.current.values());
+						return Array.from(toolCallStepsMapRef.current.values());
+					}
 				}
 			}
-		}
 
 			// 其他事件类型（run_started, run_completed）不需要更新 UI
 			return null;

@@ -36,7 +36,7 @@ export type ChatMessage = {
 	toolCallSteps?: ToolCallStep[];
 };
 
-export type ChatMode = "ask" | "plan" | "edit" | "difyTest" | "agno";
+export type ChatMode = "agno";
 
 export type ParsedTodo = Pick<
 	CreateTodoInput,

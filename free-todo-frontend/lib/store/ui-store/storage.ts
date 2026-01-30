@@ -1,5 +1,4 @@
 import { createJSONStorage } from "zustand/middleware";
-import type { ChatMode } from "@/apps/chat/types";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
 import type { DockDisplayMode, LayoutPreset, UiStoreState } from "./types";
@@ -12,7 +11,6 @@ type PersistedState = Partial<UiStoreState> & {
 
 const VALID_POSITIONS: PanelPosition[] = ["panelA", "panelB", "panelC"];
 const VALID_DOCK_MODES: DockDisplayMode[] = ["fixed", "auto-hide"];
-const VALID_CHAT_MODES: ChatMode[] = ["ask", "plan", "edit", "difyTest", "agno"];
 
 export const createUiStoreStorage = () =>
 	createJSONStorage<UiStoreState>(() => {
@@ -103,19 +101,6 @@ export const createUiStoreStorage = () =>
 						!VALID_DOCK_MODES.includes(state.dockDisplayMode)
 					) {
 						state.dockDisplayMode = DEFAULT_PANEL_STATE.dockDisplayMode;
-					}
-
-					// 校验 showModeSwitcher（默认 false）
-					if (typeof state.showModeSwitcher !== "boolean") {
-						state.showModeSwitcher = DEFAULT_PANEL_STATE.showModeSwitcher;
-					}
-
-					// 校验 defaultChatMode
-					if (
-						!state.defaultChatMode ||
-						!VALID_CHAT_MODES.includes(state.defaultChatMode)
-					) {
-						state.defaultChatMode = DEFAULT_PANEL_STATE.defaultChatMode;
 					}
 
 					// 校验 showAgnoToolSelector（默认 false）

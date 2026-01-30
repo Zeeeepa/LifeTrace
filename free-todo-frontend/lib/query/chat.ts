@@ -84,6 +84,7 @@ function mapHistoryItem(item: {
 		role: item.role as "user" | "assistant",
 		content: item.content,
 		timestamp: typeof item.timestamp === "string" ? item.timestamp : undefined,
+		extraData: typeof item.extraData === "string" ? item.extraData : undefined,
 	};
 }
 

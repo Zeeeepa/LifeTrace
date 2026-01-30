@@ -1,10 +1,16 @@
 """Agno 模式处理器（基于 Agno 框架的 Agent）。"""
 
+import json
 from pathlib import Path
+from typing import Any
 
 from fastapi.responses import StreamingResponse
 
-from lifetrace.llm.agno_agent import AgnoAgentService
+from lifetrace.llm.agno_agent import (
+    AgnoAgentService,
+    TOOL_EVENT_PREFIX,
+    TOOL_EVENT_SUFFIX,
+)
 from lifetrace.schemas.chat import ChatMessage
 from lifetrace.services.chat_service import ChatService
 from lifetrace.util.logging_config import get_logger
@@ -16,6 +22,44 @@ from ..helpers import (
 )
 
 logger = get_logger()
+
+
+def _strip_tool_events(
+    chunk: str,
+    pending: str,
+) -> tuple[str, str, list[dict[str, Any]]]:
+    """从流式 chunk 中剥离工具事件标记，返回纯内容、剩余未完成标记、解析出的事件列表。"""
+    content = pending + chunk
+    events: list[dict[str, Any]] = []
+
+    while True:
+        start_idx = content.find(TOOL_EVENT_PREFIX)
+        if start_idx == -1:
+            break
+
+        end_idx = content.find(TOOL_EVENT_SUFFIX, start_idx + len(TOOL_EVENT_PREFIX))
+        if end_idx == -1:
+            # 工具事件未完整，保留到下次处理
+            pending_chunk = content[start_idx:]
+            return content[:start_idx], pending_chunk, events
+
+        json_start = start_idx + len(TOOL_EVENT_PREFIX)
+        json_str = content[json_start:end_idx]
+        try:
+            events.append(json.loads(json_str))
+        except json.JSONDecodeError:
+            logger.warning("[stream][agno] 工具事件 JSON 解析失败")
+
+        content = content[:start_idx] + content[end_idx + len(TOOL_EVENT_SUFFIX) :]
+
+    # 处理可能跨 chunk 的前缀残留（例如 '\n[TOO'）
+    max_prefix_len = min(len(TOOL_EVENT_PREFIX) - 1, len(content))
+    for length in range(max_prefix_len, 0, -1):
+        if TOOL_EVENT_PREFIX.startswith(content[-length:]):
+            return content[:-length], content[-length:], events
+
+    return content, "", events
+
 
 
 def _build_external_tools_config(
@@ -126,21 +170,38 @@ def create_agno_streaming_response(
     )
 
     def agno_token_generator():
-        total_content = ""
+        storage_chunks: list[str] = []
+        tool_events: list[dict[str, Any]] = []
+        pending_tool_chunk = ""
         try:
             for chunk in agno_service.stream_response(
                 message=message.message,
                 conversation_history=conversation_history,
                 session_id=session_id,
             ):
-                total_content += chunk
                 yield chunk
+                cleaned, pending_tool_chunk, parsed_events = _strip_tool_events(
+                    chunk, pending_tool_chunk
+                )
+                if cleaned:
+                    storage_chunks.append(cleaned)
+                if parsed_events:
+                    tool_events.extend(parsed_events)
 
-            if total_content:
+            # 丢弃未完成的工具事件残片，避免写入历史
+            storage_content = "".join(storage_chunks).strip()
+            metadata = (
+                json.dumps({"tool_events": tool_events}, ensure_ascii=False)
+                if tool_events
+                else None
+            )
+
+            if storage_content or tool_events:
                 chat_service.add_message(
                     session_id=session_id,
                     role="assistant",
-                    content=total_content,
+                    content=storage_content,
+                    metadata=metadata,
                 )
                 logger.info("[stream][agno] 消息已保存到数据库")
         except Exception as e:  # noqa: BLE001

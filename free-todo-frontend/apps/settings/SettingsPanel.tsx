@@ -14,7 +14,6 @@ import {
 	DifyConfigSection,
 	DockDisplayModeSection,
 	LlmConfigSection,
-	ModeSwitcherSection,
 	OnboardingSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
@@ -97,11 +96,6 @@ export function SettingsPanel() {
 						{/* 屏幕录制设置（黑名单等） */}
 						<div className="mt-4">
 							<RecorderConfigSection config={config} loading={loading} />
-						</div>
-
-						{/* 模式切换器设置 */}
-						<div className="mt-4">
-							<ModeSwitcherSection loading={loading} />
 						</div>
 
 						{/* 音频设置（仅在音频面板启用时显示） */}

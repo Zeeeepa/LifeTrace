@@ -54,6 +54,18 @@ Packaging:
 - If a task name is provided, create a worktree first, then make changes in that worktree.
 - Helper script (cross-platform): `python scripts/new_worktree.py "<task-name>"`
 
+## Worktree Dependency Sharing (Recommended)
+- Install dependencies only once in the main worktree.
+- Reuse them in other worktrees via linking scripts:
+  - Windows (PowerShell): `powershell -ExecutionPolicy Bypass -File scripts/link_worktree_deps.ps1 -Main "<main-root>" -Worktree "<worktree-root>"`
+  - macOS/Linux (bash): `scripts/link_worktree_deps.sh --main "<main-root>" --worktree "<worktree-root>"`
+- Optional: add `--force` to overwrite existing links.
+
+## Integration When Main Is Dirty
+- Keep coding in task worktrees; do not commit on a dirty main worktree.
+- Create a clean integration worktree and cherry-pick task commits into it.
+- Run checks from the integration worktree (using shared dependencies), then merge.
+
 ## Security & Configuration Tips
 - Do not commit `lifetrace/config/config.yaml` or `lifetrace/data/`.
 - API keys and secrets should live in local configs or environment variables only.

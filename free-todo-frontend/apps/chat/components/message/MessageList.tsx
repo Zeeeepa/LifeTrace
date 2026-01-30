@@ -2,10 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import { WelcomeGreetings } from "@/apps/chat/components/layout/WelcomeGreetings";
 import { useMessageExtraction } from "@/apps/chat/hooks/useMessageExtraction";
 import { useMessageScroll } from "@/apps/chat/hooks/useMessageScroll";
-import type { ChatMessage, ChatMode } from "@/apps/chat/types";
+import type { ChatMessage } from "@/apps/chat/types";
 import { useContextMenu } from "@/components/common/context-menu/BaseContextMenu";
 import { useTodos } from "@/lib/query";
-import type { Todo, UpdateTodoInput } from "@/lib/types";
+import type { Todo } from "@/lib/types";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageItem } from "./MessageItem";
 
@@ -13,26 +13,14 @@ type MessageListProps = {
 	messages: ChatMessage[];
 	isStreaming: boolean;
 	typingText: string;
-	locale: string;
-	// Edit mode props (optional)
-	chatMode?: ChatMode;
 	effectiveTodos?: Todo[];
-	onUpdateTodo?: (params: {
-		id: number;
-		input: UpdateTodoInput;
-	}) => Promise<Todo>;
-	isUpdating?: boolean;
 };
 
 export function MessageList({
 	messages,
 	isStreaming,
 	typingText,
-	locale,
-	chatMode,
 	effectiveTodos = [],
-	onUpdateTodo,
-	isUpdating = false,
 }: MessageListProps) {
 	const { data: allTodos = [] } = useTodos();
 
@@ -135,11 +123,6 @@ export function MessageList({
 						isLastMessage={isLastMessage}
 						isStreaming={isStreaming}
 						typingText={typingText}
-						locale={locale}
-						chatMode={chatMode}
-						effectiveTodos={effectiveTodos}
-						onUpdateTodo={onUpdateTodo}
-						isUpdating={isUpdating}
 						extractionState={extractionState}
 						onRemoveExtractionState={() => removeExtractionState(msg.id)}
 						onMenuButtonClick={handleMenuButtonClick}

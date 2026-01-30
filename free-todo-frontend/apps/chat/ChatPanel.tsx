@@ -10,35 +10,14 @@ import { HistoryDrawer } from "@/apps/chat/components/layout/HistoryDrawer";
 import { MessageList } from "@/apps/chat/components/message/MessageList";
 import { useBreakdownQuestionnaire } from "@/apps/chat/hooks/useBreakdownQuestionnaire";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
-import { useCreateTodo, useUpdateTodo } from "@/lib/query";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { CreateTodoInput, Todo } from "@/lib/types";
 
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const tChat = useTranslations("chat");
 	const tPage = useTranslations("page");
-
-	// 从 TanStack Query 获取创建 todo 的 mutation
-	const createTodoMutation = useCreateTodo();
-
-	// 从 TanStack Query 获取更新 todo 的 mutation（用于 Edit 模式）
-	const updateTodoMutation = useUpdateTodo();
-
-	// 包装 createTodo 函数以匹配 useChatController 期望的签名
-	const createTodoWithResult = useCallback(
-		async (input: CreateTodoInput): Promise<Todo | null> => {
-			try {
-				return await createTodoMutation.mutateAsync(input);
-			} catch (error) {
-				console.error("Failed to create todo:", error);
-				return null;
-			}
-		},
-		[createTodoMutation],
-	);
 
 	// 从 Zustand 获取 UI 状态
 	const { selectedTodoIds, clearTodoSelection, toggleTodoSelection } =
@@ -54,7 +33,6 @@ export function ChatPanel() {
 	const chatController = useChatController({
 		locale,
 		selectedTodoIds,
-		createTodo: createTodoWithResult,
 	});
 
 	// 处理预设 Prompt 选择：直接发送消息（复用 sendMessage 逻辑）
@@ -81,7 +59,6 @@ export function ChatPanel() {
 		}
 	}, [pendingPrompt, pendingNewChat, chatController, setPendingPrompt]);
 
-	const [modeMenuOpen, setModeMenuOpen] = useState(false);
 	const [showTodosExpanded, setShowTodosExpanded] = useState(false);
 
 	const typingText = useMemo(() => tChat("aiThinking"), [tChat]);
@@ -141,7 +118,6 @@ export function ChatPanel() {
 				questionStreamingCount={breakdownQuestionnaire.questionStreamingCount}
 				questionStreamingTitle={breakdownQuestionnaire.questionStreamingTitle}
 				breakdownError={breakdownQuestionnaire.breakdownError}
-				locale={locale}
 				onAnswerChange={breakdownQuestionnaire.setAnswer}
 				onSubmit={breakdownQuestionnaire.handleSubmitAnswers}
 				onAccept={breakdownQuestionnaire.handleAcceptBreakdown}
@@ -153,11 +129,7 @@ export function ChatPanel() {
 					messages={chatController.messages}
 					isStreaming={chatController.isStreaming}
 					typingText={typingText}
-					locale={locale}
-					chatMode={chatController.chatMode}
 					effectiveTodos={chatController.effectiveTodos}
-					onUpdateTodo={updateTodoMutation.mutateAsync}
-					isUpdating={updateTodoMutation.isPending}
 				/>
 			)}
 
@@ -169,15 +141,12 @@ export function ChatPanel() {
 				)}
 
 			<ChatInputSection
-				chatMode={chatController.chatMode}
-				locale={locale}
 				inputValue={chatController.inputValue}
 				isStreaming={chatController.isStreaming}
 				error={chatController.error}
 				effectiveTodos={chatController.effectiveTodos}
 				hasSelection={chatController.hasSelection}
 				showTodosExpanded={showTodosExpanded}
-				modeMenuOpen={modeMenuOpen}
 				onInputChange={chatController.setInputValue}
 				onSend={chatController.handleSend}
 				onStop={chatController.handleStop}
@@ -187,8 +156,6 @@ export function ChatPanel() {
 				onToggleExpand={() => setShowTodosExpanded((prev) => !prev)}
 				onClearSelection={clearTodoSelection}
 				onToggleTodo={toggleTodoSelection}
-				onToggleModeMenu={() => setModeMenuOpen((prev) => !prev)}
-				onChangeMode={chatController.setChatMode}
 			/>
 		</div>
 	);

@@ -380,6 +380,7 @@ export type ChatHistoryItem = {
 	role: "user" | "assistant";
 	content: string;
 	timestamp?: string;
+	extraData?: string;
 };
 
 export type ChatHistoryResponse = {

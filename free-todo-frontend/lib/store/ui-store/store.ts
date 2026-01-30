@@ -29,10 +29,6 @@ export const useUiStore = create<UiStoreState>()(
 			autoClosedPanels: DEFAULT_PANEL_STATE.autoClosedPanels,
 			// Dock 显示模式
 			dockDisplayMode: DEFAULT_PANEL_STATE.dockDisplayMode,
-			// 是否显示 Chat 模式切换器
-			showModeSwitcher: DEFAULT_PANEL_STATE.showModeSwitcher,
-			// 默认聊天模式
-			defaultChatMode: DEFAULT_PANEL_STATE.defaultChatMode,
 			// 是否显示 Agno 工具选择器
 			showAgnoToolSelector: DEFAULT_PANEL_STATE.showAgnoToolSelector,
 			// Agno 模式下选中的 FreeTodo 工具
@@ -389,18 +385,6 @@ export const useUiStore = create<UiStoreState>()(
 			setDockDisplayMode: (mode) =>
 				set(() => ({
 					dockDisplayMode: mode,
-				})),
-
-			// 设置是否显示 Chat 模式切换器
-			setShowModeSwitcher: (show) =>
-				set(() => ({
-					showModeSwitcher: show,
-				})),
-
-			// 设置默认聊天模式
-			setDefaultChatMode: (mode) =>
-				set(() => ({
-					defaultChatMode: mode,
 				})),
 
 			// 设置是否显示 Agno 工具选择器

@@ -2,8 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useChatPrompts } from "@/apps/chat/hooks/useChatPrompts";
-import { usePlanParser } from "@/apps/chat/hooks/usePlanParser";
 import { useSendMessage } from "@/apps/chat/hooks/useSendMessage";
 import { useSessionCache } from "@/apps/chat/hooks/useSessionCache";
 import { useSessionManager } from "@/apps/chat/hooks/useSessionManager";
@@ -14,18 +12,16 @@ import { useChatHistory, useChatSessions, useTodos } from "@/lib/query";
 import { useBreakdownStore } from "@/lib/store/breakdown-store";
 import { useChatStore } from "@/lib/store/chat-store";
 import { useUiStore } from "@/lib/store/ui-store";
-import type { CreateTodoInput, Todo } from "@/lib/types";
+import type { Todo } from "@/lib/types";
 
 type UseChatControllerParams = {
 	locale: string;
 	selectedTodoIds: number[];
-	createTodo: (todo: CreateTodoInput) => Promise<Todo | null>;
 };
 
 export const useChatController = ({
 	locale,
 	selectedTodoIds,
-	createTodo,
 }: UseChatControllerParams) => {
 	const t = useTranslations("chat");
 	const tCommon = useTranslations("common");
@@ -33,11 +29,6 @@ export const useChatController = ({
 
 	// ==================== 基础 Hooks ====================
 
-	const { editSystemPrompt } = useChatPrompts(locale);
-	const { planSystemPrompt, parsePlanTodos, buildTodoPayloads } = usePlanParser(
-		locale,
-		t,
-	);
 	const sessionCache = useSessionCache();
 	const streamController = useStreamController();
 	const toolCallTracker = useToolCallTracker();
@@ -47,10 +38,8 @@ export const useChatController = ({
 	const { data: todos = [] } = useTodos();
 
 	const {
-		chatMode,
 		conversationId,
 		historyOpen,
-		setChatMode,
 		setConversationId,
 		setHistoryOpen,
 	} = useChatStore();
@@ -83,7 +72,11 @@ export const useChatController = ({
 		enabled: historyOpen,
 	});
 
-	const { data: sessionHistory = [] } = useChatHistory(conversationId);
+	const {
+		data: sessionHistory = [],
+		isFetching: historyFetching,
+		isFetched: historyFetched,
+	} = useChatHistory(conversationId);
 
 	// ==================== 本地状态 ====================
 
@@ -123,15 +116,14 @@ export const useChatController = ({
 		setIsStreaming,
 		setError,
 		sessionHistory,
+		historyFetched,
+		historyFetching,
 		conversationId,
 	});
 
 	// 发送消息 hook
 	const { sendMessage } = useSendMessage({
 		locale,
-		chatMode,
-		planSystemPrompt,
-		editSystemPrompt,
 		hasSelection,
 		effectiveTodos,
 		todos,
@@ -140,9 +132,6 @@ export const useChatController = ({
 		sessionCache,
 		streamController,
 		toolCallTracker,
-		parsePlanTodos,
-		buildTodoPayloads,
-		createTodo,
 		queryClient,
 		t,
 		tCommon,
@@ -182,8 +171,6 @@ export const useChatController = ({
 	// ==================== 返回接口（保持向后兼容） ====================
 
 	return {
-		chatMode,
-		setChatMode,
 		messages,
 		setMessages,
 		inputValue,
@@ -209,10 +196,6 @@ export const useChatController = ({
 		handleKeyDown,
 		effectiveTodos,
 		hasSelection,
-		editSystemPrompt,
-		planSystemPrompt,
-		parsePlanTodos,
-		buildTodoPayloads,
 		todos,
 	};
 };

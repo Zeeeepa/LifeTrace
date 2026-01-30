@@ -1,6 +1,8 @@
 // 工具调用标记检测
 // 支持格式：[使用工具: tool_name] 或 [使用工具: tool_name | 关键词: query] 或 [使用工具: tool_name | param: value]
 const TOOL_CALL_PATTERN = /\[使用工具:\s*([^|\]]+)(?:\s*\|\s*([^\]]+))?\]/g;
+const TOOL_EVENT_PREFIX = "[TOOL_EVENT:";
+const TOOL_EVENT_SUFFIX = "]";
 
 export type ToolCall = {
 	name: string;
@@ -34,6 +36,42 @@ export function extractToolCalls(content: string): Array<ToolCall> {
  */
 export function removeToolCalls(content: string): string {
 	return content.replace(TOOL_CALL_PATTERN, "").trim();
+}
+
+/**
+ * 移除工具事件标记（如 [TOOL_EVENT:{...}]）
+ */
+export function removeToolEvents(content: string): string {
+	let result = content;
+	let startIdx = result.indexOf(TOOL_EVENT_PREFIX);
+
+	while (startIdx !== -1) {
+		const endIdx = result.indexOf(
+			TOOL_EVENT_SUFFIX,
+			startIdx + TOOL_EVENT_PREFIX.length,
+		);
+		if (endIdx === -1) {
+			// 不完整的工具事件标记，直接截断
+			result = result.slice(0, startIdx);
+			break;
+		}
+
+		let removeStart = startIdx;
+		let removeEnd = endIdx + TOOL_EVENT_SUFFIX.length;
+
+		// 尝试移除前后的换行符
+		if (removeStart > 0 && result[removeStart - 1] === "\n") {
+			removeStart -= 1;
+		}
+		if (result[removeEnd] === "\n") {
+			removeEnd += 1;
+		}
+
+		result = result.slice(0, removeStart) + result.slice(removeEnd);
+		startIdx = result.indexOf(TOOL_EVENT_PREFIX);
+	}
+
+	return result.trim();
 }
 
 export type WebSearchSources = Array<{ title: string; url: string }>;

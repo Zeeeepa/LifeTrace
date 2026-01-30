@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { SessionCacheReturn } from "@/apps/chat/hooks/useSessionCache";
 import type { StreamControllerReturn } from "@/apps/chat/hooks/useStreamController";
-import type { ChatMessage } from "@/apps/chat/types";
+import type { ChatMessage, ToolCallStep } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
 import type { ChatHistoryItem } from "@/lib/api";
 import { useChatStore } from "@/lib/store/chat-store";
+
+type ToolEvent = {
+	type?: string;
+	tool_name?: string;
+	tool_args?: Record<string, unknown>;
+	result_preview?: string;
+	error?: boolean;
+};
 
 /**
  * useSessionManager 参数
@@ -30,6 +38,10 @@ export interface UseSessionManagerParams {
 	setError: React.Dispatch<React.SetStateAction<string | null>>;
 	/** 当前会话历史记录 */
 	sessionHistory: ChatHistoryItem[];
+	/** 历史记录是否已获取 */
+	historyFetched: boolean;
+	/** 历史记录是否正在加载 */
+	historyFetching: boolean;
 	/** 当前 conversationId */
 	conversationId: string | null;
 }
@@ -43,6 +55,53 @@ export interface SessionManagerReturn {
 	/** 加载历史会话 */
 	handleLoadSession: (sessionId: string) => Promise<void>;
 }
+
+const parseToolEvents = (extraData?: string): ToolCallStep[] | undefined => {
+	if (!extraData) return undefined;
+	try {
+		const parsed = JSON.parse(extraData) as { tool_events?: ToolEvent[] };
+		const events = parsed.tool_events;
+		if (!Array.isArray(events) || events.length === 0) return undefined;
+
+		const steps: ToolCallStep[] = [];
+		for (const event of events) {
+			if (event.type === "tool_call_start" && event.tool_name) {
+				steps.push({
+					id: `${event.tool_name}-${steps.length}`,
+					toolName: event.tool_name,
+					toolArgs: event.tool_args,
+					status: "running",
+					startTime: Date.now(),
+				});
+				continue;
+			}
+
+			if (event.type === "tool_call_end" && event.tool_name) {
+				const idx = [...steps]
+					.map((step, index) => ({ step, index }))
+					.reverse()
+					.find((item) =>
+						item.step.toolName === event.tool_name &&
+						item.step.status === "running",
+					)?.index;
+
+				if (idx !== undefined) {
+					steps[idx] = {
+						...steps[idx],
+						status: event.error ? "error" : "completed",
+						resultPreview: event.result_preview,
+						endTime: Date.now(),
+					};
+				}
+			}
+		}
+
+		return steps.length > 0 ? steps : undefined;
+	} catch (error) {
+		console.warn("Failed to parse tool events from history:", error);
+		return undefined;
+	}
+};
 
 /**
  * 管理会话切换和新建聊天逻辑
@@ -58,6 +117,8 @@ export const useSessionManager = ({
 	setIsStreaming,
 	setError,
 	sessionHistory,
+	historyFetched,
+	historyFetching,
 	conversationId,
 }: UseSessionManagerParams): SessionManagerReturn => {
 	// Refs
@@ -166,22 +227,35 @@ export const useSessionManager = ({
 			return;
 		}
 
+		if (!conversationId) {
+			return;
+		}
+
+		if (historyFetching || !historyFetched) {
+			return;
+		}
+
 		const conversationIdChanged =
 			prevConversationIdRef.current !== conversationId;
 		if (conversationIdChanged) {
 			prevConversationIdRef.current = conversationId;
 		}
 
-		if (sessionHistory.length > 0 && conversationId) {
-			const mapped = sessionHistory.map((item: ChatHistoryItem) => ({
-				id: createId(),
-				role: item.role,
-				content: item.content,
-			}));
-			setMessages(mapped);
-			isLoadingSessionRef.current = false;
-		}
-	}, [sessionHistory, conversationId, setMessages]);
+		const mapped = sessionHistory.map((item: ChatHistoryItem) => ({
+			id: createId(),
+			role: item.role,
+			content: item.content,
+			toolCallSteps: parseToolEvents(item.extraData),
+		}));
+		setMessages(mapped);
+		isLoadingSessionRef.current = false;
+	}, [
+		conversationId,
+		historyFetched,
+		historyFetching,
+		sessionHistory,
+		setMessages,
+	]);
 
 	return {
 		handleNewChat,
