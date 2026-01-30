@@ -7,9 +7,9 @@ from typing import Any
 from fastapi.responses import StreamingResponse
 
 from lifetrace.llm.agno_agent import (
-    AgnoAgentService,
     TOOL_EVENT_PREFIX,
     TOOL_EVENT_SUFFIX,
+    AgnoAgentService,
 )
 from lifetrace.schemas.chat import ChatMessage
 from lifetrace.services.chat_service import ChatService
@@ -59,7 +59,6 @@ def _strip_tool_events(
             return content[:-length], content[-length:], events
 
     return content, "", events
-
 
 
 def _build_external_tools_config(
