@@ -118,6 +118,7 @@ export function ChatPanel() {
 				questionStreamingCount={breakdownQuestionnaire.questionStreamingCount}
 				questionStreamingTitle={breakdownQuestionnaire.questionStreamingTitle}
 				breakdownError={breakdownQuestionnaire.breakdownError}
+				locale={locale}
 				onAnswerChange={breakdownQuestionnaire.setAnswer}
 				onSubmit={breakdownQuestionnaire.handleSubmitAnswers}
 				onAccept={breakdownQuestionnaire.handleAcceptBreakdown}
@@ -141,6 +142,7 @@ export function ChatPanel() {
 				)}
 
 			<ChatInputSection
+				locale={locale}
 				inputValue={chatController.inputValue}
 				isStreaming={chatController.isStreaming}
 				error={chatController.error}

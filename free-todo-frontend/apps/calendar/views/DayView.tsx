@@ -31,6 +31,14 @@ export function DayView({
 		<div
 			className="relative flex flex-col gap-3"
 			onClick={() => onBlankClick?.()}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.preventDefault();
+					onBlankClick?.();
+				}
+			}}
+			role="button"
+			tabIndex={0}
 		>
 			{quickCreateSlot}
 			<div className="flex flex-col gap-3">

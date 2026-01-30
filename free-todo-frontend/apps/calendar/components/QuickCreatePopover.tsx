@@ -68,6 +68,13 @@ export function QuickCreatePopover({
 		<div
 			ref={containerRef}
 			onClick={(event) => event.stopPropagation()}
+			onKeyDown={(event) => {
+				if (event.key === "Enter" || event.key === " ") {
+					event.stopPropagation();
+				}
+			}}
+			role="button"
+			tabIndex={0}
 			className="flex flex-col gap-3 rounded-xl border bg-background/95 p-4 shadow-xl backdrop-blur"
 		>
 			<div className="flex items-center justify-between">

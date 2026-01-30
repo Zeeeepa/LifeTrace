@@ -128,23 +128,24 @@ const handleTodoToCalendarDate: DragDropHandler = (
 				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
 					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
 						if (t.id === todo.id) {
+							const tRecord = t as unknown as Record<string, unknown>;
 							const updated = {
 								...t,
-								deadline: newDeadlineStr ?? (t as any).deadline,
+								deadline: newDeadlineStr ?? tRecord.deadline,
 							} as Record<string, unknown>;
-							if ("start_time" in t) {
-								updated.start_time = newStartStr ?? (t as any).start_time;
+							if ("start_time" in tRecord) {
+								updated.start_time = newStartStr ?? tRecord.start_time;
 							}
-							if ("startTime" in t) {
-								updated.startTime = newStartStr ?? (t as any).startTime;
+							if ("startTime" in tRecord) {
+								updated.startTime = newStartStr ?? tRecord.startTime;
 							}
-							if ("end_time" in t) {
-								updated.end_time = newEndStr ?? (t as any).end_time;
+							if ("end_time" in tRecord) {
+								updated.end_time = newEndStr ?? tRecord.end_time;
 							}
-							if ("endTime" in t) {
-								updated.endTime = newEndStr ?? (t as any).endTime;
+							if ("endTime" in tRecord) {
+								updated.endTime = newEndStr ?? tRecord.endTime;
 							}
-							return updated as TodoResponse;
+							return updated as unknown as TodoResponse;
 						}
 						return t;
 					});

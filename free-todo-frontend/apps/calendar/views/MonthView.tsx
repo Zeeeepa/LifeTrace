@@ -2,8 +2,8 @@
  * 月视图组件
  */
 
-import type { Todo } from "@/lib/types";
 import type React from "react";
+import type { Todo } from "@/lib/types";
 import { DayColumn } from "../components/DayColumn";
 import type { CalendarTodo } from "../types";
 import { buildMonthDays, toDateKey } from "../utils";
