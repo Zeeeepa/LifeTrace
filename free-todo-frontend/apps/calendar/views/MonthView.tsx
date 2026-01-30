@@ -3,6 +3,7 @@
  */
 
 import type { Todo } from "@/lib/types";
+import type React from "react";
 import { DayColumn } from "../components/DayColumn";
 import type { CalendarTodo } from "../types";
 import { buildMonthDays, toDateKey } from "../utils";
@@ -13,12 +14,14 @@ export function MonthView({
 	onSelectDay,
 	onSelectTodo,
 	todayText,
+	renderQuickCreate,
 }: {
 	currentDate: Date;
 	groupedByDay: Map<string, CalendarTodo[]>;
 	onSelectDay: (date: Date) => void;
 	onSelectTodo: (todo: Todo) => void;
 	todayText: string;
+	renderQuickCreate?: (date: Date) => React.ReactNode;
 }) {
 	const monthDays = buildMonthDays(currentDate);
 
@@ -33,6 +36,7 @@ export function MonthView({
 					onSelectTodo={onSelectTodo}
 					todos={groupedByDay.get(toDateKey(day.date)) || []}
 					todayText={todayText}
+					renderQuickCreate={renderQuickCreate}
 				/>
 			))}
 		</div>

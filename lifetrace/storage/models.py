@@ -107,6 +107,7 @@ class Todo(TimestampMixin, table=True):
     parent_todo_id: int | None = None  # 父级待办ID（自关联）
     deadline: datetime | None = None  # 截止时间
     start_time: datetime | None = None  # 开始时间
+    end_time: datetime | None = None  # 结束时间
     status: str = Field(default="active", max_length=20)  # active/completed/canceled
     priority: str = Field(default="none", max_length=20)  # high/medium/low/none
     completed_at: datetime | None = None  # 完成时间（iCalendar COMPLETED）

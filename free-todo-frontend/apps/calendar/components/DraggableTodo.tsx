@@ -65,10 +65,14 @@ export function DraggableTodo({
 				ref={setNodeRef}
 				{...attributes}
 				{...listeners}
-				onClick={() => onSelect(calendarTodo.todo)}
+				onClick={(event) => {
+					event.stopPropagation();
+					onSelect(calendarTodo.todo);
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
+						e.stopPropagation();
 						onSelect(calendarTodo.todo);
 					}
 				}}

@@ -60,23 +60,54 @@ const handleTodoToCalendarDate: DragDropHandler = (
 	const { todo } = dragData.payload;
 	const { date } = dropData.metadata;
 
-	// 保留原有时间部分，只更新日期
-	const existingDeadline = todo.deadline ? new Date(todo.deadline) : null;
-	const newDeadline = new Date(date);
+	const normalizeTodoDate = (value?: string) => {
+		if (!value) return null;
+		let normalized = value;
+		if (
+			value.includes("T") &&
+			!value.includes("Z") &&
+			!value.includes("+") &&
+			!/\d{2}:\d{2}:\d{2}-/.test(value)
+		) {
+			normalized = `${value}Z`;
+		}
+		const parsed = new Date(normalized);
+		return Number.isNaN(parsed.getTime()) ? null : parsed;
+	};
 
-	if (existingDeadline) {
-		// 保留原有的时分秒
-		newDeadline.setHours(
-			existingDeadline.getHours(),
-			existingDeadline.getMinutes(),
-			existingDeadline.getSeconds(),
+	const applyDate = (targetDate: Date, timeSource: Date) => {
+		const updated = new Date(targetDate);
+		updated.setHours(
+			timeSource.getHours(),
+			timeSource.getMinutes(),
+			timeSource.getSeconds(),
+			timeSource.getMilliseconds(),
 		);
-	} else {
+		return updated;
+	};
+
+	const existingDeadline = normalizeTodoDate(todo.deadline);
+	const existingStart = normalizeTodoDate(todo.startTime);
+	const existingEnd = normalizeTodoDate(todo.endTime);
+	const shouldUpdateDeadline =
+		Boolean(existingDeadline) || (!existingStart && !existingEnd);
+
+	const newDeadline = shouldUpdateDeadline
+		? existingDeadline
+			? applyDate(date, existingDeadline)
+			: applyDate(date, new Date(0))
+		: null;
+	const newStart = existingStart ? applyDate(date, existingStart) : null;
+	const newEnd = existingEnd ? applyDate(date, existingEnd) : null;
+
+	if (newDeadline && !existingDeadline) {
 		// 默认设置为上午9点
 		newDeadline.setHours(9, 0, 0, 0);
 	}
 
-	const newDeadlineStr = newDeadline.toISOString();
+	const newDeadlineStr = newDeadline ? newDeadline.toISOString() : undefined;
+	const newStartStr = newStart ? newStart.toISOString() : undefined;
+	const newEndStr = newEnd ? newEnd.toISOString() : undefined;
 	const queryClient = getQueryClient();
 
 	// 取消正在进行的 todos 查询，避免竞态条件
@@ -97,7 +128,23 @@ const handleTodoToCalendarDate: DragDropHandler = (
 				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
 					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
 						if (t.id === todo.id) {
-							return { ...t, deadline: newDeadlineStr };
+							const updated = {
+								...t,
+								deadline: newDeadlineStr ?? (t as any).deadline,
+							} as Record<string, unknown>;
+							if ("start_time" in t) {
+								updated.start_time = newStartStr ?? (t as any).start_time;
+							}
+							if ("startTime" in t) {
+								updated.startTime = newStartStr ?? (t as any).startTime;
+							}
+							if ("end_time" in t) {
+								updated.end_time = newEndStr ?? (t as any).end_time;
+							}
+							if ("endTime" in t) {
+								updated.endTime = newEndStr ?? (t as any).endTime;
+							}
+							return updated as TodoResponse;
 						}
 						return t;
 					});
@@ -110,7 +157,14 @@ const handleTodoToCalendarDate: DragDropHandler = (
 				// 向后兼容：如果是数组格式（不应该发生，但为了安全）
 				if (Array.isArray(oldData)) {
 					return oldData.map((t) =>
-						t.id === todo.id ? { ...t, deadline: newDeadlineStr } : t,
+						t.id === todo.id
+							? {
+									...t,
+									deadline: newDeadlineStr ?? t.deadline,
+									startTime: newStartStr ?? t.startTime,
+									endTime: newEndStr ?? t.endTime,
+								}
+							: t,
 					) as unknown as TodoListResponse;
 				}
 
@@ -120,7 +174,11 @@ const handleTodoToCalendarDate: DragDropHandler = (
 	});
 
 	// 异步调用 API
-	void updateTodoApiTodosTodoIdPut(todo.id, { deadline: newDeadlineStr })
+	void updateTodoApiTodosTodoIdPut(todo.id, {
+		...(newDeadlineStr ? { deadline: newDeadlineStr } : {}),
+		...(newStartStr ? { startTime: newStartStr } : {}),
+		...(newEndStr ? { endTime: newEndStr } : {}),
+	})
 		.then(() => {
 			// API 成功后刷新缓存以确保数据一致性
 			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });

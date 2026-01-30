@@ -4,6 +4,7 @@
  */
 
 import { useDroppable } from "@dnd-kit/core";
+import type React from "react";
 import { useMemo } from "react";
 import type { DropData } from "@/lib/dnd";
 import type { Todo } from "@/lib/types";
@@ -19,6 +20,7 @@ export function DayColumn({
 	onSelectTodo,
 	view,
 	todayText,
+	renderQuickCreate,
 }: {
 	day: CalendarDay;
 	todos: CalendarTodo[];
@@ -26,6 +28,7 @@ export function DayColumn({
 	onSelectTodo: (todo: Todo) => void;
 	view: CalendarView;
 	todayText: string;
+	renderQuickCreate?: (date: Date) => React.ReactNode;
 }) {
 	const dateKey = toDateKey(day.date);
 
@@ -61,7 +64,7 @@ export function DayColumn({
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"flex flex-col gap-1 border-r border-b border-border p-1.5 transition-colors",
+				"relative flex flex-col gap-1 border-r border-b border-border p-1.5 transition-colors",
 				isOver && "bg-primary/5",
 				day.inCurrentMonth === false && "opacity-40 bg-muted/20",
 				isToday && "bg-primary/5",
@@ -91,6 +94,7 @@ export function DayColumn({
 					/>
 				))}
 			</div>
+			{renderQuickCreate ? renderQuickCreate(day.date) : null}
 		</div>
 	);
 }

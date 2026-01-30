@@ -19,7 +19,7 @@ import { useCreateTodo, useTodos } from "@/lib/query";
 import { useTodoStore } from "@/lib/store/todo-store";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { QuickCreateBar } from "./components/QuickCreateBar";
+import { QuickCreatePopover } from "./components/QuickCreatePopover";
 import type { CalendarTodo, CalendarView } from "./types";
 import {
 	addDays,
@@ -161,6 +161,27 @@ export function CalendarPanel() {
 		}
 	};
 
+	const renderQuickCreate = (date: Date, className: string) => {
+		if (!quickTargetDate) return null;
+		if (toDateKey(date) !== toDateKey(quickTargetDate)) return null;
+		return (
+			<div className={className}>
+				<QuickCreatePopover
+					targetDate={quickTargetDate}
+					value={quickTitle}
+					time={quickTime}
+					onChange={setQuickTitle}
+					onTimeChange={setQuickTime}
+					onConfirm={handleQuickCreate}
+					onCancel={() => {
+						setQuickTargetDate(null);
+						setQuickTitle("");
+					}}
+				/>
+			</div>
+		);
+	};
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
@@ -262,6 +283,9 @@ export function CalendarPanel() {
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
+							renderQuickCreate={(date) =>
+								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
+							}
 						/>
 					)}
 					{view === "week" && (
@@ -271,27 +295,26 @@ export function CalendarPanel() {
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
+							renderQuickCreate={(date) =>
+								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
+							}
 						/>
 					)}
 					{view === "day" && (
-						<DayView currentDate={currentDate} todos={todosInRange} />
+						<DayView
+							currentDate={currentDate}
+							todos={todosInRange}
+							onBlankClick={() =>
+								setQuickTargetDate(startOfDay(currentDate))
+							}
+							quickCreateSlot={renderQuickCreate(
+								currentDate,
+								"absolute right-3 top-3 z-20 w-96 max-w-[90vw]",
+							)}
+						/>
 					)}
 				</div>
 			</div>
-
-			{/* 快捷创建 */}
-			<QuickCreateBar
-				targetDate={quickTargetDate}
-				value={quickTitle}
-				time={quickTime}
-				onChange={setQuickTitle}
-				onTimeChange={setQuickTime}
-				onConfirm={handleQuickCreate}
-				onCancel={() => {
-					setQuickTargetDate(null);
-					setQuickTitle("");
-				}}
-			/>
 		</div>
 	);
 }

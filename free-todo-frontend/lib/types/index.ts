@@ -27,6 +27,7 @@ export interface Todo {
 	parentTodoId?: number | null;
 	deadline?: string;
 	startTime?: string;
+	endTime?: string;
 	status: TodoStatus;
 	priority: TodoPriority;
 	order?: number;
@@ -44,6 +45,7 @@ export interface CreateTodoInput {
 	parentTodoId?: number | null;
 	deadline?: string;
 	startTime?: string;
+	endTime?: string;
 	status?: TodoStatus;
 	priority?: TodoPriority;
 	order?: number;
@@ -59,6 +61,7 @@ export interface UpdateTodoInput {
 	priority?: TodoPriority;
 	deadline?: string;
 	startTime?: string;
+	endTime?: string;
 	order?: number;
 	tags?: string[];
 	parentTodoId?: number | null;

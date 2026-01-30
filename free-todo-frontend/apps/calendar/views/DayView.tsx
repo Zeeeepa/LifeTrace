@@ -3,6 +3,7 @@
  */
 
 import { useTranslations } from "next-intl";
+import type React from "react";
 import { TodoContextMenu } from "@/components/common/context-menu/TodoContextMenu";
 import { useTodoStore } from "@/lib/store/todo-store";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,13 @@ import { formatTimeLabel, toDateKey } from "../utils";
 export function DayView({
 	currentDate,
 	todos,
+	onBlankClick,
+	quickCreateSlot,
 }: {
 	currentDate: Date;
 	todos: CalendarTodo[];
+	onBlankClick?: () => void;
+	quickCreateSlot?: React.ReactNode;
 }) {
 	const t = useTranslations("calendar");
 	const { setSelectedTodoId } = useTodoStore();
@@ -23,7 +28,11 @@ export function DayView({
 	const todaysTodos = todos.filter((item) => item.dateKey === key);
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div
+			className="relative flex flex-col gap-3"
+			onClick={() => onBlankClick?.()}
+		>
+			{quickCreateSlot}
 			<div className="flex flex-col gap-3">
 				{todaysTodos.length === 0 ? (
 					<div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -37,10 +46,14 @@ export function DayView({
 									"group relative flex flex-col gap-1 rounded-lg border bg-card p-3 text-xs shadow-sm transition-all",
 									getStatusStyle(item.todo.status),
 								)}
-								onClick={() => setSelectedTodoId(item.todo.id)}
+								onClick={(event) => {
+									event.stopPropagation();
+									setSelectedTodoId(item.todo.id);
+								}}
 								onKeyDown={(e) => {
 									if (e.key === "Enter" || e.key === " ") {
 										e.preventDefault();
+										e.stopPropagation();
 										setSelectedTodoId(item.todo.id);
 									}
 								}}

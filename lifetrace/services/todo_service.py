@@ -48,6 +48,7 @@ class TodoService:
             parent_todo_id=data.parent_todo_id,
             deadline=data.deadline,
             start_time=data.start_time,
+            end_time=data.end_time,
             status=data.status.value if data.status else "active",
             priority=data.priority.value if data.priority else "none",
             completed_at=data.completed_at,
