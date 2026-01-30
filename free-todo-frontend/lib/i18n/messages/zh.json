@@ -542,7 +542,7 @@
 		"cancel": "取消",
 		"close": "关闭",
 		"layouts": {
-			"default": "待办模式",
+			"default": "待办列表模式",
 			"calendar": "待办日历模式",
 			"lifetrace": "LifeTrace 模式"
 		}

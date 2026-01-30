@@ -146,6 +146,18 @@ export type WindowMode = "island" | "web";
 declare const __DEFAULT_WINDOW_MODE__: string | undefined;
 
 /**
+ * 后端运行时类型
+ * - script: 使用系统 Python + venv
+ * - pyinstaller: 使用 PyInstaller 打包的可执行文件
+ */
+export type BackendRuntime = "script" | "pyinstaller";
+
+/**
+ * 编译时注入的默认后端运行时
+ */
+declare const __DEFAULT_BACKEND_RUNTIME__: string | undefined;
+
+/**
  * 获取当前窗口模式
  *
  * 优先级：
@@ -177,6 +189,35 @@ export function getWindowMode(): WindowMode {
 }
 
 /**
+ * 获取后端运行时类型
+ *
+ * 优先级：
+ * 1. 运行时环境变量 FREETODO_BACKEND_RUNTIME
+ * 2. 编译时注入的默认值 __DEFAULT_BACKEND_RUNTIME__
+ * 3. 硬编码默认值 "script"
+ */
+export function getBackendRuntime(): BackendRuntime {
+	const envRuntime = process.env.FREETODO_BACKEND_RUNTIME?.toLowerCase();
+	if (envRuntime === "script" || envRuntime === "pyinstaller") {
+		return envRuntime;
+	}
+
+	try {
+		const buildTimeDefault =
+			typeof __DEFAULT_BACKEND_RUNTIME__ !== "undefined"
+				? __DEFAULT_BACKEND_RUNTIME__
+				: undefined;
+		if (buildTimeDefault === "pyinstaller") {
+			return "pyinstaller";
+		}
+	} catch {
+		// ignore
+	}
+
+	return "script";
+}
+
+/**
  * 日志配置
  */
 export const LOG_CONFIG = {
@@ -192,9 +233,14 @@ export const LOG_CONFIG = {
 export const PROCESS_CONFIG = {
 	/** 后端入口脚本（相对 backend 根目录） */
 	backendEntryScript: "lifetrace/scripts/start_backend.py",
+	/** 后端可执行文件名称 */
+	backendExecutable:
+		process.platform === "win32" ? "lifetrace.exe" : "lifetrace",
 	/** 后端依赖清单（相对 backend 根目录） */
 	backendRequirementsFile: "requirements-runtime.txt",
-	/** 后端虚拟环境目录名（userData 下） */
+	/** 后端运行时目录名（应用安装目录下） */
+	backendRuntimeDir: "runtime",
+	/** 后端虚拟环境目录名（运行时目录下） */
 	backendVenvDir: "python-venv",
 	/** 后端数据目录名 */
 	backendDataDir: "lifetrace-data",

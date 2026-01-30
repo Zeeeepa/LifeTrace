@@ -3,16 +3,20 @@
 //! This module handles the lifecycle of the Python backend server,
 //! including starting, health checking, and stopping the process.
 
-use crate::config::{self, process, timeouts};
+use crate::backend_paths::{
+    get_backend_path, get_backend_script_entry, get_backend_script_root, get_data_dir,
+    get_requirements_path, get_runtime_root,
+};
+use crate::backend_python::{ensure_uv, ensure_venv, find_python312, install_requirements};
+use crate::config::{self, timeouts};
 use log::{error, info, warn};
 use reqwest::Client;
 use serde::Deserialize;
-use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 /// Global backend process reference
 static BACKEND_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
@@ -28,6 +32,37 @@ static IS_STOPPING: AtomicBool = AtomicBool::new(false);
 struct HealthResponse {
     app: Option<String>,
     server_mode: Option<String>,
+}
+
+/// Backend runtime type
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum BackendRuntime {
+    Script,
+    PyInstaller,
+}
+
+/// Determine backend runtime from env or build-time default
+fn get_backend_runtime() -> BackendRuntime {
+    if let Ok(value) = std::env::var("FREETODO_BACKEND_RUNTIME") {
+        let normalized = value.to_lowercase();
+        if normalized == "pyinstaller" {
+            return BackendRuntime::PyInstaller;
+        }
+        if normalized == "script" {
+            return BackendRuntime::Script;
+        }
+    }
+
+    if let Some(value) = option_env!("FREETODO_BACKEND_RUNTIME") {
+        if value.eq_ignore_ascii_case("pyinstaller") {
+            return BackendRuntime::PyInstaller;
+        }
+        if value.eq_ignore_ascii_case("script") {
+            return BackendRuntime::Script;
+        }
+    }
+
+    BackendRuntime::PyInstaller
 }
 
 /// Get the backend URL
@@ -139,60 +174,11 @@ async fn find_available_port(start_port: u16, max_attempts: u16) -> Result<u16, 
     ))
 }
 
-/// Get backend path based on app handle
-fn get_backend_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let resource_path = app
-        .path()
-        .resource_dir()
-        .map_err(|e| format!("Failed to get resource dir: {}", e))?;
-
-    let backend_path = resource_path
-        .join("backend")
-        .join(process::BACKEND_EXEC_NAME);
-
-    if backend_path.exists() {
-        Ok(backend_path)
-    } else {
-        // Development mode: try dist-backend
-        let dev_path = std::env::current_dir()
-            .map_err(|e| format!("Failed to get current dir: {}", e))?
-            .parent()
-            .ok_or("Failed to get parent dir")?
-            .join("dist-backend")
-            .join(process::BACKEND_EXEC_NAME);
-
-        if dev_path.exists() {
-            Ok(dev_path)
-        } else {
-            Err(format!(
-                "Backend executable not found at {:?} or {:?}",
-                backend_path, dev_path
-            ))
-        }
-    }
-}
-
-/// Get data directory for backend
-fn get_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
-        .join(process::BACKEND_DATA_DIR);
-
-    // Create directory if it doesn't exist
-    if !data_dir.exists() {
-        std::fs::create_dir_all(&data_dir)
-            .map_err(|e| format!("Failed to create data dir: {}", e))?;
-    }
-
-    Ok(data_dir)
-}
-
 /// Start the Python backend server
 pub async fn start_backend(
     app: &AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let backend_runtime = get_backend_runtime();
     info!("Detecting running backend server...");
 
     // Check if backend is already running
@@ -205,27 +191,30 @@ pub async fn start_backend(
 
     info!("No running backend detected, starting new instance...");
 
-    // Get backend path
-    let backend_path = match get_backend_path(app) {
-        Ok(path) => path,
-        Err(e) => {
-            warn!("Backend executable not found: {}", e);
-            // In development mode, try to use default port
-            if cfg!(debug_assertions) {
-                let port = config::get_backend_port();
-                info!(
-                    "Development mode: waiting for external backend on port {}",
-                    port
-                );
-                set_backend_port(port);
-                if wait_for_backend(port, 30).await.is_ok() {
-                    info!("External backend is ready");
-                    start_health_check_loop(port);
-                    return Ok(());
+    let backend_path = if backend_runtime == BackendRuntime::PyInstaller {
+        match get_backend_path(app) {
+            Ok(path) => path,
+            Err(e) => {
+                warn!("Backend executable not found: {}", e);
+                if cfg!(debug_assertions) {
+                    let port = config::get_backend_port();
+                    info!(
+                        "Development mode: waiting for external backend on port {}",
+                        port
+                    );
+                    set_backend_port(port);
+                    if wait_for_backend(port, 30).await.is_ok() {
+                        info!("External backend is ready");
+                        start_health_check_loop(port);
+                        return Ok(());
+                    }
                 }
+                return Err(e.into());
             }
-            return Err(e.into());
         }
+    } else {
+        let backend_root = get_backend_script_root(app)?;
+        get_backend_script_entry(&backend_root)
     };
 
     // Get data directory
@@ -236,6 +225,7 @@ pub async fn start_backend(
     set_backend_port(port);
 
     info!("Starting backend server...");
+    info!("Backend runtime: {:?}", backend_runtime);
     info!("Backend path: {:?}", backend_path);
     info!("Data directory: {:?}", data_dir);
     info!("Port: {}", port);
@@ -247,8 +237,34 @@ pub async fn start_backend(
         "build"
     };
 
-    // Spawn backend process
-    let child = Command::new(&backend_path)
+    let mut backend_workdir = backend_path.parent().unwrap_or(&backend_path).to_path_buf();
+
+    let mut command = if backend_runtime == BackendRuntime::Script {
+        let runtime_root = get_runtime_root(app)?;
+        let venv_dir = runtime_root.join("python-venv");
+        let system_python = find_python312().ok_or("Python 3.12 not found")?;
+        let venv_python = ensure_venv(system_python.as_path(), venv_dir.as_path())?;
+        let uv_path = ensure_uv(venv_python.as_path(), venv_dir.as_path())?;
+        let backend_root = get_backend_script_root(app)?;
+        let requirements_path = get_requirements_path(&backend_root);
+        if !requirements_path.exists() {
+            return Err(format!("Requirements file not found at {:?}", requirements_path).into());
+        }
+        install_requirements(
+            uv_path.as_path(),
+            venv_python.as_path(),
+            requirements_path.as_path(),
+        )?;
+
+        backend_workdir = backend_root;
+        let mut cmd = Command::new(venv_python);
+        cmd.arg(backend_path);
+        cmd
+    } else {
+        Command::new(&backend_path)
+    };
+
+    command
         .args([
             "--port",
             &port.to_string(),
@@ -257,7 +273,13 @@ pub async fn start_backend(
             "--mode",
             mode,
         ])
-        .current_dir(backend_path.parent().unwrap_or(&backend_path))
+        .current_dir(backend_workdir)
+        .env("PYTHONUNBUFFERED", "1")
+        .env("PYTHONUTF8", "1")
+        .env("LIFETRACE__OBSERVABILITY__ENABLED", "false")
+        .env("LIFETRACE__SERVER__DEBUG", "false");
+
+    let child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

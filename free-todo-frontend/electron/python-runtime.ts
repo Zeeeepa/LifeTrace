@@ -3,39 +3,48 @@
  * Ensures Python 3.12 and backend dependencies are installed before starting the backend.
  */
 
-import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import https from "node:https";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
-import { app, dialog } from "electron";
+import { dialog } from "electron";
+import { isCancelled } from "./bootstrap-control";
 import { emitLog, emitStatus } from "./bootstrap-status";
 import { logger } from "./logger";
+import { runCommand } from "./python-runtime-command";
+import { configureCondaMirror, getPipEnv, getUvEnv } from "./python-runtime-env";
+import { installPython312 } from "./python-runtime-installer";
 
 const REQUIRED_PYTHON_MAJOR = 3;
 const REQUIRED_PYTHON_MINOR = 12;
-const PYTHON_VERSION = "3.12.8";
 const PYTHON_VERSION_SHORT = `${REQUIRED_PYTHON_MAJOR}.${REQUIRED_PYTHON_MINOR}`;
-const PYTHON_DOWNLOAD_BASE = "https://www.python.org/ftp/python";
-const DEP_MARKER_FILE = ".lifetrace-deps.json";
+const DEP_MARKER_FILE = ".freetodo-deps.json";
+const RUNTIME_MANIFEST_FILE = ".freetodo-runtime.json";
 
-type CommandResult = {
-	code: number | null;
-	stdout: string;
-	stderr: string;
-};
+let preferredPythonPath: string | null = null;
 
 type PythonInfo = {
 	executable: string;
 	version: string;
+	prefix: string;
+	isConda: boolean;
 };
+
+export function setPreferredPythonPath(value: string | null): void {
+	preferredPythonPath = value;
+}
 
 function getVenvPythonPath(venvDir: string): string {
 	if (process.platform === "win32") {
 		return path.join(venvDir, "Scripts", "python.exe");
 	}
 	return path.join(venvDir, "bin", "python3");
+}
+
+function getVenvUvPath(venvDir: string): string {
+	if (process.platform === "win32") {
+		return path.join(venvDir, "Scripts", "uv.exe");
+	}
+	return path.join(venvDir, "bin", "uv");
 }
 
 function readFileHash(filePath: string): string {
@@ -56,6 +65,31 @@ function readDepsMarker(venvDir: string): { requirementsHash?: string } | null {
 	}
 }
 
+type RuntimeManifest = {
+	pythonPath: string;
+	venvPath?: string;
+	requirementsHash: string;
+	createdAt: string;
+};
+
+function readRuntimeManifest(runtimeRoot: string): RuntimeManifest | null {
+	const manifestPath = path.join(runtimeRoot, RUNTIME_MANIFEST_FILE);
+	if (!fs.existsSync(manifestPath)) {
+		return null;
+	}
+	try {
+		const raw = fs.readFileSync(manifestPath, "utf8");
+		return JSON.parse(raw) as RuntimeManifest;
+	} catch {
+		return null;
+	}
+}
+
+function writeRuntimeManifest(runtimeRoot: string, manifest: RuntimeManifest): void {
+	const manifestPath = path.join(runtimeRoot, RUNTIME_MANIFEST_FILE);
+	fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+}
+
 function writeDepsMarker(venvDir: string, requirementsHash: string): void {
 	const markerPath = path.join(venvDir, DEP_MARKER_FILE);
 	const payload = {
@@ -63,14 +97,6 @@ function writeDepsMarker(venvDir: string, requirementsHash: string): void {
 		createdAt: new Date().toISOString(),
 	};
 	fs.writeFileSync(markerPath, JSON.stringify(payload, null, 2));
-}
-
-function buildVersionCheckArgs(extraArgs: string[] = []): string[] {
-	return [
-		...extraArgs,
-		"-c",
-		"import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}|{sys.executable}')",
-	];
 }
 
 function isRequiredPython(version: string): boolean {
@@ -81,67 +107,81 @@ function normalizeOutput(value: string): string {
 	return value.replace(/\r/g, "").trim();
 }
 
+function assertNotCancelled(): void {
+	if (isCancelled()) {
+		throw new Error("Installation cancelled");
+	}
+}
+
 function getVersionFromOutput(output: string): PythonInfo | null {
 	const line = normalizeOutput(output).split("\n")[0];
 	if (!line) {
 		return null;
 	}
-	const [version, executable] = line.split("|");
-	if (!version || !executable) {
+	try {
+		const parsed = JSON.parse(line) as {
+			version?: string;
+			executable?: string;
+			prefix?: string;
+			is_conda?: boolean;
+		};
+		if (!parsed.version || !parsed.executable || !parsed.prefix) {
+			return null;
+		}
+		return {
+			version: parsed.version.trim(),
+			executable: parsed.executable.trim(),
+			prefix: parsed.prefix.trim(),
+			isConda: Boolean(parsed.is_conda),
+		};
+	} catch {
 		return null;
 	}
-	return { version: version.trim(), executable: executable.trim() };
-}
-
-async function runCommand(
-	command: string,
-	args: string[],
-	options: {
-		cwd?: string;
-		env?: NodeJS.ProcessEnv;
-		windowsHide?: boolean;
-		onStdout?: (chunk: string) => void;
-		onStderr?: (chunk: string) => void;
-	} = {},
-): Promise<CommandResult> {
-	return new Promise((resolve) => {
-		const child = spawn(command, args, {
-			cwd: options.cwd,
-			env: options.env,
-			windowsHide: options.windowsHide ?? true,
-		});
-
-		let stdout = "";
-		let stderr = "";
-
-		child.stdout?.on("data", (data) => {
-			stdout += data.toString();
-			options.onStdout?.(data.toString());
-		});
-		child.stderr?.on("data", (data) => {
-			stderr += data.toString();
-			options.onStderr?.(data.toString());
-		});
-
-		child.on("close", (code) => {
-			resolve({ code, stdout, stderr });
-		});
-
-		child.on("error", (error) => {
-			resolve({ code: 1, stdout: "", stderr: error.message });
-		});
-	});
 }
 
 async function getPythonInfo(command: string, args: string[]): Promise<PythonInfo | null> {
-	const result = await runCommand(command, buildVersionCheckArgs(args));
+	const result = await runCommand(command, [
+		...args,
+		"-c",
+		"import json, os, sys; prefix=sys.prefix; is_conda=os.path.exists(os.path.join(prefix, 'conda-meta')); print(json.dumps({'version': f'{sys.version_info[0]}.{sys.version_info[1]}', 'executable': sys.executable, 'prefix': prefix, 'is_conda': is_conda}))",
+	]);
 	if (result.code !== 0) {
 		return null;
 	}
 	return getVersionFromOutput(result.stdout);
 }
 
-async function findInstalledPython312(): Promise<string | null> {
+export async function validatePythonPath(pythonPath: string): Promise<PythonInfo | null> {
+	if (!pythonPath) {
+		return null;
+	}
+	return getPythonInfo(pythonPath, []);
+}
+
+export function isRuntimePrepared(
+	runtimeRoot: string,
+	venvDir: string,
+	requirementsPath: string,
+): boolean {
+	if (!fs.existsSync(requirementsPath)) {
+		return false;
+	}
+	const manifest = readRuntimeManifest(runtimeRoot);
+	if (!manifest) {
+		return false;
+	}
+	const requirementsHash = readFileHash(requirementsPath);
+	if (manifest.requirementsHash !== requirementsHash) {
+		return false;
+	}
+	if (manifest.venvPath) {
+		const venvPython = getVenvPythonPath(venvDir);
+		return fs.existsSync(venvPython);
+	}
+	return fs.existsSync(manifest.pythonPath);
+}
+
+async function findInstalledPython312(): Promise<PythonInfo | null> {
 	const candidates: Array<{ command: string; args: string[] }> = [];
 
 	if (process.platform === "win32") {
@@ -161,7 +201,7 @@ async function findInstalledPython312(): Promise<string | null> {
 			continue;
 		}
 		if (fs.existsSync(info.executable)) {
-			return info.executable;
+			return info;
 		}
 	}
 
@@ -191,177 +231,68 @@ async function findInstalledPython312(): Promise<string | null> {
 		}
 		const info = await getPythonInfo(candidatePath, []);
 		if (info && isRequiredPython(info.version)) {
-			return info.executable;
+			return info;
 		}
 	}
 
 	return null;
 }
 
-async function downloadFile(
-	url: string,
-	destination: string,
-	redirectsLeft = 5,
-): Promise<void> {
-	await new Promise<void>((resolve, reject) => {
-		const request = https.get(url, (response) => {
-			const status = response.statusCode ?? 0;
-			const location = response.headers.location;
-			if (status >= 300 && status < 400 && location && redirectsLeft > 0) {
-				response.resume();
-				const redirectUrl = new URL(location, url).toString();
-				downloadFile(redirectUrl, destination, redirectsLeft - 1)
-					.then(resolve)
-					.catch(reject);
-				return;
-			}
-			if (status !== 200) {
-				reject(new Error(`Download failed (${status}) from ${url}`));
-				return;
-			}
-			const fileStream = fs.createWriteStream(destination);
-			pipeline(response, fileStream)
-				.then(resolve)
-				.catch(reject);
-		});
-
-		request.on("error", reject);
-	});
-}
-
-async function installPythonWindows(): Promise<void> {
-	emitStatus({ message: "安装 Python 3.12", progress: 20 });
-	const wingetCheck = await runCommand("winget", ["--version"]);
-	if (wingetCheck.code === 0) {
-		logger.info("Installing Python via winget...");
-		emitLog("Using winget to install Python 3.12...");
-		const install = await runCommand("winget", [
-			"install",
-			"--id",
-			"Python.Python.3.12",
-			"--exact",
-			"--silent",
-			"--accept-source-agreements",
-			"--accept-package-agreements",
-			"--scope",
-			"user",
-		]);
-		if (install.code === 0) {
-			emitLog("Winget install completed.");
-			return;
-		}
-		logger.warn(`Winget install failed: ${install.stderr || install.stdout}`);
-		emitLog(`Winget install failed: ${install.stderr || install.stdout}`);
-	}
-
-	const arch = process.arch === "arm64" ? "arm64" : "amd64";
-	const fileName = `python-${PYTHON_VERSION}-${arch}.exe`;
-	const url = `${PYTHON_DOWNLOAD_BASE}/${PYTHON_VERSION}/${fileName}`;
-	const tempDir = path.join(app.getPath("temp"), "lifetrace-python");
-	fs.mkdirSync(tempDir, { recursive: true });
-	const installerPath = path.join(tempDir, fileName);
-
-	logger.info(`Downloading Python installer from ${url}`);
-	emitStatus({ message: "下载 Python 安装包", progress: 25, detail: url });
-	await downloadFile(url, installerPath);
-
-	logger.info("Running Python installer...");
-	emitStatus({ message: "运行 Python 安装程序", progress: 35 });
-	const install = await runCommand(installerPath, [
-		"/quiet",
-		"InstallAllUsers=0",
-		"PrependPath=1",
-		"Include_test=0",
-	]);
-
-	if (install.code !== 0) {
-		throw new Error(`Python installer failed: ${install.stderr || install.stdout}`);
-	}
-}
-
-async function installPythonMac(): Promise<void> {
-	emitStatus({ message: "安装 Python 3.12", progress: 20 });
-	const fileName = `python-${PYTHON_VERSION}-macos11.pkg`;
-	const url = `${PYTHON_DOWNLOAD_BASE}/${PYTHON_VERSION}/${fileName}`;
-	const tempDir = path.join(app.getPath("temp"), "lifetrace-python");
-	fs.mkdirSync(tempDir, { recursive: true });
-	const pkgPath = path.join(tempDir, fileName);
-
-	logger.info(`Downloading Python installer from ${url}`);
-	emitStatus({ message: "下载 Python 安装包", progress: 25, detail: url });
-	await downloadFile(url, pkgPath);
-
-	const installerCommand = `installer -pkg "${pkgPath}" -target /`;
-	const script = `do shell script "${installerCommand.replace(/"/g, '\\"')}" with administrator privileges`;
-
-	logger.info("Running Python installer with admin privileges...");
-	emitStatus({ message: "运行 Python 安装程序", progress: 35 });
-	const install = await runCommand("osascript", ["-e", script]);
-	if (install.code !== 0) {
-		throw new Error(`Python installer failed: ${install.stderr || install.stdout}`);
-	}
-}
-
-async function installPythonLinux(): Promise<void> {
-	emitStatus({ message: "安装 Python 3.12", progress: 20 });
-	const installers: Array<{ command: string; args: string[] }> = [
-		{ command: "apt-get", args: ["install", "-y", "python3.12", "python3.12-venv"] },
-		{ command: "dnf", args: ["install", "-y", "python3.12"] },
-		{ command: "zypper", args: ["--non-interactive", "install", "python312"] },
-	];
-
-	for (const installer of installers) {
-		emitLog(`Attempting ${installer.command} install...`);
-		const result = await runCommand("pkexec", [
-			installer.command,
-			...installer.args,
-		]);
-		if (result.code === 0) {
-			emitLog(`${installer.command} install completed.`);
-			return;
-		}
-		logger.warn(`Linux installer failed: ${result.stderr || result.stdout}`);
-		emitLog(`Linux installer failed: ${result.stderr || result.stdout}`);
-	}
-
-	throw new Error("Automatic Python install failed on Linux.");
-}
-
-async function installPython312(): Promise<void> {
-	if (process.platform === "win32") {
-		await installPythonWindows();
-		return;
-	}
-	if (process.platform === "darwin") {
-		await installPythonMac();
-		return;
-	}
-	if (process.platform === "linux") {
-		await installPythonLinux();
-		return;
-	}
-	throw new Error("Unsupported platform for Python install.");
-}
-
-async function ensurePython312Installed(): Promise<string> {
+async function ensurePython312Installed(): Promise<PythonInfo> {
 	emitStatus({ message: "检查 Python 3.12", progress: 10 });
+	if (preferredPythonPath) {
+		const preferredInfo = await validatePythonPath(preferredPythonPath);
+		if (preferredInfo && isRequiredPython(preferredInfo.version)) {
+			emitLog(`Using selected Python: ${preferredInfo.executable}`);
+			return preferredInfo;
+		}
+		emitLog("Selected Python is not compatible with 3.12.");
+	}
+
 	const existing = await findInstalledPython312();
 	if (existing) {
-		emitLog(`Found Python 3.12 at ${existing}`);
+		emitLog(`Found Python 3.12 at ${existing.executable}`);
 		return existing;
 	}
 
-	const response = await dialog.showMessageBox({
-		type: "info",
-		buttons: ["Install Python 3.12", "Cancel"],
-		defaultId: 0,
-		cancelId: 1,
-		message: "LifeTrace needs Python 3.12 to run the local backend.",
-		detail:
-			"Python 3.12 will be installed automatically using official sources. This may take a few minutes and requires internet access.",
-	});
+	while (true) {
+		const response = await dialog.showMessageBox({
+			type: "info",
+			buttons: ["选择已有 Python", "自动安装", "取消"],
+			defaultId: 1,
+			cancelId: 2,
+			message: "FreeTodo 需要 Python 3.12 才能运行本地后端。",
+			detail:
+				"你可以选择已有的 Python 3.12 环境，或者让程序自动安装。自动安装需要联网，可能会花费几分钟。",
+		});
 
-	if (response.response !== 0) {
+		if (response.response === 0) {
+			const dialogOptions: Electron.OpenDialogOptions = {
+				properties: ["openFile"],
+				title: "选择 Python 3.12 可执行文件",
+			};
+			if (process.platform === "win32") {
+				dialogOptions.filters = [{ name: "Python", extensions: ["exe"] }];
+			}
+			const selected = await dialog.showOpenDialog(dialogOptions);
+			if (selected.canceled || selected.filePaths.length === 0) {
+				continue;
+			}
+			const chosenPath = selected.filePaths[0];
+			const info = await validatePythonPath(chosenPath);
+			if (!info || !isRequiredPython(info.version)) {
+				dialog.showErrorBox("Python 版本不匹配", "请选择 Python 3.12 的可执行文件。");
+				continue;
+			}
+			preferredPythonPath = info.executable;
+			emitStatus({ pythonPath: info.executable });
+			return info;
+		}
+
+		if (response.response === 1) {
+			break;
+		}
+
 		throw new Error("Python 3.12 installation cancelled by user.");
 	}
 
@@ -383,11 +314,45 @@ async function ensureVenv(
 		return;
 	}
 	emitStatus({ message: "创建 Python 虚拟环境", progress: 45 });
+	emitLog(`Creating virtual environment at: ${venvDir}`);
 	fs.mkdirSync(venvDir, { recursive: true });
-	const result = await runCommand(systemPythonPath, ["-m", "venv", venvDir]);
+	const uvCheck = await runCommand("uv", ["--version"]);
+	const useUv = uvCheck.code === 0;
+	const result = useUv
+		? await runCommand("uv", ["venv", venvDir, "--python", systemPythonPath], {
+				env: getUvEnv(),
+		  })
+		: await runCommand(systemPythonPath, ["-m", "venv", venvDir]);
 	if (result.code !== 0) {
-		throw new Error(`Failed to create venv: ${result.stderr || result.stdout}`);
+		throw new Error(
+			`Failed to create venv: ${result.stderr || result.stdout}`,
+		);
 	}
+}
+
+async function ensureUvInVenv(
+	venvPython: string,
+	venvDir: string,
+): Promise<string> {
+	const uvPath = getVenvUvPath(venvDir);
+	if (fs.existsSync(uvPath)) {
+		return uvPath;
+	}
+	emitStatus({ message: "安装 uv", progress: 52 });
+	emitLog("Installing uv into virtual environment...");
+	const env = getPipEnv();
+	const install = await runCommand(
+		venvPython,
+		["-m", "pip", "install", "--upgrade", "uv"],
+		{ env, onStdout: emitLog, onStderr: emitLog },
+	);
+	if (install.code !== 0) {
+		throw new Error(`Failed to install uv: ${install.stderr || install.stdout}`);
+	}
+	if (!fs.existsSync(uvPath)) {
+		throw new Error("uv installed but executable was not found in venv.");
+	}
+	return uvPath;
 }
 
 async function ensureDependencies(
@@ -398,6 +363,7 @@ async function ensureDependencies(
 	if (!fs.existsSync(requirementsPath)) {
 		throw new Error(`Requirements file not found: ${requirementsPath}`);
 	}
+	emitLog(`Using requirements: ${requirementsPath}`);
 
 	const requirementsHash = readFileHash(requirementsPath);
 	const marker = readDepsMarker(venvDir);
@@ -410,29 +376,16 @@ async function ensureDependencies(
 		buttons: ["Continue"],
 		message: "Installing backend dependencies",
 		detail:
-			"This is the first launch. LifeTrace will now download and install Python dependencies. It may take several minutes depending on your network.",
+			"This is the first launch. FreeTodo will now download and install Python dependencies. It may take several minutes depending on your network.",
 	});
 
-	emitStatus({ message: "升级 pip", progress: 50 });
-	const env = {
-		...process.env,
-		PIP_DISABLE_PIP_VERSION_CHECK: "1",
-		PIP_NO_INPUT: "1",
-	};
-
-	const upgrade = await runCommand(venvPython, ["-m", "pip", "install", "--upgrade", "pip"], {
-		env,
-		onStdout: emitLog,
-		onStderr: emitLog,
-	});
-	if (upgrade.code !== 0) {
-		throw new Error(`Failed to upgrade pip: ${upgrade.stderr || upgrade.stdout}`);
-	}
-
+	assertNotCancelled();
+	const uvPath = await ensureUvInVenv(venvPython, venvDir);
 	emitStatus({ message: "安装后端依赖", progress: 60 });
+	const env = getUvEnv();
 	const install = await runCommand(
-		venvPython,
-		["-m", "pip", "install", "-r", requirementsPath],
+		uvPath,
+		["pip", "install", "-r", requirementsPath, "--python", venvPython],
 		{ env, onStdout: emitLog, onStderr: emitLog },
 	);
 	if (install.code !== 0) {
@@ -453,6 +406,9 @@ export async function ensurePythonRuntime(
 ): Promise<string> {
 	emitStatus({ message: "准备 Python 运行时", progress: 5 });
 	const venvPython = getVenvPythonPath(venvDir);
+	emitStatus({ venvPath: venvDir });
+	assertNotCancelled();
+	const runtimeRoot = path.dirname(venvDir);
 
 	if (fs.existsSync(venvPython)) {
 		const versionOk = await ensureVenvPythonVersion(venvPython);
@@ -460,6 +416,12 @@ export async function ensurePythonRuntime(
 			emitStatus({ message: "检查后端依赖", progress: 55 });
 			await ensureDependencies(venvPython, venvDir, requirementsPath);
 			emitStatus({ message: "Python 运行时就绪", progress: 70 });
+			writeRuntimeManifest(runtimeRoot, {
+				pythonPath: venvPython,
+				venvPath: venvDir,
+				requirementsHash: readFileHash(requirementsPath),
+				createdAt: new Date().toISOString(),
+			});
 			return venvPython;
 		}
 		logger.warn("Existing venv does not match Python 3.12, recreating.");
@@ -467,7 +429,15 @@ export async function ensurePythonRuntime(
 	}
 
 	const systemPython = await ensurePython312Installed();
-	await ensureVenv(systemPython, venvDir);
+	emitStatus({ pythonPath: systemPython.executable });
+	assertNotCancelled();
+	if (systemPython.isConda) {
+		emitLog("Detected conda environment.");
+		await configureCondaMirror();
+	}
+
+	await ensureVenv(systemPython.executable, venvDir);
+	emitStatus({ pythonPath: venvPython });
 
 	if (!fs.existsSync(venvPython)) {
 		throw new Error("Virtual environment was created but python executable is missing.");
@@ -475,6 +445,12 @@ export async function ensurePythonRuntime(
 
 	await ensureDependencies(venvPython, venvDir, requirementsPath);
 	emitStatus({ message: "Python 运行时就绪", progress: 70 });
+	writeRuntimeManifest(runtimeRoot, {
+		pythonPath: venvPython,
+		venvPath: venvDir,
+		requirementsHash: readFileHash(requirementsPath),
+		createdAt: new Date().toISOString(),
+	});
 	return venvPython;
 }
 

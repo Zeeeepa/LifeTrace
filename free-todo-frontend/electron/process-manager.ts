@@ -52,7 +52,7 @@ export abstract class ProcessManager {
 	/**
 	 * 启动服务器（由子类实现）
 	 */
-	abstract start(): Promise<void>;
+	abstract start(options?: { waitForReady?: boolean }): Promise<void>;
 
 	/**
 	 * 获取服务器 URL

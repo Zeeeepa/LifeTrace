@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/common/theme/ThemeProvider";
+import { BackendReadyGate } from "@/components/common/ui/BackendReadyGate";
 import { CapabilitiesSync } from "@/components/common/ui/CapabilitiesSync";
 import { DockTriggerZone } from "@/components/common/ui/DockTriggerZone";
 import { LocaleSync } from "@/components/common/ui/LocaleSync";
@@ -36,7 +37,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 						<CapabilitiesSync />
 						<DockTriggerZone />
 						<ThemeProvider>
-							{children}
+							<BackendReadyGate>{children}</BackendReadyGate>
 						</ThemeProvider>
 					</NextIntlClientProvider>
 				</QueryProvider>

@@ -65,6 +65,15 @@ repos:
         files: ^lifetrace/.*\.py$
         pass_filenames: true
 
+      # Tauri Rust 有效代码行数检查（不含空行和注释，上限 500 行）
+      # pre-commit 会传入暂存的文件，只检查这些文件
+      - id: check-tauri-rust-code-lines
+        name: Check Tauri Rust code lines (max 500)
+        entry: node free-todo-frontend/scripts/check_rust_code_lines.js --include src-tauri/src --exclude src-tauri/target
+        language: system
+        files: ^free-todo-frontend/src-tauri/.*\.rs$
+        pass_filenames: true
+
       # Rust format check (rustfmt)
       - id: rustfmt
         name: Rust format (rustfmt)

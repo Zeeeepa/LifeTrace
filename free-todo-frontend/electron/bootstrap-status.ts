@@ -5,10 +5,13 @@
 import { EventEmitter } from "node:events";
 
 export type BootstrapStatus = {
-	message: string;
+	message?: string;
 	progress?: number;
 	detail?: string;
 	level?: "info" | "warn" | "error";
+	installPath?: string;
+	pythonPath?: string;
+	venvPath?: string;
 };
 
 const emitter = new EventEmitter();

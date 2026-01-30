@@ -27,7 +27,7 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
 		isPanelAOpen: true,
 		isPanelBOpen: true,
 		isPanelCOpen: true,
-		panelAWidth: 0.5, // panelA 占左边 1/2
+		panelAWidth: 0.6, // panelA 占左边 1/2
 		panelCWidth: 0.25, // panelC 占右边 1/4
 	},
 	{

@@ -10,9 +10,13 @@ const isWatch = process.argv.includes("--watch");
 
 // 获取窗口模式（默认为 web）
 const windowMode = process.env.WINDOW_MODE || "web";
+// 获取后端运行时（script 或 pyinstaller）
+const backendRuntime = process.env.BACKEND_RUNTIME || "script";
 
 async function build() {
-	console.log(`Building Electron with WINDOW_MODE=${windowMode}`);
+	console.log(
+		`Building Electron with WINDOW_MODE=${windowMode}, BACKEND_RUNTIME=${backendRuntime}`,
+	);
 
 	const mainOptions = {
 		entryPoints: [path.join(__dirname, "..", "electron", "main.ts")],
@@ -26,6 +30,7 @@ async function build() {
 		// 在编译时注入窗口模式常量
 		define: {
 			"__DEFAULT_WINDOW_MODE__": JSON.stringify(windowMode),
+			"__DEFAULT_BACKEND_RUNTIME__": JSON.stringify(backendRuntime),
 		},
 	};
 

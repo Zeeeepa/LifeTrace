@@ -13,11 +13,20 @@ if (process.platform === "win32") {
 		}
 }
 
+import path from "node:path";
 import { app, dialog, ipcMain } from "electron";
 import { BackendServer } from "./backend-server";
+import { cancelBootstrap } from "./bootstrap-control";
 import { emitComplete, emitStatus } from "./bootstrap-status";
-import { closeBootstrapWindow, createBootstrapWindow } from "./bootstrap-window";
-import { getServerMode, getWindowMode, isDevelopment, TIMEOUT_CONFIG } from "./config";
+import { closeBootstrapWindow, createBootstrapWindow, getBootstrapWindow } from "./bootstrap-window";
+import {
+	getBackendRuntime,
+	getServerMode,
+	getWindowMode,
+	isDevelopment,
+	PROCESS_CONFIG,
+	TIMEOUT_CONFIG,
+} from "./config";
 import { GlobalShortcutManager } from "./global-shortcut-manager";
 import { setupIpcHandlers } from "./ipc-handlers";
 import { IslandWindowManager } from "./island-window-manager";
@@ -30,6 +39,8 @@ import {
 	waitForServerPublic,
 } from "./next-server";
 import { requestNotificationPermission } from "./notification";
+import { isRuntimePrepared, setPreferredPythonPath, validatePythonPath } from "./python-runtime";
+import { getInstallRoot, resolveRuntimeRoot } from "./runtime-paths";
 import { TrayManager } from "./tray-manager";
 import { WindowManager } from "./window-manager";
 
@@ -42,10 +53,13 @@ const serverMode = getServerMode();
 // 获取窗口模式（island 或 web）
 const windowMode = getWindowMode();
 
+let bootstrapCompleted = false;
+let stopPromptOpen = false;
+
 // 确保只有相同模式的应用实例运行
 // DEV 和 Build 版本使用不同的锁名称，允许它们同时运行
 // 但同一模式下只允许一个实例
-const lockName = `lifetrace-${serverMode}`;
+const lockName = `freetodo-${serverMode}`;
 const gotTheLock = app.requestSingleInstanceLock({ lockName } as never);
 
 if (!gotTheLock) {
@@ -197,7 +211,22 @@ if (!gotTheLock) {
 	// 应用准备就绪后启动
 	app.whenReady().then(async () => {
 		if (app.isPackaged) {
-			createBootstrapWindow();
+			const backendRuntime = getBackendRuntime();
+			if (backendRuntime === "script") {
+				const runtimeRoot = resolveRuntimeRoot();
+				const venvDir = path.join(runtimeRoot, PROCESS_CONFIG.backendVenvDir);
+				const requirementsPath = app.isPackaged
+					? path.join(process.resourcesPath, "backend", PROCESS_CONFIG.backendRequirementsFile)
+					: path.join(getInstallRoot(), PROCESS_CONFIG.backendRequirementsFile);
+				if (!isRuntimePrepared(runtimeRoot, venvDir, requirementsPath)) {
+					createBootstrapWindow();
+					attachBootstrapHandlers();
+				} else {
+					bootstrapCompleted = true;
+				}
+			} else {
+				bootstrapCompleted = true;
+			}
 		}
 		const managers = await bootstrap(backendServer, windowManager, islandWindowManager);
 		trayManager = managers.trayManager;
@@ -221,6 +250,74 @@ function setupGlobalErrorHandlers(): void {
 	});
 }
 
+function attachBootstrapHandlers(): void {
+	const bootstrapWindow = getBootstrapWindow();
+	if (bootstrapWindow) {
+		bootstrapWindow.on("close", async (event) => {
+			if (bootstrapCompleted) {
+				return;
+			}
+			event.preventDefault();
+			await confirmStopInstallation();
+		});
+	}
+
+	ipcMain.removeAllListeners("bootstrap:stop");
+	ipcMain.removeAllListeners("bootstrap:select-python");
+	ipcMain.on("bootstrap:stop", async () => {
+		await confirmStopInstallation();
+	});
+
+	ipcMain.on("bootstrap:select-python", async () => {
+		const dialogOptions: Electron.OpenDialogOptions = {
+			properties: ["openFile"],
+			title: "选择 Python 3.12 可执行文件",
+		};
+		if (process.platform === "win32") {
+			dialogOptions.filters = [{ name: "Python", extensions: ["exe"] }];
+		}
+		const result = await dialog.showOpenDialog(dialogOptions);
+		if (result.canceled || result.filePaths.length === 0) {
+			return;
+		}
+		const selectedPath = result.filePaths[0];
+		const info = await validatePythonPath(selectedPath);
+		if (!info || !info.version.startsWith("3.12")) {
+			dialog.showErrorBox(
+				"Python 版本不匹配",
+				"请选择 Python 3.12 的可执行文件。",
+			);
+			return;
+		}
+		setPreferredPythonPath(selectedPath);
+		emitStatus({
+			message: "已选择 Python 3.12",
+			pythonPath: info.executable,
+		});
+	});
+}
+
+async function confirmStopInstallation(): Promise<void> {
+	if (bootstrapCompleted || stopPromptOpen) {
+		return;
+	}
+	stopPromptOpen = true;
+	const result = await dialog.showMessageBox({
+		type: "warning",
+		buttons: ["继续等待", "停止安装"],
+		defaultId: 0,
+		cancelId: 0,
+		message: "确定要停止安装 FreeTodo 吗？",
+		detail: "停止后需要重新启动安装流程。",
+	});
+	stopPromptOpen = false;
+	if (result.response === 1) {
+		emitStatus({ message: "正在停止安装", progress: 0 });
+		cancelBootstrap();
+		app.quit();
+	}
+}
+
 function waitForBootstrapContinue(): Promise<void> {
 	return new Promise((resolve) => {
 		ipcMain.once("bootstrap:continue", () => resolve());
@@ -238,7 +335,15 @@ async function bootstrap(
 	try {
 		// 记录启动信息
 		logStartupInfo();
-		emitStatus({ message: "启动初始化", progress: 0 });
+		const installPath = getInstallRoot();
+		const runtimeRoot = resolveRuntimeRoot();
+		const venvPath = path.join(runtimeRoot, PROCESS_CONFIG.backendVenvDir);
+		emitStatus({
+			message: "启动初始化",
+			progress: 0,
+			installPath,
+			venvPath,
+		});
 
 			// 设置 IPC 处理器（包含 Island 相关）
 		setupIpcHandlers(windowManager, islandWindowManager);
@@ -257,58 +362,55 @@ async function bootstrap(
 		} else {
 			// 如果检测不到，启动后端服务器
 			logger.info("No running backend detected, will start backend server...");
-			await backendServer.start();
-		}
-
-		// 等待后端就绪（最多等待 180 秒）
-		const backendUrl = backendServer.getUrl();
-		logger.console(
-			`Waiting for backend server at ${backendUrl} to be ready...`,
-		);
-		try {
-			await backendServer.waitForReadyPublic(
-				backendUrl,
-				TIMEOUT_CONFIG.backendReady * 6, // 3分钟超时
-			);
-			logger.console(`Backend server is ready at ${backendUrl}!`);
-			emitStatus({ message: "后端健康检查通过", progress: 80 });
-			// 确保健康检查已启动
-			backendServer.ensureHealthCheck();
-		} catch (error) {
-			const errorMsg = `Backend server not available: ${error instanceof Error ? error.message : String(error)}`;
-			logger.warn(errorMsg);
-			// 开发模式下，后端服务器不可用时不阻塞，继续启动窗口
-			if (!isDev) {
-				throw error; // 生产模式下必须要有后端
-			}
+			await backendServer.start({ waitForReady: false });
 		}
 
 		// 更新 NextServer 的后端 URL（后端可能使用了动态端口）
-		setBackendUrl(backendServer.getUrl());
+		const backendUrl = backendServer.getUrl();
+		setBackendUrl(backendUrl);
 
-		// 2. 启动 Next.js 前端服务器
-			await startNextServer();
+		// 2. 启动 Next.js 前端服务器（无需等待后端完全就绪）
+		await startNextServer();
+		const serverUrl = getServerUrl();
 
-		// 3. 等待 Next.js 服务器就绪（最多等待 30 秒）
-			const serverUrl = getServerUrl();
-		logger.console(
-			`Waiting for Next.js server at ${serverUrl} to be ready...`,
-		);
-		try {
-			await waitForServerPublic(serverUrl, 30000);
-			logger.console(`Next.js server is ready at ${serverUrl}!`);
-			emitStatus({ message: "前端服务已就绪", progress: 92 });
-		} catch (error) {
-			const errorMsg = `Next.js server did not start within 30000ms: ${error instanceof Error ? error.message : String(error)}`;
-			logger.error(errorMsg);
-			// 开发模式下，即使服务器未就绪也继续（可能启动较慢）
-			if (!isDev) {
-				throw error; // 生产模式下必须要有服务器
-			}
+		// 3. 根据窗口模式创建主窗口（先展示加载界面）
+		if (windowMode === "web") {
+			windowManager.create(serverUrl, { waitForServer: false, showLoading: true });
+			logger.info("Web main window created (loading)");
 		}
 
+		// 并行等待后端与前端就绪
+		const backendReadyPromise = backendServer
+			.waitForReadyAndVerify(TIMEOUT_CONFIG.backendReady * 6)
+			.then(() => {
+				logger.console(`Backend server is ready at ${backendUrl}!`);
+				emitStatus({ message: "后端健康检查通过", progress: 80 });
+			})
+			.catch((error) => {
+				const errorMsg = `Backend server not available: ${error instanceof Error ? error.message : String(error)}`;
+				logger.warn(errorMsg);
+				if (!isDev) {
+					throw error;
+				}
+			});
+
+		const frontendReadyPromise = waitForServerPublic(serverUrl, 30000)
+			.then(() => {
+				logger.console(`Next.js server is ready at ${serverUrl}!`);
+				emitStatus({ message: "前端服务已就绪", progress: 92 });
+			})
+			.catch((error) => {
+				const errorMsg = `Next.js server did not start within 30000ms: ${error instanceof Error ? error.message : String(error)}`;
+				logger.error(errorMsg);
+				if (!isDev) {
+					throw error;
+				}
+			});
+
+		await Promise.all([backendReadyPromise, frontendReadyPromise]);
+
 		// 4. 根据窗口模式创建主窗口
-		if (app.isPackaged) {
+		if (app.isPackaged && !bootstrapCompleted) {
 			emitStatus({
 				message: "安装完成",
 				detail: "点击“开始使用”进入应用",
@@ -316,11 +418,16 @@ async function bootstrap(
 			});
 			emitComplete();
 			await waitForBootstrapContinue();
+			bootstrapCompleted = true;
 		}
 
 		if (windowMode === "web") {
 			// Web 模式：创建普通窗口，加载主页面
-			windowManager.create(serverUrl);
+			if (!windowManager.hasWindow()) {
+				windowManager.create(serverUrl);
+			} else {
+				windowManager.load(serverUrl);
+			}
 			logger.info("Web main window created");
 		} else {
 			// Island 模式：创建灵动岛窗口

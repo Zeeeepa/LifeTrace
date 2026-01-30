@@ -541,7 +541,7 @@
 		"cancel": "Cancel",
 		"close": "Close",
 		"layouts": {
-			"default": "Todo Mode",
+			"default": "Todo List Mode",
 			"calendar": "Todo Calendar Mode",
 			"lifetrace": "LifeTrace Mode"
 		}

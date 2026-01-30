@@ -13,7 +13,7 @@ function getBootstrapHtml(): string {
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<title>LifeTrace Setup</title>
+		<title>FreeTodo Setup</title>
 		<style>
 			:root {
 				color-scheme: light;
@@ -75,6 +75,16 @@ function getBootstrapHtml(): string {
 				color: var(--muted);
 				min-height: 16px;
 			}
+			.meta {
+				margin-top: 12px;
+				font-size: 12px;
+				color: var(--muted);
+				display: grid;
+				gap: 6px;
+			}
+			.meta span {
+				color: var(--text);
+			}
 			.actions {
 				margin-top: 14px;
 				display: flex;
@@ -89,6 +99,9 @@ function getBootstrapHtml(): string {
 				font-size: 12px;
 				font-weight: 600;
 				cursor: pointer;
+			}
+			.stop-button {
+				color: #d93025;
 			}
 			.start-button {
 				background: var(--accent);
@@ -123,14 +136,21 @@ function getBootstrapHtml(): string {
 	<body>
 		<div class="container">
 			<div class="card">
-				<div class="title">正在准备 LifeTrace</div>
+				<div class="title">正在准备 FreeTodo</div>
 				<div class="subtitle">首次启动会自动安装 Python 3.12 与依赖。</div>
 				<div class="progress"><div id="progressBar"></div></div>
 				<div class="status" id="statusText">准备中...</div>
 				<div class="detail" id="statusDetail"></div>
+				<div class="meta">
+					<div>安装位置: <span id="installPath">-</span></div>
+					<div>Python 环境: <span id="pythonPath">-</span></div>
+					<div>虚拟环境: <span id="venvPath">-</span></div>
+				</div>
 				<div class="actions">
 					<span id="statusPercent">0%</span>
 					<div>
+						<button class="button" id="selectPython">选择 Python</button>
+						<button class="button stop-button" id="stopInstall">停止安装</button>
 						<button class="button" id="toggleLog">查看日志</button>
 						<button class="start-button" id="startButton" disabled>开始使用</button>
 					</div>
@@ -147,6 +167,11 @@ function getBootstrapHtml(): string {
 			const logView = document.getElementById("logView");
 			const toggleLog = document.getElementById("toggleLog");
 			const startButton = document.getElementById("startButton");
+			const selectPython = document.getElementById("selectPython");
+			const stopInstall = document.getElementById("stopInstall");
+			const installPath = document.getElementById("installPath");
+			const pythonPath = document.getElementById("pythonPath");
+			const venvPath = document.getElementById("venvPath");
 
 			let logVisible = false;
 			toggleLog.addEventListener("click", () => {
@@ -160,9 +185,20 @@ function getBootstrapHtml(): string {
 				ipcRenderer.send("bootstrap:continue");
 			});
 
+			selectPython.addEventListener("click", () => {
+				ipcRenderer.send("bootstrap:select-python");
+			});
+
+			stopInstall.addEventListener("click", () => {
+				ipcRenderer.send("bootstrap:stop");
+			});
+
 			ipcRenderer.on("bootstrap:status", (_event, status) => {
 				if (status.message) statusText.textContent = status.message;
 				if (status.detail) statusDetail.textContent = status.detail;
+				if (status.installPath) installPath.textContent = status.installPath;
+				if (status.pythonPath) pythonPath.textContent = status.pythonPath;
+				if (status.venvPath) venvPath.textContent = status.venvPath;
 				if (typeof status.progress === "number") {
 					const value = Math.max(0, Math.min(100, status.progress));
 					progressBar.style.width = value + "%";
@@ -192,11 +228,11 @@ export function createBootstrapWindow(): BrowserWindow {
 
 	bootstrapWindow = new BrowserWindow({
 		width: 520,
-		height: 340,
+		height: 400,
 		resizable: false,
 		show: false,
-		title: "LifeTrace Setup",
-		closable: false,
+		title: "FreeTodo Setup",
+		closable: true,
 		alwaysOnTop: true,
 		backgroundColor: "#f8f6f1",
 		webPreferences: {
@@ -236,6 +272,10 @@ export function createBootstrapWindow(): BrowserWindow {
 		listenersAttached = true;
 	}
 
+	return bootstrapWindow;
+}
+
+export function getBootstrapWindow(): BrowserWindow | null {
 	return bootstrapWindow;
 }
 
