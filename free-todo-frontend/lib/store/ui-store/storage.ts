@@ -11,6 +11,7 @@ type PersistedState = Partial<UiStoreState> & {
 
 const VALID_POSITIONS: PanelPosition[] = ["panelA", "panelB", "panelC"];
 const VALID_DOCK_MODES: DockDisplayMode[] = ["fixed", "auto-hide"];
+const VALID_EXTERNAL_TOOL_IDS = new Set(DEFAULT_PANEL_STATE.selectedExternalTools);
 
 export const createUiStoreStorage = () =>
 	createJSONStorage<UiStoreState>(() => {
@@ -126,7 +127,8 @@ export const createUiStoreStorage = () =>
 					} else {
 						// 确保数组中的元素都是字符串
 						state.selectedExternalTools = state.selectedExternalTools.filter(
-							(tool: unknown): tool is string => typeof tool === "string",
+							(tool: unknown): tool is string =>
+								typeof tool === "string" && VALID_EXTERNAL_TOOL_IDS.has(tool),
 						);
 					}
 
