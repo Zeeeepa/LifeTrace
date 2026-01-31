@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import getpass
+import os
 import re
 import subprocess
 import sys
@@ -14,6 +15,46 @@ def run_git(root: Path, args: list[str], check: bool = True) -> subprocess.Compl
         capture_output=True,
         check=check,
     )
+
+
+def run_link_deps(root: Path, worktree_path: Path, force: bool) -> int:
+    script_dir = root / "scripts"
+    if os.name == "nt":
+        script = script_dir / "link_worktree_deps.ps1"
+        if not script.exists():
+            print(f"Missing script: {script}", file=sys.stderr)
+            return 1
+        cmd = [
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-Main",
+            str(root),
+            "-Worktree",
+            str(worktree_path),
+        ]
+        if force:
+            cmd.append("-Force")
+    else:
+        script = script_dir / "link_worktree_deps.sh"
+        if not script.exists():
+            print(f"Missing script: {script}", file=sys.stderr)
+            return 1
+        cmd = [
+            "bash",
+            str(script),
+            "--main",
+            str(root),
+            "--worktree",
+            str(worktree_path),
+        ]
+        if force:
+            cmd.append("--force")
+
+    result = subprocess.run(cmd)
+    return result.returncode
 
 
 def get_repo_root() -> Path:
@@ -95,6 +136,16 @@ def main() -> int:
         "--user",
         help="Git username. Defaults to git config user.name (or user.email).",
     )
+    parser.add_argument(
+        "--link-deps",
+        action="store_true",
+        help="Link worktree deps (.venv, node_modules) from the main worktree.",
+    )
+    parser.add_argument(
+        "--force-link",
+        action="store_true",
+        help="Force replace existing linked deps when used with --link-deps.",
+    )
     args = parser.parse_args()
 
     root = get_repo_root()
@@ -122,6 +173,11 @@ def main() -> int:
 
     if result.returncode != 0:
         return result.returncode
+
+    if args.link_deps:
+        link_code = run_link_deps(root, worktree_path, force=args.force_link)
+        if link_code != 0:
+            return link_code
 
     print(f"Worktree ready: {worktree_path}")
     print(f"Branch: {branch}")

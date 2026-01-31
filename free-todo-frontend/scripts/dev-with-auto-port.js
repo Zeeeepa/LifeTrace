@@ -13,13 +13,37 @@
  */
 
 const { execSync, spawn } = require("node:child_process");
-const net = require("node:net");
+const fs = require("node:fs");
 const http = require("node:http");
+const net = require("node:net");
+const path = require("node:path");
 
 // 默认端口配置（开发版使用不同的默认端口，避免与 Build 版冲突）
 const DEFAULT_FRONTEND_PORT = 3001;
 const _DEFAULT_BACKEND_PORT = 8001;
 const MAX_PORT_ATTEMPTS = 100;
+
+function normalizePath(value) {
+	const resolved = path.resolve(value);
+	return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function isSymlinkedNodeModules() {
+	const nodeModulesPath = path.join(process.cwd(), "node_modules");
+	try {
+		if (!fs.existsSync(nodeModulesPath)) {
+			return false;
+		}
+		const stat = fs.lstatSync(nodeModulesPath);
+		if (stat.isSymbolicLink()) {
+			return true;
+		}
+		const realPath = fs.realpathSync(nodeModulesPath);
+		return normalizePath(realPath) !== normalizePath(nodeModulesPath);
+	} catch {
+		return false;
+	}
+}
 
 /**
  * 获取当前 Git Commit
@@ -203,20 +227,36 @@ async function main() {
 		console.log(`\nBackend API: ${backendUrl}`);
 		console.log(`Frontend URL: http://localhost:${frontendPort}\n`);
 
+		const disableTurbopack = isSymlinkedNodeModules();
+		if (disableTurbopack && !process.env.NEXT_DISABLE_TURBOPACK) {
+			console.log(
+				"Detected symlinked node_modules, disabling Turbopack for compatibility.",
+			);
+		}
+
+		const nextEnv = {
+			...process.env,
+			PORT: String(frontendPort),
+			NEXT_PUBLIC_API_URL: backendUrl,
+		};
+
+		if (disableTurbopack && !("NEXT_DISABLE_TURBOPACK" in nextEnv)) {
+			nextEnv.NEXT_DISABLE_TURBOPACK = "1";
+		}
+
 		// 3. 启动 Next.js 开发服务器
-		const nextProcess = spawn(
-			"pnpm",
-			["next", "dev", "--port", String(frontendPort)],
-			{
-				stdio: "inherit",
-				env: {
-					...process.env,
-					PORT: String(frontendPort),
-					NEXT_PUBLIC_API_URL: backendUrl,
-				},
-				shell: true,
+		const nextArgs = ["next", "dev", "--port", String(frontendPort)];
+		if (disableTurbopack) {
+			nextArgs.push("--webpack");
+		}
+
+		const nextProcess = spawn("pnpm", nextArgs, {
+			stdio: "inherit",
+			env: {
+				...nextEnv,
 			},
-		);
+			shell: true,
+		});
 
 		// 处理进程信号
 		process.on("SIGINT", () => {
