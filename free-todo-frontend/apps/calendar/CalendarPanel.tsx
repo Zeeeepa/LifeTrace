@@ -5,15 +5,9 @@
  * 使用全局 DndContext，支持从其他面板拖拽 Todo 到日期
  */
 
-import {
-	Calendar,
-	ChevronLeft,
-	ChevronRight,
-	Plus,
-	RotateCcw,
-} from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
@@ -24,6 +18,7 @@ import { QuickCreatePopover } from "./components/QuickCreatePopover";
 import type { CalendarTodo, CalendarView } from "./types";
 import {
 	addDays,
+	addMonths,
 	DEFAULT_NEW_TIME,
 	endOfDay,
 	getWeekOfYear,
@@ -34,7 +29,7 @@ import {
 	toDateKey,
 } from "./utils";
 import { DayView } from "./views/DayView";
-import { MonthView } from "./views/MonthView";
+import { MonthScroller } from "./views/MonthScroller";
 import { WeekView } from "./views/WeekView";
 
 export function CalendarPanel() {
@@ -55,6 +50,23 @@ export function CalendarPanel() {
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
 	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
+	const [monthItems, setMonthItems] = useState<Date[]>(() => {
+		const base = startOfMonth(new Date());
+		return [
+			addMonths(base, -2),
+			addMonths(base, -1),
+			base,
+			addMonths(base, 1),
+			addMonths(base, 2),
+		];
+	});
+	const monthItemsCount = monthItems.length;
+	const monthScrollRef = useRef<HTMLDivElement>(null);
+	const pendingScrollAdjust = useRef<{
+		prevHeight: number;
+		prevScrollTop: number;
+	} | null>(null);
+	const pendingScrollToMonth = useRef<Date | null>(null);
 
 	const VIEW_OPTIONS: { id: CalendarView; label: string }[] = [
 		{ id: "month", label: t("monthView") },
@@ -74,6 +86,13 @@ export function CalendarPanel() {
 
 	const range = useMemo(() => {
 		if (view === "month") {
+			if (monthItems.length > 0) {
+				const first = monthItems[0];
+				const last = monthItems[monthItems.length - 1];
+				const start = startOfWeek(startOfMonth(first));
+				const end = endOfDay(addDays(startOfWeek(startOfMonth(last)), 41));
+				return { start, end };
+			}
 			const start = startOfWeek(startOfMonth(currentDate));
 			const end = endOfDay(addDays(start, 41));
 			return { start, end };
@@ -86,7 +105,7 @@ export function CalendarPanel() {
 		const start = startOfDay(currentDate);
 		const end = endOfDay(currentDate);
 		return { start, end };
-	}, [currentDate, view]);
+	}, [currentDate, monthItems, view]);
 
 	const todosWithDeadline: CalendarTodo[] = useMemo(() => {
 		return todos
@@ -129,21 +148,124 @@ export function CalendarPanel() {
 		return map;
 	}, [todosInRange]);
 
+	useEffect(() => {
+		if (view !== "month") return;
+		setMonthItems((prev) => {
+			const target = startOfMonth(currentDate);
+			if (prev.length === 0) {
+				return [
+					addMonths(target, -2),
+					addMonths(target, -1),
+					target,
+					addMonths(target, 1),
+					addMonths(target, 2),
+				];
+			}
+
+			const hasTarget = prev.some(
+				(item) =>
+					item.getFullYear() === target.getFullYear() &&
+					item.getMonth() === target.getMonth(),
+			);
+			if (hasTarget) return prev;
+
+			const first = prev[0];
+			const last = prev[prev.length - 1];
+			const targetIndex = target.getFullYear() * 12 + target.getMonth();
+			const firstIndex = first.getFullYear() * 12 + first.getMonth();
+			const lastIndex = last.getFullYear() * 12 + last.getMonth();
+
+			if (targetIndex < firstIndex) {
+				const monthsToAdd: Date[] = [];
+				let cursor = startOfMonth(first);
+				while (
+					cursor.getFullYear() * 12 + cursor.getMonth() > targetIndex
+				) {
+					cursor = addMonths(cursor, -1);
+					monthsToAdd.unshift(cursor);
+				}
+				return [...monthsToAdd, ...prev];
+			}
+
+			if (targetIndex > lastIndex) {
+				const monthsToAdd: Date[] = [];
+				let cursor = startOfMonth(last);
+				while (
+					cursor.getFullYear() * 12 + cursor.getMonth() < targetIndex
+				) {
+					cursor = addMonths(cursor, 1);
+					monthsToAdd.push(cursor);
+				}
+				return [...prev, ...monthsToAdd];
+			}
+
+			return prev;
+		});
+	}, [currentDate, view]);
+
+	useEffect(() => {
+		if (monthItemsCount === 0) return;
+		if (!pendingScrollAdjust.current) return;
+		const container = monthScrollRef.current;
+		if (!container) return;
+		const { prevHeight, prevScrollTop } = pendingScrollAdjust.current;
+		pendingScrollAdjust.current = null;
+		requestAnimationFrame(() => {
+			const nextHeight = container.scrollHeight;
+			container.scrollTop = prevScrollTop + (nextHeight - prevHeight);
+		});
+	}, [monthItemsCount]);
+
+	useEffect(() => {
+		if (view !== "month") return;
+		if (!pendingScrollToMonth.current) return;
+		const key = `${pendingScrollToMonth.current.getFullYear()}-${pendingScrollToMonth.current.getMonth()}`;
+		const el = document.querySelector(`[data-month-key="${key}"]`);
+		if (!el) return;
+		(el as HTMLElement).scrollIntoView({ block: "start" });
+		pendingScrollToMonth.current = null;
+	}, [view]);
+
 	const handleNavigate = (direction: "prev" | "next" | "today") => {
 		if (direction === "today") {
-			setCurrentDate(startOfDay(new Date()));
+			const today = startOfDay(new Date());
+			if (view === "month") {
+				const target = startOfMonth(today);
+				pendingScrollToMonth.current = target;
+				setCurrentDate(target);
+			} else {
+				setCurrentDate(today);
+			}
 			return;
 		}
 
-		const delta = view === "month" ? 30 : view === "week" ? 7 : 1;
+		if (view === "month") {
+			const nextMonth =
+				direction === "prev"
+					? addMonths(startOfMonth(currentDate), -1)
+					: addMonths(startOfMonth(currentDate), 1);
+			pendingScrollToMonth.current = nextMonth;
+			setCurrentDate(nextMonth);
+			return;
+		}
+
+		const delta = view === "week" ? 7 : 1;
 		const offset = direction === "prev" ? -delta : delta;
 		setCurrentDate((prev) => startOfDay(addDays(prev, offset)));
 	};
 
-	const handleSelectDay = (date: Date, anchorEl?: HTMLDivElement | null) => {
-		setCurrentDate(startOfDay(date));
-		setQuickTargetDate(startOfDay(date));
+	const handleSelectDay = (
+		date: Date,
+		anchorEl?: HTMLDivElement | null,
+		inCurrentMonth?: boolean,
+	) => {
+		const target = startOfDay(date);
+		setQuickTargetDate(target);
 		setQuickAnchorRect(anchorEl?.getBoundingClientRect() ?? null);
+		if (view === "month" && inCurrentMonth === false) {
+			return;
+		}
+		setCurrentDate(target);
 	};
 
 	const handleQuickCreate = async () => {
@@ -207,12 +329,45 @@ export function CalendarPanel() {
 		);
 	};
 
+	const handleLoadMoreMonths = (direction: "prev" | "next") => {
+		if (direction === "prev" && monthScrollRef.current) {
+			pendingScrollAdjust.current = {
+				prevHeight: monthScrollRef.current.scrollHeight,
+				prevScrollTop: monthScrollRef.current.scrollTop,
+			};
+		}
+		setMonthItems((prev) => {
+			if (prev.length === 0) return prev;
+			if (direction === "prev") {
+				const first = prev[0];
+				return [addMonths(first, -1), ...prev];
+			}
+			const last = prev[prev.length - 1];
+			return [...prev, addMonths(last, 1)];
+		});
+	};
+
+	const handleActiveMonthChange = useCallback(
+		(month: Date) => {
+			if (view !== "month") return;
+			const currentMonth = startOfMonth(currentDate);
+			if (
+				currentMonth.getFullYear() === month.getFullYear() &&
+				currentMonth.getMonth() === month.getMonth()
+			) {
+				return;
+			}
+			setCurrentDate(month);
+		},
+		[currentDate, view],
+	);
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
 			<PanelHeader icon={Calendar} title={t("title")} />
 			{/* 顶部工具栏 */}
-			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
 				<span className="text-sm font-medium text-foreground">
 					{view === "month" &&
 						t("yearMonth", {
@@ -274,7 +429,7 @@ export function CalendarPanel() {
 							{option.label}
 						</button>
 					))}
-					<button
+					{/* <button
 						type="button"
 						onClick={() => {
 							setQuickTargetDate(startOfDay(currentDate));
@@ -284,12 +439,15 @@ export function CalendarPanel() {
 					>
 						<Plus className="h-4 w-4" />
 						{t("create")}
-					</button>
+					</button> */}
 				</div>
 			</div>
 
 			{/* 视图主体 */}
-			<div className="flex-1 overflow-y-auto bg-background p-3">
+			<div
+				ref={monthScrollRef}
+				className="flex-1 overflow-y-auto bg-background p-3"
+			>
 				{view !== "day" && (
 					<div className="grid grid-cols-7">
 						{WEEKDAY_LABELS.map((label) => (
@@ -305,8 +463,13 @@ export function CalendarPanel() {
 				)}
 				<div>
 					{view === "month" && (
-						<MonthView
-							currentDate={currentDate}
+						<MonthScroller
+							months={
+								monthItems.length > 0
+									? monthItems
+									: [startOfMonth(currentDate)]
+							}
+							activeMonth={startOfMonth(currentDate)}
 							groupedByDay={groupedByDay}
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
@@ -314,6 +477,9 @@ export function CalendarPanel() {
 							renderQuickCreate={(date) =>
 								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
 							}
+							onLoadMore={handleLoadMoreMonths}
+							onActiveMonthChange={handleActiveMonthChange}
+							scrollRef={monthScrollRef}
 						/>
 					)}
 					{view === "week" && (

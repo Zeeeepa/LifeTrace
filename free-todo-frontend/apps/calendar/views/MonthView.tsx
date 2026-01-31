@@ -18,7 +18,11 @@ export function MonthView({
 }: {
 	currentDate: Date;
 	groupedByDay: Map<string, CalendarTodo[]>;
-	onSelectDay: (date: Date, anchorEl?: HTMLDivElement | null) => void;
+	onSelectDay: (
+		date: Date,
+		anchorEl?: HTMLDivElement | null,
+		inCurrentMonth?: boolean,
+	) => void;
 	onSelectTodo: (todo: Todo) => void;
 	todayText: string;
 	renderQuickCreate?: (date: Date) => React.ReactNode;

@@ -22,6 +22,12 @@ export function addDays(date: Date, days: number): Date {
 	return d;
 }
 
+export function addMonths(date: Date, months: number): Date {
+	const d = new Date(date.getFullYear(), date.getMonth(), 1);
+	d.setMonth(d.getMonth() + months);
+	return startOfMonth(d);
+}
+
 export function startOfWeek(date: Date): Date {
 	const d = startOfDay(date);
 	const day = d.getDay(); // Sunday=0
@@ -32,6 +38,10 @@ export function startOfWeek(date: Date): Date {
 
 export function startOfMonth(date: Date): Date {
 	return startOfDay(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
+export function endOfMonth(date: Date): Date {
+	return endOfDay(new Date(date.getFullYear(), date.getMonth() + 1, 0));
 }
 
 export function getWeekOfYear(date: Date): number {
@@ -72,6 +82,10 @@ export function parseDeadline(deadline?: string): Date | null {
 
 export function formatHumanDate(date: Date): string {
 	return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+export function formatMonthLabel(date: Date): string {
+	return `${date.getFullYear()}年${date.getMonth() + 1}月`;
 }
 
 export function formatTimeLabel(date: Date | null, allDayText: string): string {

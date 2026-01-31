@@ -24,7 +24,11 @@ export function DayColumn({
 }: {
 	day: CalendarDay;
 	todos: CalendarTodo[];
-	onSelectDay: (date: Date, anchorEl?: HTMLDivElement | null) => void;
+	onSelectDay: (
+		date: Date,
+		anchorEl?: HTMLDivElement | null,
+		inCurrentMonth?: boolean,
+	) => void;
 	onSelectTodo: (todo: Todo) => void;
 	view: CalendarView;
 	todayText: string;
@@ -62,7 +66,7 @@ export function DayColumn({
 				) {
 					return;
 				}
-				onSelectDay(day.date, event.currentTarget);
+				onSelectDay(day.date, event.currentTarget, day.inCurrentMonth);
 			}}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
@@ -74,7 +78,11 @@ export function DayColumn({
 					) {
 						return;
 					}
-					onSelectDay(day.date, e.currentTarget as HTMLDivElement);
+					onSelectDay(
+						day.date,
+						e.currentTarget as HTMLDivElement,
+						day.inCurrentMonth,
+					);
 				}
 			}}
 			role="button"
