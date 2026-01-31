@@ -21,14 +21,14 @@ repos:
         # pre-commit's default_language_version, see
         # https://pre-commit.com/#top_level-default_language_version
         language_version: python3.12
-        files: ^lifetrace/
+        files: ^(lifetrace|scripts)/
         exclude: ^lifetrace/migrations/versions/
         types_or: [ python, pyi ]
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
         language_version: python3.12
-        files: ^lifetrace/
+        files: ^(lifetrace|scripts)/
         types_or: [ python, pyi ]
   # Biome for frontend (JavaScript/TypeScript)
   - repo: https://github.com/biomejs/pre-commit
@@ -47,22 +47,22 @@ repos:
         files: ^free-todo-frontend/.*\.(ts|tsx)$
         pass_filenames: false
 
-      # 前端 TS/TSX 有效代码行数检查（不含空行和注释，上限 500 行）
+      # 前端 TS/TSX/JS/JSX 有效代码行数检查（不含空行和注释，上限 500 行）
       # pre-commit 会传入暂存的文件，只检查这些文件
       - id: check-frontend-code-lines
-        name: Check frontend TS/TSX code lines (max 500)
-        entry: node free-todo-frontend/scripts/check_code_lines.js --include apps,components,electron,lib --exclude lib/generated
+        name: Check frontend TS/TSX/JS/JSX code lines (max 500)
+        entry: node free-todo-frontend/scripts/check_code_lines.js --include apps,components,electron,lib,scripts --exclude lib/generated
         language: system
-        files: ^free-todo-frontend/.*\.(ts|tsx)$
+        files: ^(free-todo-frontend|scripts)/.*\.(ts|tsx|js|jsx)$
         pass_filenames: true
 
       # 后端 Python 有效代码行数检查（不含空行和注释，上限 500 行）
       # pre-commit 会传入暂存的文件，只检查这些文件
       - id: check-backend-code-lines
         name: Check backend Python code lines (max 500)
-        entry: uv run python lifetrace/scripts/check_code_lines.py --include lifetrace --exclude lifetrace/__pycache__,lifetrace/dist,lifetrace/migrations/versions
+        entry: uv run python lifetrace/scripts/check_code_lines.py --include lifetrace,scripts --exclude lifetrace/__pycache__,lifetrace/dist,lifetrace/migrations/versions
         language: system
-        files: ^lifetrace/.*\.py$
+        files: ^(lifetrace|scripts)/.*\.py$
         pass_filenames: true
 
       # Tauri Rust 有效代码行数检查（不含空行和注释，上限 500 行）
