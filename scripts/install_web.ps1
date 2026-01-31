@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 if (-not $Repo) {
-    $Repo = "https://github.com/Royce17/LifeTrace.git"
+    $Repo = "https://github.com/freeugroup/free-to-do.git"
 }
 if (-not $Ref) {
     $Ref = "main"

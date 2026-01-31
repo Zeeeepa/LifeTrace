@@ -71,13 +71,13 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.sh | bash
+curl -fsSL https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
 ```
 
 The script installs dependencies and starts backend + frontend dev servers; press `Ctrl+C` to stop both.
@@ -85,14 +85,14 @@ The script installs dependencies and starts backend + frontend dev servers; pres
 Optional environment variables (custom install dir/repo/ref):
 
 - `LIFETRACE_DIR`: install directory (defaults to repo name)
-- `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/Royce17/LifeTrace.git`)
+- `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/freeugroup/free-to-do.git`)
 - `LIFETRACE_REF`: branch or tag (defaults to `main`)
 
 PowerShell example:
 
 ```powershell
 $env:LIFETRACE_DIR="LifeTrace-dev"
-iwr -useb https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
 ```
 
 ### Install Dependencies
