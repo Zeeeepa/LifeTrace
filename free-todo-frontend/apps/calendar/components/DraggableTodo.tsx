@@ -79,11 +79,15 @@ export function DraggableTodo({
 				role="button"
 				tabIndex={0}
 				className={cn(
-					"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
+					"group relative rounded-md px-2 py-1 text-xs transition-all duration-200 ease-out truncate",
+					"cursor-grab active:cursor-grabbing",
+					"hover:-translate-y-[1px] hover:ring-1 hover:ring-primary/20 hover:shadow-[0_8px_18px_-12px_oklch(var(--primary)/0.45)]",
+					"active:translate-y-0 active:scale-[0.98]",
+					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
 					getStatusStyle(calendarTodo.todo.status),
 				)}
 			>
-				<p className="truncate text-[12px] font-medium leading-tight">
+				<p className="truncate text-[12px] font-medium leading-tight transition-colors group-hover:text-foreground">
 					{calendarTodo.todo.name}
 				</p>
 			</div>

@@ -30,10 +30,26 @@ export function DayView({
 	return (
 		<div
 			className="relative flex flex-col gap-3"
-			onClick={() => onBlankClick?.()}
+			onClick={(event) => {
+				if (
+					(event.target as HTMLElement | null)?.closest(
+						"[data-quick-create]",
+					)
+				) {
+					return;
+				}
+				onBlankClick?.();
+			}}
 			onKeyDown={(event) => {
 				if (event.key === "Enter" || event.key === " ") {
 					event.preventDefault();
+					if (
+						(event.target as HTMLElement | null)?.closest(
+							"[data-quick-create]",
+						)
+					) {
+						return;
+					}
 					onBlankClick?.();
 				}
 			}}
@@ -51,7 +67,10 @@ export function DayView({
 						<TodoContextMenu key={item.todo.id} todoId={item.todo.id}>
 							<div
 								className={cn(
-									"group relative flex flex-col gap-1 rounded-lg border bg-card p-3 text-xs shadow-sm transition-all",
+									"group relative flex flex-col gap-1 rounded-xl border p-3 text-xs shadow-sm transition-all duration-200 ease-out",
+									"cursor-pointer hover:-translate-y-[1px] hover:ring-1 hover:ring-primary/20 hover:shadow-[0_14px_28px_-20px_oklch(var(--primary)/0.45)]",
+									"active:translate-y-0 active:scale-[0.995]",
+									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
 									getStatusStyle(item.todo.status),
 								)}
 								onClick={(event) => {
@@ -69,12 +88,12 @@ export function DayView({
 								tabIndex={0}
 							>
 								<div className="flex items-center justify-between gap-2">
-									<p className="truncate text-base font-semibold">
+									<p className="truncate text-base font-semibold transition-colors group-hover:text-foreground">
 										{item.todo.name}
 									</p>
 									<span
 										className={cn(
-											"shrink-0 text-sm font-medium",
+											"shrink-0 text-sm font-medium transition-colors",
 											getDeadlineSeverity(item.deadline) === "overdue"
 												? "text-red-600"
 												: getDeadlineSeverity(item.deadline) === "soon"

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
 import { useTodoStore } from "@/lib/store/todo-store";
@@ -53,6 +54,7 @@ export function CalendarPanel() {
 	const [quickTargetDate, setQuickTargetDate] = useState<Date | null>(null);
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
+	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
 
 	const VIEW_OPTIONS: { id: CalendarView; label: string }[] = [
 		{ id: "month", label: t("monthView") },
@@ -138,9 +140,10 @@ export function CalendarPanel() {
 		setCurrentDate((prev) => startOfDay(addDays(prev, offset)));
 	};
 
-	const handleSelectDay = (date: Date) => {
+	const handleSelectDay = (date: Date, anchorEl?: HTMLDivElement | null) => {
 		setCurrentDate(startOfDay(date));
 		setQuickTargetDate(startOfDay(date));
+		setQuickAnchorRect(anchorEl?.getBoundingClientRect() ?? null);
 	};
 
 	const handleQuickCreate = async () => {
@@ -156,29 +159,54 @@ export function CalendarPanel() {
 			});
 			setQuickTitle("");
 			setQuickTargetDate(null);
+			setQuickAnchorRect(null);
 		} catch (err) {
 			console.error("Failed to create todo:", err);
 		}
 	};
 
-	const renderQuickCreate = (date: Date, className: string) => {
+	const renderQuickCreate = (date: Date, _className: string) => {
 		if (!quickTargetDate) return null;
 		if (toDateKey(date) !== toDateKey(quickTargetDate)) return null;
-		return (
-			<div className={className}>
-				<QuickCreatePopover
-					targetDate={quickTargetDate}
-					value={quickTitle}
-					time={quickTime}
-					onChange={setQuickTitle}
-					onTimeChange={setQuickTime}
-					onConfirm={handleQuickCreate}
-					onCancel={() => {
-						setQuickTargetDate(null);
-						setQuickTitle("");
+		const top = quickAnchorRect ? quickAnchorRect.top + 28 : 120;
+		const left = quickAnchorRect ? quickAnchorRect.left + 4 : 16;
+		const closePopover = () => {
+			setQuickTargetDate(null);
+			setQuickTitle("");
+			setQuickAnchorRect(null);
+		};
+
+		return createPortal(
+			<>
+				<div
+					className="fixed inset-0 z-40"
+					aria-hidden
+					onPointerDown={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						closePopover();
 					}}
 				/>
-			</div>
+				<div
+					className="fixed z-[9999] w-72 max-w-[90vw] pointer-events-auto"
+					style={{ top, left }}
+					data-quick-create
+					onPointerDownCapture={(event) => event.stopPropagation()}
+					onMouseDownCapture={(event) => event.stopPropagation()}
+					onClickCapture={(event) => event.stopPropagation()}
+				>
+					<QuickCreatePopover
+						targetDate={quickTargetDate}
+						value={quickTitle}
+						time={quickTime}
+						onChange={setQuickTitle}
+						onTimeChange={setQuickTime}
+						onConfirm={handleQuickCreate}
+						onCancel={closePopover}
+					/>
+				</div>
+			</>,
+			document.body,
 		);
 	};
 
@@ -251,7 +279,10 @@ export function CalendarPanel() {
 					))}
 					<button
 						type="button"
-						onClick={() => setQuickTargetDate(startOfDay(currentDate))}
+						onClick={() => {
+							setQuickTargetDate(startOfDay(currentDate));
+							setQuickAnchorRect(null);
+						}}
 						className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
 					>
 						<Plus className="h-4 w-4" />
@@ -304,9 +335,10 @@ export function CalendarPanel() {
 						<DayView
 							currentDate={currentDate}
 							todos={todosInRange}
-							onBlankClick={() =>
-								setQuickTargetDate(startOfDay(currentDate))
-							}
+							onBlankClick={() => {
+								setQuickTargetDate(startOfDay(currentDate));
+								setQuickAnchorRect(null);
+							}}
 							quickCreateSlot={renderQuickCreate(
 								currentDate,
 								"absolute right-3 top-3 z-20 w-96 max-w-[90vw]",

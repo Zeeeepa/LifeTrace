@@ -24,7 +24,7 @@ export function DayColumn({
 }: {
 	day: CalendarDay;
 	todos: CalendarTodo[];
-	onSelectDay: (date: Date) => void;
+	onSelectDay: (date: Date, anchorEl?: HTMLDivElement | null) => void;
 	onSelectTodo: (todo: Todo) => void;
 	view: CalendarView;
 	todayText: string;
@@ -54,18 +54,38 @@ export function DayColumn({
 	return (
 		<div
 			ref={setNodeRef}
-			onClick={() => onSelectDay(day.date)}
+			onClick={(event) => {
+				if (
+					(event.target as HTMLElement | null)?.closest(
+						"[data-quick-create]",
+					)
+				) {
+					return;
+				}
+				onSelectDay(day.date, event.currentTarget);
+			}}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") {
 					e.preventDefault();
-					onSelectDay(day.date);
+					if (
+						(e.target as HTMLElement | null)?.closest(
+							"[data-quick-create]",
+						)
+					) {
+						return;
+					}
+					onSelectDay(day.date, e.currentTarget as HTMLDivElement);
 				}
 			}}
 			role="button"
 			tabIndex={0}
 			className={cn(
-				"relative flex flex-col gap-1 border-r border-b border-border p-1.5 transition-colors",
-				isOver && "bg-primary/5",
+				"group relative flex flex-col gap-1 border-r border-b border-border p-1.5 transition-all duration-200 ease-out",
+				"cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+				"hover:bg-muted/40 hover:ring-1 hover:ring-primary/20 hover:shadow-[0_10px_24px_-18px_oklch(var(--primary)/0.55)]",
+				"active:scale-[0.99] active:bg-primary/10",
+				isOver &&
+					"bg-primary/10 ring-1 ring-primary/30 shadow-[0_12px_26px_-20px_oklch(var(--primary)/0.6)]",
 				day.inCurrentMonth === false && "opacity-40 bg-muted/20",
 				isToday && "bg-primary/5",
 				view === "month" ? "min-h-[120px]" : "min-h-[180px]",
@@ -74,8 +94,10 @@ export function DayColumn({
 			<div className="flex items-center justify-between text-xs text-muted-foreground">
 				<span
 					className={cn(
-						"inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold",
-						isToday && "bg-primary text-primary-foreground",
+						"inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold transition-all",
+						isToday && "bg-primary text-primary-foreground shadow-sm",
+						!isToday &&
+							"group-hover:bg-primary/10 group-hover:text-foreground group-hover:shadow-[inset_0_0_0_1px_oklch(var(--primary)/0.25)] group-hover:scale-[1.04]",
 					)}
 				>
 					{day.date.getDate()}

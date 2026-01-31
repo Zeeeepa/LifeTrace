@@ -18,7 +18,7 @@ export function WeekView({
 }: {
 	currentDate: Date;
 	groupedByDay: Map<string, CalendarTodo[]>;
-	onSelectDay: (date: Date) => void;
+	onSelectDay: (date: Date, anchorEl?: HTMLDivElement | null) => void;
 	onSelectTodo: (todo: Todo) => void;
 	todayText: string;
 	renderQuickCreate?: (date: Date) => React.ReactNode;
