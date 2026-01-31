@@ -72,21 +72,32 @@ _initialized = False
 _init_lock = threading.Lock()
 
 
-def _setup_phoenix_exporter(tracer_provider, config) -> None:
-    """设置 Phoenix 导出器"""
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-
+def _try_create_phoenix_exporter(config):
+    """创建 Phoenix 导出器，失败时返回 (None, None)。"""
     try:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-
-        phoenix_endpoint = f"{config.phoenix.endpoint}/v1/traces"
-        phoenix_exporter = OTLPSpanExporter(endpoint=phoenix_endpoint)
-        tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
-        logger.info(f"Observability: Phoenix 导出已启用 -> {phoenix_endpoint}")
     except ImportError:
         logger.warning("Phoenix 导出器依赖未安装，跳过 Phoenix 集成")
+        return None, None
+
+    try:
+        phoenix_endpoint = f"{config.phoenix.endpoint}/v1/traces"
+        return OTLPSpanExporter(endpoint=phoenix_endpoint), phoenix_endpoint
     except Exception as e:
         logger.warning(f"Phoenix 导出器初始化失败: {e}")
+        return None, None
+
+
+def _setup_phoenix_exporter(tracer_provider, config) -> None:
+    """设置 Phoenix 导出器"""
+    phoenix_exporter, phoenix_endpoint = _try_create_phoenix_exporter(config)
+    if phoenix_exporter is None or phoenix_endpoint is None:
+        return
+
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
+    logger.info(f"Observability: Phoenix 导出已启用 -> {phoenix_endpoint}")
 
 
 def _setup_agno_instrumentor() -> None:
