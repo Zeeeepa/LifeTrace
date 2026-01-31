@@ -77,15 +77,15 @@ repos:
       # Rust format check (rustfmt)
       - id: rustfmt
         name: Rust format (rustfmt)
-        entry: bash -c 'cd free-todo-frontend/src-tauri && cargo fmt --all -- --check'
-        language: system
+        entry: python scripts/precommit_rustfmt.py
+        language: python
         files: ^free-todo-frontend/src-tauri/.*\.rs$
         pass_filenames: false
 
       # Rust linter (clippy)
       - id: clippy
         name: Rust linter (clippy)
-        entry: bash -c 'cd free-todo-frontend/src-tauri && cargo clippy --all-targets --all-features -- -D warnings'
-        language: system
+        entry: python scripts/precommit_clippy.py
+        language: python
         files: ^free-todo-frontend/src-tauri/.*\.rs$
         pass_filenames: false
