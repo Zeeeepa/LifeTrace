@@ -508,7 +508,7 @@ export function BottomDock({
 			data-tour="bottom-dock"
 			className={cn(
 				"flex items-center gap-2",
-				"bg-[oklch(var(--card))] dark:bg-[oklch(var(--card))]/90",
+				"bg-[oklch(var(--card))] dark:bg-[oklch(var(--card))]/60",
 				"backdrop-blur-md",
 				"border border-[oklch(var(--border))]",
 				"shadow-lg dark:shadow-[0_12px_32px_-18px_oklch(var(--overlay))]",
