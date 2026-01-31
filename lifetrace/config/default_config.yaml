@@ -240,5 +240,7 @@ observability:
   phoenix:
     endpoint: http://localhost:6006 # Phoenix 服务端点（需先启动 phoenix serve）
     project_name: freetodo-agent # 项目名称（用于 Phoenix UI 中分组）
+    export_timeout_sec: 2.0 # 导出超时（秒），避免 Phoenix 不可用时阻塞
+    disable_after_failures: 1 # 连续失败达到阈值后自动禁用 Phoenix 导出
   terminal:
     summary_only: true # Terminal 是否只输出一行摘要（推荐 true，保持日志精简）

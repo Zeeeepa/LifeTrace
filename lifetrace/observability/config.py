@@ -25,6 +25,8 @@ class PhoenixConfig:
 
     endpoint: str = "http://localhost:6006"
     project_name: str = "freetodo-agent"
+    export_timeout_sec: float = 2.0
+    disable_after_failures: int = 1
 
 
 @dataclass
@@ -70,6 +72,8 @@ def get_observability_config() -> ObservabilityConfig:
     phoenix_config = PhoenixConfig(
         endpoint=phoenix_settings.get("endpoint", "http://localhost:6006"),
         project_name=phoenix_settings.get("project_name", "freetodo-agent"),
+        export_timeout_sec=phoenix_settings.get("export_timeout_sec", 2.0),
+        disable_after_failures=phoenix_settings.get("disable_after_failures", 1),
     )
 
     # 解析 terminal 配置
