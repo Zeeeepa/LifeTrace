@@ -82,7 +82,19 @@ def _try_create_phoenix_exporter(config):
 
     try:
         phoenix_endpoint = f"{config.phoenix.endpoint}/v1/traces"
-        return OTLPSpanExporter(endpoint=phoenix_endpoint), phoenix_endpoint
+        from lifetrace.observability.exporters.phoenix_exporter import PhoenixCircuitBreakerExporter
+
+        exporter = OTLPSpanExporter(
+            endpoint=phoenix_endpoint,
+            timeout=config.phoenix.export_timeout_sec,
+        )
+        safe_exporter = PhoenixCircuitBreakerExporter(
+            exporter=exporter,
+            endpoint=phoenix_endpoint,
+            disable_after_failures=config.phoenix.disable_after_failures,
+            retry_cooldown_sec=config.phoenix.retry_cooldown_sec,
+        )
+        return safe_exporter, phoenix_endpoint
     except Exception as e:
         logger.warning(f"Phoenix 导出器初始化失败: {e}")
         return None, None
@@ -97,7 +109,11 @@ def _setup_phoenix_exporter(tracer_provider, config) -> None:
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
     tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
-    logger.info(f"Observability: Phoenix 导出已启用 -> {phoenix_endpoint}")
+    logger.info(
+        "Observability: Phoenix 导出已启用 "
+        f"(failures={config.phoenix.disable_after_failures}, "
+        f"cooldown={config.phoenix.retry_cooldown_sec:.0f}s) -> {phoenix_endpoint}"
+    )
 
 
 def _setup_agno_instrumentor() -> None:

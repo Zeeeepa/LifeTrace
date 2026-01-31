@@ -4,5 +4,6 @@
 """
 
 from lifetrace.observability.exporters.file_exporter import LocalFileExporter
+from lifetrace.observability.exporters.phoenix_exporter import PhoenixCircuitBreakerExporter
 
-__all__ = ["LocalFileExporter"]
+__all__ = ["LocalFileExporter", "PhoenixCircuitBreakerExporter"]
