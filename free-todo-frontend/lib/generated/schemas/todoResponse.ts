@@ -10,6 +10,7 @@ import type { TodoResponseUserNotes } from './todoResponseUserNotes';
 import type { TodoResponseParentTodoId } from './todoResponseParentTodoId';
 import type { TodoResponseDeadline } from './todoResponseDeadline';
 import type { TodoResponseStartTime } from './todoResponseStartTime';
+import type { TodoResponseEndTime } from './todoResponseEndTime';
 import type { TodoResponseCompletedAt } from './todoResponseCompletedAt';
 import type { TodoResponseRrule } from './todoResponseRrule';
 import type { TodoAttachmentResponse } from './todoAttachmentResponse';
@@ -34,6 +35,8 @@ export interface TodoResponse {
   deadline?: TodoResponseDeadline;
   /** 开始时间 */
   start_time?: TodoResponseStartTime;
+  /** 结束时间 */
+  end_time?: TodoResponseEndTime;
   /** 状态 */
   status: string;
   /** 优先级 */

@@ -11,6 +11,7 @@ import type { TodoUpdateUserNotes } from './todoUpdateUserNotes';
 import type { TodoUpdateParentTodoId } from './todoUpdateParentTodoId';
 import type { TodoUpdateDeadline } from './todoUpdateDeadline';
 import type { TodoUpdateStartTime } from './todoUpdateStartTime';
+import type { TodoUpdateEndTime } from './todoUpdateEndTime';
 import type { TodoUpdateStatus } from './todoUpdateStatus';
 import type { TodoUpdatePriority } from './todoUpdatePriority';
 import type { TodoUpdateCompletedAt } from './todoUpdateCompletedAt';
@@ -36,6 +37,8 @@ export interface TodoUpdate {
   deadline?: TodoUpdateDeadline;
   /** 开始时间（显式传 null 可清空） */
   start_time?: TodoUpdateStartTime;
+  /** 结束时间（显式传 null 可清空） */
+  end_time?: TodoUpdateEndTime;
   /** 状态 */
   status?: TodoUpdateStatus;
   /** 优先级 */

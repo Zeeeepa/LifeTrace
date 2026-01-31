@@ -11,6 +11,7 @@ import type { TodoCreateUserNotes } from './todoCreateUserNotes';
 import type { TodoCreateParentTodoId } from './todoCreateParentTodoId';
 import type { TodoCreateDeadline } from './todoCreateDeadline';
 import type { TodoCreateStartTime } from './todoCreateStartTime';
+import type { TodoCreateEndTime } from './todoCreateEndTime';
 import type { TodoStatus } from './todoStatus';
 import type { TodoPriority } from './todoPriority';
 import type { TodoCreateCompletedAt } from './todoCreateCompletedAt';
@@ -39,6 +40,8 @@ export interface TodoCreate {
   deadline?: TodoCreateDeadline;
   /** 开始时间 */
   start_time?: TodoCreateStartTime;
+  /** 结束时间 */
+  end_time?: TodoCreateEndTime;
   /** 状态 */
   status?: TodoStatus;
   /** 优先级 */
