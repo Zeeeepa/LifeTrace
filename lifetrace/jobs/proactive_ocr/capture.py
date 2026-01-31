@@ -7,6 +7,7 @@
 """
 
 import platform
+import subprocess
 import sys
 import time
 import uuid
@@ -263,8 +264,6 @@ class WindowCapture:
     def _get_linux_foreground_window(self) -> WindowMeta | None:  # noqa: C901
         """获取Linux前台窗口"""
         try:
-            import subprocess
-
             # 获取活跃窗口信息
             app_name, window_title = get_active_window_info()
             if not app_name:
@@ -278,6 +277,7 @@ class WindowCapture:
                     capture_output=True,
                     text=True,
                     timeout=2,
+                    check=False,
                 )
                 if result.returncode == 0:
                     # 解析窗口几何信息
@@ -300,6 +300,7 @@ class WindowCapture:
                         capture_output=True,
                         text=True,
                         timeout=2,
+                        check=False,
                     )
                     window_id = int(wid_result.stdout.strip()) if wid_result.returncode == 0 else 0
 
@@ -514,12 +515,13 @@ class WindowCapture:
 
 
 # 单例实例
-_capture_instance: WindowCapture | None = None
+_capture_state: dict[str, WindowCapture | None] = {"instance": None}
 
 
 def get_capture(fps: float = 1.0) -> WindowCapture:
     """获取捕获器单例"""
-    global _capture_instance
-    if _capture_instance is None:
-        _capture_instance = WindowCapture(fps=fps)
-    return _capture_instance
+    instance = _capture_state["instance"]
+    if instance is None:
+        instance = WindowCapture(fps=fps)
+        _capture_state["instance"] = instance
+    return instance

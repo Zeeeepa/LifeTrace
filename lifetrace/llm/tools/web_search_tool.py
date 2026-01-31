@@ -39,7 +39,7 @@ class WebSearchTool(Tool):
             "required": ["query"],
         }
 
-    def execute(self, query: str, **kwargs) -> ToolResult:
+    def execute(self, query: str, **_kwargs) -> ToolResult:
         """执行搜索"""
         try:
             if not self.tavily_client.is_available():

@@ -3,6 +3,7 @@
 处理 Event 相关的业务逻辑，与数据访问层解耦。
 """
 
+import importlib
 from datetime import datetime
 from typing import Any
 
@@ -139,9 +140,8 @@ class EventService:
             raise HTTPException(status_code=404, detail="事件不存在")
 
         # 延迟导入避免循环依赖
-        from lifetrace.llm.event_summary_service import event_summary_service
-
-        success = event_summary_service.generate_event_summary(event_id)
+        summary_module = importlib.import_module("lifetrace.llm.event_summary_service")
+        success = summary_module.event_summary_service.generate_event_summary(event_id)
 
         if success:
             updated_event = self.event_repo.get_summary(event_id)

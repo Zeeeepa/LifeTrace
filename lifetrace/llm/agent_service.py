@@ -321,6 +321,7 @@ class AgentService:
             True: 需要继续使用工具
             False: 可以生成最终回答
         """
+        _ = messages
         # 如果工具执行失败，继续尝试
         if not tool_result.success:
             return True

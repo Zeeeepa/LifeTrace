@@ -6,6 +6,7 @@ import argparse
 import os
 import time
 from datetime import datetime
+from functools import lru_cache
 
 import mss
 from PIL import Image
@@ -364,19 +365,16 @@ class ScreenRecorder:
 
 
 # 全局录制器实例（用于调度器任务）
-_global_recorder_instance = None
 
 
+@lru_cache(maxsize=1)
 def get_recorder_instance() -> ScreenRecorder:
     """获取全局录制器实例
 
     Returns:
         ScreenRecorder 实例
     """
-    global _global_recorder_instance
-    if _global_recorder_instance is None:
-        _global_recorder_instance = ScreenRecorder()
-    return _global_recorder_instance
+    return ScreenRecorder()
 
 
 def execute_capture_task():

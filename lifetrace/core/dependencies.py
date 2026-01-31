@@ -4,10 +4,18 @@
 """
 
 from collections.abc import Generator
+from functools import lru_cache
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from lifetrace.core.lazy_services import (
+    get_rag_service as lazy_get_rag_service,
+)
+from lifetrace.core.lazy_services import (
+    get_vector_service as lazy_get_vector_service,
+)
+from lifetrace.jobs.ocr import SimpleOCRProcessor
 from lifetrace.repositories.interfaces import (
     IActivityRepository,
     IChatRepository,
@@ -28,6 +36,7 @@ from lifetrace.services.journal_service import JournalService
 from lifetrace.services.todo_service import TodoService
 from lifetrace.storage.database import db_base
 from lifetrace.storage.database_base import DatabaseBase
+from lifetrace.util.settings import settings
 
 
 def get_db_base() -> DatabaseBase:
@@ -149,31 +158,21 @@ def get_chat_service(
 
 def get_vector_service():
     """获取向量服务（延迟加载）"""
-    from lifetrace.core.lazy_services import get_vector_service as lazy_get
-
-    return lazy_get()
+    return lazy_get_vector_service()
 
 
 def get_rag_service():
     """获取 RAG 服务（延迟加载）"""
-    from lifetrace.core.lazy_services import get_rag_service as lazy_get
-
-    return lazy_get()
+    return lazy_get_rag_service()
 
 
 # ========== OCR 处理器依赖注入 ==========
 
-_ocr_processor = None
 
-
+@lru_cache(maxsize=1)
 def get_ocr_processor():
     """获取 OCR 处理器（延迟加载，单例模式）"""
-    global _ocr_processor
-    if _ocr_processor is None:
-        from lifetrace.jobs.ocr import SimpleOCRProcessor
-
-        _ocr_processor = SimpleOCRProcessor()
-    return _ocr_processor
+    return SimpleOCRProcessor()
 
 
 # ========== 配置依赖注入 ==========
@@ -181,6 +180,4 @@ def get_ocr_processor():
 
 def get_settings():
     """获取配置对象"""
-    from lifetrace.util.settings import settings
-
     return settings

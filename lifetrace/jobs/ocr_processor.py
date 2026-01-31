@@ -46,10 +46,10 @@ def preprocess_image(image_path: str) -> "np.ndarray":
     Returns:
         预处理后的图像数组
     """
-    with Image.open(image_path) as img:
-        img = img.convert("RGB")
-        img.thumbnail(DEFAULT_IMAGE_MAX_SIZE, Image.Resampling.LANCZOS)
-        return np.array(img)
+    with Image.open(image_path) as image:
+        rgb_image = image.convert("RGB")
+        rgb_image.thumbnail(DEFAULT_IMAGE_MAX_SIZE, Image.Resampling.LANCZOS)
+        return np.array(rgb_image)
 
 
 def extract_text_from_ocr_result(result, confidence_threshold: float = None) -> str:

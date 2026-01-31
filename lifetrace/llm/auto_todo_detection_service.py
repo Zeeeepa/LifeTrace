@@ -147,6 +147,8 @@ class AutoTodoDetectionService:
         Returns:
             检测结果字典，包含new_todos列表
         """
+        _ = app_name
+        _ = window_title
         if not self.llm_client.is_available():
             logger.warning("LLM客户端不可用，无法检测待办")
             return {"new_todos": []}

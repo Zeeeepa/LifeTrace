@@ -3,12 +3,14 @@ Token使用量记录器
 记录LLM API调用的token使用情况，便于后续统计分析
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import TokenUsage
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.settings import settings
 
 logger = get_logger()
 
@@ -79,8 +81,6 @@ class TokenUsageLogger:
         Returns:
             (input_price, output_price) 元组
         """
-        from lifetrace.util.settings import settings
-
         model_prices = settings.get("llm.model_prices")
         if model_prices is None:
             return 0.0, 0.0
@@ -197,8 +197,6 @@ class TokenUsageLogger:
             统计结果字典
         """
         try:
-            from datetime import timedelta
-
             stats = {
                 "total_input_tokens": 0,
                 "total_output_tokens": 0,
@@ -308,20 +306,17 @@ class TokenUsageLogger:
 
 
 # 全局token使用量记录器实例
-_token_logger: TokenUsageLogger | None = None
+
+
+@lru_cache(maxsize=1)
+def get_token_logger() -> TokenUsageLogger:
+    """获取token使用量记录器实例"""
+    return TokenUsageLogger()
 
 
 def setup_token_logger() -> TokenUsageLogger:
     """设置token使用量记录器"""
-    global _token_logger
-    if _token_logger is None:
-        _token_logger = TokenUsageLogger()
-    return _token_logger
-
-
-def get_token_logger() -> TokenUsageLogger | None:
-    """获取token使用量记录器实例"""
-    return _token_logger
+    return get_token_logger()
 
 
 def log_token_usage(model: str, input_tokens: int, output_tokens: int, **kwargs):
@@ -333,6 +328,5 @@ def log_token_usage(model: str, input_tokens: int, output_tokens: int, **kwargs)
         output_tokens: 输出token数量
         **kwargs: 传递给 metadata 字典的其他参数
     """
-    if _token_logger is None:
-        setup_token_logger()
-    return _token_logger.log_token_usage(model, input_tokens, output_tokens, metadata=kwargs)
+    token_logger = get_token_logger()
+    return token_logger.log_token_usage(model, input_tokens, output_tokens, metadata=kwargs)

@@ -3,6 +3,7 @@ APScheduler 调度器管理模块，用于管理 LifeTrace 的定时任务
 """
 
 import os
+from functools import lru_cache
 
 from apscheduler.events import (
     EVENT_JOB_ADDED,
@@ -353,16 +354,13 @@ class SchedulerManager:
 
 
 # 全局调度器实例
-scheduler_manager: SchedulerManager | None = None
 
 
+@lru_cache(maxsize=1)
 def get_scheduler_manager() -> SchedulerManager:
     """获取全局调度器管理器实例
 
     Returns:
         SchedulerManager 实例
     """
-    global scheduler_manager
-    if scheduler_manager is None:
-        scheduler_manager = SchedulerManager()
-    return scheduler_manager
+    return SchedulerManager()

@@ -20,7 +20,7 @@ router = APIRouter()
 # 服务器模式：由命令行参数设置，默认为 "dev"
 # "dev" = 开发模式（从源码运行或 pnpm dev）
 # "build" = 打包模式（Electron 打包后运行）
-_server_mode: str = "dev"
+_server_state: dict[str, str] = {"mode": "dev"}
 
 
 @lru_cache(maxsize=1)
@@ -42,14 +42,13 @@ def get_git_commit() -> str:
 
 def set_server_mode(mode: str) -> None:
     """设置服务器模式（由 server.py 在启动时调用）"""
-    global _server_mode
-    _server_mode = mode
+    _server_state["mode"] = mode
     logger.info(f"服务器模式已设置为: {mode}")
 
 
 def get_server_mode() -> str:
     """获取当前服务器模式"""
-    return _server_mode
+    return _server_state["mode"]
 
 
 @router.get("/health")
@@ -59,7 +58,7 @@ async def health_check():
     return {
         "app": "lifetrace",  # 固定的应用标识，用于前端识别后端服务
         "status": "healthy",
-        "server_mode": _server_mode,  # 服务器模式：dev 或 build
+        "server_mode": _server_state["mode"],  # 服务器模式：dev 或 build
         "git_commit": get_git_commit(),
         "timestamp": get_utc_now(),
         "database": "connected" if db_base.engine else "disconnected",

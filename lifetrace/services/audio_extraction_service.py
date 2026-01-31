@@ -3,6 +3,7 @@
 处理音频转录文本的待办和日程提取逻辑。
 """
 
+import hashlib
 import json
 from typing import Any
 
@@ -38,8 +39,6 @@ class AudioExtractionService:
         Returns:
             稳定的ID字符串
         """
-        import hashlib
-
         base = "|".join(
             [
                 str(item.get("source_text") or ""),

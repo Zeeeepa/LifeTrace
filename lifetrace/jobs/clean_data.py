@@ -5,8 +5,10 @@
 
 import os
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from lifetrace.storage import get_session, screenshot_mgr
+from lifetrace.storage.models import Screenshot
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.settings import settings
@@ -90,8 +92,6 @@ class CleanDataService:
 
             # 获取最旧的截图列表（排除已删除文件的记录）
             with get_session() as session:
-                from lifetrace.storage.models import Screenshot
-
                 old_screenshots = (
                     session.query(Screenshot)
                     .filter(Screenshot.file_deleted.is_not(True))
@@ -129,8 +129,6 @@ class CleanDataService:
 
             # 获取需要清理的截图（排除已删除文件的记录）
             with get_session() as session:
-                from lifetrace.storage.models import Screenshot
-
                 old_screenshots = (
                     session.query(Screenshot)
                     .filter(Screenshot.created_at < cutoff_date)
@@ -207,15 +205,12 @@ class CleanDataService:
 
 
 # 全局单例
-_clean_data_instance: CleanDataService | None = None
 
 
+@lru_cache(maxsize=1)
 def get_clean_data_instance() -> CleanDataService:
     """获取数据清理服务单例"""
-    global _clean_data_instance
-    if _clean_data_instance is None:
-        _clean_data_instance = CleanDataService()
-    return _clean_data_instance
+    return CleanDataService()
 
 
 def execute_clean_data_task():

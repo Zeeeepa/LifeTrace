@@ -3,6 +3,7 @@
 处理 Activity 相关的业务逻辑，与数据访问层解耦。
 """
 
+import importlib
 from datetime import datetime
 
 from fastapi import HTTPException
@@ -163,9 +164,8 @@ class ActivityService:
     ) -> dict:
         """生成活动摘要并创建活动"""
         # 延迟导入避免循环依赖
-        from lifetrace.llm.activity_summary_service import activity_summary_service
-
-        result = activity_summary_service.generate_activity_summary(
+        summary_module = importlib.import_module("lifetrace.llm.activity_summary_service")
+        result = summary_module.activity_summary_service.generate_activity_summary(
             events=events_data,
             start_time=activity_start_time,
             end_time=activity_end_time,

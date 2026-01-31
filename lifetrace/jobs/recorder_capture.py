@@ -4,7 +4,9 @@
 """
 
 import hashlib
+import importlib
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -277,9 +279,8 @@ def should_detect_todos(app_name: str) -> bool:
 
     if not app_name:
         return False
-    from lifetrace.llm.auto_todo_detection_service import get_whitelist_apps
-
-    whitelist_apps = get_whitelist_apps()
+    auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
+    whitelist_apps = auto_module.get_whitelist_apps()
     app_name_lower = app_name.lower()
     is_whitelist = any(whitelist_app.lower() in app_name_lower for whitelist_app in whitelist_apps)
 
@@ -291,19 +292,18 @@ def should_detect_todos(app_name: str) -> bool:
     return is_whitelist
 
 
-def trigger_todo_detection_async(screenshot_id: int, app_name: str):
+def trigger_todo_detection_async(screenshot_id: int, _app_name: str):
     """异步触发待办检测
 
     Args:
         screenshot_id: 截图ID
         app_name: 应用名称
     """
-    import threading
 
     def _detect_todos():
         try:
-            from lifetrace.llm.auto_todo_detection_service import AutoTodoDetectionService
-
+            auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
+            AutoTodoDetectionService = auto_module.AutoTodoDetectionService
             service = AutoTodoDetectionService()
             result = service.detect_and_create_todos_from_screenshot(screenshot_id)
             logger.info(

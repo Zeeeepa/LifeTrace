@@ -1,5 +1,6 @@
 """OCR管理器 - 负责OCR结果相关的数据库操作"""
 
+import hashlib
 from datetime import datetime
 from typing import Any
 
@@ -35,8 +36,6 @@ class OCRManager:
     ) -> int | None:
         """添加OCR结果"""
         try:
-            import hashlib
-
             normalized = _normalize_text(text_content)
             text_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest() if normalized else None
 

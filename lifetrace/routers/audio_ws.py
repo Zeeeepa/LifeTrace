@@ -5,9 +5,12 @@ Split from `lifetrace.routers.audio` to keep router files small and readable.
 
 from __future__ import annotations
 
+import array
 import asyncio
+import importlib
 import json
 import struct
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -40,8 +43,6 @@ def _to_local(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        import time
-
         offset = -time.timezone if time.daylight == 0 else -time.altzone
         local_tz = timezone(timedelta(seconds=offset))
         return dt.replace(tzinfo=local_tz)
@@ -347,8 +348,6 @@ def _parse_init_message(logger, init_message: dict[str, Any]) -> bool:
 
 def _apply_agc_to_pcm(logger, pcm_bytes: bytes) -> bytes:
     try:
-        import array
-
         samples = array.array("h")
         samples.frombytes(pcm_bytes)
         if not samples:
@@ -398,8 +397,6 @@ def _detect_silence(
         True if silent, False otherwise
     """
     try:
-        import array
-
         samples = array.array("h")
         samples.frombytes(pcm_bytes)
         if not samples:
@@ -463,20 +460,15 @@ async def _save_transcription_if_any(
 # 导入分段相关功能（延迟导入以避免循环依赖）
 def _get_segment_functions():
     """延迟导入分段函数以避免循环依赖"""
-    from lifetrace.routers.audio_ws_segment import (
-        _save_current_segment,
-        _segment_monitor_task,
-    )
-
-    return _save_current_segment, _segment_monitor_task
+    segment_module = importlib.import_module("lifetrace.routers.audio_ws_segment")
+    return segment_module._save_current_segment, segment_module._segment_monitor_task
 
 
 # 导入 WebSocket 处理函数（延迟导入以避免循环依赖）
 def _get_transcribe_handler():
     """延迟导入 WebSocket 处理函数以避免循环依赖"""
-    from lifetrace.routers.audio_ws_handler import _handle_transcribe_ws
-
-    return _handle_transcribe_ws
+    handler_module = importlib.import_module("lifetrace.routers.audio_ws_handler")
+    return handler_module._handle_transcribe_ws
 
 
 def register_audio_ws_routes(*, router: APIRouter, logger, asr_client, audio_service) -> None:

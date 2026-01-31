@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -237,8 +238,6 @@ class AudioService:
         Returns:
             保留的记录
         """
-        from sqlmodel import select
-
         all_records = list(
             session.exec(
                 select(Transcription)
@@ -326,8 +325,6 @@ class AudioService:
 
         segment_timestamps_json = None
         if segment_timestamps is not None:
-            import json
-
             # 严格一致：不做插值/均分/猜测。长度不一致就丢弃时间戳，前端回退到均匀估算。
             if len(segment_timestamps) == len(display_lines):
                 segment_timestamps_json = json.dumps(segment_timestamps, ensure_ascii=False)
@@ -362,8 +359,6 @@ class AudioService:
         Returns:
             (transcription, should_auto_extract)
         """
-        from sqlmodel import select
-
         # 检查是否已存在转录记录
         existing = session.exec(
             select(Transcription)

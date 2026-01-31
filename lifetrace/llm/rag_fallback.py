@@ -45,6 +45,7 @@ def fallback_response(
     stats: dict[str, Any] = None,
 ) -> str:
     """备用响应生成（当LLM不可用时）"""
+    _ = stats
     if not retrieved_data:
         return f"抱歉，没有找到与查询 '{user_query}' 相关的历史记录。"
 

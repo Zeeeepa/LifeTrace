@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from lifetrace.llm.activity_summary_service import activity_summary_service
 from lifetrace.storage import activity_mgr
@@ -342,12 +343,9 @@ def execute_activity_aggregation_task():
 
 
 # 全局单例（用于延迟初始化）
-_aggregator_instance = None
 
 
+@lru_cache(maxsize=1)
 def get_aggregator_instance():
     """获取聚合器实例（用于初始化）"""
-    global _aggregator_instance
-    if _aggregator_instance is None:
-        _aggregator_instance = True  # 不需要实际实例，只是占位
-    return _aggregator_instance
+    return True  # 不需要实际实例，只是占位

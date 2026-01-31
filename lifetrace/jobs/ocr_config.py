@@ -12,6 +12,11 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_app_root, get_config_dir, get_models_dir
 from lifetrace.util.settings import settings
 
+try:
+    from rapidocr_onnxruntime import RapidOCR
+except ImportError:
+    RapidOCR = None
+
 logger = get_logger()
 
 # OCR配置常量
@@ -67,7 +72,8 @@ def create_rapidocr_instance():  # noqa: C901, PLR0912
     Returns:
         RapidOCR实例
     """
-    from rapidocr_onnxruntime import RapidOCR
+    if RapidOCR is None:
+        raise ImportError("RapidOCR 未安装，请运行: pip install rapidocr-onnxruntime")
 
     config_path = get_rapidocr_config_path()
 

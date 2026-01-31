@@ -1,6 +1,8 @@
 """音频录制和转录相关路由"""
 
 import json
+import time
+from datetime import date as date_type
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -8,10 +10,13 @@ from typing import Any
 from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from sqlmodel import select
 
 from lifetrace.routers.audio_ws import register_audio_ws_routes
 from lifetrace.services.asr_client import ASRClient
 from lifetrace.services.audio_service import AudioService
+from lifetrace.storage import get_session
+from lifetrace.storage.models import AudioRecording, Transcription
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -31,8 +36,6 @@ def _to_local(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        import time
-
         offset = -time.timezone if time.daylight == 0 else -time.altzone
         local_tz = timezone(timedelta(seconds=offset))
         return dt.replace(tzinfo=local_tz)
@@ -51,8 +54,6 @@ async def get_recordings(date: str | None = Query(None)):
                     target_date = datetime.fromisoformat(date.replace("Z", "+00:00"))
                 else:
                     # 处理 YYYY-MM-DD 格式
-                    from datetime import date as date_type
-
                     date_obj = date_type.fromisoformat(date)
                     target_date = datetime.combine(date_obj, datetime.min.time())
             except ValueError as e:
@@ -93,8 +94,6 @@ def _parse_date_param(date: str | None) -> datetime:
             if "T" in date or "Z" in date:
                 return datetime.fromisoformat(date.replace("Z", "+00:00"))
             else:
-                from datetime import date as date_type
-
                 date_obj = date_type.fromisoformat(date)
                 return datetime.combine(date_obj, datetime.min.time())
         except ValueError as e:
@@ -119,8 +118,6 @@ def _build_timeline_item(
         timestamps_str = transcription.get("segment_timestamps")
         if timestamps_str:
             try:
-                import json
-
                 segment_timestamps = json.loads(timestamps_str)
                 if not isinstance(segment_timestamps, list):
                     segment_timestamps = None
@@ -165,9 +162,6 @@ async def get_timeline(date: str | None = Query(None), optimized: bool = Query(F
 async def get_recording_file(recording_id: int):
     """获取录音文件（用于前端播放）"""
     try:
-        from lifetrace.storage import get_session
-        from lifetrace.storage.models import AudioRecording
-
         with get_session() as session:
             rec = session.get(AudioRecording, recording_id)
             if not rec or not rec.file_path:
@@ -218,6 +212,7 @@ def _refresh_extracted_from_db(
     Returns:
         (todos, schedules) 元组
     """
+    _ = transcription_id
     try:
         # 直接读取数据库，不要调用 update_extraction（会清空数据）
         refreshed = audio_service.get_transcription(recording_id)
@@ -342,11 +337,6 @@ async def optimize_transcription(recording_id: int):
         optimized_text = await audio_service.optimize_transcription_text(text)
 
         # 更新转录记录（保留提取结果）
-        from sqlmodel import select
-
-        from lifetrace.storage import get_session
-        from lifetrace.storage.models import Transcription
-
         with get_session() as session:
             # 获取 ORM 对象（不是字典）
             trans = session.exec(
@@ -391,11 +381,6 @@ async def extract_todos_and_schedules(recording_id: int, optimized: bool = Query
         result = await audio_service.extraction_service.extract_todos_and_schedules(text)
 
         # 更新提取结果（根据 optimized 参数更新对应字段）
-        from sqlmodel import select
-
-        from lifetrace.storage import get_session
-        from lifetrace.storage.models import Transcription
-
         with get_session() as session:
             # 查询转录记录（一个 recording_id 只应该有一条）
             trans = session.exec(

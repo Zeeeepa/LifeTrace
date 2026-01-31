@@ -200,7 +200,7 @@ class OcrEngine:
 
 
 # 单例实例
-_engine_instance: OcrEngine | None = None
+_engine_state: dict[str, OcrEngine | None] = {"instance": None}
 
 
 def get_ocr_engine(
@@ -210,12 +210,13 @@ def get_ocr_engine(
     resize_max_side: int = 0,
 ) -> OcrEngine:
     """获取OCR引擎单例"""
-    global _engine_instance
-    if _engine_instance is None:
-        _engine_instance = OcrEngine(
+    instance = _engine_state["instance"]
+    if instance is None:
+        instance = OcrEngine(
             det_limit_side_len=det_limit_side_len,
             det_limit_type=det_limit_type,
             rec_batch_num=rec_batch_num,
             resize_max_side=resize_max_side,
         )
-    return _engine_instance
+        _engine_state["instance"] = instance
+    return instance

@@ -7,9 +7,8 @@ Create Date: 2026-01-23 00:00:00.000000
 为 ocr_results 表添加 text_hash 列和索引，并为已有数据回填哈希值。
 """
 
-from collections.abc import Sequence
-
 import hashlib
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op

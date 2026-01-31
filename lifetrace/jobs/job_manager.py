@@ -3,6 +3,8 @@
 负责管理所有后台任务的启动、停止和配置更新
 """
 
+from functools import lru_cache
+
 from lifetrace.core.module_registry import get_module_states
 from lifetrace.jobs.activity_aggregator import (
     execute_activity_aggregation_task,
@@ -12,6 +14,7 @@ from lifetrace.jobs.clean_data import execute_clean_data_task, get_clean_data_in
 from lifetrace.jobs.deadline_reminder import execute_deadline_reminder_task
 from lifetrace.jobs.ocr import execute_ocr_task
 from lifetrace.jobs.proactive_ocr import execute_proactive_ocr_task
+from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
 from lifetrace.jobs.recorder import execute_capture_task, get_recorder_instance
 from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.jobs.todo_recorder import execute_todo_capture_task, get_todo_recorder_instance
@@ -319,8 +322,6 @@ class JobManager:
 
         try:
             # 预先初始化全局服务实例
-            from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
-
             get_proactive_ocr_service()
             logger.info("主动OCR服务实例已初始化")
 
@@ -380,12 +381,9 @@ class JobManager:
 
 
 # 全局单例
-_job_manager_instance: JobManager | None = None
 
 
+@lru_cache(maxsize=1)
 def get_job_manager() -> JobManager:
     """获取任务管理器单例"""
-    global _job_manager_instance
-    if _job_manager_instance is None:
-        _job_manager_instance = JobManager()
-    return _job_manager_instance
+    return JobManager()

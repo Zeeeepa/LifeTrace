@@ -8,22 +8,21 @@ Dynaconf 配置模块 - 支持热加载的配置管理
 - 配置验证
 """
 
+import shutil
 from pathlib import Path
 
 from dynaconf import Dynaconf, Validator
 
+from lifetrace.util.base_paths import get_config_dir, get_user_config_dir
+
 
 def _get_config_dir() -> Path:
     """获取配置目录"""
-    from lifetrace.util.path_utils import get_user_config_dir
-
     return get_user_config_dir()
 
 
 def _get_default_config_dir() -> Path:
     """获取内置默认配置目录"""
-    from lifetrace.util.path_utils import get_config_dir
-
     return get_config_dir()
 
 
@@ -33,8 +32,6 @@ def _init_config_files() -> list[str]:
     确保用户配置目录存在，如果 config.yaml 不存在则从默认配置复制。
     返回按加载顺序排列的配置文件路径列表。
     """
-    import shutil
-
     user_config_dir = _get_config_dir()
     default_config_dir = _get_default_config_dir()
 

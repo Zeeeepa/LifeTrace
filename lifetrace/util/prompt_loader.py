@@ -6,6 +6,7 @@
 import yaml
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 
@@ -33,9 +34,6 @@ class PromptLoader:
         优先从 prompts/ 目录加载所有 yaml 文件，如果目录不存在则回退到单个 prompt.yaml 文件。
         """
         try:
-            # 获取配置文件路径
-            from lifetrace.util.path_utils import get_config_dir
-
             config_dir = get_config_dir()
             prompts_dir = config_dir / "prompts"
             self._prompts = {}

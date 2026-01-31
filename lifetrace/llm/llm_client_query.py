@@ -254,9 +254,10 @@ def generate_summary_with_llm(
 
 def fallback_summary(query: str, context_data: list[dict[str, Any]]) -> str:
     """在LLM不可用或失败时的总结备选方案"""
+    total_records = len(context_data)
     summary_parts = [
-        "以下是根据历史数据的简要总结：",
-        "- 共检索到相关记录若干条",
+        f"以下是根据历史数据的简要总结（查询: {query}）：",
+        f"- 共检索到相关记录 {total_records} 条",
         "- 涉及多个应用和时间点",
         "- 建议进一步细化查询条件以获得更精确的结果",
     ]

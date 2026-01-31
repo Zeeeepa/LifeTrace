@@ -56,8 +56,8 @@ def _parse_sse_event_block(event_block: str) -> dict[str, Any] | None:
     Returns:
         解析后的 JSON 数据字典，如果解析失败则返回 None
     """
-    for line in event_block.split("\n"):
-        line = line.strip()
+    for raw_line in event_block.split("\n"):
+        line = raw_line.strip()
         if line.startswith("data: "):
             data_str = line[6:]  # 跳过 "data: " 前缀
             try:

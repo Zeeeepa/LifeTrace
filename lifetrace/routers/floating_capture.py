@@ -4,6 +4,7 @@ import json
 import re
 import time
 from datetime import datetime
+from functools import lru_cache
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -29,15 +30,12 @@ router = APIRouter(prefix="/api/floating-capture", tags=["floating-capture"])
 MIN_RESPONSE_LENGTH_THRESHOLD = 50  # LLM 响应的最小长度阈值
 
 # LLM 客户端单例
-_llm_client: LLMClient | None = None
 
 
+@lru_cache(maxsize=1)
 def get_llm_client() -> LLMClient:
     """获取 LLM 客户端单例"""
-    global _llm_client
-    if _llm_client is None:
-        _llm_client = LLMClient()
-    return _llm_client
+    return LLMClient()
 
 
 @router.post("/extract-todos", response_model=FloatingCaptureResponse)

@@ -1,6 +1,7 @@
 import hashlib
 import os
 import platform
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -12,6 +13,34 @@ logger = get_logger()
 MIN_WINDOW_SIZE = 100  # 最小窗口尺寸（用于过滤菜单、工具栏等）
 BYTES_PER_KB = 1024  # 每KB的字节数
 DEFAULT_SCREEN_ID = 1  # 默认屏幕ID
+
+try:
+    import psutil
+    import win32api
+    import win32gui
+    import win32process
+except ImportError:
+    psutil = None
+    win32api = None
+    win32gui = None
+    win32process = None
+
+try:
+    from AppKit import NSScreen, NSWorkspace
+except ImportError:
+    NSScreen = None
+    NSWorkspace = None
+
+try:
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGNullWindowID,
+        kCGWindowListOptionOnScreenOnly,
+    )
+except ImportError:
+    CGWindowListCopyWindowInfo = None
+    kCGNullWindowID = None
+    kCGWindowListOptionOnScreenOnly = None
 
 
 def get_file_hash(file_path: str) -> str:
@@ -52,9 +81,9 @@ def get_active_window_info() -> tuple[str | None, str | None]:
 def _get_windows_active_window() -> tuple[str | None, str | None]:
     """获取Windows活跃窗口信息"""
     try:
-        import psutil
-        import win32gui
-        import win32process
+        if psutil is None or win32gui is None or win32process is None:
+            logger.warning("Windows依赖未安装，无法获取窗口信息")
+            return None, None
 
         hwnd = win32gui.GetForegroundWindow()
         if hwnd:
@@ -68,8 +97,6 @@ def _get_windows_active_window() -> tuple[str | None, str | None]:
                 app_name = None
 
             return app_name, window_title
-    except ImportError:
-        logger.warning("Windows依赖未安装，无法获取窗口信息")
     except Exception as e:
         logger.error(f"获取Windows窗口信息失败: {e}")
 
@@ -79,12 +106,9 @@ def _get_windows_active_window() -> tuple[str | None, str | None]:
 def _get_macos_active_window() -> tuple[str | None, str | None]:
     """获取macOS活跃窗口信息"""
     try:
-        from AppKit import NSWorkspace
-        from Quartz import (
-            CGWindowListCopyWindowInfo,
-            kCGNullWindowID,
-            kCGWindowListOptionOnScreenOnly,
-        )
+        if NSWorkspace is None or CGWindowListCopyWindowInfo is None:
+            logger.warning("macOS依赖未安装，无法获取窗口信息")
+            return None, None
 
         # 获取活跃应用
         workspace = NSWorkspace.sharedWorkspace()
@@ -108,8 +132,6 @@ def _get_macos_active_window() -> tuple[str | None, str | None]:
             return app_name, None
 
         return app_name, None
-    except ImportError as e:
-        logger.warning(f"macOS依赖未安装，无法获取窗口信息: {e}")
     except Exception as e:
         logger.error(f"获取macOS窗口信息失败: {e}")
 
@@ -136,8 +158,8 @@ def get_active_window_screen() -> int | None:
 
 def _get_macos_active_app_name() -> str | None:
     """获取macOS活跃应用名称"""
-    from AppKit import NSWorkspace
-
+    if NSWorkspace is None:
+        return None
     workspace = NSWorkspace.sharedWorkspace()
     active_app = workspace.activeApplication()
     if not active_app:
@@ -147,12 +169,8 @@ def _get_macos_active_app_name() -> str | None:
 
 def _get_macos_active_window_bounds(app_name: str) -> dict | None:
     """获取macOS活跃窗口的边界"""
-    from Quartz import (
-        CGWindowListCopyWindowInfo,
-        kCGNullWindowID,
-        kCGWindowListOptionOnScreenOnly,
-    )
-
+    if CGWindowListCopyWindowInfo is None:
+        return None
     window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
     if not window_list:
         return None
@@ -197,8 +215,9 @@ def _find_screen_for_window_center(window_center: tuple[float, float], screens: 
 def _get_macos_active_window_screen() -> int | None:
     """获取macOS活跃窗口所在的屏幕ID"""
     try:
-        from AppKit import NSScreen
-
+        if NSScreen is None:
+            logger.warning("macOS依赖未安装，无法获取屏幕信息")
+            return None
         app_name = _get_macos_active_app_name()
         if not app_name:
             return None
@@ -220,8 +239,6 @@ def _get_macos_active_window_screen() -> int | None:
 
         return _find_screen_for_window_center(window_center, screens)
 
-    except ImportError as e:
-        logger.warning(f"macOS依赖未安装，无法获取屏幕信息: {e}")
     except Exception as e:
         logger.error(f"获取macOS活跃窗口屏幕失败: {e}")
 
@@ -231,8 +248,9 @@ def _get_macos_active_window_screen() -> int | None:
 def _get_windows_active_window_screen() -> int | None:
     """获取Windows活跃窗口所在的屏幕ID"""
     try:
-        import win32api
-        import win32gui
+        if win32api is None or win32gui is None:
+            logger.warning("Windows依赖未安装，无法获取屏幕信息")
+            return None
 
         hwnd = win32gui.GetForegroundWindow()
         if not hwnd:
@@ -265,8 +283,6 @@ def _get_windows_active_window_screen() -> int | None:
 
         return 1  # 默认返回主屏幕
 
-    except ImportError:
-        logger.warning("Windows依赖未安装，无法获取屏幕信息")
     except Exception as e:
         logger.error(f"获取Windows活跃窗口屏幕失败: {e}")
 
@@ -313,10 +329,11 @@ def _find_linux_screen_for_position(x: int, y: int, xrandr_stdout: str) -> int:
 def _get_linux_active_window_screen() -> int | None:
     """获取Linux活跃窗口所在的屏幕ID"""
     try:
-        import subprocess
-
         result = subprocess.run(
-            ["xdotool", "getactivewindow", "getwindowgeometry"], capture_output=True, text=True
+            ["xdotool", "getactivewindow", "getwindowgeometry"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
         if result.returncode != 0:
@@ -326,7 +343,12 @@ def _get_linux_active_window_screen() -> int | None:
         if not position:
             return DEFAULT_SCREEN_ID
 
-        xrandr_result = subprocess.run(["xrandr", "--current"], capture_output=True, text=True)
+        xrandr_result = subprocess.run(
+            ["xrandr", "--current"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if xrandr_result.returncode != 0:
             return DEFAULT_SCREEN_ID
 
@@ -341,18 +363,22 @@ def _get_linux_active_window_screen() -> int | None:
 def _get_linux_active_window() -> tuple[str | None, str | None]:
     """获取Linux活跃窗口信息"""
     try:
-        import subprocess
-
         # 使用xprop获取活跃窗口ID
         result = subprocess.run(
-            ["xprop", "-root", "_NET_ACTIVE_WINDOW"], capture_output=True, text=True
+            ["xprop", "-root", "_NET_ACTIVE_WINDOW"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if result.returncode == 0:
             window_id = result.stdout.strip().split()[-1]
 
             # 获取窗口标题
             title_result = subprocess.run(
-                ["xprop", "-id", window_id, "WM_NAME"], capture_output=True, text=True
+                ["xprop", "-id", window_id, "WM_NAME"],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if title_result.returncode == 0:
                 window_title = (
@@ -366,6 +392,7 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
                     ["xprop", "-id", window_id, "WM_CLASS"],
                     capture_output=True,
                     text=True,
+                    check=False,
                 )
                 if class_result.returncode == 0:
                     app_name = (

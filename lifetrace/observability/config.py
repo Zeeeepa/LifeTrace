@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.settings import settings
 
 
@@ -99,8 +100,6 @@ def get_traces_directory() -> Path:
     Returns:
         Path: traces 目录路径
     """
-    from lifetrace.util.path_utils import get_user_data_dir
-
     config = get_observability_config()
     data_dir = get_user_data_dir()
     traces_dir = data_dir / config.local.traces_dir

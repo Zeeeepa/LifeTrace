@@ -1,5 +1,6 @@
 """聊天相关的辅助/管理路由。"""
 
+import importlib
 from datetime import datetime
 
 from fastapi import Depends, HTTPException, Query
@@ -45,6 +46,9 @@ async def add_message_to_session(
     chat_service: ChatService = Depends(get_chat_service),
 ):
     """添加消息到会话（消息已在流式聊天中自动保存，此接口保持兼容性）"""
+    _ = session_id
+    _ = request
+    _ = chat_service
     try:
         # 消息在流式聊天接口中已经自动保存，这里只是为了API兼容性
         # 如果需要手动保存，可以取消注释以下代码
@@ -132,9 +136,8 @@ async def get_available_agno_tools():
     2. 外部工具：联网搜索等（duckduckgo 等）
     """
     try:
-        from lifetrace.llm.agno_agent import get_available_external_tools
-
         # FreeTodo 工具列表（与 toolkit.py 中的 all_tools 保持同步）
+        agno_module = importlib.import_module("lifetrace.llm.agno_agent")
         freetodo_tools = [
             {
                 "name": "create_todo",
@@ -223,7 +226,7 @@ async def get_available_agno_tools():
         ]
 
         # 外部工具列表
-        available_external = get_available_external_tools()
+        available_external = agno_module.get_available_external_tools()
         external_tools = []
 
         if "duckduckgo" in available_external:

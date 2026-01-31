@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 
 from lifetrace.schemas.screenshot import ScreenshotResponse
 from lifetrace.storage import get_session, screenshot_mgr
+from lifetrace.storage.models import OCRResult
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -62,8 +63,6 @@ async def get_screenshot(screenshot_id: int):
     ocr_data = None
     try:
         with get_session() as session:
-            from lifetrace.storage.models import OCRResult
-
             ocr_result = session.query(OCRResult).filter_by(screenshot_id=screenshot_id).first()
 
             # 在session内提取数据
