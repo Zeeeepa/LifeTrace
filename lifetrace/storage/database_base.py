@@ -5,6 +5,7 @@
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -55,11 +56,41 @@ class DatabaseBase:
                 # checkfirst=True（默认值）会跳过已存在的表
                 SQLModel.metadata.create_all(bind=self.engine)
 
+            # 运行 Alembic 迁移，补齐已有数据库的新增列/索引
+            self._run_migrations()
+
             # 性能优化：添加关键索引
             self._create_performance_indexes()
 
         except Exception as e:
             logger.error(f"数据库初始化失败: {e}")
+            raise
+
+    def _run_migrations(self) -> None:
+        """运行 Alembic 迁移（如可用）"""
+        try:
+            from alembic import command
+            from alembic.config import Config
+        except Exception as exc:
+            logger.warning(f"Alembic 未就绪，跳过迁移: {exc}")
+            return
+
+        alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
+        migrations_dir = alembic_ini.parent / "migrations"
+
+        if not alembic_ini.exists() or not migrations_dir.exists():
+            logger.warning("Alembic 配置缺失，跳过迁移")
+            return
+
+        config = Config(str(alembic_ini))
+        config.set_main_option("script_location", str(migrations_dir))
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{get_database_path()}")
+
+        try:
+            command.upgrade(config, "head")
+            logger.info("数据库迁移检查完成")
+        except Exception as exc:
+            logger.error(f"数据库迁移失败: {exc}")
             raise
 
     def _create_performance_indexes(self):
