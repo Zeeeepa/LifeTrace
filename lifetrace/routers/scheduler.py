@@ -7,7 +7,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from lifetrace.jobs.scheduler import get_scheduler_manager
+from lifetrace.services.config_service import ConfigService
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.settings import reload_settings
 
 logger = get_logger()
 
@@ -296,8 +298,6 @@ def _sync_job_enabled_to_config(job_id: str, enabled: bool):
         job_id: 任务ID
         enabled: 是否启用
     """
-    from lifetrace.services.config_service import ConfigService
-
     # 定义任务ID到配置路径的映射
     job_config_map = {
         "recorder_job": "jobs.recorder.enabled",
@@ -329,8 +329,6 @@ def _sync_job_enabled_to_config(job_id: str, enabled: bool):
 
             config_service.update_config_file(config_updates, config_service._config_path)
             # 重新加载配置到内存
-            from lifetrace.util.settings import reload_settings
-
             reload_settings()
             logger.info(f"已同步任务 {job_id} 的启用状态到配置文件: {enabled}")
         except Exception as e:
@@ -348,8 +346,6 @@ def _sync_job_interval_to_config(
         minutes: 分钟数
         hours: 小时数
     """
-    from lifetrace.services.config_service import ConfigService
-
     # 定义任务ID到配置路径的映射
     job_config_map = {
         "recorder_job": "jobs.recorder.interval",
@@ -379,8 +375,6 @@ def _sync_job_interval_to_config(
                 {config_key: total_seconds}, config_service._config_path
             )
             # 重新加载配置到内存
-            from lifetrace.util.settings import reload_settings
-
             reload_settings()
             logger.info(f"已同步任务 {job_id} 的执行间隔到配置文件: {total_seconds}秒")
         except Exception as e:

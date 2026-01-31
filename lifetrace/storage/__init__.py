@@ -11,7 +11,9 @@ Storage 模块
 
 from __future__ import annotations
 
-_LAZY_EXPORTS: set[str] = {
+import importlib
+
+__all__ = [
     # 各个功能管理器（由 lifetrace.storage.database 初始化）
     "screenshot_mgr",
     "event_mgr",
@@ -25,16 +27,15 @@ _LAZY_EXPORTS: set[str] = {
     "db_base",
     "get_session",
     "get_db",
-}
+]
 
-__all__ = sorted(_LAZY_EXPORTS)
+_LAZY_EXPORTS: set[str] = set(__all__)
 
 
 def __getattr__(name: str):
     if name in _LAZY_EXPORTS:
         # 仅在真正需要时才触发数据库初始化
-        from lifetrace.storage import database as _database
-
+        _database = importlib.import_module("lifetrace.storage.database")
         return getattr(_database, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

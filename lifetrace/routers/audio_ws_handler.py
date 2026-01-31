@@ -6,6 +6,7 @@ Split from `audio_ws.py` to reduce file size and complexity.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 from datetime import datetime
 
@@ -46,9 +47,8 @@ class _RunTranscriptionStreamContext:
 
 async def _run_transcription_stream(*, ctx: _RunTranscriptionStreamContext) -> None:
     """运行 ASR 转录流"""
-    from lifetrace.routers.audio_ws import _audio_stream_generator
-
-    audio_stream = _audio_stream_generator(
+    audio_ws_module = importlib.import_module("lifetrace.routers.audio_ws")
+    audio_stream = audio_ws_module._audio_stream_generator(
         websocket=ctx.websocket,
         logger=ctx.logger,
         audio_chunks=ctx.audio_chunks,
@@ -64,29 +64,19 @@ async def _run_transcription_stream(*, ctx: _RunTranscriptionStreamContext) -> N
 
 def _get_audio_ws_functions():
     """延迟导入 audio_ws 模块的函数"""
-    from lifetrace.routers.audio_ws import (
-        _audio_stream_generator,
-        _create_error_callback,
-        _create_realtime_nlp_handler,
-        _create_result_callback,
-        _get_segment_functions,
-        _parse_init_message,
-        _persist_recording,
-        _save_transcription_if_any,
-    )
-
+    audio_ws_module = importlib.import_module("lifetrace.routers.audio_ws")
     return {
-        "_audio_stream_generator": _audio_stream_generator,
-        "_create_error_callback": _create_error_callback,
-        "_create_realtime_nlp_handler": _create_realtime_nlp_handler,
-        "_create_result_callback": _create_result_callback,
-        "_get_segment_functions": _get_segment_functions,
+        "_audio_stream_generator": audio_ws_module._audio_stream_generator,
+        "_create_error_callback": audio_ws_module._create_error_callback,
+        "_create_realtime_nlp_handler": audio_ws_module._create_realtime_nlp_handler,
+        "_create_result_callback": audio_ws_module._create_result_callback,
+        "_get_segment_functions": audio_ws_module._get_segment_functions,
         "_handle_json_error": _handle_json_error,
         "_handle_websocket_error": _handle_websocket_error,
-        "_parse_init_message": _parse_init_message,
-        "_persist_recording": _persist_recording,
+        "_parse_init_message": audio_ws_module._parse_init_message,
+        "_persist_recording": audio_ws_module._persist_recording,
         "_run_transcription_stream": _run_transcription_stream,
-        "_save_transcription_if_any": _save_transcription_if_any,
+        "_save_transcription_if_any": audio_ws_module._save_transcription_if_any,
     }
 
 

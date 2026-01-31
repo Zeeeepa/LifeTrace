@@ -1,5 +1,7 @@
 """Proactive OCR 路由"""
 
+import sys
+
 from fastapi import APIRouter, HTTPException
 
 from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
@@ -83,8 +85,6 @@ async def get_proactive_ocr_status():
 @router.get("/health")
 async def health_check():
     """健康检查"""
-    import sys
-
     service = get_proactive_ocr_service()
     status = service.get_status()
 

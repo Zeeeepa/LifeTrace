@@ -5,7 +5,11 @@ LifeTrace 简化OCR处理器
 
 import os
 import time
+from functools import lru_cache
 
+from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
+from lifetrace.storage import get_session
+from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path
 from lifetrace.util.settings import settings
@@ -18,6 +22,11 @@ from .ocr_processor import (
     preprocess_image,
     save_to_database,
 )
+
+try:
+    from rapidocr_onnxruntime import RapidOCR
+except ImportError:
+    RapidOCR = None
 
 # 重新导出以保持向后兼容
 __all__ = [
@@ -39,9 +48,6 @@ def get_unprocessed_screenshots(logger_instance=None, limit=50):
         logger_instance: 日志记录器，如果为None则使用模块级logger
         limit: 限制返回的记录数量，避免内存溢出
     """
-    from lifetrace.storage import get_session
-    from lifetrace.storage.models import OCRResult, Screenshot
-
     log = logger_instance if logger_instance is not None else logger
 
     try:
@@ -108,53 +114,50 @@ def process_screenshot_ocr(screenshot_info, ocr_engine, vector_service):
         return False
 
 
-# 全局OCR引擎和向量服务（用于调度器模式）
-_ocr_engine = None
-_vector_service = None
+@lru_cache(maxsize=1)
+def _get_ocr_engine():
+    """获取或初始化 OCR 引擎（带兜底配置）。"""
+    logger.info("正在初始化RapidOCR引擎...")
+    try:
+        engine = create_rapidocr_instance()
+        logger.info("RapidOCR引擎初始化成功")
+        return engine
+    except Exception as e:
+        logger.error(f"RapidOCR初始化失败: {e}")
+        if RapidOCR is None:
+            raise
+        try:
+            logger.info("尝试使用最小配置重新初始化 RapidOCR...")
+            engine = RapidOCR(
+                config_path=None,
+                det_use_cuda=False,
+                cls_use_cuda=False,
+                rec_use_cuda=False,
+                print_verbose=False,
+            )
+            logger.info("RapidOCR引擎使用最小配置初始化成功")
+            return engine
+        except Exception as fallback_error:
+            logger.error(f"RapidOCR使用最小配置也初始化失败: {fallback_error}")
+            raise
 
 
 def _ensure_ocr_initialized():  # noqa: C901
     """确保OCR引擎已初始化（用于调度器模式）"""
-    global _ocr_engine, _vector_service
+    ocr_engine = _get_ocr_engine()
+    vector_service = None
+    try:
+        logger.info("正在通过 lazy_services 初始化向量数据库服务...")
+        vector_service = lazy_get_vector_service()
+        if vector_service and vector_service.is_enabled():
+            logger.info("向量数据库服务已启用")
+        else:
+            logger.info("向量数据库服务未启用或不可用")
+    except Exception as e:
+        logger.error(f"初始化向量数据库服务失败: {e}")
+        vector_service = None
 
-    if _ocr_engine is None:
-        logger.info("正在初始化RapidOCR引擎...")
-        try:
-            _ocr_engine = create_rapidocr_instance()
-            logger.info("RapidOCR引擎初始化成功")
-        except Exception as e:
-            logger.error(f"RapidOCR初始化失败: {e}")
-            try:
-                logger.info("尝试使用最小配置重新初始化 RapidOCR...")
-                from rapidocr_onnxruntime import RapidOCR
-
-                _ocr_engine = RapidOCR(
-                    config_path=None,
-                    det_use_cuda=False,
-                    cls_use_cuda=False,
-                    rec_use_cuda=False,
-                    print_verbose=False,
-                )
-                logger.info("RapidOCR引擎使用最小配置初始化成功")
-            except Exception as e2:
-                logger.error(f"RapidOCR使用最小配置也初始化失败: {e2}")
-                raise
-
-    if _vector_service is None:
-        try:
-            from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
-
-            logger.info("正在通过 lazy_services 初始化向量数据库服务...")
-            _vector_service = lazy_get_vector_service()
-            if _vector_service and _vector_service.is_enabled():
-                logger.info("向量数据库服务已启用")
-            else:
-                logger.info("向量数据库服务未启用或不可用")
-        except Exception as e:
-            logger.error(f"初始化向量数据库服务失败: {e}")
-            _vector_service = None
-
-    return _ocr_engine, _vector_service
+    return ocr_engine, vector_service
 
 
 def execute_ocr_task():
@@ -223,16 +226,11 @@ def _initialize_ocr_and_vector_service():
     """初始化 RapidOCR 引擎和向量数据库服务。"""
 
     try:
-        logger.info("正在初始化RapidOCR引擎...")
-        ocr = create_rapidocr_instance()
-        logger.info("RapidOCR引擎初始化成功")
+        ocr = _get_ocr_engine()
     except Exception as e:
-        logger.error(f"RapidOCR初始化失败: {e}")
         raise Exception(e) from e
 
     try:
-        from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
-
         logger.info("正在通过 lazy_services 初始化向量数据库服务...")
         vector_service = lazy_get_vector_service()
         if vector_service and vector_service.is_enabled():

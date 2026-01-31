@@ -5,9 +5,11 @@ Handles data directory setup and config initialization before starting the FastA
 """
 
 import argparse
+import importlib
 import os
 import shutil
 import sys
+import traceback
 from pathlib import Path
 
 # Handle PyInstaller bundled application
@@ -37,6 +39,7 @@ except ImportError:
     pass  # Will fail later if not available
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 
@@ -82,8 +85,6 @@ def setup_data_directory(data_dir: str) -> None:
             source_config_dir = bundle_dir / "config"
     else:
         # Development mode
-        from lifetrace.util.path_utils import get_config_dir
-
         source_config_dir = get_config_dir()
 
     # Copy default config files if they don't exist in data directory
@@ -152,19 +153,20 @@ def main():
     # The config module will read LIFETRACE_DATA_DIR environment variable
     # Note: In PyInstaller bundle, lifetrace modules should be in sys._MEIPASS
     try:
-        import uvicorn
+        uvicorn = importlib.import_module("uvicorn")
+        health_module = importlib.import_module("lifetrace.routers.health")
+        server_module = importlib.import_module("lifetrace.server")
+        settings_module = importlib.import_module("lifetrace.util.settings")
 
-        from lifetrace.routers.health import set_server_mode
-        from lifetrace.server import app
-        from lifetrace.util.settings import settings
+        set_server_mode = health_module.set_server_mode
+        app = server_module.app
+        settings = settings_module.settings
 
         # Set server mode for health check endpoint
         set_server_mode(args.mode)
         logger.info(f"Server mode: {args.mode}")
     except ImportError as e:
         # If import fails, log the error with path information
-        import traceback
-
         error_info = f"""
 Import Error: {e}
 sys.path: {sys.path}
@@ -209,8 +211,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         # Ensure errors are logged and visible
-        import traceback
-
         error_msg = f"Fatal error in backend startup: {e}\n{traceback.format_exc()}"
         print(error_msg, file=sys.stderr)
         if logger:

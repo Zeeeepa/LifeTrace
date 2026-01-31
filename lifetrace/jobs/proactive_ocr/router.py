@@ -3,6 +3,8 @@
 识别窗口是否为微信/飞书
 """
 
+from functools import lru_cache
+
 from .models import AppType, FrameEvent, RoutedFrame, WindowMeta
 
 # 微信相关进程名和窗口标题关键词（跨平台）
@@ -153,12 +155,9 @@ class AppRouter:
 
 
 # 单例实例
-_router_instance: AppRouter | None = None
 
 
+@lru_cache(maxsize=1)
 def get_router() -> AppRouter:
     """获取路由器单例"""
-    global _router_instance
-    if _router_instance is None:
-        _router_instance = AppRouter()
-    return _router_instance
+    return AppRouter()

@@ -1,13 +1,16 @@
 """配置服务层 - 处理配置的保存、比对和重载逻辑"""
 
 import os
+import shutil
 from typing import Any
 
 import yaml
 
+from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.llm.llm_client import LLMClient
+from lifetrace.services.asr_client import ASRClient
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_config_dir
+from lifetrace.util.path_utils import get_config_dir, get_user_config_dir
 from lifetrace.util.settings import reload_settings, settings
 
 logger = get_logger()
@@ -422,8 +425,6 @@ class ConfigService:
         if not job_config_keys:
             return
 
-        from lifetrace.jobs.scheduler import get_scheduler_manager
-
         try:
             scheduler_manager = get_scheduler_manager()
             jobs_to_sync = self._collect_jobs_to_sync(job_config_keys, new_settings)
@@ -547,8 +548,6 @@ class ConfigService:
 
             try:
                 # 重新初始化 ASR 客户端单例
-                from lifetrace.services.asr_client import ASRClient
-
                 asr_client = ASRClient()
                 asr_client.reinitialize()
                 logger.info(
@@ -622,10 +621,6 @@ class ConfigService:
 
     def _init_config_file(self) -> None:
         """从默认配置初始化配置文件"""
-        import shutil
-
-        from lifetrace.util.path_utils import get_config_dir
-
         default_config_path = get_config_dir() / "default_config.yaml"
 
         if not default_config_path.exists():

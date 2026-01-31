@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from lifetrace.core.dependencies import get_rag_service
 from lifetrace.util.app_utils import get_icon_filename
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_app_root
 
 logger = get_logger()
 
@@ -49,8 +50,6 @@ async def get_app_icon(app_name: str):
 
         # 构建图标文件路径
         # 获取项目根目录（lifetrace 的父目录）
-        from lifetrace.util.path_utils import get_app_root
-
         lifetrace_dir = get_app_root()
         project_root = lifetrace_dir.parent
         icon_path = project_root / ".github" / "assets" / "icons" / "apps" / icon_filename

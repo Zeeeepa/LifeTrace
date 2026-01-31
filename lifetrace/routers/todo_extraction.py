@@ -9,6 +9,7 @@ from lifetrace.schemas.todo_extraction import (
     ExtractedTodo,
     TodoExtractionRequest,
     TodoExtractionResponse,
+    TodoTimeInfo,
 )
 from lifetrace.storage import event_mgr
 from lifetrace.util.logging_config import get_logger
@@ -68,8 +69,6 @@ async def extract_todos_from_event(request: TodoExtractionRequest):
             try:
                 # 构建时间信息
                 time_info_dict = todo_dict.get("time_info", {})
-                from lifetrace.schemas.todo_extraction import TodoTimeInfo
-
                 time_info = TodoTimeInfo(**time_info_dict)
 
                 # 构建待办项

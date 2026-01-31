@@ -10,6 +10,7 @@ from typing import Any
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.token_usage_logger import log_token_usage
 
 logger = get_logger()
 
@@ -156,8 +157,6 @@ class ActivitySummaryService:
 
             # 记录token使用量
             if hasattr(response, "usage") and response.usage:
-                from lifetrace.util.token_usage_logger import log_token_usage
-
                 log_token_usage(
                     model=self.llm_client.model,
                     input_tokens=response.usage.prompt_tokens,
@@ -235,6 +234,8 @@ class ActivitySummaryService:
         无LLM时的后备方案
         基于事件标题生成简单描述
         """
+        _ = start_time
+        _ = end_time
         if not events:
             return {"title": "无活动", "summary": "该时间段内无活动记录"}
 

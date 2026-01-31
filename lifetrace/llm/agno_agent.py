@@ -17,7 +17,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from agno.agent import Agent, RunEvent
+from agno.agent import Agent, Message, RunEvent
 from agno.models.openai.like import OpenAILike
 
 from lifetrace.llm.agno_tools import FreeTodoToolkit
@@ -76,7 +76,6 @@ def _ensure_tool_dependency(tool_name: str, package_name: str) -> bool:
 
 def _register_external_tools():
     """注册可用的外部工具（延迟导入以避免启动时的依赖问题）"""
-    global EXTERNAL_TOOLS_REGISTRY  # noqa: PLW0603
     if EXTERNAL_TOOLS_REGISTRY:
         return
 
@@ -336,8 +335,6 @@ class AgnoAgentService:
         """构建 Agent 输入数据"""
         if not conversation_history:
             return message
-
-        from agno.agent import Message
 
         messages = []
         for msg in conversation_history:

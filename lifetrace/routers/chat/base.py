@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from lifetrace.services.chat_service import ChatService
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.token_usage_logger import log_token_usage
 
 logger = get_logger()
 
@@ -97,8 +98,6 @@ def _log_stream_token_usage(
 ) -> None:
     """记录流式聊天的 token 使用量，抽离成独立函数以降低主流程复杂度。"""
     try:
-        from lifetrace.util.token_usage_logger import log_token_usage
-
         base_additional_info: dict[str, Any] = {
             "total_tokens": usage_info.total_tokens,
             "temperature": temperature,

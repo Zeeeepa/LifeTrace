@@ -8,11 +8,13 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from lifetrace.core.dependencies import get_vector_service
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.storage import event_mgr, get_session
 from lifetrace.storage.models import Event
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.token_usage_logger import log_token_usage
 
 from .event_summary_clustering import cluster_ocr_texts_with_hdbscan
 from .event_summary_config import (
@@ -47,8 +49,6 @@ class EventSummaryService:
             return self.vector_service
 
         try:
-            from lifetrace.core.dependencies import get_vector_service
-
             vector_svc = get_vector_service()
             if vector_svc is not None:
                 logger.info(
@@ -291,8 +291,6 @@ class EventSummaryService:
             )
 
             if hasattr(response, "usage") and response.usage:
-                from lifetrace.util.token_usage_logger import log_token_usage
-
                 log_token_usage(
                     model=self.llm_client.model,
                     input_tokens=response.usage.prompt_tokens,

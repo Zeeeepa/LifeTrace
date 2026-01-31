@@ -53,7 +53,7 @@ def run_link_deps(root: Path, worktree_path: Path, force: bool) -> int:
         if force:
             cmd.append("--force")
 
-    result = subprocess.run(cmd)
+    result = subprocess.run(cmd, check=False)
     return result.returncode
 
 
@@ -62,6 +62,7 @@ def get_repo_root() -> Path:
         ["git", "rev-parse", "--show-toplevel"],
         text=True,
         capture_output=True,
+        check=False,
     )
     if result.returncode != 0:
         print(result.stderr.strip() or "Failed to locate git repo root.", file=sys.stderr)
@@ -106,9 +107,7 @@ def normalize_type(value: str) -> str:
     return value.lower()
 
 
-def unique_branch_and_path(
-    root: Path, base_branch: str, base_path: Path
-) -> tuple[str, Path]:
+def unique_branch_and_path(root: Path, base_branch: str, base_path: Path) -> tuple[str, Path]:
     suffix = 1
     while True:
         if suffix == 1:

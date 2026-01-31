@@ -3,6 +3,7 @@ RAG (检索增强生成) 服务
 整合查询解析、数据检索、上下文构建和LLM生成
 """
 
+import asyncio
 from collections.abc import Generator
 from datetime import datetime
 from typing import Any
@@ -160,8 +161,6 @@ class RAGService:
 
     def process_query_sync(self, user_query: str, max_results: int = 50) -> dict[str, Any]:
         """同步版本的查询处理"""
-        import asyncio
-
         return asyncio.run(self.process_query(user_query, max_results))
 
     def post_stream_decision(self, user_query: str, output_text: str) -> None:

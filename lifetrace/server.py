@@ -1,3 +1,5 @@
+import argparse
+import socket
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -18,23 +20,19 @@ setup_logging(logging_config)
 
 logger = get_logger()
 
-# 全局管理器实例
-job_manager = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global job_manager
-
     # 启动逻辑
     logger.info("Web服务器启动")
 
     # 初始化任务管理器
-    job_manager = get_job_manager()
+    manager = get_job_manager()
+    app.state.job_manager = manager
 
     # 启动所有后台任务
-    job_manager.start_all()
+    manager.start_all()
 
     yield
 
@@ -42,8 +40,9 @@ async def lifespan(app: FastAPI):
     logger.error("Web服务器关闭，正在停止后台服务")
 
     # 停止所有后台任务
-    if job_manager:
-        job_manager.stop_all()
+    manager = getattr(app.state, "job_manager", None)
+    if manager:
+        manager.stop_all()
 
 
 app = FastAPI(
@@ -112,8 +111,6 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> 
     Raises:
         RuntimeError: 如果在指定范围内找不到可用端口
     """
-    import socket
-
     for offset in range(max_attempts):
         port = start_port + offset
         try:
@@ -130,8 +127,6 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> 
 
 def parse_args():
     """解析命令行参数"""
-    import argparse
-
     parser = argparse.ArgumentParser(description="LifeTrace 后端服务器")
     parser.add_argument(
         "--port",

@@ -9,7 +9,7 @@ from typing import Any
 
 from lifetrace.llm.vector_db import create_vector_db
 from lifetrace.storage import event_mgr, get_session
-from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.models import Event, OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -333,8 +333,6 @@ class VectorService:
         self, event_id: int, score_info: dict[str, float]
     ) -> dict[str, Any] | None:
         """获取事件详细信息"""
-        from lifetrace.storage.models import Event, Screenshot
-
         with get_session() as session:
             event = session.query(Event).filter(Event.id == event_id).first()
             if not event:

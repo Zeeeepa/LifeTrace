@@ -9,6 +9,8 @@ from datetime import datetime
 from typing import Any
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_vector_db_dir
+from lifetrace.util.settings import settings
 
 logger = get_logger()
 
@@ -35,9 +37,6 @@ class VectorDatabase:
 
     def __init__(self):
         """初始化向量数据库"""
-        from lifetrace.util.path_utils import get_vector_db_dir
-        from lifetrace.util.settings import settings
-
         self.logger = logger
 
         # 检查依赖
@@ -475,8 +474,6 @@ def create_vector_db() -> VectorDatabase | None:
     Returns:
         向量数据库实例，如果依赖不可用则返回 None
     """
-    from lifetrace.util.settings import settings
-
     # 检查依赖
     if not all([SentenceTransformer, CrossEncoder, chromadb, np]):
         logger.warning("Vector database dependencies not available")

@@ -17,6 +17,13 @@ from lifetrace.util.utils import ensure_dir
 
 logger = get_logger()
 
+try:
+    from alembic import command
+    from alembic.config import Config
+except Exception:
+    command = None
+    Config = None
+
 
 class DatabaseBase:
     """数据库基础管理类 - 处理数据库初始化和会话管理"""
@@ -42,9 +49,6 @@ class DatabaseBase:
             # 创建会话工厂（兼容旧代码）
             self.SessionLocal = sessionmaker(bind=self.engine)
 
-            # 导入所有模型以确保 metadata 包含所有表
-            from lifetrace.storage import models  # noqa: F401
-
             # 创建表
             # 对于新数据库：创建所有表
             # 对于现有数据库：只创建缺失的表（SQLModel.metadata.create_all 会自动跳过已存在的表）
@@ -68,11 +72,8 @@ class DatabaseBase:
 
     def _run_migrations(self) -> None:
         """运行 Alembic 迁移（如可用）"""
-        try:
-            from alembic import command
-            from alembic.config import Config
-        except Exception as exc:
-            logger.warning(f"Alembic 未就绪，跳过迁移: {exc}")
+        if command is None or Config is None:
+            logger.warning("Alembic 未就绪，跳过迁移")
             return
 
         alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"

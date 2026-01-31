@@ -52,8 +52,8 @@ def process_ocr_block(
 ) -> None:
     """处理单个OCR块，提取并过滤文本行"""
     lines = ocr_block.split("\n")
-    for line in lines:
-        line = line.strip()
+    for raw_line in lines:
+        line = raw_line.strip()
         if should_filter_line(line, debug_info):
             continue
 

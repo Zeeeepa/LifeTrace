@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import threading
@@ -22,6 +23,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_user_data_dir
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -32,9 +34,8 @@ logger = get_logger()
 def _get_current_session_id() -> str | None:
     """获取当前 session_id（从 ContextVar 读取）"""
     try:
-        from lifetrace.llm.agno_agent import current_session_id
-
-        return current_session_id.get()
+        agno_module = importlib.import_module("lifetrace.llm.agno_agent")
+        return agno_module.current_session_id.get()
     except Exception:
         return None
 
@@ -92,8 +93,6 @@ class LocalFileExporter(SpanExporter):
 
     def _get_traces_path(self) -> Path:
         """获取 traces 目录路径"""
-        from lifetrace.util.path_utils import get_user_data_dir
-
         traces_path = get_user_data_dir() / self.traces_dir
         traces_path.mkdir(parents=True, exist_ok=True)
         return traces_path
@@ -426,8 +425,6 @@ class LocalFileExporter(SpanExporter):
         # 获取相对路径用于显示
         if filepath:
             try:
-                from lifetrace.util.path_utils import get_user_data_dir
-
                 rel_path = os.path.relpath(filepath, get_user_data_dir())
             except Exception:
                 rel_path = filepath
@@ -533,4 +530,5 @@ class LocalFileExporter(SpanExporter):
             是否成功
         """
         # 对于文件导出器，export 已经是同步的，不需要特殊处理
+        _ = timeout_millis
         return True

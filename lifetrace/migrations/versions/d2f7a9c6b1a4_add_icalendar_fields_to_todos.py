@@ -23,26 +23,45 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-def upgrade() -> None:
-    connection = op.get_bind()
-    inspector = sa.inspect(connection)
-
-    columns = {col["name"] for col in inspector.get_columns("todos")}
-
+def _add_missing_todo_columns(columns: set[str]) -> None:
     with op.batch_alter_table("todos", schema=None) as batch_op:
-        if "uid" not in columns:
-            batch_op.add_column(sa.Column("uid", sa.String(length=64), nullable=True))
-        if "completed_at" not in columns:
-            batch_op.add_column(sa.Column("completed_at", sa.DateTime(), nullable=True))
-        if "percent_complete" not in columns:
-            batch_op.add_column(sa.Column("percent_complete", sa.Integer(), nullable=True))
-        if "rrule" not in columns:
-            batch_op.add_column(sa.Column("rrule", sa.String(length=500), nullable=True))
+        column_defs = {
+            "uid": sa.Column("uid", sa.String(length=64), nullable=True),
+            "completed_at": sa.Column("completed_at", sa.DateTime(), nullable=True),
+            "percent_complete": sa.Column("percent_complete", sa.Integer(), nullable=True),
+            "rrule": sa.Column("rrule", sa.String(length=500), nullable=True),
+        }
+        for name, column_def in column_defs.items():
+            if name not in columns:
+                batch_op.add_column(column_def)
 
+
+def _ensure_todo_uid_index(inspector: sa.Inspector) -> None:
     indexes = {idx["name"] for idx in inspector.get_indexes("todos")}
     if "idx_todos_uid" not in indexes:
         op.create_index("idx_todos_uid", "todos", ["uid"], unique=False)
 
+
+def _build_todo_updates(row: dict[str, object]) -> dict[str, object]:
+    updates: dict[str, object] = {}
+
+    uid = row.get("uid")
+    if not uid:
+        updates["uid"] = str(uuid4())
+
+    percent_complete = row.get("percent_complete")
+    if percent_complete is None:
+        updates["percent_complete"] = 100 if row.get("status") == "completed" else 0
+
+    if row.get("status") == "completed" and row.get("completed_at") is None:
+        fallback = row.get("updated_at") or row.get("created_at")
+        if isinstance(fallback, datetime):
+            updates["completed_at"] = fallback
+
+    return updates
+
+
+def _backfill_todo_ical_fields(connection: sa.Connection) -> None:
     result = connection.execute(
         sa.text(
             "SELECT id, uid, status, completed_at, percent_complete, updated_at, created_at FROM todos"
@@ -51,26 +70,26 @@ def upgrade() -> None:
     rows = result.mappings().all()
 
     for row in rows:
-        updates: dict[str, object] = {}
+        updates = _build_todo_updates(dict(row))
+        if not updates:
+            continue
 
-        if not row["uid"]:
-            updates["uid"] = str(uuid4())
+        updates["id"] = row["id"]
+        sets = ", ".join([f"{key} = :{key}" for key in updates if key != "id"])
+        connection.execute(
+            sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),
+            updates,
+        )
 
-        if row["percent_complete"] is None:
-            updates["percent_complete"] = 100 if row["status"] == "completed" else 0
 
-        if row["status"] == "completed" and row["completed_at"] is None:
-            fallback = row["updated_at"] or row["created_at"]
-            if isinstance(fallback, datetime):
-                updates["completed_at"] = fallback
+def upgrade() -> None:
+    connection = op.get_bind()
+    inspector = sa.inspect(connection)
 
-        if updates:
-            updates["id"] = row["id"]
-            sets = ", ".join([f"{key} = :{key}" for key in updates if key != "id"])
-            connection.execute(
-                sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),
-                updates,
-            )
+    columns = {col["name"] for col in inspector.get_columns("todos")}
+    _add_missing_todo_columns(columns)
+    _ensure_todo_uid_index(inspector)
+    _backfill_todo_ical_fields(connection)
 
 
 def downgrade() -> None:

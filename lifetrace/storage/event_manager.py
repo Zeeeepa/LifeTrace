@@ -1,5 +1,6 @@
 """事件管理器 - 负责事件相关的数据库操作"""
 
+import importlib
 from datetime import datetime
 from typing import Any
 
@@ -130,9 +131,8 @@ class EventManager:
             if closed_event_id:
                 try:
                     logger.info(f"📝 触发已关闭事件 {closed_event_id} 的摘要生成")
-                    from lifetrace.llm.event_summary_service import generate_event_summary_async
-
-                    generate_event_summary_async(closed_event_id)
+                    summary_module = importlib.import_module("lifetrace.llm.event_summary_service")
+                    summary_module.generate_event_summary_async(closed_event_id)
                 except Exception as e:
                     logger.error(f"触发事件摘要生成失败: {e}")
             else:
@@ -156,9 +156,8 @@ class EventManager:
 
             if closed_event_id:
                 try:
-                    from lifetrace.llm.event_summary_service import generate_event_summary_async
-
-                    generate_event_summary_async(closed_event_id)
+                    summary_module = importlib.import_module("lifetrace.llm.event_summary_service")
+                    summary_module.generate_event_summary_async(closed_event_id)
                 except Exception as e:
                     logger.error(f"触发事件摘要生成失败: {e}")
 
@@ -279,9 +278,8 @@ class EventManager:
 
             try:
                 logger.info(f"📝 触发已完成事件 {event_id} 的摘要生成")
-                from lifetrace.llm.event_summary_service import generate_event_summary_async
-
-                generate_event_summary_async(event_id)
+                summary_module = importlib.import_module("lifetrace.llm.event_summary_service")
+                summary_module.generate_event_summary_async(event_id)
             except Exception as e:
                 logger.error(f"触发事件摘要生成失败: {e}")
 

@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import threading
+import warnings
 from typing import TYPE_CHECKING
 
 from lifetrace.observability.config import get_observability_config
@@ -25,7 +27,6 @@ def _suppress_otel_context_warnings():
     警告来源：OpenTelemetry 的 context detach 在流式/生成器模式下
     会因为 context 跨越不同的异步边界而触发。
     """
-    import warnings
 
     # 1. 过滤 logging 模块的警告
     class ContextDetachFilter(logging.Filter):
@@ -48,8 +49,7 @@ def _suppress_otel_context_warnings():
     # 3. 重定向 OpenTelemetry 的 stderr 输出（它直接打印到 stderr）
     # 通过 monkey-patch OpenTelemetry 的 detach 函数来抑制警告
     try:
-        from opentelemetry import context as otel_context
-
+        otel_context = importlib.import_module("opentelemetry.context")
         _original_detach = otel_context.detach
 
         def _silent_detach(token):
@@ -68,14 +68,17 @@ def _suppress_otel_context_warnings():
 
 
 # 全局初始化标志，确保只初始化一次
-_initialized = False
+_initialized = threading.Event()
 _init_lock = threading.Lock()
 
 
 def _try_create_phoenix_exporter(config):
     """创建 Phoenix 导出器，失败时返回 (None, None)。"""
     try:
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        exporter_module = importlib.import_module(
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter"
+        )
+        OTLPSpanExporter = exporter_module.OTLPSpanExporter
     except ImportError:
         logger.warning("Phoenix 导出器依赖未安装，跳过 Phoenix 集成")
         return None, None
@@ -94,8 +97,8 @@ def _setup_phoenix_exporter(tracer_provider, config) -> None:
     if phoenix_exporter is None or phoenix_endpoint is None:
         return
 
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-
+    exporter_module = importlib.import_module("opentelemetry.sdk.trace.export")
+    SimpleSpanProcessor = exporter_module.SimpleSpanProcessor
     tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
     logger.info(f"Observability: Phoenix 导出已启用 -> {phoenix_endpoint}")
 
@@ -103,8 +106,8 @@ def _setup_phoenix_exporter(tracer_provider, config) -> None:
 def _setup_agno_instrumentor() -> None:
     """设置 Agno Instrumentor"""
     try:
-        from openinference.instrumentation.agno import AgnoInstrumentor
-
+        agno_module = importlib.import_module("openinference.instrumentation.agno")
+        AgnoInstrumentor = agno_module.AgnoInstrumentor
         AgnoInstrumentor().instrument()
         logger.info("Observability: Agno Instrumentor 已启用")
     except ImportError:
@@ -122,8 +125,8 @@ def _setup_openai_instrumentor() -> None:
     - 内部 LLM 调用的详细信息（模型、token、延迟等）
     """
     try:
-        from openinference.instrumentation.openai import OpenAIInstrumentor
-
+        openai_module = importlib.import_module("openinference.instrumentation.openai")
+        OpenAIInstrumentor = openai_module.OpenAIInstrumentor
         OpenAIInstrumentor().instrument()
         logger.info("Observability: OpenAI Instrumentor 已启用")
     except ImportError:
@@ -143,10 +146,8 @@ def setup_observability() -> bool:
     Returns:
         bool: 是否成功初始化
     """
-    global _initialized
-
     with _init_lock:
-        if _initialized:
+        if _initialized.is_set():
             return True
 
         config = get_observability_config()
@@ -158,11 +159,15 @@ def setup_observability() -> bool:
         _suppress_otel_context_warnings()
 
         try:
-            from opentelemetry import trace as trace_api
-            from opentelemetry.sdk import trace as trace_sdk
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor
+            trace_api = importlib.import_module("opentelemetry.trace")
+            trace_sdk = importlib.import_module("opentelemetry.sdk.trace")
+            exporter_module = importlib.import_module("opentelemetry.sdk.trace.export")
+            BatchSpanProcessor = exporter_module.BatchSpanProcessor
 
-            from lifetrace.observability.exporters.file_exporter import LocalFileExporter
+            local_exporter_module = importlib.import_module(
+                "lifetrace.observability.exporters.file_exporter"
+            )
+            LocalFileExporter = local_exporter_module.LocalFileExporter
 
             tracer_provider = trace_sdk.TracerProvider()
 
@@ -185,7 +190,7 @@ def setup_observability() -> bool:
             _setup_agno_instrumentor()
             _setup_openai_instrumentor()  # 追踪 Tool 内部的 LLM 调用
 
-            _initialized = True
+            _initialized.set()
             logger.info(f"Observability 初始化成功，模式: {config.mode}")
             return True
 
@@ -203,4 +208,4 @@ def is_observability_enabled() -> bool:
     Returns:
         bool: 是否已启用
     """
-    return _initialized
+    return _initialized.is_set()

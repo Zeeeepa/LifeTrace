@@ -11,6 +11,7 @@ from typing import Any
 import yaml
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 
@@ -45,8 +46,6 @@ class AgnoToolsMessageLoader:
     def _get_prompts_dir(self) -> Path:
         """Get the prompts directory path"""
         try:
-            from lifetrace.util.path_utils import get_config_dir
-
             return get_config_dir() / "prompts" / "agno_tools" / self.lang
         except ImportError:
             # Fallback for testing

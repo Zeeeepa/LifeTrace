@@ -4,6 +4,7 @@ This module handles todo extraction from OCR text content, including
 caching, rate limiting, and deduplication logic.
 """
 
+import hashlib
 import json
 import re
 import time
@@ -24,8 +25,6 @@ def _compute_text_hash(text_content: str) -> str | None:
 
     必须与 OCRManager 中的逻辑保持一致。
     """
-    import hashlib
-
     normalized = " ".join((text_content or "").strip().split())
     if not normalized:
         return None

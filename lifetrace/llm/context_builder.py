@@ -279,6 +279,7 @@ class ContextBuilder:
         Returns:
             格式化的上下文文本
         """
+        _ = retrieved_data
         context_parts = [
             get_prompt("context_builder", "data_analysis_base"),
             "",

@@ -25,6 +25,7 @@ async def chat_with_llm(
     chat_service: ChatService = Depends(get_chat_service),
 ):
     """与LLM聊天接口 - 集成RAG功能"""
+    _ = chat_service
 
     try:
         logger.info(f"收到聊天消息: {message.message}")

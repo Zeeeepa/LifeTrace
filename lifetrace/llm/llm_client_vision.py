@@ -5,6 +5,7 @@ LLM 视觉多模态模块
 
 from typing import Any
 
+from lifetrace.util.image_utils import get_screenshots_base64
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.token_usage_logger import log_token_usage
@@ -51,8 +52,6 @@ def vision_chat(
         包含响应和元信息的字典
     """
     try:
-        from lifetrace.util.image_utils import get_screenshots_base64
-
         screenshot_data = get_screenshots_base64(screenshot_ids)
         valid_screenshots = [item for item in screenshot_data if "base64_data" in item]
 

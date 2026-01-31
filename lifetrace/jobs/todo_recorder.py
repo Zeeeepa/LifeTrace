@@ -8,10 +8,12 @@ Todo 专用屏幕录制器 - 仅录制白名单应用，用于自动待办检测
 """
 
 import hashlib
+import importlib
 import os
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
-from functools import wraps
+from functools import lru_cache, wraps
 
 import imagehash
 import mss
@@ -38,7 +40,6 @@ UNKNOWN_WINDOW = "未知窗口"
 
 def with_timeout(timeout_seconds: float = 5.0, operation_name: str = "操作"):
     """超时装饰器 - 使用线程池实现超时控制"""
-    from concurrent.futures import Future, ThreadPoolExecutor
 
     def decorator(func):
         @wraps(func)
@@ -248,11 +249,12 @@ class TodoScreenRecorder:
             screenshot_id: 截图ID
             app_name: 应用名称
         """
+        _ = app_name
 
         def _detect_todos():
             try:
-                from lifetrace.llm.auto_todo_detection_service import AutoTodoDetectionService
-
+                auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
+                AutoTodoDetectionService = auto_module.AutoTodoDetectionService
                 service = AutoTodoDetectionService()
                 result = service.detect_and_create_todos_from_screenshot(screenshot_id)
                 logger.info(
@@ -401,19 +403,16 @@ class TodoScreenRecorder:
 
 
 # 全局录制器实例（用于调度器任务）
-_global_todo_recorder_instance: TodoScreenRecorder | None = None
 
 
+@lru_cache(maxsize=1)
 def get_todo_recorder_instance() -> TodoScreenRecorder:
     """获取全局 Todo 录制器实例
 
     Returns:
         TodoScreenRecorder 实例
     """
-    global _global_todo_recorder_instance
-    if _global_todo_recorder_instance is None:
-        _global_todo_recorder_instance = TodoScreenRecorder()
-    return _global_todo_recorder_instance
+    return TodoScreenRecorder()
 
 
 def execute_todo_capture_task() -> int:
