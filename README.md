@@ -64,6 +64,37 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 - Node.js 20+
 - pnpm package manager
 
+### One-Click Install & Start (Web)
+
+> Requires Python 3.12+, Node.js 20+, and Git.
+
+**macOS/Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.ps1 | iex
+```
+
+The script installs dependencies and starts backend + frontend dev servers; press `Ctrl+C` to stop both.
+
+Optional environment variables (custom install dir/repo/ref):
+
+- `LIFETRACE_DIR`: install directory (defaults to repo name)
+- `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/Royce17/LifeTrace.git`)
+- `LIFETRACE_REF`: branch or tag (defaults to `main`)
+
+PowerShell example:
+
+```powershell
+$env:LIFETRACE_DIR="LifeTrace-dev"
+iwr -useb https://raw.githubusercontent.com/Royce17/LifeTrace/main/scripts/install_web.ps1 | iex
+```
+
 ### Install Dependencies
 
 This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.
