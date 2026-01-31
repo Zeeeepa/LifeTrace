@@ -1,5 +1,9 @@
 """健康检查路由"""
 
+import os
+import subprocess
+from functools import lru_cache
+
 from fastapi import APIRouter
 from openai import OpenAI
 
@@ -17,6 +21,23 @@ router = APIRouter()
 # "dev" = 开发模式（从源码运行或 pnpm dev）
 # "build" = 打包模式（Electron 打包后运行）
 _server_mode: str = "dev"
+
+
+@lru_cache(maxsize=1)
+def get_git_commit() -> str:
+    """获取当前 Git Commit（优先读取环境变量，失败时返回 unknown）"""
+    env_commit = os.getenv("LIFETRACE_GIT_COMMIT") or os.getenv("GIT_COMMIT")
+    if env_commit:
+        return env_commit
+
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
 
 
 def set_server_mode(mode: str) -> None:
@@ -39,6 +60,7 @@ async def health_check():
         "app": "lifetrace",  # 固定的应用标识，用于前端识别后端服务
         "status": "healthy",
         "server_mode": _server_mode,  # 服务器模式：dev 或 build
+        "git_commit": get_git_commit(),
         "timestamp": get_utc_now(),
         "database": "connected" if db_base.engine else "disconnected",
         "ocr": "available" if ocr_processor.is_available() else "unavailable",

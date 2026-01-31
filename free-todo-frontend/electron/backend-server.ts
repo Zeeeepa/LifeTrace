@@ -19,6 +19,7 @@ import {
 	type ServerMode,
 	TIMEOUT_CONFIG,
 } from "./config";
+import { getGitCommit } from "./git-info";
 import { logger } from "./logger";
 import { portManager } from "./port-manager";
 import { ProcessManager } from "./process-manager";
@@ -46,6 +47,8 @@ export class BackendServer extends ProcessManager {
 	private serverMode: ServerMode;
 	/** 后端运行时（script 或 pyinstaller） */
 	private backendRuntime: ReturnType<typeof getBackendRuntime>;
+	/** 当前前端 Git Commit（用于匹配后端实例） */
+	private gitCommit: string | null;
 
 	constructor() {
 		super(
@@ -60,6 +63,8 @@ export class BackendServer extends ProcessManager {
 		);
 		this.serverMode = getServerMode();
 		this.backendRuntime = getBackendRuntime();
+		const commit = getGitCommit();
+		this.gitCommit = commit && commit !== "unknown" ? commit : null;
 	}
 
 	/**
@@ -160,11 +165,19 @@ export class BackendServer extends ProcessManager {
 						try {
 							const json = JSON.parse(data);
 							// 验证是否是 LifeTrace 后端
-							if (json.app === "lifetrace") {
-								resolve(true);
-							} else {
+							if (json.app !== "lifetrace") {
 								resolve(false);
+								return;
 							}
+							const backendCommit =
+								typeof json.git_commit === "string"
+									? json.git_commit
+									: null;
+							if (this.gitCommit && backendCommit !== this.gitCommit) {
+								resolve(false);
+								return;
+							}
+							resolve(true);
 						} catch {
 							resolve(false);
 						}
@@ -385,6 +398,9 @@ export class BackendServer extends ProcessManager {
 				...process.env,
 				PYTHONUNBUFFERED: "1",
 				PYTHONUTF8: "1",
+				...(this.gitCommit && {
+					LIFETRACE_GIT_COMMIT: this.gitCommit,
+				}),
 				...(this.serverMode === "build" && {
 					LIFETRACE__OBSERVABILITY__ENABLED: "false",
 					LIFETRACE__SERVER__DEBUG: "false",
@@ -463,6 +479,7 @@ export class BackendServer extends ProcessManager {
 			const data = (await response.json()) as {
 				app?: string;
 				server_mode?: string;
+				git_commit?: string;
 			};
 
 			// 检查应用标识
@@ -484,9 +501,24 @@ export class BackendServer extends ProcessManager {
 				throw new Error(errorMsg);
 			}
 
+			// 检查 Git Commit
+			if (this.gitCommit && data.git_commit && data.git_commit !== this.gitCommit) {
+				const errorMsg = `Backend commit mismatch: expected "${this.gitCommit}", got "${data.git_commit}".`;
+				logger.error(errorMsg);
+				dialog.showErrorBox(
+					"Backend Commit Mismatch",
+					`The backend server is running with a different git commit.\n\nExpected: ${this.gitCommit}\nDetected: ${data.git_commit}\n\nPlease close the other version and restart this application.`,
+				);
+				throw new Error(errorMsg);
+			}
+
 			logger.info(`Backend mode verified: ${backendMode || "unknown"}`);
 		} catch (error) {
-			if (error instanceof Error && error.message.includes("mode mismatch")) {
+			if (
+				error instanceof Error &&
+				(error.message.includes("mode mismatch") ||
+					error.message.includes("commit mismatch"))
+			) {
 				throw error;
 			}
 			// 其他错误（网络问题等）只记录警告，不阻止启动
