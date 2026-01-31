@@ -45,6 +45,7 @@ next-env.d.ts
 /dist-electron/
 /dist-electron-app/
 /dist
+/dist-artifacts/
 
 # Tauri / Rust
 /src-tauri/target/
