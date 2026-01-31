@@ -191,9 +191,6 @@ export function CalendarPanel() {
 					className="fixed z-[9999] w-72 max-w-[90vw] pointer-events-auto"
 					style={{ top, left }}
 					data-quick-create
-					onPointerDownCapture={(event) => event.stopPropagation()}
-					onMouseDownCapture={(event) => event.stopPropagation()}
-					onClickCapture={(event) => event.stopPropagation()}
 				>
 					<QuickCreatePopover
 						targetDate={quickTargetDate}
