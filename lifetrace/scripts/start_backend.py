@@ -67,7 +67,10 @@ def setup_data_directory(data_dir: str) -> None:
         ]
         source_config_dir = None
         for potential_config_dir in potential_config_dirs:
-            if potential_config_dir.exists() and (potential_config_dir / "default_config.yaml").exists():
+            if (
+                potential_config_dir.exists()
+                and (potential_config_dir / "default_config.yaml").exists()
+            ):
                 source_config_dir = potential_config_dir
                 logger.info(f"Found config directory: {source_config_dir}")
                 break
