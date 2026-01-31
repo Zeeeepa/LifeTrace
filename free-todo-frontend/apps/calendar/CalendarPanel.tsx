@@ -7,7 +7,7 @@
 
 import { Calendar, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
@@ -15,6 +15,7 @@ import { useTodoStore } from "@/lib/store/todo-store";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QuickCreatePopover } from "./components/QuickCreatePopover";
+import { useMonthScroll } from "./hooks/useMonthScroll";
 import type { CalendarTodo, CalendarView } from "./types";
 import {
 	addDays,
@@ -50,23 +51,13 @@ export function CalendarPanel() {
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
 	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
-	const [monthItems, setMonthItems] = useState<Date[]>(() => {
-		const base = startOfMonth(new Date());
-		return [
-			addMonths(base, -2),
-			addMonths(base, -1),
-			base,
-			addMonths(base, 1),
-			addMonths(base, 2),
-		];
-	});
-	const monthItemsCount = monthItems.length;
-	const monthScrollRef = useRef<HTMLDivElement>(null);
-	const pendingScrollAdjust = useRef<{
-		prevHeight: number;
-		prevScrollTop: number;
-	} | null>(null);
-	const pendingScrollToMonth = useRef<Date | null>(null);
+	const {
+		monthItems,
+		monthScrollRef,
+		handleLoadMoreMonths,
+		requestMonthScroll,
+		shouldIgnoreActiveMonthChange,
+	} = useMonthScroll({ currentDate, view });
 
 	const VIEW_OPTIONS: { id: CalendarView; label: string }[] = [
 		{ id: "month", label: t("monthView") },
@@ -148,90 +139,12 @@ export function CalendarPanel() {
 		return map;
 	}, [todosInRange]);
 
-	useEffect(() => {
-		if (view !== "month") return;
-		setMonthItems((prev) => {
-			const target = startOfMonth(currentDate);
-			if (prev.length === 0) {
-				return [
-					addMonths(target, -2),
-					addMonths(target, -1),
-					target,
-					addMonths(target, 1),
-					addMonths(target, 2),
-				];
-			}
-
-			const hasTarget = prev.some(
-				(item) =>
-					item.getFullYear() === target.getFullYear() &&
-					item.getMonth() === target.getMonth(),
-			);
-			if (hasTarget) return prev;
-
-			const first = prev[0];
-			const last = prev[prev.length - 1];
-			const targetIndex = target.getFullYear() * 12 + target.getMonth();
-			const firstIndex = first.getFullYear() * 12 + first.getMonth();
-			const lastIndex = last.getFullYear() * 12 + last.getMonth();
-
-			if (targetIndex < firstIndex) {
-				const monthsToAdd: Date[] = [];
-				let cursor = startOfMonth(first);
-				while (
-					cursor.getFullYear() * 12 + cursor.getMonth() > targetIndex
-				) {
-					cursor = addMonths(cursor, -1);
-					monthsToAdd.unshift(cursor);
-				}
-				return [...monthsToAdd, ...prev];
-			}
-
-			if (targetIndex > lastIndex) {
-				const monthsToAdd: Date[] = [];
-				let cursor = startOfMonth(last);
-				while (
-					cursor.getFullYear() * 12 + cursor.getMonth() < targetIndex
-				) {
-					cursor = addMonths(cursor, 1);
-					monthsToAdd.push(cursor);
-				}
-				return [...prev, ...monthsToAdd];
-			}
-
-			return prev;
-		});
-	}, [currentDate, view]);
-
-	useEffect(() => {
-		if (monthItemsCount === 0) return;
-		if (!pendingScrollAdjust.current) return;
-		const container = monthScrollRef.current;
-		if (!container) return;
-		const { prevHeight, prevScrollTop } = pendingScrollAdjust.current;
-		pendingScrollAdjust.current = null;
-		requestAnimationFrame(() => {
-			const nextHeight = container.scrollHeight;
-			container.scrollTop = prevScrollTop + (nextHeight - prevHeight);
-		});
-	}, [monthItemsCount]);
-
-	useEffect(() => {
-		if (view !== "month") return;
-		if (!pendingScrollToMonth.current) return;
-		const key = `${pendingScrollToMonth.current.getFullYear()}-${pendingScrollToMonth.current.getMonth()}`;
-		const el = document.querySelector(`[data-month-key="${key}"]`);
-		if (!el) return;
-		(el as HTMLElement).scrollIntoView({ block: "start" });
-		pendingScrollToMonth.current = null;
-	}, [view]);
-
 	const handleNavigate = (direction: "prev" | "next" | "today") => {
 		if (direction === "today") {
 			const today = startOfDay(new Date());
 			if (view === "month") {
 				const target = startOfMonth(today);
-				pendingScrollToMonth.current = target;
+				requestMonthScroll(target);
 				setCurrentDate(target);
 			} else {
 				setCurrentDate(today);
@@ -244,7 +157,7 @@ export function CalendarPanel() {
 				direction === "prev"
 					? addMonths(startOfMonth(currentDate), -1)
 					: addMonths(startOfMonth(currentDate), 1);
-			pendingScrollToMonth.current = nextMonth;
+			requestMonthScroll(nextMonth);
 			setCurrentDate(nextMonth);
 			return;
 		}
@@ -329,28 +242,11 @@ export function CalendarPanel() {
 		);
 	};
 
-	const handleLoadMoreMonths = (direction: "prev" | "next") => {
-		if (direction === "prev" && monthScrollRef.current) {
-			pendingScrollAdjust.current = {
-				prevHeight: monthScrollRef.current.scrollHeight,
-				prevScrollTop: monthScrollRef.current.scrollTop,
-			};
-		}
-		setMonthItems((prev) => {
-			if (prev.length === 0) return prev;
-			if (direction === "prev") {
-				const first = prev[0];
-				return [addMonths(first, -1), ...prev];
-			}
-			const last = prev[prev.length - 1];
-			return [...prev, addMonths(last, 1)];
-		});
-	};
-
 	const handleActiveMonthChange = useCallback(
 		(month: Date) => {
 			if (view !== "month") return;
 			const currentMonth = startOfMonth(currentDate);
+			if (shouldIgnoreActiveMonthChange(month)) return;
 			if (
 				currentMonth.getFullYear() === month.getFullYear() &&
 				currentMonth.getMonth() === month.getMonth()
@@ -359,7 +255,7 @@ export function CalendarPanel() {
 			}
 			setCurrentDate(month);
 		},
-		[currentDate, view],
+		[currentDate, shouldIgnoreActiveMonthChange, view],
 	);
 
 	return (
