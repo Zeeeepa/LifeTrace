@@ -60,7 +60,7 @@
 
 @layer base {
 	:root,
-	:root[data-color-theme="amber-coast"] {
+	:root[data-color-theme="catppuccin"] {
 		--radius: 1rem;
 		/* 说明：
 		 * 这里的 CSS 变量只保存 OKLCH 的参数（可选包含 / alpha），
@@ -146,8 +146,86 @@
 		--overlay: 0 0 0 / 0.72;
 	}
 
+	:root[data-color-theme="nord"] {
+		--radius: 1rem;
+		--background: 0.9513 0.0074 260.732;
+		--foreground: 0.3244 0.0229 264.182;
+		--card: 0.933 0.0104 261.788;
+		--card-foreground: 0.3244 0.0229 264.182;
+		--popover: 0.933 0.0104 261.788;
+		--popover-foreground: 0.3244 0.0229 264.182;
+		--primary: 0.5944 0.0772 254.028;
+		--primary-foreground: 0.9513 0.0074 260.732;
+		--primary-weak: 0.5944 0.0772 254.028 / 0.08;
+		--primary-weak-hover: 0.5944 0.0772 254.028 / 0.18;
+		--primary-border: 0.5944 0.0772 254.028;
+		--secondary: 0.8993 0.0164 262.749;
+		--secondary-foreground: 0.3792 0.029 266.471;
+		--muted: 0.933 0.0104 261.788;
+		--muted-foreground: 0.4157 0.0324 264.131;
+		--accent: 0.7629 0.0477 194.491;
+		--accent-foreground: 0.3244 0.0229 264.182;
+		--destructive: 0.577 0.245 27.325;
+		--border: 0.8993 0.0164 262.749;
+		--input: 0.8993 0.0164 262.749;
+		--ring: 0.5944 0.0772 254.028;
+		--chart-1: 0.5944 0.0772 254.028;
+		--chart-2: 0.7746 0.0622 217.469;
+		--chart-3: 0.6965 0.0591 248.687;
+		--chart-4: 0.7683 0.0749 131.063;
+		--chart-5: 0.6929 0.0963 38.241;
+		--sidebar: 0.933 0.0104 261.788;
+		--sidebar-foreground: 0.3244 0.0229 264.182;
+		--sidebar-primary: 0.5944 0.0772 254.028;
+		--sidebar-primary-foreground: 0.9513 0.0074 260.732;
+		--sidebar-accent: 0.8993 0.0164 262.749;
+		--sidebar-accent-foreground: 0.3792 0.029 266.471;
+		--sidebar-border: 0.8993 0.0164 262.749;
+		--sidebar-ring: 0.5944 0.0772 254.028;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+	:root[data-color-theme="solarized"] {
+		--radius: 1rem;
+		--background: 0.9735 0.0261 90.095;
+		--foreground: 0.5682 0.0285 221.899;
+		--card: 0.9306 0.026 92.402;
+		--card-foreground: 0.5682 0.0285 221.899;
+		--popover: 0.9306 0.026 92.402;
+		--popover-foreground: 0.5682 0.0285 221.899;
+		--primary: 0.6149 0.1394 244.927;
+		--primary-foreground: 0.9735 0.0261 90.095;
+		--primary-weak: 0.6149 0.1394 244.927 / 0.08;
+		--primary-weak-hover: 0.6149 0.1394 244.927 / 0.18;
+		--primary-border: 0.6149 0.1394 244.927;
+		--secondary: 0.9306 0.026 92.402;
+		--secondary-foreground: 0.523 0.0283 219.136;
+		--muted: 0.9306 0.026 92.402;
+		--muted-foreground: 0.523 0.0283 219.136;
+		--accent: 0.6437 0.1019 187.384;
+		--accent-foreground: 0.9735 0.0261 90.095;
+		--destructive: 0.577 0.245 27.325;
+		--border: 0.9306 0.026 92.402;
+		--input: 0.9306 0.026 92.402;
+		--ring: 0.6149 0.1394 244.927;
+		--chart-1: 0.6149 0.1394 244.927;
+		--chart-2: 0.6437 0.1019 187.384;
+		--chart-3: 0.6444 0.1508 118.597;
+		--chart-4: 0.5808 0.1732 39.5;
+		--chart-5: 0.5823 0.1261 279.101;
+		--sidebar: 0.9306 0.026 92.402;
+		--sidebar-foreground: 0.5682 0.0285 221.899;
+		--sidebar-primary: 0.6149 0.1394 244.927;
+		--sidebar-primary-foreground: 0.9735 0.0261 90.095;
+		--sidebar-accent: 0.9306 0.026 92.402;
+		--sidebar-accent-foreground: 0.523 0.0283 219.136;
+		--sidebar-border: 0.9306 0.026 92.402;
+		--sidebar-ring: 0.6149 0.1394 244.927;
+		--overlay: 0 0 0 / 0.72;
+	}
+
 	.dark,
-	.dark[data-color-theme="amber-coast"] {
+	.dark[data-color-theme="catppuccin"] {
 		--background: 0.2429 0.0304 283.911;
 		--foreground: 0.8787 0.0426 272.277;
 		--card: 0.324 0.0319 281.978;
@@ -220,6 +298,82 @@
 		--sidebar-accent-foreground: 0.985 0 0;
 		--sidebar-border: 1 0 0 / 10%;
 		--sidebar-ring: 0.439 0 0;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+	.dark[data-color-theme="nord"] {
+		--background: 0.3244 0.0229 264.182;
+		--foreground: 0.9513 0.0074 260.732;
+		--card: 0.3792 0.029 266.471;
+		--card-foreground: 0.9513 0.0074 260.732;
+		--popover: 0.3792 0.029 266.471;
+		--popover-foreground: 0.9513 0.0074 260.732;
+		--primary: 0.7746 0.0622 217.469;
+		--primary-foreground: 0.3244 0.0229 264.182;
+		--primary-weak: 0.7746 0.0622 217.469 / 0.16;
+		--primary-weak-hover: 0.7746 0.0622 217.469 / 0.3;
+		--primary-border: 0.7746 0.0622 217.469;
+		--secondary: 0.4157 0.0324 264.131;
+		--secondary-foreground: 0.9513 0.0074 260.732;
+		--muted: 0.4157 0.0324 264.131;
+		--muted-foreground: 0.8993 0.0164 262.749;
+		--accent: 0.4523 0.0352 264.131;
+		--accent-foreground: 0.9513 0.0074 260.732;
+		--destructive: 0.704 0.191 22.216;
+		--border: 1 0 0 / 10%;
+		--input: 1 0 0 / 15%;
+		--ring: 0.7746 0.0622 217.469;
+		--chart-1: 0.7746 0.0622 217.469;
+		--chart-2: 0.6965 0.0591 248.687;
+		--chart-3: 0.7683 0.0749 131.063;
+		--chart-4: 0.6929 0.0963 38.241;
+		--chart-5: 0.6921 0.0625 332.665;
+		--sidebar: 0.3792 0.029 266.471;
+		--sidebar-foreground: 0.9513 0.0074 260.732;
+		--sidebar-primary: 0.7746 0.0622 217.469;
+		--sidebar-primary-foreground: 0.3244 0.0229 264.182;
+		--sidebar-accent: 0.4157 0.0324 264.131;
+		--sidebar-accent-foreground: 0.9513 0.0074 260.732;
+		--sidebar-border: 1 0 0 / 10%;
+		--sidebar-ring: 0.7746 0.0622 217.469;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+	.dark[data-color-theme="solarized"] {
+		--background: 0.2673 0.0486 219.817;
+		--foreground: 0.9306 0.026 92.402;
+		--card: 0.3092 0.0518 219.652;
+		--card-foreground: 0.9306 0.026 92.402;
+		--popover: 0.3092 0.0518 219.652;
+		--popover-foreground: 0.9306 0.026 92.402;
+		--primary: 0.6437 0.1019 187.384;
+		--primary-foreground: 0.2673 0.0486 219.817;
+		--primary-weak: 0.6437 0.1019 187.384 / 0.14;
+		--primary-weak-hover: 0.6437 0.1019 187.384 / 0.28;
+		--primary-border: 0.6437 0.1019 187.384;
+		--secondary: 0.3092 0.0518 219.652;
+		--secondary-foreground: 0.9306 0.026 92.402;
+		--muted: 0.3092 0.0518 219.652;
+		--muted-foreground: 0.6979 0.0159 196.794;
+		--accent: 0.523 0.0283 219.136;
+		--accent-foreground: 0.9306 0.026 92.402;
+		--destructive: 0.704 0.191 22.216;
+		--border: 1 0 0 / 10%;
+		--input: 1 0 0 / 15%;
+		--ring: 0.6437 0.1019 187.384;
+		--chart-1: 0.6437 0.1019 187.384;
+		--chart-2: 0.6149 0.1394 244.927;
+		--chart-3: 0.6444 0.1508 118.597;
+		--chart-4: 0.6545 0.134 85.719;
+		--chart-5: 0.5924 0.2025 355.894;
+		--sidebar: 0.3092 0.0518 219.652;
+		--sidebar-foreground: 0.9306 0.026 92.402;
+		--sidebar-primary: 0.6437 0.1019 187.384;
+		--sidebar-primary-foreground: 0.2673 0.0486 219.817;
+		--sidebar-accent: 0.523 0.0283 219.136;
+		--sidebar-accent-foreground: 0.9306 0.026 92.402;
+		--sidebar-border: 1 0 0 / 10%;
+		--sidebar-ring: 0.6437 0.1019 187.384;
 		--overlay: 0 0 0 / 0.72;
 	}
 
@@ -314,7 +468,7 @@
 		font-weight: 500;
 	}
 
-	:root[data-color-theme="amber-coast"] body {
+	:root[data-color-theme="catppuccin"] body {
 		font-weight: 600;
 	}
 

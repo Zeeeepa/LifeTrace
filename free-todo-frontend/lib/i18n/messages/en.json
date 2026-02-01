@@ -4,8 +4,10 @@
 		"en": "English"
 	},
 	"colorTheme": {
-		"amberCoast": "Catppuccin",
+		"catppuccin": "Catppuccin",
 		"blue": "Blue",
+		"nord": "Nord",
+		"solarized": "Solarized",
 		"neutral": "Neutral",
 		"label": "Theme Style"
 	},
