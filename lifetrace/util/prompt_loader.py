@@ -24,9 +24,8 @@ class PromptLoader:
         return cls._instance
 
     def __init__(self):
-        """初始化提示词加载器"""
-        if self._prompts is None:
-            self._load_prompts()
+        """初始化提示词加载器（延迟加载配置）"""
+        pass
 
     def _load_prompts(self):
         """从 prompts/ 目录或 prompt.yaml 文件加载提示词
@@ -83,6 +82,9 @@ class PromptLoader:
             格式化后的提示词字符串
         """
         try:
+            if self._prompts is None:
+                self._load_prompts()
+
             # 获取提示词模板
             prompt_template = self._prompts.get(category, {}).get(key, "")
 

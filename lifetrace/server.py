@@ -1,12 +1,19 @@
 import argparse
+import asyncio
 import socket
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from lifetrace.core.module_registry import register_enabled_modules
+from lifetrace.core.module_registry import (
+    MODULES,
+    get_enabled_module_ids,
+    get_module_states,
+    log_module_summary,
+    register_modules,
+)
 from lifetrace.jobs.job_manager import get_job_manager
 from lifetrace.services.config_service import is_llm_configured
 from lifetrace.util.base_paths import get_user_logs_dir
@@ -20,6 +27,8 @@ setup_logging(logging_config)
 
 logger = get_logger()
 
+PRIORITY_MODULES = ("health", "config", "system", "todo")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,14 +39,28 @@ async def lifespan(app: FastAPI):
     # 初始化任务管理器
     manager = get_job_manager()
     app.state.job_manager = manager
+    background_tasks = []
+    app.state.background_tasks = background_tasks
 
-    # 启动所有后台任务
-    manager.start_all()
+    # 延迟启动后台任务，避免阻塞启动流程
+    background_tasks.append(asyncio.create_task(_start_job_manager_async(app)))
+
+    # 延迟加载非优先模块
+    background_tasks.append(asyncio.create_task(_register_deferred_modules(app)))
+
+    # 延迟验证 LLM 连接
+    background_tasks.append(asyncio.create_task(_verify_llm_connection_async()))
 
     yield
 
     # 关闭逻辑
     logger.error("Web服务器关闭，正在停止后台服务")
+
+    # 停止后台任务
+    for task in getattr(app.state, "background_tasks", []):
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
     # 停止所有后台任务
     manager = getattr(app.state, "job_manager", None)
@@ -89,8 +112,62 @@ config_status = "已配置" if llm_configured else "未配置，需要引导配�
 logger.info(f"LLM配置状态: {config_status}")
 
 
+def _order_modules(module_ids: list[str]) -> list[str]:
+    module_id_set = set(module_ids)
+    return [module.id for module in MODULES if module.id in module_id_set]
+
+
+def _register_priority_modules(app: FastAPI) -> None:
+    states = get_module_states()
+    log_module_summary(states)
+    enabled_ids = get_enabled_module_ids(states)
+
+    priority_ids = _order_modules([mid for mid in enabled_ids if mid in PRIORITY_MODULES])
+    deferred_ids = _order_modules([mid for mid in enabled_ids if mid not in PRIORITY_MODULES])
+
+    registered = register_modules(app, priority_ids, states=states)
+    app.state.registered_modules = set(registered)
+    app.state.deferred_modules = [
+        mid for mid in deferred_ids if mid not in app.state.registered_modules
+    ]
+
+    logger.info(f"快速启动：优先加载模块: {', '.join(priority_ids) or 'none'}")
+    if app.state.deferred_modules:
+        logger.info(f"延迟加载模块: {', '.join(app.state.deferred_modules)}")
+
+
+async def _register_deferred_modules(app: FastAPI) -> None:
+    deferred_modules = getattr(app.state, "deferred_modules", [])
+    if not deferred_modules:
+        return
+
+    logger.info(f"开始延迟加载 {len(deferred_modules)} 个模块")
+    for module_id in deferred_modules:
+        registered = register_modules(app, [module_id])
+        if registered:
+            app.state.registered_modules.update(registered)
+        await asyncio.sleep(0)
+    logger.info("延迟模块加载完成")
+
+
+async def _start_job_manager_async(app: FastAPI) -> None:
+    manager = getattr(app.state, "job_manager", None)
+    if not manager:
+        return
+    await asyncio.to_thread(manager.start_all)
+
+
+async def _verify_llm_connection_async() -> None:
+    try:
+        from lifetrace.routers.config import verify_llm_connection_on_startup
+    except Exception as exc:
+        logger.debug(f"LLM 验证初始化跳过: {exc}")
+        return
+    await asyncio.to_thread(verify_llm_connection_on_startup)
+
+
 # 注册按配置启用的路由
-register_enabled_modules(app)
+_register_priority_modules(app)
 
 
 def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:

@@ -140,9 +140,10 @@ class JobManager:
         enabled = settings.get("jobs.recorder.enabled")
 
         try:
-            # 预先初始化全局录制器实例（避免首次调用时延迟）
-            get_recorder_instance()
-            logger.info("录制器实例已初始化")
+            # 仅在启用时预先初始化，避免阻塞启动
+            if enabled:
+                get_recorder_instance()
+                logger.info("录制器实例已初始化")
 
             # 添加录制器定时任务（使用可序列化的函数，无论是否启用都添加）
             recorder_interval = settings.get("jobs.recorder.interval")
@@ -177,9 +178,10 @@ class JobManager:
         enabled = settings.get("jobs.todo_recorder.enabled", False)
 
         try:
-            # 预先初始化全局 Todo 录制器实例
-            get_todo_recorder_instance()
-            logger.info("Todo 录制器实例已初始化")
+            # 仅在启用时预先初始化
+            if enabled:
+                get_todo_recorder_instance()
+                logger.info("Todo 录制器实例已初始化")
 
             # 添加 Todo 录制器定时任务（无论是否启用都添加）
             todo_recorder_interval = settings.get("jobs.todo_recorder.interval", 5)
@@ -235,9 +237,10 @@ class JobManager:
         enabled = settings.get("jobs.activity_aggregator.enabled")
 
         try:
-            # 预先初始化全局实例
-            get_aggregator_instance()
-            logger.info("活动聚合服务实例已初始化")
+            # 仅在启用时预先初始化
+            if enabled:
+                get_aggregator_instance()
+                logger.info("活动聚合服务实例已初始化")
 
             # 添加到调度器（无论是否启用都添加）
             interval = settings.get("jobs.activity_aggregator.interval")
@@ -263,9 +266,10 @@ class JobManager:
         enabled = settings.get("jobs.clean_data.enabled")
 
         try:
-            # 预先初始化全局实例
-            get_clean_data_instance()
-            logger.info("数据清理服务实例已初始化")
+            # 仅在启用时预先初始化
+            if enabled:
+                get_clean_data_instance()
+                logger.info("数据清理服务实例已初始化")
 
             # 添加到调度器（无论是否启用都添加）
             interval = settings.get("jobs.clean_data.interval")
@@ -321,9 +325,10 @@ class JobManager:
         enabled = settings.get("jobs.proactive_ocr.enabled", False)
 
         try:
-            # 预先初始化全局服务实例
-            get_proactive_ocr_service()
-            logger.info("主动OCR服务实例已初始化")
+            # 仅在启用时预先初始化
+            if enabled:
+                get_proactive_ocr_service()
+                logger.info("主动OCR服务实例已初始化")
 
             # 添加到调度器（无论是否启用都添加）
             interval = settings.get("jobs.proactive_ocr.interval", 1.0)
