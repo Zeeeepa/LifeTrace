@@ -6,7 +6,9 @@
 2. MSS屏幕捕获 - 基于屏幕坐标，窗口被遮挡时会有问题（跨平台）
 """
 
+import contextlib
 import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -65,21 +67,21 @@ def set_dpi_awareness():
     if not WIN32_AVAILABLE:
         return
 
-    try:
-        # Windows 10 1607+ 使用 SetProcessDpiAwarenessContext
-        # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+    # Windows 10 1607+ 使用 SetProcessDpiAwarenessContext
+    # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+    with contextlib.suppress(Exception):
         windll.user32.SetProcessDpiAwarenessContext(c_void_p(-4))
-    except Exception:
-        try:
-            # Windows 8.1+ 使用 SetProcessDpiAwareness
-            # PROCESS_PER_MONITOR_DPI_AWARE = 2
-            windll.shcore.SetProcessDpiAwareness(2)
-        except Exception:
-            try:
-                # Windows Vista+ 使用 SetProcessDPIAware
-                windll.user32.SetProcessDPIAware()
-            except Exception:
-                pass
+        return
+
+    # Windows 8.1+ 使用 SetProcessDpiAwareness
+    # PROCESS_PER_MONITOR_DPI_AWARE = 2
+    with contextlib.suppress(Exception):
+        windll.shcore.SetProcessDpiAwareness(2)
+        return
+
+    # Windows Vista+ 使用 SetProcessDPIAware
+    with contextlib.suppress(Exception):
+        windll.user32.SetProcessDPIAware()
 
 
 # 在模块加载时设置DPI感知（仅Windows）
@@ -231,13 +233,11 @@ class WindowCapture:
             # 获取进程ID
             pid = 0
             if psutil:
-                try:
+                with contextlib.suppress(Exception):
                     for proc in psutil.process_iter(["pid", "name"]):
                         if proc.info["name"] == app_name or proc.info["name"] == f"{app_name}.app":
                             pid = proc.info["pid"]
                             break
-                except Exception:
-                    pass
 
             # macOS没有hwnd，使用pid作为标识
             return WindowMeta(
@@ -272,8 +272,11 @@ class WindowCapture:
             # 获取窗口位置和大小
             try:
                 # 使用xdotool获取活跃窗口
-                result = subprocess.run(
-                    ["xdotool", "getactivewindow", "getwindowgeometry"],
+                xdotool_path = shutil.which("xdotool")
+                if not xdotool_path:
+                    raise FileNotFoundError("xdotool not found")
+                result = subprocess.run(  # noqa: S603
+                    [xdotool_path, "getactivewindow", "getwindowgeometry"],
                     capture_output=True,
                     text=True,
                     timeout=2,
@@ -295,8 +298,8 @@ class WindowCapture:
                             geometry["height"] = height
 
                     # 获取窗口ID
-                    wid_result = subprocess.run(
-                        ["xdotool", "getactivewindow"],
+                    wid_result = subprocess.run(  # noqa: S603
+                        [xdotool_path, "getactivewindow"],
                         capture_output=True,
                         text=True,
                         timeout=2,
@@ -307,13 +310,11 @@ class WindowCapture:
                     # 获取进程ID
                     pid = 0
                     if psutil:
-                        try:
+                        with contextlib.suppress(Exception):
                             for proc in psutil.process_iter(["pid", "name"]):
                                 if proc.info["name"].lower() == app_name.lower():
                                     pid = proc.info["pid"]
                                     break
-                        except Exception:
-                            pass
 
                     return WindowMeta(
                         hwnd=window_id,

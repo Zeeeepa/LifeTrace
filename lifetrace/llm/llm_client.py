@@ -3,6 +3,7 @@ LLM客户端模块
 提供与OpenAI兼容API的交互
 """
 
+import contextlib
 from typing import Any
 
 from openai import OpenAI
@@ -166,13 +167,11 @@ class LLMClient:
                 stream=True,
             )
             for chunk in stream:
-                try:
+                with contextlib.suppress(Exception):
                     delta = chunk.choices[0].delta
                     text = getattr(delta, "content", None)
                     if text:
                         yield text
-                except Exception:
-                    continue
         except Exception as e:
             logger.error(f"流式聊天失败: {e}")
             raise

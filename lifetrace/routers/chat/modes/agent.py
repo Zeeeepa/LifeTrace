@@ -69,7 +69,7 @@ def create_agent_streaming_response(
                     content=total_content,
                 )
                 logger.info("[stream][agent] 消息已保存到数据库")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"[stream][agent] 生成失败: {e}")
             yield "Agent 处理失败，请检查后端配置。"
 

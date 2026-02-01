@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 if TYPE_CHECKING:
     from lifetrace.repositories.sql_todo_repository import SqlTodoRepository
@@ -86,7 +87,7 @@ class StatsTools:
         """
         try:
             all_todos = self.todo_repo.list_todos(limit=1000, offset=0, status=None)
-            now = datetime.now()
+            now = get_utc_now()
 
             start_date = _get_start_date(date_range, now)
             filtered_todos = _filter_by_date(all_todos, start_date)
@@ -123,7 +124,7 @@ class StatsTools:
             Formatted list of overdue todos
         """
         try:
-            now = datetime.now()
+            now = get_utc_now()
             todos = self.todo_repo.list_todos(limit=200, offset=0, status="active")
 
             overdue = []

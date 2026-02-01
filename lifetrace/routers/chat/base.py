@@ -80,7 +80,7 @@ def _create_llm_stream_generator(
                     session_id=session_id,
                     meta=meta,
                 )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"[stream] 生成失败: {e}")
             yield "\n[提示] 流式生成出现异常，已结束。"
 
@@ -124,5 +124,5 @@ def _log_stream_token_usage(
         logger.info(
             f"[stream] Token使用量已记录: input={usage_info.prompt_tokens}, output={usage_info.completion_tokens}"
         )
-    except Exception as log_error:  # noqa: BLE001
+    except Exception as log_error:
         logger.error(f"[stream] 记录token使用量失败: {log_error}")

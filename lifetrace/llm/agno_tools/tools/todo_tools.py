@@ -5,6 +5,7 @@ CRUD operations for todo items.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -50,10 +51,8 @@ class TodoTools:
             # Parse deadline
             parsed_deadline = None
             if deadline:
-                try:
+                with contextlib.suppress(ValueError):
                     parsed_deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
 
             # Parse tags
             tag_list = None
@@ -137,12 +136,10 @@ class TodoTools:
             if description is not None:
                 update_kwargs["description"] = description
             if deadline is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     update_kwargs["deadline"] = datetime.fromisoformat(
                         deadline.replace("Z", "+00:00")
                     )
-                except ValueError:
-                    pass
             if priority is not None and priority in ("high", "medium", "low", "none"):
                 update_kwargs["priority"] = priority
 

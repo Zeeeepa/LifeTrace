@@ -5,12 +5,12 @@
 """
 
 import hashlib
-from datetime import datetime
 from typing import Any
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_vector_db_dir
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -154,9 +154,9 @@ class VectorDatabase:
 
             # 准备元数据
             doc_metadata = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),
+                "text_hash": hashlib.md5(text.encode()).hexdigest(),  # noqa: S324
             }
             if metadata:
                 doc_metadata.update(metadata)
@@ -208,9 +208,9 @@ class VectorDatabase:
         try:
             # 准备元数据
             doc_metadata = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),
+                "text_hash": hashlib.md5(text.encode()).hexdigest(),  # noqa: S324
             }
             if metadata:
                 doc_metadata.update(metadata)

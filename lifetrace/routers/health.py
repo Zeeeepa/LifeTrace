@@ -1,6 +1,7 @@
 """健康检查路由"""
 
 import os
+import shutil
 import subprocess
 from functools import lru_cache
 
@@ -30,9 +31,13 @@ def get_git_commit() -> str:
     if env_commit:
         return env_commit
 
+    git_path = shutil.which("git")
+    if not git_path:
+        return "unknown"
+
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],
+        return subprocess.check_output(  # noqa: S603
+            [git_path, "rev-parse", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
@@ -76,7 +81,7 @@ async def llm_health_check():
         except Exception as init_error:
             return {
                 "status": "unavailable",
-                "message": f"RAG服务初始化失败: {str(init_error)}",
+                "message": f"RAG服务初始化失败: {init_error!s}",
                 "timestamp": get_utc_now().isoformat(),
             }
 
@@ -113,6 +118,6 @@ async def llm_health_check():
         logger.error(f"LLM健康检查失败: {e}")
         return {
             "status": "error",
-            "message": f"LLM服务异常: {str(e)}",
+            "message": f"LLM服务异常: {e!s}",
             "timestamp": get_utc_now().isoformat(),
         }

@@ -1,6 +1,5 @@
 """聊天管理器 - 负责聊天会话和消息相关的数据库操作"""
 
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -8,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Chat, Message
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -213,7 +213,7 @@ class ChatManager:
                 session.add(message)
 
                 # 更新会话的最后消息时间
-                chat.last_message_at = datetime.now()
+                chat.last_message_at = get_utc_now()
 
                 # 如果会话没有标题且这是第一条用户消息，可以设置标题
                 if not chat.title and role == "user":
@@ -381,7 +381,7 @@ class ChatManager:
                 chat = session.query(Chat).filter_by(session_id=session_id).first()
                 if chat:
                     chat.context = context
-                    chat.updated_at = datetime.now()
+                    chat.updated_at = get_utc_now()
                     session.flush()
                     return True
                 else:

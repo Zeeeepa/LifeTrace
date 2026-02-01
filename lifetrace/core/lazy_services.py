@@ -11,7 +11,6 @@ from lifetrace.llm.rag_service import RAGService
 from lifetrace.llm.vector_service import create_vector_service
 
 if TYPE_CHECKING:
-    from lifetrace.llm.rag_service import RAGService
     from lifetrace.llm.vector_service import VectorService
 
 

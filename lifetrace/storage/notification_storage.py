@@ -198,9 +198,7 @@ def is_notification_dismissed(todo_id: int, deadline: datetime) -> bool:
         return False
 
     # 比较deadline（忽略微秒级别的差异）
-    if abs((deadline - dismissed_deadline).total_seconds()) < 1:
-        return True
-    return False
+    return abs((deadline - dismissed_deadline).total_seconds()) < 1
 
 
 def clear_dismissed_mark(todo_id: int) -> None:

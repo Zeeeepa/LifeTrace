@@ -25,7 +25,7 @@ async def start_proactive_ocr():
         }
     except Exception as e:
         logger.error(f"Failed to start proactive OCR: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to start service: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to start service: {e!s}") from e
 
 
 @router.post("/stop")
@@ -41,7 +41,7 @@ async def stop_proactive_ocr():
         }
     except Exception as e:
         logger.error(f"Failed to stop proactive OCR: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to stop service: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to stop service: {e!s}") from e
 
 
 @router.post("/capture")
@@ -64,7 +64,7 @@ async def capture_once():
         }
     except Exception as e:
         logger.error(f"Failed to capture: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Capture failed: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Capture failed: {e!s}") from e
 
 
 @router.get("/status")
@@ -79,7 +79,7 @@ async def get_proactive_ocr_status():
         }
     except Exception as e:
         logger.error(f"Failed to get status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Failed to get status: {e!s}") from e
 
 
 @router.get("/health")

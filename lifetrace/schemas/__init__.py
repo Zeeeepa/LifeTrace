@@ -29,35 +29,26 @@ from lifetrace.schemas.vector import (
 from lifetrace.schemas.vision import VisionChatRequest, VisionChatResponse
 
 __all__ = [
-    # Chat
     "ChatMessage",
     "ChatMessageWithContext",
     "ChatResponse",
+    "EventDetailResponse",
+    "EventResponse",
+    "ExtractedTodo",
     "NewChatRequest",
     "NewChatResponse",
-    # Event
-    "EventResponse",
-    "EventDetailResponse",
-    # Screenshot
-    "ScreenshotResponse",
-    # Search
-    "SearchRequest",
-    # Stats
-    "StatisticsResponse",
-    "TimeAllocationResponse",
-    # System
     "ProcessInfo",
-    "SystemResourcesResponse",
-    # Vector
+    "ScreenshotResponse",
+    "SearchRequest",
     "SemanticSearchRequest",
     "SemanticSearchResult",
-    "VectorStatsResponse",
-    # Vision
-    "VisionChatRequest",
-    "VisionChatResponse",
-    # Todo Extraction
+    "StatisticsResponse",
+    "SystemResourcesResponse",
+    "TimeAllocationResponse",
     "TodoExtractionRequest",
     "TodoExtractionResponse",
-    "ExtractedTodo",
     "TodoTimeInfo",
+    "VectorStatsResponse",
+    "VisionChatRequest",
+    "VisionChatResponse",
 ]

@@ -11,12 +11,16 @@ import importlib
 import json
 import struct
 import time
-from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
+
+from lifetrace.util.time_utils import get_utc_now
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # ---- constants (avoid magic numbers) ----
 SAMPLE_RATE = 16000
@@ -36,6 +40,13 @@ AGC_TARGET_PEAK_RATIO = 0.85
 SEGMENT_DURATION_MINUTES = 30  # 30分钟分段
 SILENCE_DETECTION_THRESHOLD_SECONDS = 600  # 10分钟静音检测阈值
 SILENCE_CHECK_INTERVAL_SECONDS = 60  # 每60秒检查一次静音
+
+
+def _track_task(task_set: set[asyncio.Task], coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    task_set.add(task)
+    task.add_done_callback(task_set.discard)
+    return task
 
 
 def _to_local(dt: datetime | None) -> datetime | None:
@@ -90,6 +101,7 @@ def _create_result_callback(
     logger,
     transcription_text_ref: list[str],
     is_connected_ref: list[bool],
+    task_set: set[asyncio.Task],
 ) -> Callable[[str, bool], None]:
     """Create ASR result callback.
 
@@ -129,14 +141,16 @@ def _create_result_callback(
                 and websocket.application_state == WebSocketState.CONNECTED
                 and websocket.client_state == WebSocketState.CONNECTED
             ):
-                asyncio.create_task(_send_result(text, is_final))
+                _track_task(task_set, _send_result(text, is_final))
         except Exception as e:
             logger.warning(f"Failed to schedule sending TranscriptionResultChanged: {e}")
 
     return on_result
 
 
-def _create_error_callback(*, websocket: WebSocket, logger, is_connected_ref: list[bool]):
+def _create_error_callback(
+    *, websocket: WebSocket, logger, is_connected_ref: list[bool], task_set: set[asyncio.Task]
+):
     async def _send_error(error: Exception) -> None:
         try:
             if (
@@ -159,7 +173,7 @@ def _create_error_callback(*, websocket: WebSocket, logger, is_connected_ref: li
                     websocket.application_state == WebSocketState.CONNECTED
                     and websocket.client_state == WebSocketState.CONNECTED
                 ):
-                    asyncio.create_task(_send_error(error))
+                    _track_task(task_set, _send_error(error))
             except Exception as e:
                 logger.warning(f"Failed to schedule sending TaskFailed: {e}")
 
@@ -172,6 +186,7 @@ def _create_realtime_nlp_handler(  # noqa: C901
     logger,
     audio_service,
     is_connected_ref: list[bool],
+    task_set: set[asyncio.Task],
     throttle_seconds: float = 8.0,
 ):
     """Realtime optimize/extract during recording (only on final sentences)."""
@@ -254,12 +269,12 @@ def _create_realtime_nlp_handler(  # noqa: C901
             elapsed = now - self._last_emit
             if elapsed >= throttle_seconds:
                 self._last_emit = now
-                asyncio.create_task(self._run_once())
+                _track_task(task_set, self._run_once())
                 return
 
             if self._pending is None:
                 delay = max(0.0, throttle_seconds - elapsed)
-                self._pending = asyncio.create_task(self._debounced_run(delay))
+                self._pending = _track_task(task_set, self._debounced_run(delay))
 
         def cancel(self) -> None:
             if self._pending and not self._pending.done():
@@ -292,11 +307,10 @@ def _handle_websocket_text_message(
         else:
             logger.info("Received stop signal from client")
         return True
-    if msg_type == "segment":
+    if msg_type == "segment" and should_segment_ref:
         # 客户端请求分段（用于手动分段或同步）
-        if should_segment_ref:
-            should_segment_ref[0] = True
-            logger.info("Received segment request from client")
+        should_segment_ref[0] = True
+        logger.info("Received segment request from client")
     return False
 
 
@@ -421,7 +435,7 @@ def _persist_recording(
         return None, None
 
     pcm_bytes = b"".join(audio_chunks)
-    duration = (datetime.now() - recording_started_at).total_seconds()
+    duration = (get_utc_now() - recording_started_at).total_seconds()
 
     pcm_bytes = _apply_agc_to_pcm(logger, pcm_bytes)
     wav_bytes = _pcm16le_to_wav(pcm_bytes)

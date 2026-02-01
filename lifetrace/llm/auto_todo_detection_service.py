@@ -13,6 +13,7 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -265,7 +266,7 @@ class AutoTodoDetectionService:
             return None
 
         try:
-            reference_time = datetime.now()
+            reference_time = get_utc_now()
             return calculate_scheduled_time(time_info, reference_time)
         except Exception as e:
             logger.warning(f"计算scheduled_time失败: {e}")

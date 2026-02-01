@@ -70,14 +70,14 @@ def verify_llm_connection_on_startup():
 
 def _validate_aliyun_api_key(llm_key: str) -> dict[str, Any] | None:
     """验证阿里云 API Key 格式"""
-    MIN_ALIYUN_KEY_LENGTH = 20
+    min_aliyun_key_length = 20
 
     if not llm_key.startswith("sk-"):
         return {
             "success": False,
             "error": "阿里云 API Key 格式错误，应该以 'sk-' 开头",
         }
-    if len(llm_key) < MIN_ALIYUN_KEY_LENGTH:
+    if len(llm_key) < min_aliyun_key_length:
         return {
             "success": False,
             "error": f"阿里云 API Key 长度异常（当前: {len(llm_key)} 字符），请检查是否完整",

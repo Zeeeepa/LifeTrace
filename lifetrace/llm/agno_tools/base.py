@@ -6,7 +6,7 @@ Provides message loader and base utilities for all tools.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 
@@ -23,8 +23,8 @@ class AgnoToolsMessageLoader:
     Supports caching for performance.
     """
 
-    _instances: dict[str, AgnoToolsMessageLoader] = {}
-    _messages: dict[str, dict[str, Any]] = {}
+    _instances: ClassVar[dict[str, AgnoToolsMessageLoader]] = {}
+    _messages: ClassVar[dict[str, dict[str, Any]]] = {}
 
     def __new__(cls, lang: str = "en"):
         """Singleton per language"""

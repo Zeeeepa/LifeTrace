@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
 from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
 from lifetrace.util.logging_config import get_logger
@@ -18,6 +17,11 @@ logger = get_logger()
 
 _UNSET = object()
 
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from lifetrace.storage.database_base import DatabaseBase
+
 
 def _safe_int_list(value: Any) -> list[int]:
     if value is None:
@@ -25,10 +29,8 @@ def _safe_int_list(value: Any) -> list[int]:
     if isinstance(value, list):
         out: list[int] = []
         for item in value:
-            try:
+            with contextlib.suppress(Exception):
                 out.append(int(item))
-            except Exception:
-                continue
         return out
     # 兼容数据库中存的 JSON 字符串
     if isinstance(value, str):
@@ -260,10 +262,8 @@ class TodoManager(TodoAttachmentMixin):
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
                 # 默认不返回软删除数据（如果未来使用 deleted_at）
-                try:
+                with contextlib.suppress(Exception):
                     q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    pass
 
                 if status:
                     q = q.filter(Todo.status == status)
@@ -278,10 +278,8 @@ class TodoManager(TodoAttachmentMixin):
         try:
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
-                try:
+                with contextlib.suppress(Exception):
                     q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    pass
                 if status:
                     q = q.filter(Todo.status == status)
                 return q.count()
@@ -297,11 +295,8 @@ class TodoManager(TodoAttachmentMixin):
         try:
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
-                try:
+                with contextlib.suppress(Exception):
                     q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    # 兼容旧表结构没有 deleted_at 的情况
-                    pass
 
                 q = q.filter(Todo.status == "active").order_by(Todo.created_at.desc()).limit(limit)
                 todos = q.all()
@@ -371,7 +366,7 @@ class TodoManager(TodoAttachmentMixin):
         if related_activities is not _UNSET:
             todo.related_activities = json.dumps(_safe_int_list(related_activities))
 
-    def update_todo(  # noqa: PLR0913, C901
+    def update_todo(  # noqa: PLR0913
         self,
         todo_id: int,
         *,

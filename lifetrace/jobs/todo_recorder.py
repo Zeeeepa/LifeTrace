@@ -12,7 +12,6 @@ import importlib
 import os
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
 from functools import lru_cache, wraps
 
 import imagehash
@@ -24,6 +23,7 @@ from lifetrace.storage import screenshot_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_screenshots_dir
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 from lifetrace.util.utils import (
     ensure_dir,
     get_active_window_info,
@@ -197,7 +197,7 @@ class TodoScreenRecorder:
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="计算文件哈希")
         def _do_calculate_hash():
             with open(file_path, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()
+                return hashlib.md5(f.read()).hexdigest()  # noqa: S324
 
         try:
             result = _do_calculate_hash()
@@ -254,8 +254,8 @@ class TodoScreenRecorder:
         def _detect_todos():
             try:
                 auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
-                AutoTodoDetectionService = auto_module.AutoTodoDetectionService
-                service = AutoTodoDetectionService()
+                auto_todo_detection_service_class = auto_module.AutoTodoDetectionService
+                service = auto_todo_detection_service_class()
                 result = service.detect_and_create_todos_from_screenshot(screenshot_id)
                 logger.info(
                     f"[Todo录制器] 截图 {screenshot_id} 待办检测完成，"
@@ -311,7 +311,7 @@ class TodoScreenRecorder:
 
             monitor = sct.monitors[active_screen_id]
             screenshot = sct.grab(monitor)
-            timestamp = datetime.now()
+            timestamp = get_utc_now()
             filename = f"todo_{get_screenshot_filename(active_screen_id, timestamp)}"
             file_path = os.path.join(self.screenshots_dir, filename)
 

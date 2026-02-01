@@ -3,14 +3,23 @@ import argparse
 import getpass
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 
+def _get_git_path() -> str:
+    git_path = shutil.which("git")
+    if not git_path:
+        raise FileNotFoundError("git executable not found in PATH")
+    return git_path
+
+
 def run_git(root: Path, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(root), *args],
+    git_path = _get_git_path()
+    return subprocess.run(  # noqa: S603
+        [git_path, "-C", str(root), *args],
         text=True,
         capture_output=True,
         check=check,
@@ -53,13 +62,14 @@ def run_link_deps(root: Path, worktree_path: Path, force: bool) -> int:
         if force:
             cmd.append("--force")
 
-    result = subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)  # noqa: S603
     return result.returncode
 
 
 def get_repo_root() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
+    git_path = _get_git_path()
+    result = subprocess.run(  # noqa: S603
+        [git_path, "rev-parse", "--show-toplevel"],
         text=True,
         capture_output=True,
         check=False,

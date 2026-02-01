@@ -26,7 +26,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # 延迟导入以避免 E402 错误
-if True:  # noqa: SIM108
+if True:
     from sqlmodel import select
 
     from lifetrace.llm.llm_client import LLMClient
@@ -64,18 +64,26 @@ def needs_extraction(transcription: Transcription) -> tuple[bool, bool]:
     needs_optimized = False
 
     # 检查原文提取
-    if transcription.original_text and transcription.original_text.strip():
-        if is_empty_extraction(transcription.extracted_todos) or is_empty_extraction(
-            transcription.extracted_schedules
-        ):
-            needs_original = True
+    if (
+        transcription.original_text
+        and transcription.original_text.strip()
+        and (
+            is_empty_extraction(transcription.extracted_todos)
+            or is_empty_extraction(transcription.extracted_schedules)
+        )
+    ):
+        needs_original = True
 
     # 检查优化文本提取
-    if transcription.optimized_text and transcription.optimized_text.strip():
-        if is_empty_extraction(transcription.extracted_todos_optimized) or is_empty_extraction(
-            transcription.extracted_schedules_optimized
-        ):
-            needs_optimized = True
+    if (
+        transcription.optimized_text
+        and transcription.optimized_text.strip()
+        and (
+            is_empty_extraction(transcription.extracted_todos_optimized)
+            or is_empty_extraction(transcription.extracted_schedules_optimized)
+        )
+    ):
+        needs_optimized = True
 
     return needs_original, needs_optimized
 
@@ -161,9 +169,8 @@ async def re_extract_transcription(
 def parse_date(date_str: str) -> datetime:
     """解析日期字符串 (YYYY-MM-DD)"""
     try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d")
         # 转换为 UTC 时间（假设输入是本地时间）
-        return dt.replace(tzinfo=UTC)
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
     except ValueError as e:
         raise argparse.ArgumentTypeError(f"无效的日期格式: {date_str} (应为 YYYY-MM-DD)") from e
 

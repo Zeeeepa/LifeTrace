@@ -1,13 +1,13 @@
 """聊天相关的辅助/管理路由。"""
 
 import importlib
-from datetime import datetime
 
 from fastapi import Depends, HTTPException, Query
 
 from lifetrace.core.dependencies import get_chat_service, get_rag_service
 from lifetrace.schemas.chat import AddMessageRequest, NewChatRequest, NewChatResponse
 from lifetrace.services.chat_service import ChatService
+from lifetrace.util.time_utils import get_utc_now
 
 from .base import logger, router
 
@@ -33,7 +33,7 @@ async def create_new_chat(
             message = "创建新对话会话"
 
         logger.info(f"新对话会话: {session_id}")
-        return NewChatResponse(session_id=session_id, message=message, timestamp=datetime.now())
+        return NewChatResponse(session_id=session_id, message=message, timestamp=get_utc_now())
     except Exception as e:
         logger.error(f"创建新对话失败: {e}")
         raise HTTPException(status_code=500, detail="创建新对话失败") from e
@@ -60,7 +60,7 @@ async def add_message_to_session(
         return {
             "success": True,
             "message": "消息已保存",
-            "timestamp": datetime.now(),
+            "timestamp": get_utc_now(),
         }
     except Exception as e:
         logger.error(f"保存消息失败: {e}")
@@ -79,7 +79,7 @@ async def clear_chat_session(
             return {
                 "success": True,
                 "message": f"会话 {session_id} 的上下文已清除",
-                "timestamp": datetime.now(),
+                "timestamp": get_utc_now(),
             }
         else:
             raise HTTPException(status_code=404, detail="会话不存在")

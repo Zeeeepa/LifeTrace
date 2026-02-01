@@ -31,7 +31,7 @@ async def create_journal(
         raise
     except Exception as e:
         logger.error(f"创建日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"创建日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"创建日记失败: {e!s}") from e
 
 
 @router.get("/api/journals", response_model=JournalListResponse)
@@ -47,7 +47,7 @@ async def list_journals(
         return service.list_journals(limit, offset, start_date, end_date)
     except Exception as e:
         logger.error(f"获取日记列表失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取日记列表失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取日记列表失败: {e!s}") from e
 
 
 @router.get("/api/journals/{journal_id}", response_model=JournalResponse)
@@ -62,7 +62,7 @@ async def get_journal(
         raise
     except Exception as e:
         logger.error(f"获取日记详情失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取日记详情失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取日记详情失败: {e!s}") from e
 
 
 @router.put("/api/journals/{journal_id}", response_model=JournalResponse)
@@ -78,7 +78,7 @@ async def update_journal(
         raise
     except Exception as e:
         logger.error(f"更新日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"更新日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"更新日记失败: {e!s}") from e
 
 
 @router.delete("/api/journals/{journal_id}", status_code=204)
@@ -94,4 +94,4 @@ async def delete_journal(
         raise
     except Exception as e:
         logger.error(f"删除日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"删除日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"删除日记失败: {e!s}") from e

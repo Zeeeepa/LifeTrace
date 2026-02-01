@@ -10,6 +10,7 @@ from lifetrace.llm.activity_summary_service import activity_summary_service
 from lifetrace.storage import activity_mgr
 from lifetrace.storage.models import Event
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -298,7 +299,7 @@ def execute_activity_aggregation_task():
     try:
         logger.info("开始执行活动聚合任务")
 
-        now = datetime.now()
+        now = get_utc_now()
         window_result = _calculate_target_window(now)
         if not window_result:
             return

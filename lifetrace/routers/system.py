@@ -1,7 +1,5 @@
 """系统资源相关路由"""
 
-from datetime import datetime
-
 import psutil
 from fastapi import APIRouter, HTTPException, Query
 
@@ -15,6 +13,7 @@ from lifetrace.schemas.system import (
 from lifetrace.storage import stats_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path, get_screenshots_dir
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -173,7 +172,7 @@ async def get_system_resources():
                 "process_count": len(lifetrace_processes),
                 "total_storage_mb": storage_info["total_mb"],
             },
-            timestamp=datetime.now(),
+            timestamp=get_utc_now(),
         )
 
     except Exception as e:

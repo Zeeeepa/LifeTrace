@@ -342,7 +342,10 @@ class EventManager:
 
     # 委托给 event_stats 模块的方法
     def get_app_usage_stats(
-        self, days: int = None, start_date: datetime = None, end_date: datetime = None
+        self,
+        days: int | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         """获取应用使用统计"""
         return get_app_usage_stats(self.db_base, days, start_date, end_date)

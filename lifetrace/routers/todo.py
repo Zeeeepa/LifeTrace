@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 from pathlib import Path as FsPath
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Response, UploadFile
@@ -20,8 +21,10 @@ from lifetrace.schemas.todo import (
     TodoUpdate,
 )
 from lifetrace.services.icalendar_service import ICalendarService
-from lifetrace.services.todo_service import TodoService
 from lifetrace.util.path_utils import get_attachments_dir
+
+if TYPE_CHECKING:
+    from lifetrace.services.todo_service import TodoService
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
 MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024  # 50MB

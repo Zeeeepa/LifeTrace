@@ -14,19 +14,17 @@ from __future__ import annotations
 import importlib
 
 __all__ = [
-    # 各个功能管理器（由 lifetrace.storage.database 初始化）
-    "screenshot_mgr",
-    "event_mgr",
-    "ocr_mgr",
-    "todo_mgr",
-    "chat_mgr",
-    "stats_mgr",
-    "journal_mgr",
     "activity_mgr",
-    # 数据库基础
+    "chat_mgr",
     "db_base",
-    "get_session",
+    "event_mgr",
     "get_db",
+    "get_session",
+    "journal_mgr",
+    "ocr_mgr",
+    "screenshot_mgr",
+    "stats_mgr",
+    "todo_mgr",
 ]
 
 _LAZY_EXPORTS: set[str] = set(__all__)

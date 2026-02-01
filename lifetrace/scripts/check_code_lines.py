@@ -122,10 +122,7 @@ def should_check_file(
 
     # 检查是否在排除目录中
     in_exclude = any(rel_path_str.startswith(exc.replace("\\", "/")) for exc in exclude_dirs)
-    if in_exclude:
-        return False
-
-    return True
+    return not in_exclude
 
 
 def get_files_to_check(
@@ -150,7 +147,7 @@ def get_files_to_check(
         for file_str in args.files:
             file_path = Path(file_str).resolve()
             # 只检查 .py 文件
-            if not file_path.suffix == ".py":
+            if file_path.suffix != ".py":
                 continue
             # 检查文件是否存在
             if not file_path.exists():

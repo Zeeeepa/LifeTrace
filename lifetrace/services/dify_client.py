@@ -11,8 +11,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -20,6 +19,9 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 logger = get_logger()
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def _get_dify_config() -> dict[str, str]:
@@ -209,6 +211,6 @@ def call_dify_chat(
                 response.raise_for_status()
                 yield from _handle_blocking_response(response)
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"[dify] 调用失败 ({response_mode} 模式): {e}")
         raise

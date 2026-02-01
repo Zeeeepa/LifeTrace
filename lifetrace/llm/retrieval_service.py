@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import func, or_
@@ -7,6 +7,7 @@ from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.query_parser import QueryConditions, QueryParser
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -164,7 +165,7 @@ class RetrievalService:
         return self.search_by_conditions(conditions, limit)
 
     def search_recent(
-        self, hours: int = 24, app_name: str = None, limit: int = 20
+        self, hours: int = 24, app_name: str | None = None, limit: int = 20
     ) -> list[dict[str, Any]]:
         """
         检索最近的记录
@@ -177,7 +178,7 @@ class RetrievalService:
         Returns:
             检索到的数据列表
         """
-        end_time = datetime.now()
+        end_time = get_utc_now()
         start_time = end_time - timedelta(hours=hours)
 
         conditions = QueryConditions(
@@ -200,7 +201,7 @@ class RetrievalService:
         Returns:
             检索到的数据列表
         """
-        end_time = datetime.now()
+        end_time = get_utc_now()
         start_time = end_time - timedelta(days=days)
 
         conditions = QueryConditions(
@@ -225,7 +226,7 @@ class RetrievalService:
         Returns:
             检索到的数据列表
         """
-        end_time = datetime.now()
+        end_time = get_utc_now()
         start_time = end_time - timedelta(days=days)
 
         conditions = QueryConditions(start_date=start_time, end_date=end_time, keywords=keywords)
@@ -345,9 +346,12 @@ class RetrievalService:
         score = 0.0
 
         # 应用名称匹配加分
-        if conditions.app_names and screenshot.app_name:
-            if any(app.lower() in screenshot.app_name.lower() for app in conditions.app_names):
-                score += 0.3
+        if (
+            conditions.app_names
+            and screenshot.app_name
+            and any(app.lower() in screenshot.app_name.lower() for app in conditions.app_names)
+        ):
+            score += 0.3
 
         # 关键词匹配加分
         if conditions.keywords and ocr_text:
@@ -362,7 +366,7 @@ class RetrievalService:
 
         # 时间新近性加分
         if screenshot.created_at:
-            now = datetime.now()
+            now = get_utc_now()
             time_diff = now - screenshot.created_at
             if time_diff.days < TIME_RECENCY_DAY_THRESHOLD:
                 score += 0.2

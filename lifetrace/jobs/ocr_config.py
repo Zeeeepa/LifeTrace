@@ -61,7 +61,7 @@ def get_ocr_config() -> dict:
     }
 
 
-def create_rapidocr_instance():  # noqa: C901, PLR0912
+def create_rapidocr_instance():
     """创建并初始化RapidOCR实例
 
     Returns:
@@ -103,7 +103,7 @@ def create_rapidocr_instance():  # noqa: C901, PLR0912
 def _get_rapidocr_cls():
     """延迟加载 RapidOCR 类，避免在启动时导入重依赖。"""
     try:
-        from rapidocr_onnxruntime import RapidOCR
+        from rapidocr_onnxruntime import RapidOCR  # noqa: PLC0415
     except ImportError:
         return None
     return RapidOCR

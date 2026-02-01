@@ -5,6 +5,7 @@ Handles data directory setup and config initialization before starting the FastA
 """
 
 import argparse
+import contextlib
 import importlib
 import os
 import shutil
@@ -33,10 +34,8 @@ else:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import loguru first to ensure PyInstaller detects it
-try:
+with contextlib.suppress(ImportError):
     import loguru  # noqa: F401
-except ImportError:
-    pass  # Will fail later if not available
 
 from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger

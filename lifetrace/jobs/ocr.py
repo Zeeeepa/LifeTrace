@@ -30,11 +30,11 @@ except ImportError:
 
 # 重新导出以保持向后兼容
 __all__ = [
-    "SimpleOCRProcessor",
     "RAPIDOCR_AVAILABLE",
+    "SimpleOCRProcessor",
     "execute_ocr_task",
-    "ocr_service",
     "get_unprocessed_screenshots",
+    "ocr_service",
     "process_screenshot_ocr",
 ]
 
@@ -142,7 +142,7 @@ def _get_ocr_engine():
             raise
 
 
-def _ensure_ocr_initialized():  # noqa: C901
+def _ensure_ocr_initialized():
     """确保OCR引擎已初始化（用于调度器模式）"""
     ocr_engine = _get_ocr_engine()
     vector_service = None
@@ -246,7 +246,7 @@ def _initialize_ocr_and_vector_service():
 
 def _run_ocr_loop(check_interval: float, ocr, vector_service) -> None:
     """主循环：持续从数据库读取未处理截图并执行 OCR。"""
-    processed_count = 0  # noqa: F841
+    processed_count = 0
 
     while True:
         start_time = time.time()  # noqa: F841

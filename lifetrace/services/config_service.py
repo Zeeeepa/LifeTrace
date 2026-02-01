@@ -2,6 +2,7 @@
 
 import os
 import shutil
+from collections.abc import Callable
 from typing import Any
 
 import yaml
@@ -418,9 +419,7 @@ class ConfigService:
         Args:
             new_settings: 配置字典（键可以是 snake_case 或点分隔格式）
         """
-        job_config_keys = [
-            key for key in new_settings.keys() if key in JOB_ENABLED_CONFIG_TO_JOB_ID
-        ]
+        job_config_keys = [key for key in new_settings if key in JOB_ENABLED_CONFIG_TO_JOB_ID]
 
         if not job_config_keys:
             return
@@ -450,7 +449,7 @@ class ConfigService:
         self,
         new_settings: dict[str, Any],
         old_llm_config: dict[str, Any],
-        is_llm_configured_callback: callable = None,
+        is_llm_configured_callback: Callable[[], None] | None = None,
     ) -> None:
         """如果 LLM 配置发生变化，重新初始化 LLM 客户端
 
@@ -460,7 +459,7 @@ class ConfigService:
             is_llm_configured_callback: 更新 LLM 配置状态的回调函数
         """
         # 检测是否有 LLM 相关配置项在请求中
-        has_llm_keys = any(key in LLM_RELATED_BACKEND_KEYS for key in new_settings.keys())
+        has_llm_keys = any(key in LLM_RELATED_BACKEND_KEYS for key in new_settings)
 
         if not has_llm_keys:
             return
@@ -524,7 +523,7 @@ class ConfigService:
             old_asr_config: 旧的 ASR 配置
         """
         # 检测是否有 ASR 相关配置项在请求中
-        has_asr_keys = any(key in ASR_RELATED_BACKEND_KEYS for key in new_settings.keys())
+        has_asr_keys = any(key in ASR_RELATED_BACKEND_KEYS for key in new_settings)
 
         if not has_asr_keys:
             return
@@ -564,7 +563,7 @@ class ConfigService:
     def save_config(
         self,
         new_settings: dict[str, Any],
-        is_llm_configured_callback: callable = None,
+        is_llm_configured_callback: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
         """保存配置（主入口方法）
 

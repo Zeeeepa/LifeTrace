@@ -159,7 +159,9 @@ async def _start_job_manager_async(app: FastAPI) -> None:
 
 async def _verify_llm_connection_async() -> None:
     try:
-        from lifetrace.routers.config import verify_llm_connection_on_startup
+        from lifetrace.routers.config import (  # noqa: PLC0415
+            verify_llm_connection_on_startup,
+        )
     except Exception as exc:
         logger.debug(f"LLM 验证初始化跳过: {exc}")
         return

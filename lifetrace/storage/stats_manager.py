@@ -1,7 +1,7 @@
 """统计管理器 - 负责统计信息和数据清理相关的数据库操作"""
 
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -29,8 +30,8 @@ class StatsManager:
                 )
 
                 # 今日统计
-                today = datetime.now().date()
-                today_start = datetime.combine(today, datetime.min.time())
+                now = get_utc_now()
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 today_screenshots = (
                     session.query(Screenshot).filter(Screenshot.created_at >= today_start).count()
                 )
@@ -52,7 +53,7 @@ class StatsManager:
             return
 
         try:
-            cutoff_date = datetime.now() - timedelta(days=max_days)
+            cutoff_date = get_utc_now() - timedelta(days=max_days)
 
             with self.db_base.get_session() as session:
                 # 获取要删除的截图

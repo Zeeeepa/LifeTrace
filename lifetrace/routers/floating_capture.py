@@ -3,7 +3,6 @@
 import json
 import re
 import time
-from datetime import datetime
 from functools import lru_cache
 from typing import Any
 
@@ -21,6 +20,7 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -147,7 +147,7 @@ async def extract_todos_from_capture(request: FloatingCaptureRequest) -> Floatin
 
     except Exception as e:
         logger.error(f"处理悬浮窗截图失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"处理截图失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"处理截图失败: {e!s}") from e
 
 
 def _process_llm_response(response: Any, api_time: float) -> str | None:
@@ -389,7 +389,7 @@ def _create_draft_todo(todo_data: dict[str, Any]) -> dict[str, Any] | None:
     scheduled_time = None
     if time_info:
         try:
-            reference_time = datetime.now()
+            reference_time = get_utc_now()
             scheduled_time = calculate_scheduled_time(time_info, reference_time)
         except Exception as e:
             logger.warning(f"计算 scheduled_time 失败: {e}")

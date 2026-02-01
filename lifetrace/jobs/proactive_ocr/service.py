@@ -119,7 +119,7 @@ class ProactiveOCRService:
             return None
 
         # 检查是否为目标应用
-        app_type, reason = self.router.identify_app(window)
+        app_type, _reason = self.router.identify_app(window)
         if app_type == AppType.UNKNOWN:
             return None
 
@@ -243,7 +243,7 @@ class ProactiveOCRService:
 
             # 计算文件哈希
             with open(file_path, "rb") as f:
-                file_hash = hashlib.md5(f.read()).hexdigest()
+                file_hash = hashlib.md5(f.read()).hexdigest()  # noqa: S324
 
             # 添加截图记录
             screenshot_id = screenshot_mgr.add_screenshot(
@@ -327,7 +327,7 @@ class ProactiveOCRService:
                                     f"todos_count={todos_count}, "
                                     f"created_count={created_count}"
                                 )
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.error(f"ProactiveOCR: 自动待办提取失败（已忽略）: {e}", exc_info=True)
 
                 return screenshot_id

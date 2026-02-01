@@ -10,6 +10,7 @@ from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -26,7 +27,7 @@ class ScreenshotManager:
         file_hash: str,
         width: int,
         height: int,
-        metadata: dict = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int | None:
         """添加截图记录
 
@@ -146,7 +147,7 @@ class ScreenshotManager:
                 screenshot = session.query(Screenshot).filter_by(id=screenshot_id).first()
                 if screenshot:
                     screenshot.is_processed = True
-                    screenshot.processed_at = datetime.now()
+                    screenshot.processed_at = get_utc_now()
                     logger.debug(f"更新截图处理状态: {screenshot_id}")
                 else:
                     logger.warning(f"未找到截图记录: {screenshot_id}")
@@ -176,10 +177,10 @@ class ScreenshotManager:
 
     def search_screenshots(
         self,
-        query: str = None,
-        start_date: datetime = None,
-        end_date: datetime = None,
-        app_name: str = None,
+        query: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        app_name: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:

@@ -4,7 +4,7 @@
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from functools import lru_cache
 
 from lifetrace.storage import get_session, screenshot_mgr
@@ -12,6 +12,7 @@ from lifetrace.storage.models import Screenshot
 from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -124,7 +125,7 @@ class CleanDataService:
 
         try:
             # 计算截止日期
-            cutoff_date = datetime.now() - timedelta(days=self.max_days)
+            cutoff_date = get_utc_now() - timedelta(days=self.max_days)
             logger.info(f"开始清理 {cutoff_date.strftime('%Y-%m-%d')} 之前的截图数据")
 
             # 获取需要清理的截图（排除已删除文件的记录）

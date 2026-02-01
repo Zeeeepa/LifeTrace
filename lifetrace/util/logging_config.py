@@ -1,14 +1,14 @@
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 
 
 def _get_local_date_string() -> str:
     """获取当前本地日期字符串（YYYY-MM-DD）"""
-    return datetime.now().strftime("%Y-%m-%d")
+    return datetime.now(UTC).astimezone().strftime("%Y-%m-%d")
 
 
 def _generate_log_file_path(log_dir: str, suffix: str = "") -> str:

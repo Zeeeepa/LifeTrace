@@ -1,7 +1,6 @@
 """日记管理器 - 负责日记及标签关联的数据库操作"""
 
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Journal, JournalTagRelation, Tag
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -196,7 +196,7 @@ class JournalManager:
                 if tag_ids is not None:
                     self._replace_tags(session, journal_id, tag_ids)
 
-                journal.updated_at = datetime.now()
+                journal.updated_at = get_utc_now()
                 session.flush()
                 logger.info(f"更新日记: {journal_id}")
                 return True

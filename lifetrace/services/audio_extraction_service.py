@@ -45,7 +45,7 @@ class AudioExtractionService:
                 str(item.get("deadline") or item.get("time") or ""),
             ]
         )
-        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]  # noqa: S324
         return f"{prefix}_{digest}"
 
     def _enrich_extracted_items(self, prefix: str, items: list[dict]) -> list[dict]:

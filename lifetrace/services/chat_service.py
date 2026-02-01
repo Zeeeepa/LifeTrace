@@ -6,11 +6,11 @@
 
 import json
 import uuid
-from datetime import datetime
 from typing import Any
 
 from lifetrace.repositories.interfaces import IChatRepository
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -102,7 +102,7 @@ class ChatService:
             {
                 "role": role,
                 "content": content,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_utc_now().isoformat(),
             }
         )
 

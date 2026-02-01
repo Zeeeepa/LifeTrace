@@ -171,7 +171,7 @@ def get_rag_service():
 @lru_cache(maxsize=1)
 def get_ocr_processor():
     """获取 OCR 处理器（延迟加载，单例模式）"""
-    from lifetrace.jobs.ocr_processor import SimpleOCRProcessor
+    from lifetrace.jobs.ocr_processor import SimpleOCRProcessor  # noqa: PLC0415
 
     return SimpleOCRProcessor()
 

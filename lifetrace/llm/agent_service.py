@@ -357,9 +357,7 @@ class AgentService:
 
             # 简单判断：如果包含"完成"、"足够"等关键词，认为可以生成回答
             completion_keywords = ["完成", "足够", "可以", "complete", "sufficient"]
-            if any(keyword in eval_text for keyword in completion_keywords):
-                return False
-            return True
+            return not any(keyword in eval_text for keyword in completion_keywords)
         except Exception as e:
             logger.error(f"[Agent] 任务评估失败: {e}")
             # 默认继续
@@ -443,7 +441,7 @@ class AgentService:
             )
         except Exception as e:
             logger.error(f"[Agent] 生成最终回答失败: {e}")
-            yield f"生成回答时出现错误: {str(e)}"
+            yield f"生成回答时出现错误: {e!s}"
 
     def _get_default_system_prompt(self) -> str:
         """默认系统提示词"""

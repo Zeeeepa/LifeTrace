@@ -6,29 +6,27 @@ Split from `audio_ws.py` to reduce file size and complexity.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
 import json
-from datetime import datetime
 
 from fastapi import WebSocket, WebSocketDisconnect
+
+from lifetrace.util.time_utils import get_utc_now
 
 
 async def _handle_json_error(websocket: WebSocket, logger, e: json.JSONDecodeError) -> None:
     """处理 JSON 解析错误"""
     logger.error(f"Failed to parse WebSocket message: {e}")
-    try:
+    with contextlib.suppress(Exception):
         await websocket.close(code=1003, reason="Invalid message format")
-    except Exception:
-        pass
 
 
 async def _handle_websocket_error(websocket: WebSocket, logger, e: Exception) -> None:
     """处理 WebSocket 错误"""
     logger.error(f"WebSocket error: {e}", exc_info=True)
-    try:
+    with contextlib.suppress(Exception):
         await websocket.close(code=1011, reason=str(e))
-    except Exception:
-        pass
 
 
 class _RunTranscriptionStreamContext:
@@ -147,6 +145,7 @@ async def _initialize_handlers_internal(
     transcription_text_ref: list[str],
     is_connected_ref: list[bool],
     is_24x7_ref: list[bool],
+    task_set: set[asyncio.Task],
     on_final_sentence,
     _parse_init_message,
     _create_result_callback,
@@ -162,6 +161,7 @@ async def _initialize_handlers_internal(
         logger=logger,
         transcription_text_ref=transcription_text_ref,
         is_connected_ref=is_connected_ref,
+        task_set=task_set,
     )
 
     def on_result(text: str, is_final: bool) -> None:
@@ -170,7 +170,7 @@ async def _initialize_handlers_internal(
             on_final_sentence(text)
 
     on_error = _create_error_callback(
-        websocket=websocket, logger=logger, is_connected_ref=is_connected_ref
+        websocket=websocket, logger=logger, is_connected_ref=is_connected_ref, task_set=task_set
     )
 
     return on_result, on_error, is_24x7
@@ -220,7 +220,7 @@ async def _start_segment_monitor_internal(
 
 def _setup_websocket_state():
     """初始化 WebSocket 状态变量"""
-    recording_started_at = datetime.now()
+    recording_started_at = get_utc_now()
     transcription_text_ref: list[str] = [""]
     audio_chunks: list[bytes] = []
     is_connected_ref: list[bool] = [True]
@@ -228,6 +228,7 @@ def _setup_websocket_state():
     should_segment_ref: list[bool] = [False]
     is_24x7_ref: list[bool] = [False]
     data_saved_ref: list[bool] = [False]
+    task_set: set[asyncio.Task] = set()
     return {
         "recording_started_at": recording_started_at,
         "transcription_text_ref": transcription_text_ref,
@@ -237,6 +238,7 @@ def _setup_websocket_state():
         "should_segment_ref": should_segment_ref,
         "is_24x7_ref": is_24x7_ref,
         "data_saved_ref": data_saved_ref,
+        "task_set": task_set,
     }
 
 
@@ -289,6 +291,7 @@ async def _create_handlers_and_monitor(
         transcription_text_ref=state["transcription_text_ref"],
         is_connected_ref=state["is_connected_ref"],
         is_24x7_ref=state["is_24x7_ref"],
+        task_set=state["task_set"],
         on_final_sentence=on_final_sentence,
         _parse_init_message=funcs["_parse_init_message"],
         _create_result_callback=funcs["_create_result_callback"],
@@ -376,6 +379,7 @@ async def _create_nlp_handler(
         logger=logger,
         audio_service=audio_service,
         is_connected_ref=state["is_connected_ref"],
+        task_set=state["task_set"],
         throttle_seconds=8.0,
     )
 

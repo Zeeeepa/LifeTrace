@@ -4,6 +4,7 @@ RAG (检索增强生成) 服务
 """
 
 import asyncio
+import contextlib
 from collections.abc import Generator
 from datetime import datetime
 from typing import Any
@@ -154,7 +155,7 @@ class RAGService:
                 "response": "抱歉，处理您的查询时出现了错误。请稍后重试。",
                 "query_info": {"original_query": user_query},
                 "performance": {
-                    "processing_time_seconds": (datetime.now() - start_time).total_seconds(),
+                    "processing_time_seconds": (get_utc_now() - start_time).total_seconds(),
                     "timestamp": start_time.isoformat(),
                 },
             }
@@ -216,10 +217,8 @@ class RAGService:
             logger.error(f"RAG 流式处理失败: {e}")
             error_text = "\n[提示] 流式处理出现异常，已结束。"
             yield error_text
-            try:
+            with contextlib.suppress(Exception):
                 self.post_stream_decision(user_query, error_text)
-            except Exception:
-                pass
 
     def get_query_suggestions(self, partial_query: str = "") -> list[str]:
         """获取查询建议"""
@@ -362,7 +361,7 @@ class RAGService:
             logger.error(f"[stream] 处理查询失败: {e}")
             return {
                 "success": False,
-                "response": f"处理查询时出现错误: {str(e)}",
+                "response": f"处理查询时出现错误: {e!s}",
                 "messages": [],
                 "temperature": 0.7,
             }

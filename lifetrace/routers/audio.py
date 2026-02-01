@@ -18,6 +18,7 @@ from lifetrace.services.audio_service import AudioService
 from lifetrace.storage import get_session
 from lifetrace.storage.models import AudioRecording, Transcription
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -60,7 +61,7 @@ async def get_recordings(date: str | None = Query(None)):
                 logger.error(f"日期格式错误: {date}, {e}")
                 return JSONResponse({"error": f"无效的日期格式: {date}"}, status_code=400)
         else:
-            target_date = datetime.utcnow()
+            target_date = get_utc_now().astimezone()
 
         recordings = audio_service.get_recordings_by_date(target_date)
 
@@ -100,7 +101,7 @@ def _parse_date_param(date: str | None) -> datetime:
             logger.error(f"日期格式错误: {date}, {e}")
             raise ValueError(f"无效的日期格式: {date}") from e
     else:
-        return datetime.now()
+        return get_utc_now().astimezone()
 
 
 def _build_timeline_item(

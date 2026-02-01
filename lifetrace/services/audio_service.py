@@ -19,7 +19,7 @@ from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
-from lifetrace.util.time_utils import to_local
+from lifetrace.util.time_utils import get_utc_now, to_local
 
 logger = get_logger()
 
@@ -31,6 +31,7 @@ class AudioService:
         """初始化音频服务"""
         self.llm_client = LLMClient()
         self.extraction_service = AudioExtractionService(self.llm_client)
+        self._background_tasks: set[asyncio.Task] = set()
         self.audio_base_dir = Path(get_user_data_dir()) / settings.audio.storage.audio_dir
         self.temp_audio_dir = Path(get_user_data_dir()) / settings.audio.storage.temp_audio_dir
         self.audio_base_dir.mkdir(parents=True, exist_ok=True)
@@ -97,7 +98,7 @@ class AudioService:
                 file_size=file_size,
                 duration=duration,
                 # 使用本地时间记录，避免前端显示存在时区偏移
-                start_time=datetime.now(),
+                start_time=get_utc_now().astimezone(),
                 status="recording",
                 is_24x7=is_24x7,
                 is_transcribed=False,
@@ -126,7 +127,7 @@ class AudioService:
             if recording:
                 recording.status = "completed"
                 # 使用本地时间记录结束时间
-                recording.end_time = datetime.now()
+                recording.end_time = get_utc_now().astimezone()
                 recording.transcription_status = "processing"
                 session.commit()
                 session.refresh(recording)
@@ -406,17 +407,21 @@ class AudioService:
     ) -> None:
         """触发自动提取待办和日程（异步执行，不阻塞）"""
         if display_text:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 self._auto_extract_todos_and_schedules(
                     transcription_id, display_text, optimized=False
                 )
             )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
         if optimized_text:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 self._auto_extract_todos_and_schedules(
                     transcription_id, optimized_text, optimized=True
                 )
             )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
     async def save_transcription(
         self,
@@ -523,8 +528,8 @@ class AudioService:
             if optimized_text.startswith("```"):
                 lines = optimized_text.split("\n")
                 if lines[0].startswith("```"):
-                    MIN_LINES_FOR_CODE_BLOCK = 2
-                    if len(lines) > MIN_LINES_FOR_CODE_BLOCK:
+                    min_lines_for_code_block = 2
+                    if len(lines) > min_lines_for_code_block:
                         optimized_text = "\n".join(lines[1:-1])
                 optimized_text = optimized_text.strip()
 

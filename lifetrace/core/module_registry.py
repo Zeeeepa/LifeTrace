@@ -6,13 +6,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from importlib import util as importlib_util
-
-from fastapi import FastAPI
+from typing import TYPE_CHECKING
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 logger = get_logger()
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 @dataclass(frozen=True)

@@ -1,11 +1,13 @@
 import hashlib
 import os
 import platform
+import shutil
 import subprocess
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -39,13 +41,13 @@ try:
     )
 except ImportError:
     CGWindowListCopyWindowInfo = None
-    kCGNullWindowID = None
-    kCGWindowListOptionOnScreenOnly = None
+    kCGNullWindowID = None  # noqa: N816
+    kCGWindowListOptionOnScreenOnly = None  # noqa: N816
 
 
 def get_file_hash(file_path: str) -> str:
     """计算文件MD5哈希值"""
-    hash_md5 = hashlib.md5()
+    hash_md5 = hashlib.md5()  # noqa: S324
     try:
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -326,11 +328,14 @@ def _find_linux_screen_for_position(x: int, y: int, xrandr_stdout: str) -> int:
     return DEFAULT_SCREEN_ID
 
 
-def _get_linux_active_window_screen() -> int | None:
+def _get_linux_active_window_screen() -> int | None:  # noqa: PLR0911
     """获取Linux活跃窗口所在的屏幕ID"""
     try:
-        result = subprocess.run(
-            ["xdotool", "getactivewindow", "getwindowgeometry"],
+        xdotool_path = shutil.which("xdotool")
+        if not xdotool_path:
+            return DEFAULT_SCREEN_ID
+        result = subprocess.run(  # noqa: S603
+            [xdotool_path, "getactivewindow", "getwindowgeometry"],
             capture_output=True,
             text=True,
             check=False,
@@ -343,8 +348,11 @@ def _get_linux_active_window_screen() -> int | None:
         if not position:
             return DEFAULT_SCREEN_ID
 
-        xrandr_result = subprocess.run(
-            ["xrandr", "--current"],
+        xrandr_path = shutil.which("xrandr")
+        if not xrandr_path:
+            return DEFAULT_SCREEN_ID
+        xrandr_result = subprocess.run(  # noqa: S603
+            [xrandr_path, "--current"],
             capture_output=True,
             text=True,
             check=False,
@@ -363,9 +371,12 @@ def _get_linux_active_window_screen() -> int | None:
 def _get_linux_active_window() -> tuple[str | None, str | None]:
     """获取Linux活跃窗口信息"""
     try:
+        xprop_path = shutil.which("xprop")
+        if not xprop_path:
+            return None, None
         # 使用xprop获取活跃窗口ID
-        result = subprocess.run(
-            ["xprop", "-root", "_NET_ACTIVE_WINDOW"],
+        result = subprocess.run(  # noqa: S603
+            [xprop_path, "-root", "_NET_ACTIVE_WINDOW"],
             capture_output=True,
             text=True,
             check=False,
@@ -374,8 +385,8 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
             window_id = result.stdout.strip().split()[-1]
 
             # 获取窗口标题
-            title_result = subprocess.run(
-                ["xprop", "-id", window_id, "WM_NAME"],
+            title_result = subprocess.run(  # noqa: S603
+                [xprop_path, "-id", window_id, "WM_NAME"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -388,8 +399,8 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
                 )
 
                 # 获取应用名称
-                class_result = subprocess.run(
-                    ["xprop", "-id", window_id, "WM_CLASS"],
+                class_result = subprocess.run(  # noqa: S603
+                    [xprop_path, "-id", window_id, "WM_CLASS"],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -424,7 +435,7 @@ def format_file_size(size_bytes: int) -> str:
 def get_screenshot_filename(screen_id: int = 0, timestamp: datetime | None = None) -> str:
     """生成截图文件名"""
     if timestamp is None:
-        timestamp = datetime.now()
+        timestamp = get_utc_now()
 
     return f"screen_{screen_id}_{timestamp.strftime('%Y%m%d_%H%M%S_%f')[:-3]}.png"
 
@@ -434,11 +445,11 @@ def cleanup_old_files(directory: str, max_days: int):
     if max_days <= 0:
         return
 
-    cutoff_time = datetime.now() - timedelta(days=max_days)
+    cutoff_time = get_utc_now() - timedelta(days=max_days)
 
     for file_path in Path(directory).glob("*.png"):
         try:
-            if datetime.fromtimestamp(file_path.stat().st_mtime) < cutoff_time:
+            if datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC) < cutoff_time:
                 file_path.unlink()
                 logger.info(f"清理旧文件: {file_path}")
         except Exception as e:

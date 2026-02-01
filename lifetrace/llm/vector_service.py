@@ -4,13 +4,13 @@
 与现有的 SQLite 数据库并行工作。
 """
 
-from datetime import datetime
 from typing import Any
 
 from lifetrace.llm.vector_db import create_vector_db
 from lifetrace.storage import event_mgr, get_session
 from lifetrace.storage.models import Event, OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -132,7 +132,7 @@ class VectorService:
                 "created_at": (
                     ocr_result.created_at.isoformat() if ocr_result.created_at else None
                 ),
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": get_utc_now().isoformat(),
                 "text_length": len(ocr_result.text_content or ""),
             }
 
