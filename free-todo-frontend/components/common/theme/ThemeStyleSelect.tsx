@@ -42,8 +42,10 @@ export function ThemeStyleSelect() {
 	}
 
 	const options: { value: ColorTheme; label: string }[] = [
-		{ value: "amber-coast", label: t("amberCoast") },
+		{ value: "catppuccin", label: t("catppuccin") },
 		{ value: "blue", label: t("blue") },
+		{ value: "nord", label: t("nord") },
+		{ value: "solarized", label: t("solarized") },
 		{ value: "neutral", label: t("neutral") },
 	];
 
