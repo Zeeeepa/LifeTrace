@@ -30,21 +30,37 @@ Pre-commit will automatically check and fix the following issues on each `git co
 uv sync --group dev
 ```
 
-### 2. Install Git Hooks
+### 2. Configure Git Hooks (Repo-Local)
 
-**Important**: This step must be executed in the project root directory!
+This repo uses a shared `.githooks/` directory (repo-local) instead of `pre-commit install`.
+Run the setup script once per clone/worktree to set `core.hooksPath`:
 
 ```bash
-# Ensure virtual environment is activated
-source .venv/bin/activate
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
 
-# Install pre-commit hooks
-pre-commit install
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
 
-# Verify installation
-ls -la .git/hooks/pre-commit
+**Note**: After `core.hooksPath` is set, `pre-commit install` will refuse to run. This is expected.
+
+### 3. (Optional) Warm Up Hooks
+
+```bash
+pre-commit run --all-files
 ```
 ---
+
+## Repo Hooks (Post-checkout)
+
+This repo also ships a `post-checkout` hook under `.githooks/` to keep worktree
+dependencies linked. It runs:
+
+- `scripts/link_worktree_deps_here.sh` (preferred)
+- falls back to `scripts/link_worktree_deps_here.ps1` if needed
+
+The hook is safe to run repeatedly and will skip existing links unless `--force` is used.
 
 ## Usage
 
@@ -58,6 +74,8 @@ git commit -m "your commit message"
 ```
 
 If checks pass, the commit succeeds; if checks fail, the commit is blocked and you need to fix the issues and commit again.
+
+> **Note**: The repo hook prefers `pre-commit` if available, and falls back to `uv run pre-commit` when `uv` is installed.
 
 **Example Output**:
 ```
@@ -259,24 +277,27 @@ uv run pre-commit --version
 
 ### Issue: Checks not triggered on commit
 
-**Cause**: Hooks not installed
+**Cause**: Hooks not configured or `.githooks` missing
 
 **Solution**:
 ```bash
-# Reinstall hooks
-pre-commit install
+# Ensure hooksPath is set
+git config --get core.hooksPath
 
-# Check hooks file
-ls -la .git/hooks/pre-commit
+# Re-run repo hook setup (in repo root)
+bash scripts/setup_hooks_here.sh
+# or
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
 ```
 
-### Issue: Hooks don't have execute permission
+### Issue: pre-commit install fails with core.hooksPath
 
-**Cause**: Insufficient file permissions
+**Cause**: This repo uses `.githooks/` via `core.hooksPath`, so `pre-commit install` will refuse.
 
 **Solution**:
 ```bash
-chmod +x .git/hooks/pre-commit
+# Do not run pre-commit install. Use:
+pre-commit run --all-files
 ```
 
 ### Issue: Checks are too slow
@@ -312,7 +333,8 @@ chmod +x .git/hooks/pre-commit
    git clone <repo>
    cd <repo>
    uv sync --group dev
-   pre-commit install
+   bash scripts/setup_hooks_here.sh
+   # or: powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
    pre-commit run --all-files
    ```
 
