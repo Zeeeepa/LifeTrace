@@ -448,10 +448,10 @@ export function CalendarPanel() {
 				ref={monthScrollRef}
 				className="flex-1 overflow-y-auto bg-background p-3"
 			>
-				{view !== "day" && (
-					<div className="grid grid-cols-7">
-						{WEEKDAY_LABELS.map((label) => (
-							<span
+					{view === "month" && (
+						<div className="grid grid-cols-7">
+							{WEEKDAY_LABELS.map((label) => (
+								<span
 								key={label}
 								className="py-2 text-center text-xs font-medium text-muted-foreground"
 							>
@@ -485,7 +485,7 @@ export function CalendarPanel() {
 					{view === "week" && (
 						<WeekView
 							currentDate={currentDate}
-							groupedByDay={groupedByDay}
+							todos={todos}
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
@@ -497,7 +497,7 @@ export function CalendarPanel() {
 					{view === "day" && (
 						<DayView
 							currentDate={currentDate}
-							todos={todosInRange}
+							todos={todos}
 							onBlankClick={() => {
 								setQuickTargetDate(startOfDay(currentDate));
 								setQuickAnchorRect(null);

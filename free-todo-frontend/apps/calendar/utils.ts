@@ -3,6 +3,10 @@
  */
 
 export const DEFAULT_NEW_TIME = "09:00";
+export const DEFAULT_WORK_START_MINUTES = 8 * 60;
+export const DEFAULT_WORK_END_MINUTES = 22 * 60;
+export const MINUTES_PER_SLOT = 15;
+export const DEFAULT_DURATION_MINUTES = 30;
 
 export function startOfDay(date: Date): Date {
 	const d = new Date(date);
@@ -63,21 +67,24 @@ export function toDateKey(date: Date): string {
 	return `${y}-${m}-${d}`;
 }
 
-export function parseDeadline(deadline?: string): Date | null {
-	if (!deadline) return null;
-	// 如果 deadline 字符串没有时区信息（没有 Z 或 +/- 偏移），
-	// 假设它是 UTC 时间并添加 Z 后缀，避免被解析为本地时间导致日期偏移
-	let normalizedDeadline = deadline;
+export function parseTodoDateTime(value?: string): Date | null {
+	if (!value) return null;
+	// If the string has no timezone info, assume UTC to avoid local offset shifts.
+	let normalized = value;
 	if (
-		deadline.includes("T") &&
-		!deadline.includes("Z") &&
-		!deadline.includes("+") &&
-		!/\d{2}:\d{2}:\d{2}-/.test(deadline)
+		value.includes("T") &&
+		!value.includes("Z") &&
+		!value.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(value)
 	) {
-		normalizedDeadline = `${deadline}Z`;
+		normalized = `${value}Z`;
 	}
-	const parsed = new Date(normalizedDeadline);
+	const parsed = new Date(normalized);
 	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function parseDeadline(deadline?: string): Date | null {
+	return parseTodoDateTime(deadline);
 }
 
 export function formatHumanDate(date: Date): string {
@@ -93,6 +100,52 @@ export function formatTimeLabel(date: Date | null, allDayText: string): string {
 	const hh = `${date.getHours()}`.padStart(2, "0");
 	const mm = `${date.getMinutes()}`.padStart(2, "0");
 	return `${hh}:${mm}`;
+}
+
+export function formatTimeRangeLabel(start: number, end: number): string {
+	return `${formatMinutesLabel(start)}-${formatMinutesLabel(end)}`;
+}
+
+export function formatMinutesLabel(minutes: number): string {
+	const hh = `${Math.floor(minutes / 60)}`.padStart(2, "0");
+	const mm = `${minutes % 60}`.padStart(2, "0");
+	return `${hh}:${mm}`;
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+	return (
+		a.getFullYear() === b.getFullYear() &&
+		a.getMonth() === b.getMonth() &&
+		a.getDate() === b.getDate()
+	);
+}
+
+export function getMinutesFromDate(date: Date): number {
+	return date.getHours() * 60 + date.getMinutes();
+}
+
+export function addMinutes(date: Date, minutes: number): Date {
+	const d = new Date(date);
+	d.setMinutes(d.getMinutes() + minutes);
+	return d;
+}
+
+export function setMinutesOnDate(date: Date, minutes: number): Date {
+	const d = startOfDay(date);
+	d.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+	return d;
+}
+
+export function floorToMinutes(minutes: number, step = MINUTES_PER_SLOT): number {
+	return Math.floor(minutes / step) * step;
+}
+
+export function ceilToMinutes(minutes: number, step = MINUTES_PER_SLOT): number {
+	return Math.ceil(minutes / step) * step;
+}
+
+export function clampMinutes(value: number, min: number, max: number): number {
+	return Math.min(Math.max(value, min), max);
 }
 
 export function buildMonthDays(

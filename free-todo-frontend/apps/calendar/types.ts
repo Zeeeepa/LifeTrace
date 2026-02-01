@@ -17,6 +17,15 @@ export interface CalendarDay {
 	inCurrentMonth?: boolean;
 }
 
+export interface TimelineItem {
+	todo: Todo;
+	kind: "deadline" | "range";
+	date: Date;
+	startMinutes: number;
+	endMinutes: number;
+	timeLabel: string;
+}
+
 export function getStatusStyle(status: TodoStatus): string {
 	switch (status) {
 		case "completed":

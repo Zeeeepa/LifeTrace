@@ -503,6 +503,9 @@
 		"inputTodoTitle": "Enter todo title...",
 		"noTodosDue": "No todos due, click below to create one",
 		"allDay": "All day",
+		"floating": "Floating",
+		"floatingEmpty": "No floating todos",
+		"workingHours": "Working hours",
 		"weekdays": {
 			"monday": "Mon",
 			"tuesday": "Tue",
