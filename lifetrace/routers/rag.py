@@ -7,8 +7,8 @@ from fastapi.responses import FileResponse
 
 from lifetrace.core.dependencies import get_rag_service
 from lifetrace.util.app_utils import get_icon_filename
+from lifetrace.util.base_paths import get_app_root
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_app_root
 
 logger = get_logger()
 

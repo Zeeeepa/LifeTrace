@@ -9,13 +9,8 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
-from lifetrace.storage.models import (
-    Attachment,
-    Tag,
-    Todo,
-    TodoAttachmentRelation,
-    TodoTagRelation,
-)
+from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
+from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
@@ -55,7 +50,7 @@ def _normalize_percent(value: Any) -> int:
     return max(0, min(100, percent))
 
 
-class TodoManager:
+class TodoManager(TodoAttachmentMixin):
     """Todo 管理类"""
 
     def __init__(self, db_base: DatabaseBase):
@@ -70,27 +65,6 @@ class TodoManager:
             .all()
         )
         return [r[0] for r in rows if r and r[0]]
-
-    def _get_todo_attachments(self, session, todo_id: int) -> list[dict[str, Any]]:
-        rows = (
-            session.query(Attachment)
-            .join(
-                TodoAttachmentRelation,
-                TodoAttachmentRelation.attachment_id == Attachment.id,
-            )
-            .filter(TodoAttachmentRelation.todo_id == todo_id)
-            .all()
-        )
-        return [
-            {
-                "id": a.id,
-                "file_name": a.file_name,
-                "file_path": a.file_path,
-                "file_size": a.file_size,
-                "mime_type": a.mime_type,
-            }
-            for a in rows
-        ]
 
     def _todo_to_dict(self, session, todo: Todo) -> dict[str, Any]:
         return {

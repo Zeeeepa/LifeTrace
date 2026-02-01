@@ -146,6 +146,7 @@ class TodoAttachmentRelation(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     todo_id: int  # 关联的待办ID
     attachment_id: int  # 关联的附件ID
+    source: str = Field(default="user", max_length=20)  # user/ai
     created_at: datetime = Field(default_factory=get_utc_time)
     deleted_at: datetime | None = None
 

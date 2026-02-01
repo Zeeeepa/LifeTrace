@@ -10,8 +10,8 @@ from typing import Any
 
 import yaml
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 

@@ -8,10 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from lifetrace.util.base_paths import (
-    get_user_data_dir,
-    get_user_logs_dir,
-)
+from lifetrace.util import base_paths
 from lifetrace.util.settings import settings
 
 # ============================================================
@@ -27,7 +24,7 @@ def get_database_path() -> Path:
     """
     db_path = settings.database_path
     if not os.path.isabs(db_path):
-        return get_user_data_dir() / db_path
+        return base_paths.get_user_data_dir() / db_path
     return Path(db_path)
 
 
@@ -39,8 +36,20 @@ def get_screenshots_dir() -> Path:
     """
     screenshots_dir = settings.screenshots_dir
     if not os.path.isabs(screenshots_dir):
-        return get_user_data_dir() / screenshots_dir
+        return base_paths.get_user_data_dir() / screenshots_dir
     return Path(screenshots_dir)
+
+
+def get_attachments_dir() -> Path:
+    """获取附件目录
+
+    Returns:
+        Path: 附件目录的绝对路径
+    """
+    attachments_dir = settings.attachments_dir
+    if not os.path.isabs(attachments_dir):
+        return base_paths.get_user_data_dir() / attachments_dir
+    return Path(attachments_dir)
 
 
 def get_scheduler_database_path() -> Path:
@@ -51,7 +60,7 @@ def get_scheduler_database_path() -> Path:
     """
     db_path = settings.scheduler.database_path
     if not os.path.isabs(db_path):
-        return get_user_data_dir() / db_path
+        return base_paths.get_user_data_dir() / db_path
     return Path(db_path)
 
 
@@ -63,7 +72,7 @@ def get_vector_db_dir() -> Path:
     """
     persist_dir = settings.vector_db.persist_directory
     if not os.path.isabs(persist_dir):
-        return get_user_data_dir() / persist_dir
+        return base_paths.get_user_data_dir() / persist_dir
     return Path(persist_dir)
 
 
@@ -73,4 +82,29 @@ def get_log_dir() -> Path:
     Returns:
         Path: 日志目录的绝对路径
     """
-    return get_user_logs_dir()
+    return base_paths.get_user_logs_dir()
+
+
+# ============================================================
+# 兼容旧 API 的基础路径函数（转发到 base_paths）
+# ============================================================
+
+
+def get_app_root() -> Path:
+    """获取应用程序根目录。"""
+    return base_paths.get_app_root()
+
+
+def get_config_dir() -> Path:
+    """获取内置配置目录。"""
+    return base_paths.get_config_dir()
+
+
+def get_models_dir() -> Path:
+    """获取内置模型目录。"""
+    return base_paths.get_models_dir()
+
+
+def get_user_config_dir() -> Path:
+    """获取用户配置目录。"""
+    return base_paths.get_user_config_dir()

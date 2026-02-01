@@ -43,6 +43,7 @@ backend_modules:
 base_dir: data
 database_path: lifetrace.db
 screenshots_dir: screenshots/
+attachments_dir: attachments/
 
 # 日志配置
 logging:

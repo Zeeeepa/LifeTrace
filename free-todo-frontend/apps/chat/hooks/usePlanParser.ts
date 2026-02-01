@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ParsedTodoTree } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 import type { CreateTodoInput } from "@/lib/types";
 
@@ -8,6 +9,12 @@ type TranslationFunction = (
 	key: string,
 	values?: Record<string, string | number | Date>,
 ) => string;
+
+interface ChatPromptsResponse {
+	success: boolean;
+	editSystemPrompt: string;
+	planSystemPrompt: string;
+}
 
 export const usePlanParser = (locale: string, t: TranslationFunction) => {
 	// 从 API 获取任务规划系统提示词
@@ -23,15 +30,12 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 				return;
 			}
 			try {
-				const response = (await getChatPromptsApiGetChatPromptsGet({
+				const response = await getChatPromptsApiGetChatPromptsGet({
 					locale,
-				})) as {
-					success: boolean;
-					editSystemPrompt: string;
-					planSystemPrompt: string;
-				};
-				if (!cancelled && response.success) {
-					setPlanSystemPrompt(response.planSystemPrompt);
+				});
+				const data = unwrapApiData<ChatPromptsResponse>(response);
+				if (!cancelled && data?.success) {
+					setPlanSystemPrompt(data.planSystemPrompt);
 				}
 			} catch (_error) {
 				// 后端不可用时静默降级，避免控制台报 500

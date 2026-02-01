@@ -15,8 +15,8 @@ from lifetrace.llm.llm_client import LLMClient
 from lifetrace.services.audio_extraction_service import AudioExtractionService
 from lifetrace.storage import get_session
 from lifetrace.storage.models import AudioRecording, Transcription
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import to_local

@@ -8,8 +8,8 @@ import sys
 
 import yaml
 
+from lifetrace.util.base_paths import get_app_root, get_config_dir, get_models_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_app_root, get_config_dir, get_models_dir
 from lifetrace.util.settings import settings
 
 try:

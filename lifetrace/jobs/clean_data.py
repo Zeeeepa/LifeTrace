@@ -9,8 +9,8 @@ from functools import lru_cache
 
 from lifetrace.storage import get_session, screenshot_mgr
 from lifetrace.storage.models import Screenshot
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.settings import settings
 
 logger = get_logger()

@@ -199,7 +199,7 @@ repos:
     rev: "v0.6.1"
     hooks:
       - id: biome-check
-        additional_dependencies: ["@biomejs/biome@2.3.8"]
+        additional_dependencies: ["@biomejs/biome@2.3.13"]
         files: ^(free-todo-frontend/)
 
   # Local hooks

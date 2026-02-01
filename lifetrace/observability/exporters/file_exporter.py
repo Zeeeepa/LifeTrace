@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_data_dir
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

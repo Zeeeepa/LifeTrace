@@ -38,8 +38,8 @@ try:
 except ImportError:
     pass  # Will fail later if not available
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 

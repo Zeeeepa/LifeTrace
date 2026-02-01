@@ -17,6 +17,7 @@ export interface TodoAttachment {
 	filePath: string;
 	fileSize?: number;
 	mimeType?: string;
+	source?: "user" | "ai";
 }
 
 export interface Todo {

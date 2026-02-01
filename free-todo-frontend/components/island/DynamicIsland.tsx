@@ -4,10 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { listTodosApiTodosGet } from "@/lib/generated/todos/todos";
 import { IslandMode } from "@/lib/island/types";
 import { queryKeys } from "@/lib/query/keys";
 import { useUiStore } from "@/lib/store/ui-store";
+import type { TodoListResponse } from "@/lib/types";
 import {
   FloatContent,
   PopupContent,
@@ -124,7 +126,8 @@ const DynamicIsland: React.FC<DynamicIslandProps> = ({ mode, onModeChange }) => 
           offset: 0,
         });
 
-        const todos = result.todos ?? [];
+        const data = unwrapApiData<TodoListResponse>(result);
+        const todos = data?.todos ?? [];
         const ids = todos
           .map((t) => t.id)
           .filter((id): id is number => typeof id === "number");

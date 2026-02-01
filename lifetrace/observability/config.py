@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from lifetrace.util.path_utils import get_user_data_dir
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.settings import settings
 
 

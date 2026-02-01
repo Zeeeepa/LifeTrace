@@ -9,8 +9,8 @@ import yaml
 from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.services.asr_client import ASRClient
+from lifetrace.util.base_paths import get_config_dir, get_user_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_config_dir, get_user_config_dir
 from lifetrace.util.settings import reload_settings, settings
 
 logger = get_logger()
