@@ -42,7 +42,7 @@ export function TimelineSlot({
 			ref={setNodeRef}
 			className={cn(
 				"relative w-full",
-				isHour ? "border-t border-border/60" : "border-t border-border/30",
+				isHour ? "border-t border-border/60" : "border-t border-transparent",
 				isOver && "bg-primary/10",
 			)}
 			style={{ height }}

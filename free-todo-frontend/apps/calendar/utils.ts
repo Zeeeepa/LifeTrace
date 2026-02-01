@@ -87,6 +87,20 @@ export function parseDeadline(deadline?: string): Date | null {
 	return parseTodoDateTime(deadline);
 }
 
+export function isAllDayDeadlineString(value?: string): boolean {
+	if (!value) return false;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
+	if (
+		value.includes("T00:00:00") &&
+		!value.includes("Z") &&
+		!value.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(value)
+	) {
+		return true;
+	}
+	return false;
+}
+
 export function formatHumanDate(date: Date): string {
 	return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }

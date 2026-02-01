@@ -22,6 +22,7 @@ import {
 	formatMinutesLabel,
 	formatTimeRangeLabel,
 	getMinutesFromDate,
+	isAllDayDeadlineString,
 	isSameDay,
 	MINUTES_PER_SLOT,
 	parseTodoDateTime,
@@ -33,6 +34,7 @@ const SLOT_HEIGHT = 12;
 
 interface ParsedTodo {
 	todo: Todo;
+	deadlineRaw?: string;
 	deadline: Date | null;
 	start: Date | null;
 	end: Date | null;
@@ -77,6 +79,7 @@ export function WeekView({
 		() =>
 			todos.map((todo) => ({
 				todo,
+				deadlineRaw: todo.deadline,
 				deadline: parseTodoDateTime(todo.deadline),
 				start: parseTodoDateTime(todo.startTime),
 				end: parseTodoDateTime(todo.endTime),
@@ -84,11 +87,13 @@ export function WeekView({
 		[todos],
 	);
 
-	const { itemsByDay, floatingTodos, allTimelineItems } = useMemo(() => {
+	const { itemsByDay, allDayByDay, allTimelineItems } = useMemo(() => {
 		const map = new Map<string, TimelineItem[]>();
-		const floating: Todo[] = [];
+		const allDay = new Map<string, Todo[]>();
 		for (const day of weekDays) {
-			map.set(toDateKey(day.date), []);
+			const key = toDateKey(day.date);
+			map.set(key, []);
+			allDay.set(key, []);
 		}
 
 		const allItems: TimelineItem[] = [];
@@ -96,13 +101,19 @@ export function WeekView({
 		for (const entry of parsedTodos) {
 			const anchor = entry.start ?? entry.end ?? entry.deadline;
 			const hasTime = Boolean(entry.start || entry.end || entry.deadline);
-			if (!hasTime) {
-				floating.push(entry.todo);
-				continue;
-			}
+			if (!hasTime) continue;
 			if (!anchor) continue;
 			const dayKey = toDateKey(anchor);
 			if (!map.has(dayKey)) continue;
+
+			if (
+				!entry.start &&
+				!entry.end &&
+				isAllDayDeadlineString(entry.deadlineRaw)
+			) {
+				allDay.get(dayKey)?.push(entry.todo);
+				continue;
+			}
 
 			if (entry.start || entry.end) {
 				const start =
@@ -143,7 +154,7 @@ export function WeekView({
 			list.sort((a, b) => a.startMinutes - b.startMinutes);
 		}
 
-		return { itemsByDay: map, floatingTodos: floating, allTimelineItems: allItems };
+		return { itemsByDay: map, allDayByDay: allDay, allTimelineItems: allItems };
 	}, [parsedTodos, weekDays]);
 
 	const { displayStart, displayEnd } = useMemo(() => {
@@ -227,64 +238,66 @@ export function WeekView({
 
 	return (
 		<div className="flex flex-col gap-3">
-			<div className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-xl border border-border/70">
-				<div className="bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
-					{t("weekView")}
-				</div>
-				{weekDays.map((day, index) => {
-					const dateKey = toDateKey(day.date);
-					const isToday = isSameDay(day.date, new Date());
-					return (
-						<div
-							key={dateKey}
-							className={cn(
-								"flex items-center justify-between gap-2 border-l border-border/70 bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground",
-								isToday && "text-primary",
-							)}
-							onClick={(event) => {
-								onSelectDay(day.date, event.currentTarget, true);
-							}}
-							onKeyDown={(event) => {
-								if (event.key === "Enter" || event.key === " ") {
-									event.preventDefault();
-									onSelectDay(day.date, event.currentTarget, true);
-								}
-							}}
-							role="button"
-							tabIndex={0}
-						>
-							<span>
-								{t("weekPrefix")}
-								{weekDayLabels[index]} {day.date.getDate()}
-							</span>
-							{isToday && (
-								<span className="text-[11px] font-medium">{todayText}</span>
-							)}
-						</div>
-					);
-				})}
-			</div>
-
-			<div className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-xl border border-border/70">
-				<div className="border-r border-border/70 bg-card/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
-					{t("allDay")} / {t("floating")}
-				</div>
-				<div className="col-span-7 bg-card/50 px-3 py-2">
-					<div className="flex flex-wrap gap-2">
-						{floatingTodos.length === 0 ? (
-							<span className="text-xs text-muted-foreground">
-								{t("floatingEmpty")}
-							</span>
-						) : (
-							floatingTodos.map((todo) => (
-								<FloatingTodoCard
-									key={todo.id}
-									todo={todo}
-									onSelect={onSelectTodo}
-								/>
-							))
-						)}
+			<div className="sticky top-0 z-20 space-y-3 bg-background/95 pb-3 backdrop-blur">
+				<div className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-xl border border-border/70">
+					<div className="bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground">
+						{t("weekView")}
 					</div>
+					{weekDays.map((day, index) => {
+						const dateKey = toDateKey(day.date);
+						const isToday = isSameDay(day.date, new Date());
+						return (
+							<div
+								key={dateKey}
+								className={cn(
+									"flex items-center justify-between gap-2 border-l border-border/70 bg-muted/30 px-3 py-2 text-xs font-semibold text-muted-foreground",
+									isToday && "text-primary",
+								)}
+								onClick={(event) => {
+									onSelectDay(day.date, event.currentTarget, true);
+								}}
+								onKeyDown={(event) => {
+									if (event.key === "Enter" || event.key === " ") {
+										event.preventDefault();
+										onSelectDay(day.date, event.currentTarget, true);
+									}
+								}}
+								role="button"
+								tabIndex={0}
+							>
+								<span>
+									{t("weekPrefix")}
+									{weekDayLabels[index]} {day.date.getDate()}
+								</span>
+								{isToday && (
+									<span className="text-[11px] font-medium">{todayText}</span>
+								)}
+							</div>
+						);
+					})}
+				</div>
+
+				<div className="grid grid-cols-[72px_repeat(7,minmax(0,1fr))] overflow-hidden rounded-xl border border-border/70">
+					<div className="border-r border-border/70 bg-card/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
+						{t("allDay")}
+					</div>
+					{weekDays.map((day) => {
+						const dateKey = toDateKey(day.date);
+						const allDayTodos = allDayByDay.get(dateKey) || [];
+						return (
+							<div key={dateKey} className="border-l border-border/70 bg-card/50 px-3 py-2">
+								<div className="flex flex-wrap gap-2">
+									{allDayTodos.map((todo) => (
+										<FloatingTodoCard
+											key={todo.id}
+											todo={todo}
+											onSelect={onSelectTodo}
+										/>
+									))}
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			</div>
 

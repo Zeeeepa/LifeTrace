@@ -22,6 +22,7 @@ import {
 	formatMinutesLabel,
 	formatTimeRangeLabel,
 	getMinutesFromDate,
+	isAllDayDeadlineString,
 	isSameDay,
 	MINUTES_PER_SLOT,
 	parseTodoDateTime,
@@ -32,6 +33,7 @@ const SLOT_HEIGHT = 12;
 
 interface ParsedTodo {
 	todo: Todo;
+	deadlineRaw?: string;
 	deadline: Date | null;
 	start: Date | null;
 	end: Date | null;
@@ -54,11 +56,23 @@ export function DayView({
 	const [workingStart, setWorkingStart] = useState(DEFAULT_WORK_START_MINUTES);
 	const [workingEnd, setWorkingEnd] = useState(DEFAULT_WORK_END_MINUTES);
 	const pxPerMinute = SLOT_HEIGHT / MINUTES_PER_SLOT;
+	const weekDayLabels = [
+		t("weekdays.monday"),
+		t("weekdays.tuesday"),
+		t("weekdays.wednesday"),
+		t("weekdays.thursday"),
+		t("weekdays.friday"),
+		t("weekdays.saturday"),
+		t("weekdays.sunday"),
+	];
+	const weekDayIndex = (currentDate.getDay() + 6) % 7;
+	const dayHeaderLabel = `${t("weekPrefix")}${weekDayLabels[weekDayIndex]} ${currentDate.getDate()}`;
 
 	const parsedTodos = useMemo<ParsedTodo[]>(
 		() =>
 			todos.map((todo) => ({
 				todo,
+				deadlineRaw: todo.deadline,
 				deadline: parseTodoDateTime(todo.deadline),
 				start: parseTodoDateTime(todo.startTime),
 				end: parseTodoDateTime(todo.endTime),
@@ -66,18 +80,24 @@ export function DayView({
 		[todos],
 	);
 
-	const { timelineItems, floatingTodos } = useMemo(() => {
+	const { timelineItems, allDayTodos } = useMemo(() => {
 		const items: TimelineItem[] = [];
-		const floating: Todo[] = [];
+		const allDay: Todo[] = [];
 
 		for (const entry of parsedTodos) {
 			const anchor = entry.start ?? entry.end ?? entry.deadline;
 			const hasTime = Boolean(entry.start || entry.end || entry.deadline);
-			if (!hasTime) {
-				floating.push(entry.todo);
+			if (!hasTime) continue;
+			if (!anchor || !isSameDay(anchor, currentDate)) continue;
+
+			if (
+				!entry.start &&
+				!entry.end &&
+				isAllDayDeadlineString(entry.deadlineRaw)
+			) {
+				allDay.push(entry.todo);
 				continue;
 			}
-			if (!anchor || !isSameDay(anchor, currentDate)) continue;
 
 			if (entry.start || entry.end) {
 				const start = entry.start ?? addMinutes(entry.end as Date, -DEFAULT_DURATION_MINUTES);
@@ -110,7 +130,7 @@ export function DayView({
 		}
 
 		items.sort((a, b) => a.startMinutes - b.startMinutes);
-		return { timelineItems: items, floatingTodos: floating };
+		return { timelineItems: items, allDayTodos: allDay };
 	}, [currentDate, parsedTodos]);
 
 	const { displayStart, displayEnd } = useMemo(() => {
@@ -219,29 +239,26 @@ export function DayView({
 			tabIndex={0}
 		>
 			{quickCreateSlot}
-			<div className="rounded-xl border border-border bg-card/50 p-3 shadow-sm">
-				<div className="mb-3 flex items-center justify-between text-xs font-semibold text-muted-foreground">
-					<span>
-						{t("allDay")} / {t("floating")}
-					</span>
-					<span className="text-[11px] text-muted-foreground">
-						{floatingTodos.length}
-					</span>
+			<div className="sticky top-0 z-20 space-y-3 bg-background/95 pb-3 backdrop-blur">
+				<div className="rounded-xl border border-border bg-card/50 px-4 py-3 text-sm font-semibold text-foreground shadow-sm">
+					{dayHeaderLabel}
 				</div>
-				<div className="flex flex-wrap gap-2">
-					{floatingTodos.length === 0 ? (
-						<span className="text-xs text-muted-foreground">
-							{t("floatingEmpty")}
+				<div className="rounded-xl border border-border bg-card/50 p-3 shadow-sm">
+					<div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
+						<span>{t("allDay")}</span>
+						<span className="text-[11px] text-muted-foreground">
+							{allDayTodos.length}
 						</span>
-					) : (
-						floatingTodos.map((todo) => (
+					</div>
+					<div className="flex flex-wrap gap-2">
+						{allDayTodos.map((todo) => (
 							<FloatingTodoCard
 								key={todo.id}
 								todo={todo}
 								onSelect={(selected) => setSelectedTodoId(selected.id)}
 							/>
-						))
-					)}
+						))}
+					</div>
 				</div>
 			</div>
 
