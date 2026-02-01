@@ -6,22 +6,53 @@
 from functools import lru_cache
 
 from lifetrace.core.module_registry import get_module_states
-from lifetrace.jobs.activity_aggregator import (
-    execute_activity_aggregation_task,
-    get_aggregator_instance,
-)
-from lifetrace.jobs.clean_data import execute_clean_data_task, get_clean_data_instance
-from lifetrace.jobs.deadline_reminder import execute_deadline_reminder_task
-from lifetrace.jobs.ocr import execute_ocr_task
-from lifetrace.jobs.proactive_ocr import execute_proactive_ocr_task
-from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
-from lifetrace.jobs.recorder import execute_capture_task, get_recorder_instance
 from lifetrace.jobs.scheduler import get_scheduler_manager
-from lifetrace.jobs.todo_recorder import execute_todo_capture_task, get_todo_recorder_instance
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 logger = get_logger()
+
+
+def _execute_capture_task():
+    from lifetrace.jobs.recorder import execute_capture_task
+
+    return execute_capture_task()
+
+
+def _execute_todo_capture_task():
+    from lifetrace.jobs.todo_recorder import execute_todo_capture_task
+
+    return execute_todo_capture_task()
+
+
+def _execute_ocr_task():
+    from lifetrace.jobs.ocr import execute_ocr_task
+
+    return execute_ocr_task()
+
+
+def _execute_activity_aggregation_task():
+    from lifetrace.jobs.activity_aggregator import execute_activity_aggregation_task
+
+    return execute_activity_aggregation_task()
+
+
+def _execute_clean_data_task():
+    from lifetrace.jobs.clean_data import execute_clean_data_task
+
+    return execute_clean_data_task()
+
+
+def _execute_deadline_reminder_task():
+    from lifetrace.jobs.deadline_reminder import execute_deadline_reminder_task
+
+    return execute_deadline_reminder_task()
+
+
+def _execute_proactive_ocr_task():
+    from lifetrace.jobs.proactive_ocr import execute_proactive_ocr_task
+
+    return execute_proactive_ocr_task()
 
 
 def execute_audio_recording_status_check():
@@ -142,6 +173,8 @@ class JobManager:
         try:
             # 仅在启用时预先初始化，避免阻塞启动
             if enabled:
+                from lifetrace.jobs.recorder import get_recorder_instance
+
                 get_recorder_instance()
                 logger.info("录制器实例已初始化")
 
@@ -149,7 +182,7 @@ class JobManager:
             recorder_interval = settings.get("jobs.recorder.interval")
             recorder_id = settings.get("jobs.recorder.id")
             self.scheduler_manager.add_interval_job(
-                func=execute_capture_task,  # 使用模块级别的函数
+                func=_execute_capture_task,  # 使用模块级别的函数
                 job_id="recorder_job",
                 name=recorder_id,
                 seconds=recorder_interval,
@@ -180,6 +213,8 @@ class JobManager:
         try:
             # 仅在启用时预先初始化
             if enabled:
+                from lifetrace.jobs.todo_recorder import get_todo_recorder_instance
+
                 get_todo_recorder_instance()
                 logger.info("Todo 录制器实例已初始化")
 
@@ -187,7 +222,7 @@ class JobManager:
             todo_recorder_interval = settings.get("jobs.todo_recorder.interval", 5)
             todo_recorder_id = settings.get("jobs.todo_recorder.id", "todo_recorder")
             self.scheduler_manager.add_interval_job(
-                func=execute_todo_capture_task,
+                func=_execute_todo_capture_task,
                 job_id="todo_recorder_job",
                 name=todo_recorder_id,
                 seconds=todo_recorder_interval,
@@ -214,7 +249,7 @@ class JobManager:
             ocr_interval = settings.get("jobs.ocr.interval")
             ocr_id = settings.get("jobs.ocr.id")
             self.scheduler_manager.add_interval_job(
-                func=execute_ocr_task,
+                func=_execute_ocr_task,
                 job_id="ocr_job",
                 name=ocr_id,
                 seconds=ocr_interval,
@@ -239,6 +274,8 @@ class JobManager:
         try:
             # 仅在启用时预先初始化
             if enabled:
+                from lifetrace.jobs.activity_aggregator import get_aggregator_instance
+
                 get_aggregator_instance()
                 logger.info("活动聚合服务实例已初始化")
 
@@ -246,7 +283,7 @@ class JobManager:
             interval = settings.get("jobs.activity_aggregator.interval")
             aggregator_id = settings.get("jobs.activity_aggregator.id")
             self.scheduler_manager.add_interval_job(
-                func=execute_activity_aggregation_task,
+                func=_execute_activity_aggregation_task,
                 job_id="activity_aggregator_job",
                 name=aggregator_id,
                 seconds=interval,
@@ -268,6 +305,8 @@ class JobManager:
         try:
             # 仅在启用时预先初始化
             if enabled:
+                from lifetrace.jobs.clean_data import get_clean_data_instance
+
                 get_clean_data_instance()
                 logger.info("数据清理服务实例已初始化")
 
@@ -275,7 +314,7 @@ class JobManager:
             interval = settings.get("jobs.clean_data.interval")
             clean_data_id = settings.get("jobs.clean_data.id")
             self.scheduler_manager.add_interval_job(
-                func=execute_clean_data_task,
+                func=_execute_clean_data_task,
                 job_id="clean_data_job",
                 name=clean_data_id,
                 seconds=interval,
@@ -302,7 +341,7 @@ class JobManager:
             interval = settings.get("jobs.deadline_reminder.interval")
             reminder_id = settings.get("jobs.deadline_reminder.id")
             self.scheduler_manager.add_interval_job(
-                func=execute_deadline_reminder_task,
+                func=_execute_deadline_reminder_task,
                 job_id="deadline_reminder_job",
                 name=reminder_id,
                 seconds=interval,
@@ -327,6 +366,8 @@ class JobManager:
         try:
             # 仅在启用时预先初始化
             if enabled:
+                from lifetrace.jobs.proactive_ocr.service import get_proactive_ocr_service
+
                 get_proactive_ocr_service()
                 logger.info("主动OCR服务实例已初始化")
 
@@ -334,7 +375,7 @@ class JobManager:
             interval = settings.get("jobs.proactive_ocr.interval", 1.0)
             proactive_ocr_id = settings.get("jobs.proactive_ocr.id", "proactive_ocr")
             self.scheduler_manager.add_interval_job(
-                func=execute_proactive_ocr_task,
+                func=_execute_proactive_ocr_task,
                 job_id="proactive_ocr_job",
                 name=proactive_ocr_id,
                 seconds=interval,
@@ -348,7 +389,7 @@ class JobManager:
                 logger.info("主动OCR服务未启用，已暂停")
             else:
                 # 如果启用，立即执行一次以启动服务
-                execute_proactive_ocr_task()
+                _execute_proactive_ocr_task()
         except Exception as e:
             logger.error(f"启动主动OCR任务失败: {e}", exc_info=True)
 

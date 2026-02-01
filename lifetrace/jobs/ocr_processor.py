@@ -5,36 +5,41 @@ OCR 处理器模块
 
 import hashlib
 import os
-import sys
 import time
+from typing import Any
 
 from lifetrace.storage import get_session, ocr_mgr, screenshot_mgr
 from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
-from .ocr_config import (
-    DEFAULT_IMAGE_MAX_SIZE,
-    create_rapidocr_instance,
-    get_ocr_config,
-    setup_rapidocr_config,
-)
+from .ocr_config import DEFAULT_IMAGE_MAX_SIZE, create_rapidocr_instance, get_ocr_config
 
 logger = get_logger()
 
-# 设置RapidOCR配置
-setup_rapidocr_config()
+RAPIDOCR_AVAILABLE: bool | None = None
+_OCR_DEPS: dict[str, Any] = {}
 
-try:
-    import numpy as np
-    from PIL import Image
-    from rapidocr_onnxruntime import RapidOCR  # noqa: F401
 
+def _load_ocr_deps() -> bool:
+    """延迟加载 OCR 依赖，避免启动时阻塞。"""
+    global RAPIDOCR_AVAILABLE
+    if RAPIDOCR_AVAILABLE is not None:
+        return RAPIDOCR_AVAILABLE
+    try:
+        import numpy as np
+        from PIL import Image
+        from rapidocr_onnxruntime import RapidOCR
+    except ImportError:
+        RAPIDOCR_AVAILABLE = False
+        logger.error("RapidOCR 未安装！请运行: pip install rapidocr-onnxruntime")
+        return False
+
+    _OCR_DEPS["np"] = np
+    _OCR_DEPS["Image"] = Image
+    _OCR_DEPS["RapidOCR"] = RapidOCR
     RAPIDOCR_AVAILABLE = True
-except ImportError:
-    RAPIDOCR_AVAILABLE = False
-    logger.error("RapidOCR 未安装！请运行: pip install rapidocr-onnxruntime")
-    sys.exit(1)
+    return True
 
 
 def preprocess_image(image_path: str) -> "np.ndarray":
@@ -46,6 +51,11 @@ def preprocess_image(image_path: str) -> "np.ndarray":
     Returns:
         预处理后的图像数组
     """
+    if not _load_ocr_deps():
+        raise RuntimeError("RapidOCR 未安装，无法处理图像")
+    Image = _OCR_DEPS["Image"]
+    np = _OCR_DEPS["np"]
+
     with Image.open(image_path) as image:
         rgb_image = image.convert("RGB")
         rgb_image.thumbnail(DEFAULT_IMAGE_MAX_SIZE, Image.Resampling.LANCZOS)
@@ -89,7 +99,7 @@ class SimpleOCRProcessor:
 
     def is_available(self):
         """检查OCR引擎是否可用"""
-        return RAPIDOCR_AVAILABLE
+        return _load_ocr_deps()
 
     def start(self):
         """启动OCR处理服务"""
@@ -216,6 +226,10 @@ def create_screenshot_record(image_path: str):
     try:
         if not os.path.exists(image_path):
             return None
+
+        if not _load_ocr_deps():
+            raise RuntimeError("RapidOCR 未安装，无法处理截图")
+        Image = _OCR_DEPS["Image"]
 
         with open(image_path, "rb") as f:
             file_hash = hashlib.md5(f.read()).hexdigest()

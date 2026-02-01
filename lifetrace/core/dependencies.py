@@ -15,7 +15,6 @@ from lifetrace.core.lazy_services import (
 from lifetrace.core.lazy_services import (
     get_vector_service as lazy_get_vector_service,
 )
-from lifetrace.jobs.ocr import SimpleOCRProcessor
 from lifetrace.repositories.interfaces import (
     IActivityRepository,
     IChatRepository,
@@ -172,6 +171,8 @@ def get_rag_service():
 @lru_cache(maxsize=1)
 def get_ocr_processor():
     """获取 OCR 处理器（延迟加载，单例模式）"""
+    from lifetrace.jobs.ocr_processor import SimpleOCRProcessor
+
     return SimpleOCRProcessor()
 
 
