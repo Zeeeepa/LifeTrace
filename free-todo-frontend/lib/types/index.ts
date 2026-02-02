@@ -121,6 +121,103 @@ export interface ActivityWithEvents extends Activity {
 }
 
 // ============================================================================
+// Journal Types
+// ============================================================================
+
+export interface JournalTag {
+	id: number;
+	tagName: string;
+}
+
+export interface Journal {
+	id: number;
+	name: string;
+	userNotes: string;
+	date: string;
+	contentFormat: string;
+	contentObjective?: string | null;
+	contentAi?: string | null;
+	mood?: string | null;
+	energy?: number | null;
+	dayBucketStart?: string | null;
+	tags?: JournalTag[];
+	relatedTodoIds?: number[];
+	relatedActivityIds?: number[];
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface JournalListResponse {
+	total: number;
+	journals: Journal[];
+}
+
+export interface JournalCreateInput {
+	name?: string | null;
+	userNotes: string;
+	date: string;
+	contentFormat?: string;
+	contentObjective?: string | null;
+	contentAi?: string | null;
+	mood?: string | null;
+	energy?: number | null;
+	dayBucketStart?: string | null;
+	tags?: string[];
+	relatedTodoIds?: number[];
+	relatedActivityIds?: number[];
+}
+
+export interface JournalUpdateInput {
+	name?: string | null;
+	userNotes?: string | null;
+	date?: string | null;
+	contentFormat?: string | null;
+	contentObjective?: string | null;
+	contentAi?: string | null;
+	mood?: string | null;
+	energy?: number | null;
+	dayBucketStart?: string | null;
+	tags?: string[] | null;
+	relatedTodoIds?: number[] | null;
+	relatedActivityIds?: number[] | null;
+}
+
+export interface JournalAutoLinkInput {
+	journalId?: number | null;
+	title?: string | null;
+	contentOriginal?: string | null;
+	date: string;
+	dayBucketStart?: string | null;
+	maxItems?: number;
+}
+
+export interface JournalAutoLinkCandidate {
+	id: number;
+	name: string;
+	score: number;
+}
+
+export interface JournalAutoLinkResponse {
+	relatedTodoIds: number[];
+	relatedActivityIds: number[];
+	todoCandidates: JournalAutoLinkCandidate[];
+	activityCandidates: JournalAutoLinkCandidate[];
+}
+
+export interface JournalGenerateInput {
+	journalId?: number | null;
+	title?: string | null;
+	contentOriginal?: string | null;
+	date?: string | null;
+	dayBucketStart?: string | null;
+	language: string;
+}
+
+export interface JournalGenerateResponse {
+	content: string;
+}
+
+// ============================================================================
 // Utility Types for API List Responses (auto-transformed)
 // ============================================================================
 

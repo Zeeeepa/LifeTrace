@@ -74,6 +74,10 @@ const panelRegistry: Record<PanelFeature, PanelPlugin> = {
 		placeholderKey: "diaryPlaceholder",
 		icon: FEATURE_ICON_MAP.diary,
 		backendModules: ["journal"],
+		loader: () =>
+			import("@/apps/diary").then((mod) => ({
+				default: mod.DiaryPanel,
+			})),
 	},
 	settings: {
 		id: "settings",

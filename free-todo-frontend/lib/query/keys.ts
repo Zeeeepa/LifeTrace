@@ -59,6 +59,23 @@ export const queryKeys = {
 	costStats: (days: number) => ["costStats", days] as const,
 
 	/**
+	 * Journal 相关查询键
+	 */
+	journals: {
+		/** 所有 journal 相关查询的根键 */
+		all: ["journals"] as const,
+		/** journal 列表查询 */
+		list: (params?: {
+			limit?: number;
+			offset?: number;
+			startDate?: string;
+			endDate?: string;
+		}) => ["journals", "list", params] as const,
+		/** 单个 journal 详情 */
+		detail: (id: number) => ["journals", "detail", id] as const,
+	},
+
+	/**
 	 * 配置相关查询键
 	 */
 	config: ["config"] as const,
