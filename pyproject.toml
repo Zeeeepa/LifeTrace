@@ -170,6 +170,7 @@ extra-index-url = ["https://pypi.org/simple"]
 dev = [
     "bandit>=1.7.9",
     "pre-commit>=4.4.0",
+    "pyright>=1.1.408",
     "ruff>=0.14.4",
     "pyinstaller>=6.0.0",
 ]
