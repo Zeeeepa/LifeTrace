@@ -38,14 +38,12 @@ export function ThemeStyleSelect() {
 	}, [open]);
 
 	if (!mounted) {
-		return <div className="h-9 w-[140px]" />;
+		return <div className="h-9 w-35" />;
 	}
 
 	const options: { value: ColorTheme; label: string }[] = [
 		{ value: "catppuccin", label: t("catppuccin") },
 		{ value: "blue", label: t("blue") },
-		{ value: "nord", label: t("nord") },
-		{ value: "solarized", label: t("solarized") },
 		{ value: "neutral", label: t("neutral") },
 	];
 
@@ -71,7 +69,7 @@ export function ThemeStyleSelect() {
 			</button>
 			{open && (
 				<div
-					className="absolute right-0 z-30 mt-1 w-[160px] overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+					className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
 					role="listbox"
 				>
 					{options.map((option) => {

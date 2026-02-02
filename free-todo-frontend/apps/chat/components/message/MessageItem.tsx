@@ -153,7 +153,7 @@ export function MessageItem({
 						className={cn(
 							"relative rounded-2xl px-4 py-3 text-sm shadow-sm",
 							message.role === "assistant"
-								? "bg-muted text-foreground"
+								? "bg-muted/30 text-foreground"
 								: "bg-primary/10 dark:bg-primary/20 text-foreground",
 						)}
 						onMouseEnter={() => {

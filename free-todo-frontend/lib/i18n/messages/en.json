@@ -6,8 +6,6 @@
 	"colorTheme": {
 		"catppuccin": "Catppuccin",
 		"blue": "Blue",
-		"nord": "Nord",
-		"solarized": "Solarized",
 		"neutral": "Neutral",
 		"label": "Theme Style"
 	},

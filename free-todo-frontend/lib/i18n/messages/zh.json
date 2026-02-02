@@ -6,8 +6,6 @@
 	"colorTheme": {
 		"catppuccin": "Catppuccin",
 		"blue": "蓝色",
-		"nord": "Nord",
-		"solarized": "Solarized",
 		"neutral": "中性",
 		"label": "配色风格"
 	},

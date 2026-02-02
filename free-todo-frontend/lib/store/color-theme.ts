@@ -4,9 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type ColorTheme =
 	| "catppuccin"
 	| "blue"
-	| "neutral"
-	| "nord"
-	| "solarized";
+	| "neutral";
 
 interface ColorThemeState {
 	colorTheme: ColorTheme;
@@ -17,9 +15,7 @@ const isValidColorTheme = (value: string | null): value is ColorTheme => {
 	return (
 		value === "catppuccin" ||
 		value === "blue" ||
-		value === "neutral" ||
-		value === "nord" ||
-		value === "solarized"
+		value === "neutral"
 	);
 };
 
