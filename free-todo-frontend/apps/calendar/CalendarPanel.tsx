@@ -489,23 +489,12 @@ export function CalendarPanel() {
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
-							renderQuickCreate={(date) =>
-								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
-							}
 						/>
 					)}
 					{view === "day" && (
 						<DayView
 							currentDate={currentDate}
 							todos={todos}
-							onBlankClick={() => {
-								setQuickTargetDate(startOfDay(currentDate));
-								setQuickAnchorRect(null);
-							}}
-							quickCreateSlot={renderQuickCreate(
-								currentDate,
-								"absolute right-3 top-3 z-20 w-96 max-w-[90vw]",
-							)}
 						/>
 					)}
 				</div>

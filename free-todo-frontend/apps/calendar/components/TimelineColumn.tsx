@@ -35,6 +35,7 @@ export function TimelineColumn({
 	pxPerMinute,
 	onSelect,
 	onResize,
+	onSlotPointerDown,
 	className,
 }: {
 	date: Date;
@@ -45,6 +46,13 @@ export function TimelineColumn({
 	pxPerMinute: number;
 	onSelect: (todo: Todo) => void;
 	onResize: (todo: Todo, startMinutes: number, endMinutes: number, date: Date) => void;
+	onSlotPointerDown?: (args: {
+		date: Date;
+		minutes: number;
+		anchorRect: DOMRect;
+		clientX: number;
+		clientY: number;
+	}) => void;
 	className?: string;
 }) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -68,7 +76,7 @@ export function TimelineColumn({
 			const timeLabel =
 				item.kind === "range"
 					? formatTimeRangeLabel(startMinutes, endMinutes)
-					: `DDL ${formatMinutesLabel(startMinutes)}`;
+					: formatMinutesLabel(startMinutes);
 
 			return {
 				...item,
@@ -161,6 +169,7 @@ export function TimelineColumn({
 						minutes={minutes}
 						height={slotHeight}
 						isHour={minutes % 60 === 0}
+						onSlotPointerDown={onSlotPointerDown}
 					/>
 				))}
 			</div>

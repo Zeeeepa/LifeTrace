@@ -3,12 +3,14 @@
  */
 
 import { useTranslations } from "next-intl";
+import type React from "react";
 import { useMemo, useState } from "react";
 import { useTodoMutations } from "@/lib/query";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FloatingTodoCard } from "../components/FloatingTodoCard";
 import { TimelineColumn } from "../components/TimelineColumn";
+import { TimelineCreatePopover } from "../components/TimelineCreatePopover";
 import type { TimelineItem } from "../types";
 import {
 	addMinutes,
@@ -46,7 +48,6 @@ export function WeekView({
 	onSelectDay,
 	onSelectTodo,
 	todayText,
-	renderQuickCreate,
 }: {
 	currentDate: Date;
 	todos: Todo[];
@@ -57,7 +58,6 @@ export function WeekView({
 	) => void;
 	onSelectTodo: (todo: Todo) => void;
 	todayText: string;
-	renderQuickCreate?: (date: Date) => React.ReactNode;
 }) {
 	const t = useTranslations("calendar");
 	const weekDayLabels = [
@@ -69,11 +69,20 @@ export function WeekView({
 		t("weekdays.saturday"),
 		t("weekdays.sunday"),
 	];
-	const { updateTodo } = useTodoMutations();
+	const { updateTodo, createTodo } = useTodoMutations();
 	const [workingStart, setWorkingStart] = useState(DEFAULT_WORK_START_MINUTES);
 	const [workingEnd, setWorkingEnd] = useState(DEFAULT_WORK_END_MINUTES);
 	const pxPerMinute = SLOT_HEIGHT / MINUTES_PER_SLOT;
 	const weekDays = buildWeekDays(currentDate);
+	const [timelineAnchor, setTimelineAnchor] = useState<{
+		top: number;
+		left: number;
+	} | null>(null);
+	const [timelineTitle, setTimelineTitle] = useState("");
+	const [timelineStart, setTimelineStart] = useState("");
+	const [timelineEnd, setTimelineEnd] = useState("");
+	const [timelineDate, setTimelineDate] = useState<Date | null>(null);
+	const maxTimelineMinutes = 24 * 60 - MINUTES_PER_SLOT;
 
 	const parsedTodos = useMemo<ParsedTodo[]>(
 		() =>
@@ -144,7 +153,7 @@ export function WeekView({
 				date: anchor,
 				startMinutes: deadlineMinutes,
 				endMinutes: deadlineMinutes + MINUTES_PER_SLOT,
-				timeLabel: `DDL ${formatMinutesLabel(deadlineMinutes)}`,
+				timeLabel: formatMinutesLabel(deadlineMinutes),
 			};
 			map.get(dayKey)?.push(item);
 			allItems.push(item);
@@ -184,6 +193,97 @@ export function WeekView({
 		);
 		return Array.from({ length: total }, (_, idx) => displayStart + idx * MINUTES_PER_SLOT);
 	}, [displayEnd, displayStart]);
+
+	const parseTimeInput = (value: string) => {
+		const [hh, mm] = value.split(":").map((part) => Number(part));
+		if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+		return clampMinutes(hh * 60 + mm, 0, maxTimelineMinutes);
+	};
+
+	const openTimelineCreateAt = ({
+		date,
+		minutes,
+		anchorRect,
+		clientY,
+	}: {
+		date: Date;
+		minutes: number;
+		anchorRect: DOMRect;
+		clientY: number;
+	}) => {
+		if (typeof window === "undefined") return;
+		const safeStart = Math.min(
+			minutes,
+			maxTimelineMinutes - MINUTES_PER_SLOT,
+		);
+		const endMinutes = clampMinutes(
+			safeStart + DEFAULT_DURATION_MINUTES,
+			0,
+			maxTimelineMinutes,
+		);
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const preferredLeft = anchorRect.left + 16;
+		const preferredTop = clientY + 8;
+		const popoverWidth = 340;
+		const popoverHeight = 260;
+		const left = Math.min(
+			Math.max(12, preferredLeft),
+			viewportWidth - popoverWidth,
+		);
+		const top = Math.min(
+			Math.max(12, preferredTop),
+			viewportHeight - popoverHeight,
+		);
+
+		setTimelineDate(date);
+		setTimelineStart(formatMinutesLabel(safeStart));
+		setTimelineEnd(formatMinutesLabel(endMinutes));
+		setTimelineTitle("");
+		setTimelineAnchor({ top, left });
+	};
+
+	const closeTimelineCreate = () => {
+		setTimelineAnchor(null);
+		setTimelineDate(null);
+		setTimelineTitle("");
+		setTimelineStart("");
+		setTimelineEnd("");
+	};
+
+	const handleCreateTimelineTodo = async () => {
+		if (!timelineDate || !timelineTitle.trim()) return;
+		const startMinutes = parseTimeInput(timelineStart);
+		let endMinutes = parseTimeInput(timelineEnd);
+		if (startMinutes === null) return;
+		if (endMinutes === null || endMinutes <= startMinutes) {
+			endMinutes = clampMinutes(
+				startMinutes + DEFAULT_DURATION_MINUTES,
+				0,
+				maxTimelineMinutes,
+			);
+		}
+		if (endMinutes <= startMinutes) {
+			endMinutes = clampMinutes(
+				startMinutes + MINUTES_PER_SLOT,
+				0,
+				maxTimelineMinutes,
+			);
+		}
+		const startDate = setMinutesOnDate(timelineDate, startMinutes);
+		const endDate = setMinutesOnDate(timelineDate, endMinutes);
+		try {
+			await createTodo({
+				name: timelineTitle.trim(),
+				startTime: startDate.toISOString(),
+				endTime: endDate.toISOString(),
+				status: "active",
+			});
+			closeTimelineCreate();
+		} catch (error) {
+			console.error("Failed to create timeline todo:", error);
+		}
+	};
 
 	const handleResize = async (
 		todo: Todo,
@@ -362,8 +462,8 @@ export function WeekView({
 											pxPerMinute={pxPerMinute}
 											onSelect={onSelectTodo}
 											onResize={handleResize}
+											onSlotPointerDown={openTimelineCreateAt}
 										/>
-										{renderQuickCreate ? renderQuickCreate(day.date) : null}
 									</div>
 								);
 							})}
@@ -371,6 +471,18 @@ export function WeekView({
 					</div>
 				</div>
 			</div>
+			<TimelineCreatePopover
+				targetDate={timelineDate}
+				value={timelineTitle}
+				startTime={timelineStart}
+				endTime={timelineEnd}
+				anchorPoint={timelineAnchor}
+				onChange={setTimelineTitle}
+				onStartTimeChange={setTimelineStart}
+				onEndTimeChange={setTimelineEnd}
+				onConfirm={handleCreateTimelineTodo}
+				onCancel={closeTimelineCreate}
+			/>
 		</div>
 	);
 }

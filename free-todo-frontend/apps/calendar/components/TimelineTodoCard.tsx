@@ -79,6 +79,7 @@ export function TimelineTodoCard({
 				}}
 				role="button"
 				tabIndex={0}
+				data-timeline-item
 				className={cn(
 					"group absolute left-2 right-2 flex flex-col gap-1 rounded-lg border px-2 py-1 text-xs shadow-sm transition-all duration-200 ease-out",
 					"cursor-grab active:cursor-grabbing",

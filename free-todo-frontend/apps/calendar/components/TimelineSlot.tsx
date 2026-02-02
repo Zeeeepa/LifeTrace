@@ -13,11 +13,19 @@ export function TimelineSlot({
 	minutes,
 	height,
 	isHour,
+	onSlotPointerDown,
 }: {
 	date: Date;
 	minutes: number;
 	height: number;
 	isHour: boolean;
+	onSlotPointerDown?: (args: {
+		date: Date;
+		minutes: number;
+		anchorRect: DOMRect;
+		clientX: number;
+		clientY: number;
+	}) => void;
 }) {
 	const dateKey = toDateKey(date);
 	const dropData: DropData = useMemo(
@@ -46,6 +54,21 @@ export function TimelineSlot({
 				isOver && "bg-primary/10",
 			)}
 			style={{ height }}
+			onPointerDown={(event) => {
+				if (!onSlotPointerDown) return;
+				if ((event.target as HTMLElement | null)?.closest("[data-timeline-item]")) {
+					return;
+				}
+				event.preventDefault();
+				event.stopPropagation();
+				onSlotPointerDown({
+					date,
+					minutes,
+					anchorRect: (event.currentTarget as HTMLDivElement).getBoundingClientRect(),
+					clientX: event.clientX,
+					clientY: event.clientY,
+				});
+			}}
 		/>
 	);
 }

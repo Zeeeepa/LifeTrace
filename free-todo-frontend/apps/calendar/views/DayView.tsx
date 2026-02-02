@@ -10,6 +10,7 @@ import { useTodoStore } from "@/lib/store/todo-store";
 import type { Todo } from "@/lib/types";
 import { FloatingTodoCard } from "../components/FloatingTodoCard";
 import { TimelineColumn } from "../components/TimelineColumn";
+import { TimelineCreatePopover } from "../components/TimelineCreatePopover";
 import type { TimelineItem } from "../types";
 import {
 	addMinutes,
@@ -42,20 +43,24 @@ interface ParsedTodo {
 export function DayView({
 	currentDate,
 	todos,
-	onBlankClick,
-	quickCreateSlot,
 }: {
 	currentDate: Date;
 	todos: Todo[];
-	onBlankClick?: () => void;
-	quickCreateSlot?: React.ReactNode;
 }) {
 	const t = useTranslations("calendar");
 	const { setSelectedTodoId } = useTodoStore();
-	const { updateTodo } = useTodoMutations();
+	const { updateTodo, createTodo } = useTodoMutations();
 	const [workingStart, setWorkingStart] = useState(DEFAULT_WORK_START_MINUTES);
 	const [workingEnd, setWorkingEnd] = useState(DEFAULT_WORK_END_MINUTES);
 	const pxPerMinute = SLOT_HEIGHT / MINUTES_PER_SLOT;
+	const [timelineAnchor, setTimelineAnchor] = useState<{
+		top: number;
+		left: number;
+	} | null>(null);
+	const [timelineTitle, setTimelineTitle] = useState("");
+	const [timelineStart, setTimelineStart] = useState("");
+	const [timelineEnd, setTimelineEnd] = useState("");
+	const [timelineDate, setTimelineDate] = useState<Date | null>(null);
 	const weekDayLabels = [
 		t("weekdays.monday"),
 		t("weekdays.tuesday"),
@@ -67,6 +72,7 @@ export function DayView({
 	];
 	const weekDayIndex = (currentDate.getDay() + 6) % 7;
 	const dayHeaderLabel = `${t("weekPrefix")}${weekDayLabels[weekDayIndex]} ${currentDate.getDate()}`;
+	const maxTimelineMinutes = 24 * 60 - MINUTES_PER_SLOT;
 
 	const parsedTodos = useMemo<ParsedTodo[]>(
 		() =>
@@ -125,7 +131,7 @@ export function DayView({
 				date: currentDate,
 				startMinutes: deadlineMinutes,
 				endMinutes: deadlineMinutes + MINUTES_PER_SLOT,
-				timeLabel: `DDL ${formatMinutesLabel(deadlineMinutes)}`,
+				timeLabel: formatMinutesLabel(deadlineMinutes),
 			});
 		}
 
@@ -158,6 +164,97 @@ export function DayView({
 		);
 		return Array.from({ length: total }, (_, idx) => displayStart + idx * MINUTES_PER_SLOT);
 	}, [displayEnd, displayStart]);
+
+	const parseTimeInput = (value: string) => {
+		const [hh, mm] = value.split(":").map((part) => Number(part));
+		if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+		return clampMinutes(hh * 60 + mm, 0, maxTimelineMinutes);
+	};
+
+	const openTimelineCreateAt = ({
+		date,
+		minutes,
+		anchorRect,
+		clientY,
+	}: {
+		date: Date;
+		minutes: number;
+		anchorRect: DOMRect;
+		clientY: number;
+	}) => {
+		if (typeof window === "undefined") return;
+		const safeStart = Math.min(
+			minutes,
+			maxTimelineMinutes - MINUTES_PER_SLOT,
+		);
+		const endMinutes = clampMinutes(
+			safeStart + DEFAULT_DURATION_MINUTES,
+			0,
+			maxTimelineMinutes,
+		);
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const preferredLeft = anchorRect.left + 16;
+		const preferredTop = clientY + 8;
+		const popoverWidth = 340;
+		const popoverHeight = 260;
+		const left = Math.min(
+			Math.max(12, preferredLeft),
+			viewportWidth - popoverWidth,
+		);
+		const top = Math.min(
+			Math.max(12, preferredTop),
+			viewportHeight - popoverHeight,
+		);
+
+		setTimelineDate(date);
+		setTimelineStart(formatMinutesLabel(safeStart));
+		setTimelineEnd(formatMinutesLabel(endMinutes));
+		setTimelineTitle("");
+		setTimelineAnchor({ top, left });
+	};
+
+	const closeTimelineCreate = () => {
+		setTimelineAnchor(null);
+		setTimelineDate(null);
+		setTimelineTitle("");
+		setTimelineStart("");
+		setTimelineEnd("");
+	};
+
+	const handleCreateTimelineTodo = async () => {
+		if (!timelineDate || !timelineTitle.trim()) return;
+		const startMinutes = parseTimeInput(timelineStart);
+		let endMinutes = parseTimeInput(timelineEnd);
+		if (startMinutes === null) return;
+		if (endMinutes === null || endMinutes <= startMinutes) {
+			endMinutes = clampMinutes(
+				startMinutes + DEFAULT_DURATION_MINUTES,
+				0,
+				maxTimelineMinutes,
+			);
+		}
+		if (endMinutes <= startMinutes) {
+			endMinutes = clampMinutes(
+				startMinutes + MINUTES_PER_SLOT,
+				0,
+				maxTimelineMinutes,
+			);
+		}
+		const startDate = setMinutesOnDate(timelineDate, startMinutes);
+		const endDate = setMinutesOnDate(timelineDate, endMinutes);
+		try {
+			await createTodo({
+				name: timelineTitle.trim(),
+				startTime: startDate.toISOString(),
+				endTime: endDate.toISOString(),
+				status: "active",
+			});
+			closeTimelineCreate();
+		} catch (error) {
+			console.error("Failed to create timeline todo:", error);
+		}
+	};
 
 	const handleResize = async (
 		todo: Todo,
@@ -210,35 +307,7 @@ export function DayView({
 	};
 
 	return (
-		<div
-			className="relative flex flex-col gap-4"
-			onClick={(event) => {
-				if (
-					(event.target as HTMLElement | null)?.closest(
-						"[data-quick-create]",
-					)
-				) {
-					return;
-				}
-				onBlankClick?.();
-			}}
-			onKeyDown={(event) => {
-				if (event.key === "Enter" || event.key === " ") {
-					event.preventDefault();
-					if (
-						(event.target as HTMLElement | null)?.closest(
-							"[data-quick-create]",
-						)
-					) {
-						return;
-					}
-					onBlankClick?.();
-				}
-			}}
-			role="button"
-			tabIndex={0}
-		>
-			{quickCreateSlot}
+		<div className="relative flex flex-col gap-4">
 			<div className="sticky top-0 z-20 space-y-3 bg-background/95 pb-3 backdrop-blur">
 				<div className="rounded-xl border border-border bg-card/50 px-4 py-3 text-sm font-semibold text-foreground shadow-sm">
 					{dayHeaderLabel}
@@ -315,11 +384,24 @@ export function DayView({
 							pxPerMinute={pxPerMinute}
 							onSelect={(todo) => setSelectedTodoId(todo.id)}
 							onResize={handleResize}
+							onSlotPointerDown={openTimelineCreateAt}
 							className="border-l border-border/60"
 						/>
 					</div>
 				</div>
 			</div>
+			<TimelineCreatePopover
+				targetDate={timelineDate}
+				value={timelineTitle}
+				startTime={timelineStart}
+				endTime={timelineEnd}
+				anchorPoint={timelineAnchor}
+				onChange={setTimelineTitle}
+				onStartTimeChange={setTimelineStart}
+				onEndTimeChange={setTimelineEnd}
+				onConfirm={handleCreateTimelineTodo}
+				onCancel={closeTimelineCreate}
+			/>
 		</div>
 	);
 }
