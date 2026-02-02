@@ -42,7 +42,7 @@ def add_notification(
         logger.debug(f"通知已存在，跳过: {notification_id}")
         return False
 
-    notification = {
+    notification: dict[str, Any] = {
         "id": notification_id,
         "title": title,
         "content": content,

@@ -2,29 +2,35 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.models import Attachment, Todo, TodoAttachmentRelation
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
 
+if TYPE_CHECKING:
+    from lifetrace.storage.database_base import DatabaseBase
+
 
 class TodoAttachmentMixin:
     """Attachment-related helpers for TodoManager."""
+
+    db_base: DatabaseBase
 
     def _get_todo_attachments(self, session, todo_id: int) -> list[dict[str, Any]]:
         rows = (
             session.query(Attachment, TodoAttachmentRelation)
             .join(
                 TodoAttachmentRelation,
-                TodoAttachmentRelation.attachment_id == Attachment.id,
+                col(TodoAttachmentRelation.attachment_id) == col(Attachment.id),
             )
             .filter(
-                TodoAttachmentRelation.todo_id == todo_id,
-                TodoAttachmentRelation.deleted_at.is_(None),
+                col(TodoAttachmentRelation.todo_id) == todo_id,
+                col(TodoAttachmentRelation.deleted_at).is_(None),
             )
             .all()
         )
@@ -66,6 +72,8 @@ class TodoAttachmentMixin:
                 )
                 session.add(attachment)
                 session.flush()
+                if attachment.id is None:
+                    raise ValueError("Attachment must have an id before linking.")
 
                 relation = TodoAttachmentRelation(
                     todo_id=todo_id,
@@ -93,8 +101,8 @@ class TodoAttachmentMixin:
                 rows = (
                     session.query(TodoAttachmentRelation)
                     .filter(
-                        TodoAttachmentRelation.todo_id == todo_id,
-                        TodoAttachmentRelation.attachment_id == attachment_id,
+                        col(TodoAttachmentRelation.todo_id) == todo_id,
+                        col(TodoAttachmentRelation.attachment_id) == attachment_id,
                     )
                     .delete()
                 )

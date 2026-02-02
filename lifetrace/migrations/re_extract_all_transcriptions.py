@@ -33,6 +33,7 @@ if True:
     from lifetrace.services.audio_extraction_service import AudioExtractionService
     from lifetrace.storage import get_session
     from lifetrace.storage.models import Transcription
+    from lifetrace.storage.sql_utils import col
     from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -110,6 +111,8 @@ async def re_extract_transcription(
     # 提取原文
     if needs_original:
         try:
+            if transcription.id is None:
+                raise ValueError("Transcription must have an id before updating.")
             logger.info(
                 f"提取原文: transcription_id={transcription.id}, "
                 f"recording_id={transcription.audio_recording_id}, "
@@ -138,6 +141,8 @@ async def re_extract_transcription(
     # 提取优化文本
     if needs_optimized:
         try:
+            if transcription.id is None:
+                raise ValueError("Transcription must have an id before updating.")
             logger.info(
                 f"提取优化文本: transcription_id={transcription.id}, "
                 f"recording_id={transcription.audio_recording_id}, "
@@ -257,7 +262,7 @@ def find_transcriptions_needing_extraction(
 
         # 应用 ID 过滤
         if ids:
-            statement = statement.where(Transcription.id.in_(ids))
+            statement = statement.where(col(Transcription.id).in_(ids))
 
         transcriptions = list(session.exec(statement).all())
 

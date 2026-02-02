@@ -9,6 +9,7 @@ from functools import lru_cache
 
 from lifetrace.storage import get_session, screenshot_mgr
 from lifetrace.storage.models import Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
@@ -95,8 +96,8 @@ class CleanDataService:
             with get_session() as session:
                 old_screenshots = (
                     session.query(Screenshot)
-                    .filter(Screenshot.file_deleted.is_not(True))
-                    .order_by(Screenshot.created_at.asc())
+                    .filter(col(Screenshot.file_deleted).is_not(True))
+                    .order_by(col(Screenshot.created_at).asc())
                     .limit(to_delete_count)
                     .all()
                 )
@@ -132,8 +133,8 @@ class CleanDataService:
             with get_session() as session:
                 old_screenshots = (
                     session.query(Screenshot)
-                    .filter(Screenshot.created_at < cutoff_date)
-                    .filter(Screenshot.file_deleted.is_not(True))
+                    .filter(col(Screenshot.created_at) < cutoff_date)
+                    .filter(col(Screenshot.file_deleted).is_not(True))
                     .all()
                 )
 

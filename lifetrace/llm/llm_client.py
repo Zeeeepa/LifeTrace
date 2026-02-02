@@ -4,9 +4,14 @@ LLM客户端模块
 """
 
 import contextlib
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from openai import OpenAI
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
@@ -99,6 +104,11 @@ class LLMClient:
         """检查LLM客户端是否可用"""
         return self.client is not None
 
+    def _get_client(self) -> OpenAI:
+        if self.client is None:
+            raise RuntimeError("LLM客户端不可用，无法进行请求")
+        return self.client
+
     def classify_intent(self, user_query: str) -> dict[str, Any]:
         """分类用户意图"""
         if not self.is_available():
@@ -135,9 +145,10 @@ class LLMClient:
             raise RuntimeError("LLM客户端不可用，无法进行文本聊天")
 
         try:
-            response = self.client.chat.completions.create(
+            client = self._get_client()
+            response = client.chat.completions.create(
                 model=model or self.model,
-                messages=messages,
+                messages=cast("list[ChatCompletionMessageParam]", messages),
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
@@ -159,9 +170,10 @@ class LLMClient:
         try:
             # 关闭 enable_thinking 以提升性能（方案 B）
             # 如果未来需要思考模式，可以通过参数控制
-            stream = self.client.chat.completions.create(
+            client = self._get_client()
+            stream = client.chat.completions.create(
                 model=model or self.model,
-                messages=messages,
+                messages=cast("list[ChatCompletionMessageParam]", messages),
                 temperature=temperature,
                 # extra_body={"enable_thinking": True},  # 已移除以提升性能
                 stream=True,

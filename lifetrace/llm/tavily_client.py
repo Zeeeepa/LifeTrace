@@ -1,6 +1,6 @@
 """Tavily API 客户端封装模块"""
 
-from typing import Any
+from typing import Any, cast
 
 from tavily import TavilyClient
 
@@ -59,6 +59,11 @@ class TavilyClientWrapper:
         """检查 Tavily 客户端是否可用"""
         return self.client is not None
 
+    def _get_client(self) -> TavilyClient:
+        if self.client is None:
+            raise RuntimeError("Tavily 客户端未配置或不可用")
+        return self.client
+
     def search(self, query: str, **kwargs) -> dict[str, Any]:
         """
         执行 Tavily 搜索
@@ -108,12 +113,14 @@ class TavilyClientWrapper:
             )
 
             # 调用 Tavily search API
-            response = self.client.search(**search_kwargs)
+            client = self._get_client()
+            response = client.search(**search_kwargs)
+            response_data = cast("dict[str, Any]", response)
 
             # 格式化返回结果
             results = []
-            if "results" in response:
-                for item in response["results"]:
+            if "results" in response_data:
+                for item in response_data["results"]:
                     results.append(
                         {
                             "url": item.get("url", ""),
@@ -124,7 +131,7 @@ class TavilyClientWrapper:
 
             return {
                 "results": results,
-                "raw_response": response,
+                "raw_response": response_data,
             }
 
         except Exception as e:
@@ -169,12 +176,14 @@ class TavilyClientWrapper:
             )
 
             # 调用 Tavily research API
-            response = self.client.research(**research_kwargs)
+            client = self._get_client()
+            response = client.research(**research_kwargs)
+            response_data = cast("dict[str, Any]", response)
 
             # 格式化返回结果
             results = []
-            if "results" in response:
-                for item in response["results"]:
+            if "results" in response_data:
+                for item in response_data["results"]:
                     results.append(
                         {
                             "url": item.get("url", ""),
@@ -185,7 +194,7 @@ class TavilyClientWrapper:
 
             return {
                 "results": results,
-                "raw_response": response,
+                "raw_response": response_data,
             }
 
         except Exception as e:

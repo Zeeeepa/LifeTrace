@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from lifetrace.storage import get_session, ocr_mgr, screenshot_mgr
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
@@ -22,27 +23,33 @@ if TYPE_CHECKING:
     import numpy as np
 
 RAPIDOCR_STATE: dict[str, bool | None] = {"available": None}
+RAPIDOCR_AVAILABLE = False
 _OCR_DEPS: dict[str, Any] = {}
+
+
+def _set_rapidocr_available(value: bool) -> None:
+    RAPIDOCR_STATE["available"] = value
+    globals()["RAPIDOCR_AVAILABLE"] = value
 
 
 def _load_ocr_deps() -> bool:
     """延迟加载 OCR 依赖，避免启动时阻塞。"""
     status = RAPIDOCR_STATE["available"]
     if status is not None:
-        return status
+        return bool(status)
     try:
         import numpy as np  # noqa: PLC0415
         from PIL import Image  # noqa: PLC0415
         from rapidocr_onnxruntime import RapidOCR  # noqa: PLC0415
     except ImportError:
-        RAPIDOCR_STATE["available"] = False
+        _set_rapidocr_available(False)
         logger.error("RapidOCR 未安装！请运行: pip install rapidocr-onnxruntime")
         return False
 
     _OCR_DEPS["np"] = np
     _OCR_DEPS["Image"] = Image
     _OCR_DEPS["RapidOCR"] = RapidOCR
-    RAPIDOCR_STATE["available"] = True
+    _set_rapidocr_available(True)
     return True
 
 
@@ -77,7 +84,8 @@ def extract_text_from_ocr_result(result, confidence_threshold: float | None = No
         提取的文本内容
     """
     if confidence_threshold is None:
-        confidence_threshold = settings.get("jobs.ocr.params.confidence_threshold")
+        raw_threshold = settings.get("jobs.ocr.params.confidence_threshold")
+        confidence_threshold = float(raw_threshold) if raw_threshold is not None else 0.0
 
     min_ocr_result_fields = 3
 
@@ -141,6 +149,8 @@ class SimpleOCRProcessor:
         """处理单个图像文件"""
         try:
             self._ensure_ocr_initialized()
+            if self.ocr is None:
+                raise RuntimeError("OCR engine is not initialized.")
 
             start_time = time.time()
             img_array = preprocess_image(image_path)
@@ -204,9 +214,9 @@ def _add_to_vector_database(ocr_result_id: int, screenshot_id: int, vector_servi
     """将OCR结果添加到向量数据库"""
     try:
         with get_session() as session:
-            ocr_obj = session.query(OCRResult).filter(OCRResult.id == ocr_result_id).first()
+            ocr_obj = session.query(OCRResult).filter(col(OCRResult.id) == ocr_result_id).first()
             screenshot_obj = (
-                session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+                session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
             )
 
             if ocr_obj:

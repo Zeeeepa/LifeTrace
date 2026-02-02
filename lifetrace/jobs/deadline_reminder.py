@@ -14,6 +14,7 @@ from lifetrace.storage.notification_storage import (
     get_notification_by_todo_id,
     is_notification_dismissed,
 )
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import get_utc_now, naive_as_utc
@@ -51,10 +52,10 @@ def execute_deadline_reminder_task():  # noqa: C901
             todos = (
                 session.query(Todo)
                 .filter(
-                    Todo.status == "active",
-                    Todo.deadline.isnot(None),
-                    Todo.deadline <= deadline_threshold,
-                    Todo.deadline > now,
+                    col(Todo.status) == "active",
+                    col(Todo.deadline).isnot(None),
+                    col(Todo.deadline) <= deadline_threshold,
+                    col(Todo.deadline) > now,
                 )
                 .all()
             )

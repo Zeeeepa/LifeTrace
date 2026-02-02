@@ -14,7 +14,7 @@ from .base import logger, router
 
 @router.post("/new", response_model=NewChatResponse)
 async def create_new_chat(
-    request: NewChatRequest = None,
+    request: NewChatRequest | None = None,
     chat_service: ChatService = Depends(get_chat_service),
 ):
     """创建新对话会话"""

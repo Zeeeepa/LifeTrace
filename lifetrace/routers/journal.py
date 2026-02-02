@@ -73,6 +73,8 @@ async def update_journal(
 ):
     """更新日记"""
     try:
+        if journal is None:
+            raise HTTPException(status_code=400, detail="缺少日记更新内容")
         return service.update_journal(journal_id, journal)
     except HTTPException:
         raise

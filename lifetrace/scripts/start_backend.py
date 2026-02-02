@@ -17,9 +17,10 @@ from pathlib import Path
 if getattr(sys, "frozen", False):
     # PyInstaller bundled - use _MEIPASS for resource path
     # In one-folder bundle, _MEIPASS points to _internal directory
-    if hasattr(sys, "_MEIPASS"):
+    bundle_path = getattr(sys, "_MEIPASS", None)
+    if bundle_path:
         # Add _internal to path where lifetrace modules are located
-        sys.path.insert(0, sys._MEIPASS)
+        sys.path.insert(0, bundle_path)
     else:
         # Fallback: try to find _internal directory relative to executable
         bundle_dir = Path(sys.executable).parent

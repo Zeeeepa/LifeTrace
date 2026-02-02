@@ -147,7 +147,8 @@ class ActivitySummaryService:
             )
 
             # 调用LLM（增加max_tokens以支持结构化摘要）
-            response = self.llm_client.client.chat.completions.create(
+            client = self.llm_client._get_client()
+            response = client.chat.completions.create(
                 model=self.llm_client.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -169,7 +170,7 @@ class ActivitySummaryService:
                 )
 
             # 解析响应
-            content = response.choices[0].message.content.strip()
+            content = (response.choices[0].message.content or "").strip()
             if content:
                 extracted_content, original_content = self._extract_json_from_response(content)
                 if extracted_content:

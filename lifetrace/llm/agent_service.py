@@ -2,7 +2,12 @@
 
 import json
 from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 # 导入工具模块以触发工具注册
 from lifetrace.llm import tools  # noqa: F401
@@ -246,14 +251,15 @@ class AgentService:
 
     def _call_llm_for_tool_selection(self, decision_messages: list[dict]) -> dict[str, Any] | None:
         """调用 LLM 进行工具选择并解析响应"""
-        response = self.llm_client.client.chat.completions.create(
+        client = self.llm_client._get_client()
+        response = client.chat.completions.create(
             model=self.llm_client.model,
-            messages=decision_messages,
+            messages=cast("list[ChatCompletionMessageParam]", decision_messages),
             temperature=0.1,  # 低温度确保稳定决策
             max_tokens=200,
         )
 
-        decision_text = response.choices[0].message.content.strip()
+        decision_text = (response.choices[0].message.content or "").strip()
 
         # 解析 JSON 响应
         try:
@@ -346,14 +352,15 @@ class AgentService:
                 },
             ]
 
-            response = self.llm_client.client.chat.completions.create(
+            client = self.llm_client._get_client()
+            response = client.chat.completions.create(
                 model=self.llm_client.model,
-                messages=eval_messages,
+                messages=cast("list[ChatCompletionMessageParam]", eval_messages),
                 temperature=0.1,
                 max_tokens=100,
             )
 
-            eval_text = response.choices[0].message.content.strip().lower()
+            eval_text = (response.choices[0].message.content or "").strip().lower()
 
             # 简单判断：如果包含"完成"、"足够"等关键词，认为可以生成回答
             completion_keywords = ["完成", "足够", "可以", "complete", "sufficient"]

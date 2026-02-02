@@ -12,6 +12,7 @@ Storage 模块
 from __future__ import annotations
 
 import importlib
+from typing import TYPE_CHECKING
 
 __all__ = [
     "activity_mgr",
@@ -28,6 +29,21 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS: set[str] = set(__all__)
+
+if TYPE_CHECKING:
+    from lifetrace.storage.database import (
+        activity_mgr,
+        chat_mgr,
+        db_base,
+        event_mgr,
+        get_db,
+        get_session,
+        journal_mgr,
+        ocr_mgr,
+        screenshot_mgr,
+        stats_mgr,
+        todo_mgr,
+    )
 
 
 def __getattr__(name: str):

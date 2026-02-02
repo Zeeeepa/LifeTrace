@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Event
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
@@ -53,9 +54,9 @@ def get_app_usage_stats(
             events = (
                 session.query(Event)
                 .filter(
-                    Event.start_time >= dt_start,
-                    Event.start_time <= dt_end,
-                    Event.end_time.isnot(None),
+                    col(Event.start_time) >= dt_start,
+                    col(Event.start_time) <= dt_end,
+                    col(Event.end_time).isnot(None),
                 )
                 .all()
             )

@@ -85,7 +85,9 @@ class RAGService:
         """根据查询类型构建上下文"""
         logger.info("开始构建上下文")
         if query_type == "statistics":
-            return self.context_builder.build_statistics_context(user_query, retrieved_data, stats)
+            return self.context_builder.build_statistics_context(
+                user_query, retrieved_data, stats or {}
+            )
         if query_type == "search":
             return self.context_builder.build_search_context(user_query, retrieved_data)
         return self.context_builder.build_summary_context(user_query, retrieved_data)

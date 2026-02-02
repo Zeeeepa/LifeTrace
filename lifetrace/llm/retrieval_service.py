@@ -5,6 +5,7 @@ from sqlalchemy import func, or_
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.query_parser import QueryConditions, QueryParser
 from lifetrace.util.time_utils import get_utc_now
@@ -30,34 +31,38 @@ class RetrievalService:
 
     def _build_base_query(self, session: Any, conditions: QueryConditions) -> Any:
         """构建基础查询"""
-        query = session.query(Screenshot).join(OCRResult, Screenshot.id == OCRResult.screenshot_id)
+        query = session.query(Screenshot).join(
+            OCRResult, col(Screenshot.id) == col(OCRResult.screenshot_id)
+        )
 
         # 添加时间范围过滤
         if conditions.start_date:
-            query = query.filter(Screenshot.created_at >= conditions.start_date)
+            query = query.filter(col(Screenshot.created_at) >= conditions.start_date)
         if conditions.end_date:
-            query = query.filter(Screenshot.created_at <= conditions.end_date)
+            query = query.filter(col(Screenshot.created_at) <= conditions.end_date)
 
         # 添加应用名称过滤
         if conditions.app_names:
-            app_filters = [Screenshot.app_name.ilike(f"%{app}%") for app in conditions.app_names]
+            app_filters = [
+                col(Screenshot.app_name).ilike(f"%{app}%") for app in conditions.app_names
+            ]
             query = query.filter(or_(*app_filters))
 
         # 添加关键词过滤
         if conditions.keywords:
             keyword_filters = [
-                OCRResult.text_content.ilike(f"%{keyword}%") for keyword in conditions.keywords
+                col(OCRResult.text_content).ilike(f"%{keyword}%") for keyword in conditions.keywords
             ]
             query = query.filter(or_(*keyword_filters))
 
-        return query.order_by(Screenshot.created_at.desc())
+        return query.order_by(col(Screenshot.created_at).desc())
 
     def _convert_screenshot_to_dict(
         self, session: Any, screenshot: Screenshot, conditions: QueryConditions
     ) -> dict[str, Any]:
         """将截图转换为字典格式"""
         ocr_results = (
-            session.query(OCRResult).filter(OCRResult.screenshot_id == screenshot.id).all()
+            session.query(OCRResult).filter(col(OCRResult.screenshot_id) == screenshot.id).all()
         )
 
         ocr_text = " ".join([ocr.text_content for ocr in ocr_results if ocr.text_content])
@@ -239,11 +244,13 @@ class RetrievalService:
             return query
 
         if conditions.start_date:
-            query = query.filter(Screenshot.created_at >= conditions.start_date)
+            query = query.filter(col(Screenshot.created_at) >= conditions.start_date)
         if conditions.end_date:
-            query = query.filter(Screenshot.created_at <= conditions.end_date)
+            query = query.filter(col(Screenshot.created_at) <= conditions.end_date)
         if conditions.app_names:
-            app_filters = [Screenshot.app_name.ilike(f"%{app}%") for app in conditions.app_names]
+            app_filters = [
+                col(Screenshot.app_name).ilike(f"%{app}%") for app in conditions.app_names
+            ]
             query = query.filter(or_(*app_filters))
 
         return query
@@ -296,15 +303,15 @@ class RetrievalService:
 
                 # 按应用分组统计
                 app_stats_query = session.query(
-                    Screenshot.app_name, func.count(Screenshot.id).label("count")
-                ).group_by(Screenshot.app_name)
+                    col(Screenshot.app_name), func.count(col(Screenshot.id)).label("count")
+                ).group_by(col(Screenshot.app_name))
                 app_stats_query = self._apply_stats_conditions(app_stats_query, conditions)
                 app_stats = app_stats_query.all()
 
                 # 时间范围
                 time_range = query.with_entities(
-                    func.min(Screenshot.created_at).label("earliest"),
-                    func.max(Screenshot.created_at).label("latest"),
+                    func.min(col(Screenshot.created_at)).label("earliest"),
+                    func.max(col(Screenshot.created_at)).label("latest"),
                 ).first()
 
                 stats = self._build_stats_result(total_count, app_stats, time_range, conditions)

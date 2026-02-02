@@ -145,10 +145,12 @@ async def create_todo(
 @router.put("/{todo_id}", response_model=TodoResponse)
 async def update_todo(
     todo_id: int = Path(..., description="Todo ID"),
-    todo: TodoUpdate = None,
+    todo: TodoUpdate | None = None,
     service: TodoService = Depends(get_todo_service),
 ):
     """更新待办"""
+    if todo is None:
+        raise HTTPException(status_code=400, detail="缺少待办更新内容")
     return service.update_todo(todo_id, todo)
 
 

@@ -9,6 +9,7 @@ from typing import Any
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import TokenUsage
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import get_utc_now
@@ -218,8 +219,8 @@ class TokenUsageLogger:
                 # 查询时间范围内的所有记录
                 records = (
                     session.query(TokenUsage)
-                    .filter(TokenUsage.created_at >= start_date)
-                    .filter(TokenUsage.created_at <= end_date)
+                    .filter(col(TokenUsage.created_at) >= start_date)
+                    .filter(col(TokenUsage.created_at) <= end_date)
                     .all()
                 )
 

@@ -184,11 +184,15 @@ def _on_recorder_toggle(_old_val: Any, new_val: Any):
     """录制器任务开关变更"""
     try:
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新录制器任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("recorder_job")
+            scheduler.resume_job("recorder_job")
             logger.info("录制器任务已启用")
         else:
-            manager.scheduler_manager.pause_job("recorder_job")
+            scheduler.pause_job("recorder_job")
             logger.info("录制器任务已暂停")
     except Exception as e:
         logger.error(f"变更录制器任务状态失败: {e}")
@@ -199,11 +203,15 @@ def _on_ocr_toggle(_old_val: Any, new_val: Any):
     """OCR 任务开关变更"""
     try:
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新 OCR 任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("ocr_job")
+            scheduler.resume_job("ocr_job")
             logger.info("OCR 任务已启用")
         else:
-            manager.scheduler_manager.pause_job("ocr_job")
+            scheduler.pause_job("ocr_job")
             logger.info("OCR 任务已暂停")
     except Exception as e:
         logger.error(f"变更 OCR 任务状态失败: {e}")
@@ -214,11 +222,15 @@ def _on_auto_todo_detection_toggle(_old_val: Any, new_val: Any):
     """自动待办检测任务开关变更"""
     try:
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新自动待办检测任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("auto_todo_detection_job")
+            scheduler.resume_job("auto_todo_detection_job")
             logger.info("自动待办检测任务已启用")
         else:
-            manager.scheduler_manager.pause_job("auto_todo_detection_job")
+            scheduler.pause_job("auto_todo_detection_job")
             logger.info("自动待办检测任务已暂停")
     except Exception as e:
         logger.error(f"变更自动待办检测任务状态失败: {e}")

@@ -8,6 +8,7 @@ from typing import Any
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 
 from .event_summary_config import (
@@ -90,11 +91,15 @@ def get_event_ocr_texts(event_id: int) -> tuple[list[str], dict[str, Any]]:
 
     try:
         with get_session() as session:
-            screenshots = session.query(Screenshot).filter(Screenshot.event_id == event_id).all()
+            screenshots = (
+                session.query(Screenshot).filter(col(Screenshot.event_id) == event_id).all()
+            )
 
             for screenshot in screenshots:
                 ocr_results = (
-                    session.query(OCRResult).filter(OCRResult.screenshot_id == screenshot.id).all()
+                    session.query(OCRResult)
+                    .filter(col(OCRResult.screenshot_id) == screenshot.id)
+                    .all()
                 )
 
                 for ocr in ocr_results:

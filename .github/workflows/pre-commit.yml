@@ -23,6 +23,7 @@ jobs:
               - 'lifetrace/**'
               - 'scripts/**'
               - 'pyproject.toml'
+              - 'pyrightconfig.json'
               - 'bandit.yaml'
               - '.pre-commit-config.yaml'
             frontend:
@@ -71,6 +72,7 @@ jobs:
           pre-commit run ruff \
             ruff-format \
             bandit \
+            pyright \
             check-backend-code-lines \
             --all-files
 

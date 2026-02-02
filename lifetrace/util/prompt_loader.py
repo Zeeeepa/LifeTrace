@@ -84,6 +84,8 @@ class PromptLoader:
         try:
             if self._prompts is None:
                 self._load_prompts()
+            if self._prompts is None:
+                self._prompts = {}
 
             # 获取提示词模板
             prompt_template = self._prompts.get(category, {}).get(key, "")

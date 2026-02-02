@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
+from lifetrace.storage.sql_utils import col
 from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
@@ -61,16 +62,19 @@ class TodoManager(TodoAttachmentMixin):
     # ========== 查询辅助 ==========
     def _get_todo_tags(self, session, todo_id: int) -> list[str]:
         rows = (
-            session.query(Tag.tag_name)
-            .join(TodoTagRelation, TodoTagRelation.tag_id == Tag.id)
-            .filter(TodoTagRelation.todo_id == todo_id)
+            session.query(col(Tag.tag_name))
+            .join(TodoTagRelation, col(TodoTagRelation.tag_id) == col(Tag.id))
+            .filter(col(TodoTagRelation.todo_id) == todo_id)
             .all()
         )
         return [r[0] for r in rows if r and r[0]]
 
     def _todo_to_dict(self, session, todo: Todo) -> dict[str, Any]:
+        todo_id = todo.id
+        if todo_id is None:
+            raise ValueError("Todo must have an id before serialization.")
         return {
-            "id": todo.id,
+            "id": todo_id,
             "uid": getattr(todo, "uid", None),
             "name": todo.name,
             "description": todo.description,
@@ -87,8 +91,8 @@ class TodoManager(TodoAttachmentMixin):
             ),
             "rrule": getattr(todo, "rrule", None),
             "order": getattr(todo, "order", 0),
-            "tags": self._get_todo_tags(session, todo.id),
-            "attachments": self._get_todo_attachments(session, todo.id),
+            "tags": self._get_todo_tags(session, todo_id),
+            "attachments": self._get_todo_attachments(session, todo_id),
             "related_activities": _safe_int_list(todo.related_activities),
             "source_type": getattr(todo, "source_type", None),
             "source_key": getattr(todo, "source_key", None),
@@ -127,8 +131,8 @@ class TodoManager(TodoAttachmentMixin):
                     sibling_todos = (
                         session.query(Todo)
                         .filter(
-                            Todo.parent_todo_id == current_todo.parent_todo_id,
-                            Todo.id != todo_id,
+                            col(Todo.parent_todo_id) == current_todo.parent_todo_id,
+                            col(Todo.id) != todo_id,
                         )
                         .all()
                     )
@@ -138,7 +142,7 @@ class TodoManager(TodoAttachmentMixin):
                 def _get_children_recursive(parent_todo_id: int) -> list[dict[str, Any]]:
                     children: list[dict[str, Any]] = []
                     child_todos = (
-                        session.query(Todo).filter(Todo.parent_todo_id == parent_todo_id).all()
+                        session.query(Todo).filter(col(Todo.parent_todo_id) == parent_todo_id).all()
                     )
                     for child in child_todos:
                         child_dict = self._todo_to_dict(session, child)
@@ -219,6 +223,8 @@ class TodoManager(TodoAttachmentMixin):
                 session.flush()
 
                 if tags is not None:
+                    if todo.id is None:
+                        raise ValueError("Todo must have an id before tagging.")
                     self._set_todo_tags(session, todo.id, tags)
 
                 logger.info(f"创建 todo: {todo.id} - {name}")
@@ -263,12 +269,12 @@ class TodoManager(TodoAttachmentMixin):
                 q = session.query(Todo)
                 # 默认不返回软删除数据（如果未来使用 deleted_at）
                 with contextlib.suppress(Exception):
-                    q = q.filter(Todo.deleted_at.is_(None))
+                    q = q.filter(col(Todo.deleted_at).is_(None))
 
                 if status:
-                    q = q.filter(Todo.status == status)
+                    q = q.filter(col(Todo.status) == status)
 
-                todos = q.order_by(Todo.created_at.desc()).offset(offset).limit(limit).all()
+                todos = q.order_by(col(Todo.created_at).desc()).offset(offset).limit(limit).all()
                 return [self._todo_to_dict(session, t) for t in todos]
         except SQLAlchemyError as e:
             logger.error(f"列出 todo 失败: {e}")
@@ -279,9 +285,9 @@ class TodoManager(TodoAttachmentMixin):
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
                 with contextlib.suppress(Exception):
-                    q = q.filter(Todo.deleted_at.is_(None))
+                    q = q.filter(col(Todo.deleted_at).is_(None))
                 if status:
-                    q = q.filter(Todo.status == status)
+                    q = q.filter(col(Todo.status) == status)
                 return q.count()
         except SQLAlchemyError as e:
             logger.error(f"统计 todo 数量失败: {e}")
@@ -296,9 +302,13 @@ class TodoManager(TodoAttachmentMixin):
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
                 with contextlib.suppress(Exception):
-                    q = q.filter(Todo.deleted_at.is_(None))
+                    q = q.filter(col(Todo.deleted_at).is_(None))
 
-                q = q.filter(Todo.status == "active").order_by(Todo.created_at.desc()).limit(limit)
+                q = (
+                    q.filter(col(Todo.status) == "active")
+                    .order_by(col(Todo.created_at).desc())
+                    .limit(limit)
+                )
                 todos = q.all()
 
                 result: list[dict[str, Any]] = []
@@ -441,16 +451,16 @@ class TodoManager(TodoAttachmentMixin):
     def _delete_todo_recursive(self, session, todo_id: int) -> None:
         """递归删除 todo 及其所有子任务"""
         # 查找所有子任务
-        child_todos = session.query(Todo).filter(Todo.parent_todo_id == todo_id).all()
+        child_todos = session.query(Todo).filter(col(Todo.parent_todo_id) == todo_id).all()
 
         # 递归删除所有子任务
         for child in child_todos:
             self._delete_todo_recursive(session, child.id)
 
         # 清理关联关系（不删除 Tag/Attachment 实体）
-        session.query(TodoTagRelation).filter(TodoTagRelation.todo_id == todo_id).delete()
+        session.query(TodoTagRelation).filter(col(TodoTagRelation.todo_id) == todo_id).delete()
         session.query(TodoAttachmentRelation).filter(
-            TodoAttachmentRelation.todo_id == todo_id
+            col(TodoAttachmentRelation.todo_id) == todo_id
         ).delete()
 
         # 删除 todo 本身
@@ -517,7 +527,7 @@ class TodoManager(TodoAttachmentMixin):
 
     def _set_todo_tags(self, session, todo_id: int, tags: list[str]) -> None:
         # 清空旧关系
-        session.query(TodoTagRelation).filter(TodoTagRelation.todo_id == todo_id).delete()
+        session.query(TodoTagRelation).filter(col(TodoTagRelation.todo_id) == todo_id).delete()
 
         # 去重/清洗
         cleaned = []
@@ -538,5 +548,7 @@ class TodoManager(TodoAttachmentMixin):
                 session.add(tag)
                 session.flush()
 
+            if tag.id is None:
+                raise ValueError("Tag must have an id before creating relation.")
             rel = TodoTagRelation(todo_id=todo_id, tag_id=tag.id)
             session.add(rel)

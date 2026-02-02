@@ -55,6 +55,13 @@ OPENINFERENCE_TOOL_NAME = "tool.name"
 OPENINFERENCE_TOOL_PARAMETERS = "tool.parameters"
 
 
+def _coerce_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 class LocalFileExporter(SpanExporter):
     """本地 JSON 文件导出器
 
@@ -197,8 +204,8 @@ class LocalFileExporter(SpanExporter):
             return None
 
         model = attrs.get(OPENINFERENCE_LLM_MODEL_NAME, "unknown")
-        input_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT, 0)
-        output_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION, 0)
+        input_tokens = _coerce_int(attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT, 0))
+        output_tokens = _coerce_int(attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION, 0))
 
         # 计算持续时间
         duration_ms = 0
@@ -207,8 +214,8 @@ class LocalFileExporter(SpanExporter):
 
         return {
             "model": str(model),
-            "input_tokens": int(input_tokens) if input_tokens else 0,
-            "output_tokens": int(output_tokens) if output_tokens else 0,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "duration_ms": round(duration_ms, 2),
         }
 

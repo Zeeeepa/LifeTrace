@@ -2,6 +2,12 @@
 
 import json
 import re
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.routers.chat.base import router
@@ -70,9 +76,10 @@ async def extract_todos_from_messages(
             {"role": "user", "content": user_prompt},
         ]
 
-        response = llm_client.client.chat.completions.create(
+        client = llm_client._get_client()
+        response = client.chat.completions.create(
             model=llm_client.model,
-            messages=messages,
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             temperature=0.3,
         )
 

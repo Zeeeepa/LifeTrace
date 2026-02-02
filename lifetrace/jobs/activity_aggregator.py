@@ -83,6 +83,13 @@ def create_activity_for_long_event(event: Event) -> bool:
             logger.debug(f"事件 {event.id} 已存在重叠的活动，跳过")
             return False
 
+        event_id = event.id
+        end_time = event.end_time
+        if event_id is None or end_time is None:
+            if event_id is None:
+                logger.warning("事件缺少ID，无法创建活动")
+            return False
+
         # 准备事件数据（包含时间信息以支持时间线呈现）
         event_data = {
             "ai_title": event.ai_title or "",
@@ -94,7 +101,7 @@ def create_activity_for_long_event(event: Event) -> bool:
         result = activity_summary_service.generate_activity_summary(
             events=[event_data],
             start_time=event.start_time,
-            end_time=event.end_time,
+            end_time=end_time,
         )
 
         if not result:
@@ -104,18 +111,18 @@ def create_activity_for_long_event(event: Event) -> bool:
         # 创建活动记录
         activity_id = activity_mgr.create_activity(
             start_time=event.start_time,
-            end_time=event.end_time,
+            end_time=end_time,
             ai_title=result["title"],
             ai_summary=result["summary"],
-            event_ids=[event.id],
+            event_ids=[event_id],
         )
 
         if activity_id:
             logger.info(f"为长事件 {event.id} 创建活动 {activity_id}: {result['title']}")
             return True
-        else:
-            logger.error(f"为长事件 {event.id} 创建活动失败")
-            return False
+
+        logger.error(f"为长事件 {event.id} 创建活动失败")
+        return False
 
     except Exception as e:
         logger.error(f"为长事件 {event.id} 创建活动时出错: {e}", exc_info=True)
@@ -162,7 +169,10 @@ def create_activity_for_window(window_start: datetime, window_events: list[Event
             return False
 
         # 创建活动记录
-        event_ids = [e.id for e in window_events]
+        event_ids = [e.id for e in window_events if e.id is not None]
+        if not event_ids:
+            logger.warning(f"窗口 {window_start} 没有可用事件ID，跳过活动创建")
+            return False
         activity_id = activity_mgr.create_activity(
             start_time=window_start,
             end_time=window_end,

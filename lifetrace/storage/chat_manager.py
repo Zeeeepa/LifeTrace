@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Chat, Message
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
@@ -106,10 +107,13 @@ class ChatManager:
                 q = session.query(Chat)
 
                 if chat_type:
-                    q = q.filter(Chat.chat_type == chat_type)
+                    q = q.filter(col(Chat.chat_type) == chat_type)
 
                 chats = (
-                    q.order_by(Chat.last_message_at.desc().nullslast(), Chat.created_at.desc())
+                    q.order_by(
+                        col(Chat.last_message_at).desc().nullslast(),
+                        col(Chat.created_at).desc(),
+                    )
                     .offset(offset)
                     .limit(limit)
                     .all()
@@ -200,6 +204,8 @@ class ChatManager:
                     session.add(chat)
                     session.flush()
                     logger.info(f"自动创建聊天会话: {session_id}")
+                if chat.id is None:
+                    raise ValueError("Chat must have an id before adding messages.")
 
                 # 添加消息
                 message = Message(
@@ -261,7 +267,7 @@ class ChatManager:
                 q = (
                     session.query(Message)
                     .filter_by(chat_id=chat.id)
-                    .order_by(Message.created_at.asc())
+                    .order_by(col(Message.created_at).asc())
                 )
 
                 if offset > 0:
@@ -317,10 +323,13 @@ class ChatManager:
                 q = session.query(Chat)
 
                 if chat_type:
-                    q = q.filter(Chat.chat_type == chat_type)
+                    q = q.filter(col(Chat.chat_type) == chat_type)
 
                 chats = (
-                    q.order_by(Chat.last_message_at.desc().nullslast(), Chat.created_at.desc())
+                    q.order_by(
+                        col(Chat.last_message_at).desc().nullslast(),
+                        col(Chat.created_at).desc(),
+                    )
                     .limit(limit)
                     .all()
                 )

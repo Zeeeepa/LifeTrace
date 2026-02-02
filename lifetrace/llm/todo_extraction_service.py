@@ -118,7 +118,7 @@ class TodoExtractionService:
                     "error_message": "事件不存在",
                 }
 
-            app_name = event_info.get("app_name")
+            app_name = event_info.get("app_name") or ""
             if not self.is_whitelist_app(app_name):
                 return {
                     "event_id": event_id,

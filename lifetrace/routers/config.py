@@ -23,8 +23,8 @@ try:
     from websockets.exceptions import ConnectionClosed, InvalidURI
 except ImportError:
     websockets = None
-    ConnectionClosed = None
-    InvalidURI = None
+    ConnectionClosed = Exception
+    InvalidURI = Exception
 
 logger = get_logger()
 

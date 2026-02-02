@@ -61,14 +61,15 @@ def _create_llm_stream_generator(
 
             if total_content:
                 session_id = meta.get("session_id")
-                chat_service.add_message(
-                    session_id=session_id,
-                    role="assistant",
-                    content=total_content,
-                    token_count=usage_info.total_tokens if usage_info else None,
-                    model=rag_svc.llm_client.model,
-                )
-                logger.info("[stream] 消息已保存到数据库")
+                if session_id:
+                    chat_service.add_message(
+                        session_id=session_id,
+                        role="assistant",
+                        content=total_content,
+                        token_count=usage_info.total_tokens if usage_info else None,
+                        model=rag_svc.llm_client.model,
+                    )
+                    logger.info("[stream] 消息已保存到数据库")
 
             if usage_info:
                 session_id = meta.get("session_id")
@@ -93,7 +94,7 @@ def _log_stream_token_usage(
     usage_info,
     temperature: float,
     total_content: str,
-    session_id: str,
+    session_id: str | None,
     meta: StreamMeta,
 ) -> None:
     """记录流式聊天的 token 使用量，抽离成独立函数以降低主流程复杂度。"""
@@ -102,10 +103,12 @@ def _log_stream_token_usage(
             "total_tokens": usage_info.total_tokens,
             "temperature": temperature,
             "response_length": len(total_content),
-            "session_id": session_id,
         }
-        if meta.get("additional_info"):
-            base_additional_info.update(meta["additional_info"])
+        if session_id:
+            base_additional_info["session_id"] = session_id
+        additional_info = meta.get("additional_info")
+        if additional_info:
+            base_additional_info.update(additional_info)
 
         endpoint = meta.get("endpoint", "")
         feature_type = meta.get("feature_type", "")

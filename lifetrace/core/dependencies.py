@@ -47,6 +47,8 @@ def get_db_session(
     db_base: DatabaseBase = Depends(get_db_base),
 ) -> Generator[Session]:
     """获取数据库会话 - 请求级别生命周期"""
+    if db_base.SessionLocal is None:
+        raise RuntimeError("Database session factory is not initialized.")
     session = db_base.SessionLocal()
     try:
         yield session

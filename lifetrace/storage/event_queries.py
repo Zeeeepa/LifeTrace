@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Event, OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -29,24 +30,26 @@ def list_events(
         with db_base.get_session() as session:
             q = session.query(Event)
             if start_date:
-                q = q.filter(Event.start_time >= start_date)
+                q = q.filter(col(Event.start_time) >= start_date)
             if end_date:
-                q = q.filter(Event.start_time <= end_date)
+                q = q.filter(col(Event.start_time) <= end_date)
             if app_name:
-                q = q.filter(Event.app_name.like(f"%{app_name}%"))
+                q = q.filter(col(Event.app_name).like(f"%{app_name}%"))
 
-            q = q.order_by(Event.start_time.desc()).offset(offset).limit(limit)
+            q = q.order_by(col(Event.start_time).desc()).offset(offset).limit(limit)
             events = q.all()
 
             results: list[dict[str, Any]] = []
             for ev in events:
                 first_shot = (
                     session.query(Screenshot)
-                    .filter(Screenshot.event_id == ev.id)
-                    .order_by(Screenshot.created_at.asc())
+                    .filter(col(Screenshot.event_id) == ev.id)
+                    .order_by(col(Screenshot.created_at).asc())
                     .first()
                 )
-                shot_count = session.query(Screenshot).filter(Screenshot.event_id == ev.id).count()
+                shot_count = (
+                    session.query(Screenshot).filter(col(Screenshot.event_id) == ev.id).count()
+                )
                 results.append(
                     {
                         "id": ev.id,
@@ -77,11 +80,11 @@ def count_events(
         with db_base.get_session() as session:
             q = session.query(Event)
             if start_date:
-                q = q.filter(Event.start_time >= start_date)
+                q = q.filter(col(Event.start_time) >= start_date)
             if end_date:
-                q = q.filter(Event.start_time <= end_date)
+                q = q.filter(col(Event.start_time) <= end_date)
             if app_name:
-                q = q.filter(Event.app_name.like(f"%{app_name}%"))
+                q = q.filter(col(Event.app_name).like(f"%{app_name}%"))
             return q.count()
     except SQLAlchemyError as e:
         logger.error(f"统计事件总数失败: {e}")
@@ -94,8 +97,8 @@ def get_event_screenshots(db_base: DatabaseBase, event_id: int) -> list[dict[str
         with db_base.get_session() as session:
             shots = (
                 session.query(Screenshot)
-                .filter(Screenshot.event_id == event_id)
-                .order_by(Screenshot.created_at.asc())
+                .filter(col(Screenshot.event_id) == event_id)
+                .order_by(col(Screenshot.created_at).asc())
                 .all()
             )
             return [
@@ -195,16 +198,16 @@ def get_event_summary(db_base: DatabaseBase, event_id: int) -> dict[str, Any] | 
     """获取单个事件的摘要信息"""
     try:
         with db_base.get_session() as session:
-            ev = session.query(Event).filter(Event.id == event_id).first()
+            ev = session.query(Event).filter(col(Event.id) == event_id).first()
             if not ev:
                 return None
             first_shot = (
                 session.query(Screenshot)
-                .filter(Screenshot.event_id == ev.id)
-                .order_by(Screenshot.created_at.asc())
+                .filter(col(Screenshot.event_id) == ev.id)
+                .order_by(col(Screenshot.created_at).asc())
                 .first()
             )
-            shot_count = session.query(Screenshot).filter(Screenshot.event_id == ev.id).count()
+            shot_count = session.query(Screenshot).filter(col(Screenshot.event_id) == ev.id).count()
             return {
                 "id": ev.id,
                 "app_name": ev.app_name,
@@ -228,7 +231,7 @@ def get_events_by_ids(db_base: DatabaseBase, event_ids: list[int]) -> list[dict[
 
     try:
         with db_base.get_session() as session:
-            events = session.query(Event).filter(Event.id.in_(event_ids)).all()
+            events = session.query(Event).filter(col(Event.id).in_(event_ids)).all()
             if not events:
                 return []
 
@@ -242,11 +245,13 @@ def get_events_by_ids(db_base: DatabaseBase, event_ids: list[int]) -> list[dict[
 
                 first_shot = (
                     session.query(Screenshot)
-                    .filter(Screenshot.event_id == ev.id)
-                    .order_by(Screenshot.created_at.asc())
+                    .filter(col(Screenshot.event_id) == ev.id)
+                    .order_by(col(Screenshot.created_at).asc())
                     .first()
                 )
-                shot_count = session.query(Screenshot).filter(Screenshot.event_id == ev.id).count()
+                shot_count = (
+                    session.query(Screenshot).filter(col(Screenshot.event_id) == ev.id).count()
+                )
 
                 results.append(
                     {
@@ -272,7 +277,7 @@ def get_event_id_by_screenshot(db_base: DatabaseBase, screenshot_id: int) -> int
     """根据截图ID获取所属事件ID"""
     try:
         with db_base.get_session() as session:
-            s = session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+            s = session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
             return int(s.event_id) if s and s.event_id is not None else None
     except SQLAlchemyError as e:
         logger.error(f"查询截图所属事件失败: {e}")
@@ -285,9 +290,9 @@ def get_event_text(db_base: DatabaseBase, event_id: int) -> str:
         with db_base.get_session() as session:
             ocr_list = (
                 session.query(OCRResult)
-                .join(Screenshot, OCRResult.screenshot_id == Screenshot.id)
-                .filter(Screenshot.event_id == event_id)
-                .order_by(OCRResult.created_at.asc())
+                .join(Screenshot, col(OCRResult.screenshot_id) == col(Screenshot.id))
+                .filter(col(Screenshot.event_id) == event_id)
+                .order_by(col(OCRResult.created_at).asc())
                 .all()
             )
             texts = [o.text_content for o in ocr_list if o and o.text_content]

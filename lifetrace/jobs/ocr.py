@@ -10,6 +10,7 @@ from functools import lru_cache
 from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
 from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path
 from lifetrace.util.settings import settings
@@ -55,11 +56,13 @@ def get_unprocessed_screenshots(logger_instance=None, limit=50):
             unprocessed = (
                 session.query(Screenshot)
                 .filter(
-                    ~session.query(OCRResult)
-                    .filter(OCRResult.screenshot_id == Screenshot.id)
-                    .exists()
+                    ~col(
+                        session.query(OCRResult)
+                        .filter(col(OCRResult.screenshot_id) == col(Screenshot.id))
+                        .exists()
+                    )
                 )
-                .order_by(Screenshot.created_at.desc())
+                .order_by(col(Screenshot.created_at).desc())
                 .limit(limit)
                 .all()
             )

@@ -16,6 +16,7 @@ from functools import lru_cache, wraps
 
 import imagehash
 import mss
+from mss import tools as mss_tools
 from PIL import Image
 
 from lifetrace.llm.auto_todo_detection_service import get_whitelist_apps
@@ -166,7 +167,7 @@ class TodoScreenRecorder:
 
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="保存截图文件")
         def _do_save():
-            mss.tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
+            mss_tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
             return True
 
         try:

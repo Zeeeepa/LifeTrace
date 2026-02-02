@@ -84,7 +84,7 @@ class AutoTodoDetectionService:
                 logger.warning(f"截图 {screenshot_id} 不存在")
                 return {"created_count": 0, "todos": []}
 
-            app_name = screenshot.get("app_name")
+            app_name = screenshot.get("app_name") or ""
             window_title = screenshot.get("window_title", "")
 
             # 检查是否为白名单应用

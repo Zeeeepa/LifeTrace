@@ -41,6 +41,8 @@ def get_session():
 # 数据库会话生成器（用于依赖注入）
 def get_db():
     """获取数据库会话的生成器函数"""
+    if SessionLocal is None:
+        raise RuntimeError("Database session factory is not initialized.")
     session = SessionLocal()
     try:
         yield session

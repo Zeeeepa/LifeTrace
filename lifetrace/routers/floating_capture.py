@@ -4,9 +4,14 @@ import json
 import re
 import time
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import APIRouter, HTTPException
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.schemas.floating_capture import (
@@ -267,7 +272,7 @@ def _call_vision_model_with_base64(
             {"type": "text", "text": full_prompt},
         ]
 
-        messages = [{"role": "user", "content": content}]
+        messages = cast("list[ChatCompletionMessageParam]", [{"role": "user", "content": content}])
 
         prep_time = time.time() - step_start
         logger.info(f"  ⏱️ 构建请求准备: {prep_time:.3f}s")
@@ -282,7 +287,8 @@ def _call_vision_model_with_base64(
         # 调用模型
         api_start = time.time()
         try:
-            response = llm_client.client.chat.completions.create(
+            client = llm_client._get_client()
+            response = client.chat.completions.create(
                 model=vision_model,
                 messages=messages,
                 temperature=0.3,
