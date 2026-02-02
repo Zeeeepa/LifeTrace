@@ -43,10 +43,15 @@ export function ThemeStyleSelect() {
 
 	const options: { value: ColorTheme; label: string }[] = [
 		{ value: "catppuccin", label: t("catppuccin") },
+		{ value: "catppuccin-latte", label: t("catppuccin-latte") },
+		{ value: "catppuccin-frappe", label: t("catppuccin-frappe") },
+		{ value: "catppuccin-macchiato", label: t("catppuccin-macchiato") },
+		{ value: "catppuccin-mocha", label: t("catppuccin-mocha") },
 		{ value: "blue", label: t("blue") },
-		{ value: "nord", label: t("nord") },
-		{ value: "solarized", label: t("solarized") },
 		{ value: "neutral", label: t("neutral") },
+		{ value: "stone", label: t("stone") },
+		{ value: "zinc", label: t("zinc") },
+		{ value: "slate", label: t("slate") },
 	];
 
 	return (

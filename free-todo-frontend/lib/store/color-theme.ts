@@ -3,10 +3,15 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 export type ColorTheme =
 	| "catppuccin"
+	| "catppuccin-latte"
+	| "catppuccin-frappe"
+	| "catppuccin-macchiato"
+	| "catppuccin-mocha"
 	| "blue"
 	| "neutral"
-	| "nord"
-	| "solarized";
+	| "zinc"
+	| "stone"
+	| "slate";
 
 interface ColorThemeState {
 	colorTheme: ColorTheme;
@@ -16,10 +21,15 @@ interface ColorThemeState {
 const isValidColorTheme = (value: string | null): value is ColorTheme => {
 	return (
 		value === "catppuccin" ||
+		value === "catppuccin-latte" ||
+		value === "catppuccin-frappe" ||
+		value === "catppuccin-macchiato" ||
+		value === "catppuccin-mocha" ||
 		value === "blue" ||
 		value === "neutral" ||
-		value === "nord" ||
-		value === "solarized"
+		value === "zinc" ||
+		value === "stone" ||
+		value === "slate"
 	);
 };
 

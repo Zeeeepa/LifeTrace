@@ -5,10 +5,15 @@
 	},
 	"colorTheme": {
 		"catppuccin": "Catppuccin",
+		"catppuccin-latte": "Catppuccin Latte",
+		"catppuccin-frappe": "Catppuccin Frappe",
+		"catppuccin-macchiato": "Catppuccin Macchiato",
+		"catppuccin-mocha": "Catppuccin Mocha",
 		"blue": "Blue",
-		"nord": "Nord",
-		"solarized": "Solarized",
 		"neutral": "Neutral",
+		"stone": "Stone",
+		"zinc": "Zinc",
+		"slate": "Slate",
 		"label": "Theme Style"
 	},
 	"theme": {

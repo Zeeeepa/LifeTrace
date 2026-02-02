@@ -5,10 +5,15 @@
 	},
 	"colorTheme": {
 		"catppuccin": "Catppuccin",
+		"catppuccin-latte": "Catppuccin Latte",
+		"catppuccin-frappe": "Catppuccin Frappe",
+		"catppuccin-macchiato": "Catppuccin Macchiato",
+		"catppuccin-mocha": "Catppuccin Mocha",
 		"blue": "蓝色",
-		"nord": "Nord",
-		"solarized": "Solarized",
 		"neutral": "中性",
+		"stone": "Stone",
+		"zinc": "Zinc",
+		"slate": "Slate",
 		"label": "配色风格"
 	},
 	"theme": {
