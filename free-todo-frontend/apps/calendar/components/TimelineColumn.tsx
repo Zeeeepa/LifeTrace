@@ -19,6 +19,7 @@ import { TimelineTodoCard } from "./TimelineTodoCard";
 
 const MIN_ITEM_HEIGHT = 24;
 const DEADLINE_HEIGHT = 20;
+const MAX_TIMELINE_MINUTES = 24 * 60 - MINUTES_PER_SLOT;
 
 interface ResizePreview {
 	id: number;
@@ -160,6 +161,30 @@ export function TimelineColumn({
 		<div
 			ref={containerRef}
 			className={cn("relative h-full w-full", className)}
+			onClick={(event) => {
+				if (!onSlotPointerDown) return;
+				if (
+					(event.target as HTMLElement | null)?.closest("[data-timeline-item]")
+				) {
+					return;
+				}
+				const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+				const offset = event.clientY - rect.top;
+				const minutes = clampMinutes(
+					displayStart +
+						Math.round((offset / pxPerMinute) / MINUTES_PER_SLOT) *
+							MINUTES_PER_SLOT,
+					0,
+					MAX_TIMELINE_MINUTES,
+				);
+				onSlotPointerDown({
+					date,
+					minutes,
+					anchorRect: rect,
+					clientX: event.clientX,
+					clientY: event.clientY,
+				});
+			}}
 		>
 			<div className="absolute inset-0">
 				{slotMinutes.map((minutes) => (
@@ -169,7 +194,6 @@ export function TimelineColumn({
 						minutes={minutes}
 						height={slotHeight}
 						isHour={minutes % 60 === 0}
-						onSlotPointerDown={onSlotPointerDown}
 					/>
 				))}
 			</div>
