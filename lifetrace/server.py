@@ -69,9 +69,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LifeTrace API",
-    description="智能生活记录系统 API",
-    version="0.1.0",
+    title="FreeTodo API",
+    description="FreeTodo API (part of FreeU Project)",
+    version="0.1.2",
     lifespan=lifespan,
 )
 
