@@ -6,9 +6,16 @@
   "include": ["lifetrace", "scripts"],
   "exclude": [
     "**/__pycache__",
+    ".venv",
+    ".venv/**",
     "build",
+    "build/**",
     "dist",
+    "dist/**",
+    "lifetrace/dist",
+    "lifetrace/dist/**",
     "lifetrace/data",
+    "lifetrace/data/**",
     "lifetrace/migrations/versions"
   ],
   "reportMissingTypeStubs": "none"
