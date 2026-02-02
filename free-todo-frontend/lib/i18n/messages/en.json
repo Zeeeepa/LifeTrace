@@ -548,6 +548,9 @@
 	},
 	"datePicker": {
 		"time": "Time",
+		"timeRange": "Time range",
+		"startTime": "Start",
+		"endTime": "End",
 		"clear": "Clear",
 		"confirm": "Confirm"
 	},

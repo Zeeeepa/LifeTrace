@@ -548,6 +548,9 @@
 	},
 	"datePicker": {
 		"time": "时间",
+		"timeRange": "时间段",
+		"startTime": "开始时间",
+		"endTime": "结束时间",
 		"clear": "清除",
 		"confirm": "确定"
 	},

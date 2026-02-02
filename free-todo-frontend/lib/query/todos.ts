@@ -38,8 +38,9 @@ const normalizeStatus = (status: unknown): TodoStatus => {
 function normalizeDeadline(
 	deadline?: string | null,
 ): string | null | undefined {
-	// 如果 deadline 为 null 或 undefined，返回 null（显式清空）
-	if (deadline === null || deadline === undefined) return null;
+	// undefined 表示不更新；null 表示显式清空
+	if (deadline === undefined) return undefined;
+	if (deadline === null) return null;
 	// 兼容 <input type="date"> 的 YYYY-MM-DD（后端期望 datetime）
 	if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
 		return `${deadline}T00:00:00`;

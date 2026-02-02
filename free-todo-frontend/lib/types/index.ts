@@ -62,9 +62,9 @@ export interface UpdateTodoInput {
 	userNotes?: string;
 	status?: TodoStatus;
 	priority?: TodoPriority;
-	deadline?: string;
-	startTime?: string;
-	endTime?: string;
+	deadline?: string | null;
+	startTime?: string | null;
+	endTime?: string | null;
 	reminderOffsets?: number[] | null;
 	order?: number;
 	tags?: string[];
