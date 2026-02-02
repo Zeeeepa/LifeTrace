@@ -34,14 +34,14 @@ export const LAYOUT_PRESETS: LayoutPreset[] = [
 		id: "lifetrace",
 		name: "LifeTrace 模式",
 		panelFeatureMap: {
-			panelA: "diary",
-			panelB: "activity",
-			panelC: "debugShots",
+			panelA: "activity",
+			panelB: "debugShots",
+			panelC: null,
 		},
-		isPanelAOpen: false,
+		isPanelAOpen: true,
 		isPanelBOpen: true,
-		isPanelCOpen: true,
-		panelAWidth: 0.5, // 当 panelA 关闭时，这个值不影响布局
-		panelCWidth: 1 / 3, // panelC 占右边 1/3，panelB 自动占左边 2/3
+		isPanelCOpen: false,
+		panelAWidth: 2 / 3, // 当 panelA 关闭时，这个值不影响布局
+		panelCWidth: 1 / 4,
 	},
 ];
