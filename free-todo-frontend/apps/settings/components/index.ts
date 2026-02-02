@@ -8,7 +8,17 @@ export { OnboardingSection } from "./OnboardingSection";
 export { PanelSwitchesSection } from "./PanelSwitchesSection";
 export { RecorderConfigSection } from "./RecorderConfigSection";
 export { SchedulerSection } from "./SchedulerSection";
-export { SettingsSection } from "./SettingsSection";
+export {
+	type SettingsCategory,
+	type SettingsCategoryId,
+	SettingsCategoryPanel,
+} from "./SettingsCategoryPanel";
+export { SettingsSearchAction } from "./SettingsSearchAction";
+export {
+	SettingsSearchMatchProvider,
+	SettingsSearchProvider,
+	SettingsSection,
+} from "./SettingsSection";
 export { TavilyConfigSection } from "./TavilyConfigSection";
 export { ToggleSwitch } from "./ToggleSwitch";
 export { VersionInfoSection } from "./VersionInfoSection";

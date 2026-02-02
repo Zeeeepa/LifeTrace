@@ -45,6 +45,9 @@ export function PanelSwitchesSection({
 	const regularPanels = availablePanels.filter(
 		(feature) => !DEV_IN_PROGRESS_FEATURES.includes(feature),
 	);
+	const panelKeywords = [...regularPanels, ...devPanels].map(
+		(feature) => tBottomDock(feature) || feature,
+	);
 
 	// 面板开关处理
 	const handleTogglePanel = async (feature: PanelFeature, enabled: boolean) => {
@@ -69,6 +72,7 @@ export function PanelSwitchesSection({
 		<SettingsSection
 			title={tSettings("panelSwitchesTitle")}
 			description={tSettings("panelSwitchesDescription")}
+			searchKeywords={panelKeywords}
 		>
 			<div className="space-y-3">
 				{regularPanels.map((feature) => {
