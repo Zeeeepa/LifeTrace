@@ -1,7 +1,6 @@
 """OCR管理器 - 负责OCR结果相关的数据库操作"""
 
 import hashlib
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -9,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import OCRResult, Screenshot
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -37,7 +37,11 @@ class OCRManager:
         """添加OCR结果"""
         try:
             normalized = _normalize_text(text_content)
-            text_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest() if normalized else None
+            text_hash = (
+                hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
+                if normalized
+                else None
+            )
 
             with self.db_base.get_session() as session:
                 ocr_result = OCRResult(
@@ -56,7 +60,7 @@ class OCRManager:
                 screenshot = session.query(Screenshot).filter_by(id=screenshot_id).first()
                 if screenshot:
                     screenshot.is_processed = True
-                    screenshot.processed_at = datetime.now()
+                    screenshot.processed_at = get_utc_now()
 
                 logger.debug(f"添加OCR结果: {ocr_result.id}, text_hash={text_hash}")
                 return ocr_result.id

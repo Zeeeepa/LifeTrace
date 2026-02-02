@@ -16,6 +16,7 @@ from lifetrace.storage import ocr_mgr, todo_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -28,7 +29,7 @@ def _compute_text_hash(text_content: str) -> str | None:
     normalized = " ".join((text_content or "").strip().split())
     if not normalized:
         return None
-    return hashlib.md5(normalized.encode("utf-8")).hexdigest()
+    return hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 class OCRTodoExtractor:
@@ -196,7 +197,7 @@ class OCRTodoExtractor:
                             "timestamp": now_ts,
                             "todos_raw": todos,
                         }
-                    except Exception as e:  # noqa: BLE001
+                    except Exception as e:
                         logger.error(
                             f"解析基于 OCR 文本的 LLM 响应失败: {e}\n原始响应: {response_text[:200]}"
                         )
@@ -221,12 +222,9 @@ class OCRTodoExtractor:
                         if not name:
                             continue
                         deadline = t.get("deadline")
-                        if isinstance(deadline, datetime):
-                            time_key = deadline.isoformat()
-                        else:
-                            time_key = None
+                        time_key = deadline.isoformat() if isinstance(deadline, datetime) else None
                         dedupe_keys.add((name, time_key))
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.warning(f"构建去重集合失败，将跳过本地去重逻辑: {e}")
 
                 # 基于 LLM 返回的 todos 创建 draft 状态的待办
@@ -250,8 +248,8 @@ class OCRTodoExtractor:
                         scheduled_time = None
                         if isinstance(time_info, dict) and time_info:
                             try:
-                                scheduled_time = calculate_scheduled_time(time_info, datetime.now())
-                            except Exception as e:  # noqa: BLE001
+                                scheduled_time = calculate_scheduled_time(time_info, get_utc_now())
+                            except Exception as e:
                                 logger.warning(f"计算 OCR 文本待办 scheduled_time 失败: {e}")
 
                         # 使用 (标题 + 时间) 进行本地去重，避免重复创建同一待办
@@ -270,7 +268,7 @@ class OCRTodoExtractor:
                                 continue
                             # 将当前 key 加入去重集合，避免本批次内重复
                             dedupe_keys.add(key)
-                        except Exception as e:  # noqa: BLE001
+                        except Exception as e:
                             logger.warning(f"本地去重检查失败，仍然尝试创建待办: {e}")
 
                         source_text = (todo_data.get("source_text") or "").strip()
@@ -320,7 +318,7 @@ class OCRTodoExtractor:
                             logger.warning(
                                 f"基于 OCR 文本创建待办失败（create_todo 返回 None）: {title}"
                             )
-                    except Exception as e:  # noqa: BLE001
+                    except Exception as e:
                         logger.error(
                             f"处理 OCR 文本待办数据失败: {e}, 数据: {todo_data}",
                             exc_info=True,
@@ -334,7 +332,7 @@ class OCRTodoExtractor:
                     "created_count": created_count,
                     "created_todos": created_todos,
                 }
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 logger.error(f"处理 OCR 文本待办创建逻辑失败: {e}", exc_info=True)
                 return {
                     "ocr_result_id": ocr_result_id,
@@ -345,7 +343,7 @@ class OCRTodoExtractor:
                     "created_todos": [],
                 }
 
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"基于 OCR 文本的待办提取失败: {e}", exc_info=True)
             return {
                 "ocr_result_id": ocr_result_id,

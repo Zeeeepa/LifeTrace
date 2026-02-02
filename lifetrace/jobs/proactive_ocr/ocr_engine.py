@@ -58,6 +58,8 @@ class OcrEngine:
             raise ImportError(
                 "rapidocr-onnxruntime not available. Install with: uv add rapidocr-onnxruntime"
             )
+        if RapidOCR is None:
+            raise ImportError("RapidOCR backend is not available")
 
         # 配置参数
         init_params = {
@@ -87,6 +89,11 @@ class OcrEngine:
         if not CV2_AVAILABLE:
             logger.warning("OpenCV not available, skipping image resize")
             return image, 1.0
+        if cv2 is None:
+            logger.warning("OpenCV not available, skipping image resize")
+            return image, 1.0
+
+        cv2_local = cv2
 
         h, w = image.shape[:2]
         max_dim = max(h, w)
@@ -98,7 +105,7 @@ class OcrEngine:
         new_w = int(w * scale)
         new_h = int(h * scale)
 
-        resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        resized = cv2_local.resize(image, (new_w, new_h), interpolation=cv2_local.INTER_AREA)
         return resized, scale
 
     def ocr(self, image: np.ndarray) -> OcrRawResult:
@@ -158,8 +165,8 @@ class OcrEngine:
                 score = item[2]
 
                 # 转换bbox为BBox格式（考虑缩放）
-                x_coords = [p[0] for p in bbox_points]
-                y_coords = [p[1] for p in bbox_points]
+                x_coords = [float(p[0]) for p in bbox_points]
+                y_coords = [float(p[1]) for p in bbox_points]
                 x_min = int(min(x_coords) / scale)
                 y_min = int(min(y_coords) / scale)
                 x_max = int(max(x_coords) / scale)
@@ -172,7 +179,7 @@ class OcrEngine:
                     height=y_max - y_min,
                 )
 
-                lines.append(OcrLine(text=text, score=score, bbox_px=bbox))
+                lines.append(OcrLine(text=text, score=float(score), bbox_px=bbox))
 
         return OcrRawResult(
             lines=lines,

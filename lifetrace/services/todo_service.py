@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from lifetrace.repositories.interfaces import ITodoRepository
-from lifetrace.schemas.todo import TodoCreate, TodoResponse, TodoUpdate
+from lifetrace.schemas.todo import TodoAttachmentResponse, TodoCreate, TodoResponse, TodoUpdate
 from lifetrace.storage.notification_storage import (
     clear_dismissed_mark,
     clear_notification_by_todo_id,
@@ -109,3 +109,43 @@ class TodoService:
         if not self.repository.reorder(items):
             raise HTTPException(status_code=500, detail="批量重排序失败")
         return {"success": True, "message": f"成功更新 {len(items)} 个待办的排序"}
+
+    def add_attachment(
+        self,
+        *,
+        todo_id: int,
+        file_name: str,
+        file_path: str,
+        file_size: int | None,
+        mime_type: str | None,
+        file_hash: str | None,
+        source: str = "user",
+    ) -> TodoAttachmentResponse:
+        if not self.repository.get_by_id(todo_id):
+            raise HTTPException(status_code=404, detail="todo 不存在")
+
+        attachment = self.repository.add_attachment(
+            todo_id=todo_id,
+            file_name=file_name,
+            file_path=file_path,
+            file_size=file_size,
+            mime_type=mime_type,
+            file_hash=file_hash,
+            source=source,
+        )
+        if not attachment:
+            raise HTTPException(status_code=500, detail="创建附件失败")
+
+        return TodoAttachmentResponse(**attachment)
+
+    def remove_attachment(self, *, todo_id: int, attachment_id: int) -> None:
+        if not self.repository.get_by_id(todo_id):
+            raise HTTPException(status_code=404, detail="todo 不存在")
+        if not self.repository.remove_attachment(todo_id=todo_id, attachment_id=attachment_id):
+            raise HTTPException(status_code=404, detail="附件不存在或已解绑")
+
+    def get_attachment(self, attachment_id: int) -> dict[str, Any]:
+        attachment = self.repository.get_attachment(attachment_id)
+        if not attachment:
+            raise HTTPException(status_code=404, detail="附件不存在")
+        return attachment

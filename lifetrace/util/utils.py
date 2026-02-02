@@ -1,11 +1,15 @@
 import hashlib
+import importlib
 import os
 import platform
-import subprocess
-from datetime import datetime, timedelta
+import shutil
+import subprocess  # nosec B404
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -25,27 +29,24 @@ except ImportError:
     win32gui = None
     win32process = None
 
-try:
-    from AppKit import NSScreen, NSWorkspace
-except ImportError:
-    NSScreen = None
-    NSWorkspace = None
 
-try:
-    from Quartz import (
-        CGWindowListCopyWindowInfo,
-        kCGNullWindowID,
-        kCGWindowListOptionOnScreenOnly,
-    )
-except ImportError:
-    CGWindowListCopyWindowInfo = None
-    kCGNullWindowID = None
-    kCGWindowListOptionOnScreenOnly = None
+def _load_appkit() -> Any | None:
+    try:
+        return importlib.import_module("AppKit")
+    except Exception:
+        return None
+
+
+def _load_quartz() -> Any | None:
+    try:
+        return importlib.import_module("Quartz")
+    except Exception:
+        return None
 
 
 def get_file_hash(file_path: str) -> str:
     """计算文件MD5哈希值"""
-    hash_md5 = hashlib.md5()
+    hash_md5 = hashlib.md5(usedforsecurity=False)
     try:
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -106,19 +107,21 @@ def _get_windows_active_window() -> tuple[str | None, str | None]:
 def _get_macos_active_window() -> tuple[str | None, str | None]:
     """获取macOS活跃窗口信息"""
     try:
-        if NSWorkspace is None or CGWindowListCopyWindowInfo is None:
+        appkit = _load_appkit()
+        quartz = _load_quartz()
+        if appkit is None or quartz is None:
             logger.warning("macOS依赖未安装，无法获取窗口信息")
             return None, None
 
         # 获取活跃应用
-        workspace = NSWorkspace.sharedWorkspace()
+        workspace = appkit.NSWorkspace.sharedWorkspace()
         active_app = workspace.activeApplication()
         app_name = active_app.get("NSApplicationName", None) if active_app else None
 
         # 获取窗口标题
         try:
-            window_list = CGWindowListCopyWindowInfo(
-                kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+            window_list = quartz.CGWindowListCopyWindowInfo(
+                quartz.kCGWindowListOptionOnScreenOnly, quartz.kCGNullWindowID
             )
             if window_list:
                 for window in window_list:
@@ -158,9 +161,10 @@ def get_active_window_screen() -> int | None:
 
 def _get_macos_active_app_name() -> str | None:
     """获取macOS活跃应用名称"""
-    if NSWorkspace is None:
+    appkit = _load_appkit()
+    if appkit is None:
         return None
-    workspace = NSWorkspace.sharedWorkspace()
+    workspace = appkit.NSWorkspace.sharedWorkspace()
     active_app = workspace.activeApplication()
     if not active_app:
         return None
@@ -169,9 +173,12 @@ def _get_macos_active_app_name() -> str | None:
 
 def _get_macos_active_window_bounds(app_name: str) -> dict | None:
     """获取macOS活跃窗口的边界"""
-    if CGWindowListCopyWindowInfo is None:
+    quartz = _load_quartz()
+    if quartz is None:
         return None
-    window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
+    window_list = quartz.CGWindowListCopyWindowInfo(
+        quartz.kCGWindowListOptionOnScreenOnly, quartz.kCGNullWindowID
+    )
     if not window_list:
         return None
 
@@ -215,7 +222,8 @@ def _find_screen_for_window_center(window_center: tuple[float, float], screens: 
 def _get_macos_active_window_screen() -> int | None:
     """获取macOS活跃窗口所在的屏幕ID"""
     try:
-        if NSScreen is None:
+        appkit = _load_appkit()
+        if appkit is None:
             logger.warning("macOS依赖未安装，无法获取屏幕信息")
             return None
         app_name = _get_macos_active_app_name()
@@ -233,7 +241,7 @@ def _get_macos_active_window_screen() -> int | None:
         window_height = active_window_bounds.get("Height", 0)
         window_center = (window_x + window_width / 2, window_y + window_height / 2)
 
-        screens = NSScreen.screens()
+        screens = appkit.NSScreen.screens()
         if not screens:
             return DEFAULT_SCREEN_ID
 
@@ -272,7 +280,8 @@ def _get_windows_active_window_screen() -> int | None:
 
         # 遍历所有显示器，找到包含窗口中心点的显示器
         for i, monitor in enumerate(monitors):
-            monitor_info = win32api.GetMonitorInfo(monitor[0])
+            monitor_handle = cast("int", monitor[0])
+            monitor_info = win32api.GetMonitorInfo(monitor_handle)
             monitor_rect = monitor_info["Monitor"]
 
             if (
@@ -326,11 +335,14 @@ def _find_linux_screen_for_position(x: int, y: int, xrandr_stdout: str) -> int:
     return DEFAULT_SCREEN_ID
 
 
-def _get_linux_active_window_screen() -> int | None:
+def _get_linux_active_window_screen() -> int | None:  # noqa: PLR0911
     """获取Linux活跃窗口所在的屏幕ID"""
     try:
-        result = subprocess.run(
-            ["xdotool", "getactivewindow", "getwindowgeometry"],
+        xdotool_path = shutil.which("xdotool")
+        if not xdotool_path:
+            return DEFAULT_SCREEN_ID
+        result = subprocess.run(  # nosec B603
+            [xdotool_path, "getactivewindow", "getwindowgeometry"],
             capture_output=True,
             text=True,
             check=False,
@@ -343,8 +355,11 @@ def _get_linux_active_window_screen() -> int | None:
         if not position:
             return DEFAULT_SCREEN_ID
 
-        xrandr_result = subprocess.run(
-            ["xrandr", "--current"],
+        xrandr_path = shutil.which("xrandr")
+        if not xrandr_path:
+            return DEFAULT_SCREEN_ID
+        xrandr_result = subprocess.run(  # nosec B603
+            [xrandr_path, "--current"],
             capture_output=True,
             text=True,
             check=False,
@@ -363,9 +378,12 @@ def _get_linux_active_window_screen() -> int | None:
 def _get_linux_active_window() -> tuple[str | None, str | None]:
     """获取Linux活跃窗口信息"""
     try:
+        xprop_path = shutil.which("xprop")
+        if not xprop_path:
+            return None, None
         # 使用xprop获取活跃窗口ID
-        result = subprocess.run(
-            ["xprop", "-root", "_NET_ACTIVE_WINDOW"],
+        result = subprocess.run(  # nosec B603
+            [xprop_path, "-root", "_NET_ACTIVE_WINDOW"],
             capture_output=True,
             text=True,
             check=False,
@@ -374,8 +392,8 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
             window_id = result.stdout.strip().split()[-1]
 
             # 获取窗口标题
-            title_result = subprocess.run(
-                ["xprop", "-id", window_id, "WM_NAME"],
+            title_result = subprocess.run(  # nosec B603
+                [xprop_path, "-id", window_id, "WM_NAME"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -388,8 +406,8 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
                 )
 
                 # 获取应用名称
-                class_result = subprocess.run(
-                    ["xprop", "-id", window_id, "WM_CLASS"],
+                class_result = subprocess.run(  # nosec B603
+                    [xprop_path, "-id", window_id, "WM_CLASS"],
                     capture_output=True,
                     text=True,
                     check=False,
@@ -413,18 +431,19 @@ def format_file_size(size_bytes: int) -> str:
         return "0 B"
 
     size_names = ["B", "KB", "MB", "GB", "TB"]
+    size_value = float(size_bytes)
     i = 0
-    while size_bytes >= BYTES_PER_KB and i < len(size_names) - 1:
-        size_bytes /= float(BYTES_PER_KB)
+    while size_value >= BYTES_PER_KB and i < len(size_names) - 1:
+        size_value /= float(BYTES_PER_KB)
         i += 1
 
-    return f"{size_bytes:.1f} {size_names[i]}"
+    return f"{size_value:.1f} {size_names[i]}"
 
 
 def get_screenshot_filename(screen_id: int = 0, timestamp: datetime | None = None) -> str:
     """生成截图文件名"""
     if timestamp is None:
-        timestamp = datetime.now()
+        timestamp = get_utc_now()
 
     return f"screen_{screen_id}_{timestamp.strftime('%Y%m%d_%H%M%S_%f')[:-3]}.png"
 
@@ -434,11 +453,11 @@ def cleanup_old_files(directory: str, max_days: int):
     if max_days <= 0:
         return
 
-    cutoff_time = datetime.now() - timedelta(days=max_days)
+    cutoff_time = get_utc_now() - timedelta(days=max_days)
 
     for file_path in Path(directory).glob("*.png"):
         try:
-            if datetime.fromtimestamp(file_path.stat().st_mtime) < cutoff_time:
+            if datetime.fromtimestamp(file_path.stat().st_mtime, tz=UTC) < cutoff_time:
                 file_path.unlink()
                 logger.info(f"清理旧文件: {file_path}")
         except Exception as e:

@@ -102,8 +102,8 @@ class ASRDashScopeClient:
 
             def on_event(self, result: RecognitionResult) -> None:
                 sentence = result.get_sentence()
-                if "text" in sentence:
-                    text = sentence["text"]
+                if isinstance(sentence, dict) and "text" in sentence:
+                    text = str(sentence.get("text", ""))
                     is_final = RecognitionResult.is_sentence_end(sentence)
                     if text and self.result_cb:
                         self.result_cb(text, is_final)

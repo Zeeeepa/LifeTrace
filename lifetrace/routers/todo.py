@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
+from pathlib import Path as FsPath
+from typing import TYPE_CHECKING
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Response, UploadFile
+from fastapi.responses import FileResponse
 
 from lifetrace.core.dependencies import get_todo_service
 from lifetrace.schemas.todo import (
+    TodoAttachmentResponse,
     TodoCreate,
     TodoListResponse,
     TodoReorderRequest,
@@ -13,9 +21,17 @@ from lifetrace.schemas.todo import (
     TodoUpdate,
 )
 from lifetrace.services.icalendar_service import ICalendarService
-from lifetrace.services.todo_service import TodoService
+from lifetrace.util.path_utils import get_attachments_dir
+
+if TYPE_CHECKING:
+    from lifetrace.services.todo_service import TodoService
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
+MAX_ATTACHMENT_SIZE = 50 * 1024 * 1024  # 50MB
+
+
+def _sanitize_filename(name: str) -> str:
+    return FsPath(name).name if name else "attachment"
 
 
 @router.get("", response_model=TodoListResponse)
@@ -38,6 +54,85 @@ async def get_todo(
     return service.get_todo(todo_id)
 
 
+@router.post(
+    "/{todo_id}/attachments",
+    response_model=list[TodoAttachmentResponse],
+    status_code=201,
+)
+async def upload_attachments(
+    todo_id: int = Path(..., description="Todo ID"),
+    files: list[UploadFile] = File(..., description="附件列表"),
+    service: TodoService = Depends(get_todo_service),
+):
+    """上传附件并绑定到 Todo"""
+    if not files:
+        raise HTTPException(status_code=400, detail="未提供附件")
+
+    attachments_dir = get_attachments_dir()
+    attachments_dir.mkdir(parents=True, exist_ok=True)
+
+    created = []
+    for file in files:
+        if not file.filename:
+            continue
+
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="附件内容为空")
+
+        size = len(content)
+        if size > MAX_ATTACHMENT_SIZE:
+            raise HTTPException(status_code=413, detail="附件超过 50MB 限制")
+
+        file_name = _sanitize_filename(file.filename)
+        ext = FsPath(file_name).suffix
+        storage_name = f"{uuid4().hex}{ext}"
+        target_path = attachments_dir / storage_name
+        target_path.write_bytes(content)
+
+        file_hash = hashlib.sha256(content).hexdigest()
+        created.append(
+            service.add_attachment(
+                todo_id=todo_id,
+                file_name=file_name,
+                file_path=str(target_path),
+                file_size=size,
+                mime_type=file.content_type,
+                file_hash=file_hash,
+            )
+        )
+
+    return created
+
+
+@router.delete("/{todo_id}/attachments/{attachment_id}", status_code=204)
+async def delete_attachment(
+    todo_id: int = Path(..., description="Todo ID"),
+    attachment_id: int = Path(..., description="附件 ID"),
+    service: TodoService = Depends(get_todo_service),
+):
+    """解绑附件（不删除实际文件）"""
+    service.remove_attachment(todo_id=todo_id, attachment_id=attachment_id)
+
+
+@router.get("/attachments/{attachment_id}/file")
+async def get_attachment_file(
+    attachment_id: int = Path(..., description="附件 ID"),
+    service: TodoService = Depends(get_todo_service),
+):
+    """下载附件文件"""
+    attachment = service.get_attachment(attachment_id)
+    file_path = attachment["file_path"]
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="附件文件不存在")
+
+    return FileResponse(
+        file_path,
+        media_type=attachment.get("mime_type") or "application/octet-stream",
+        filename=attachment.get("file_name") or f"attachment-{attachment_id}",
+    )
+
+
 @router.post("", response_model=TodoResponse, status_code=201)
 async def create_todo(
     todo: TodoCreate,
@@ -50,10 +145,12 @@ async def create_todo(
 @router.put("/{todo_id}", response_model=TodoResponse)
 async def update_todo(
     todo_id: int = Path(..., description="Todo ID"),
-    todo: TodoUpdate = None,
+    todo: TodoUpdate | None = None,
     service: TodoService = Depends(get_todo_service),
 ):
     """更新待办"""
+    if todo is None:
+        raise HTTPException(status_code=400, detail="缺少待办更新内容")
     return service.update_todo(todo_id, todo)
 
 

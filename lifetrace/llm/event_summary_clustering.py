@@ -144,7 +144,7 @@ def cluster_ocr_texts_with_hdbscan(ocr_texts: list[str], vector_service) -> list
                 min_samples=1,
                 metric="precomputed",
             )
-            cluster_labels = clusterer.fit_predict(distance_matrix)
+            cluster_labels = clusterer.fit_predict(distance_matrix).tolist()
         else:
             logger.warning("scipy不可用，使用欧氏距离替代余弦距离")
             clusterer = hdbscan.HDBSCAN(
@@ -152,7 +152,7 @@ def cluster_ocr_texts_with_hdbscan(ocr_texts: list[str], vector_service) -> list
                 min_samples=1,
                 metric="euclidean",
             )
-            cluster_labels = clusterer.fit_predict(embeddings_array)
+            cluster_labels = clusterer.fit_predict(embeddings_array).tolist()
 
         representative_texts = select_representative_texts(cluster_labels, valid_texts)
         return representative_texts or valid_texts

@@ -13,11 +13,13 @@ from typing import Any
 
 import imagehash
 import mss
+from mss import tools as mss_tools
 from PIL import Image
 
 from lifetrace.storage import event_mgr, screenshot_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 from lifetrace.util.utils import get_screenshot_filename
 
 from .recorder_config import UNKNOWN_APP, UNKNOWN_WINDOW, with_timeout
@@ -48,7 +50,7 @@ class ScreenshotCapture:
 
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="保存截图文件")
         def _do_save():
-            mss.tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
+            mss_tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
             return True
 
         try:
@@ -79,7 +81,7 @@ class ScreenshotCapture:
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="计算文件哈希")
         def _do_calculate_hash():
             with open(file_path, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()
+                return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
         try:
             result = _do_calculate_hash()
@@ -182,11 +184,11 @@ class ScreenshotCapture:
         with mss.mss() as sct:
             if screen_id >= len(sct.monitors):
                 logger.warning(f"[窗口 {screen_id}] 屏幕ID不存在")
-                return None, "", datetime.now()
+                return None, "", get_utc_now()
 
             monitor = sct.monitors[screen_id]
             screenshot = sct.grab(monitor)
-            timestamp = datetime.now()
+            timestamp = get_utc_now()
             filename = get_screenshot_filename(screen_id, timestamp)
             file_path = os.path.join(self.screenshots_dir, filename)
             return screenshot, file_path, timestamp
@@ -246,13 +248,13 @@ def get_unprocessed_files(screenshots_dir: str) -> list[str]:
 
 def extract_screen_id_from_path(file_path: str) -> int:
     """从文件名提取屏幕ID"""
-    MIN_FILENAME_PARTS = 2
+    min_filename_parts = 2
 
     try:
         filename = os.path.basename(file_path)
         if filename.startswith("screen_"):
             parts = filename.split("_")
-            if len(parts) >= MIN_FILENAME_PARTS:
+            if len(parts) >= min_filename_parts:
                 return int(parts[1])
     except (ValueError, IndexError):
         pass
@@ -303,8 +305,8 @@ def trigger_todo_detection_async(screenshot_id: int, _app_name: str):
     def _detect_todos():
         try:
             auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
-            AutoTodoDetectionService = auto_module.AutoTodoDetectionService
-            service = AutoTodoDetectionService()
+            auto_todo_detection_service_class = auto_module.AutoTodoDetectionService
+            service = auto_todo_detection_service_class()
             result = service.detect_and_create_todos_from_screenshot(screenshot_id)
             logger.info(
                 f"截图 {screenshot_id} 待办检测完成，创建 {result.get('created_count', 0)} 个draft待办"

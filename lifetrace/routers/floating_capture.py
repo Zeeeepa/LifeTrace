@@ -3,11 +3,15 @@
 import json
 import re
 import time
-from datetime import datetime
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import APIRouter, HTTPException
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.schemas.floating_capture import (
@@ -21,6 +25,7 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -147,7 +152,7 @@ async def extract_todos_from_capture(request: FloatingCaptureRequest) -> Floatin
 
     except Exception as e:
         logger.error(f"处理悬浮窗截图失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"处理截图失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"处理截图失败: {e!s}") from e
 
 
 def _process_llm_response(response: Any, api_time: float) -> str | None:
@@ -267,7 +272,7 @@ def _call_vision_model_with_base64(
             {"type": "text", "text": full_prompt},
         ]
 
-        messages = [{"role": "user", "content": content}]
+        messages = cast("list[ChatCompletionMessageParam]", [{"role": "user", "content": content}])
 
         prep_time = time.time() - step_start
         logger.info(f"  ⏱️ 构建请求准备: {prep_time:.3f}s")
@@ -282,7 +287,8 @@ def _call_vision_model_with_base64(
         # 调用模型
         api_start = time.time()
         try:
-            response = llm_client.client.chat.completions.create(
+            client = llm_client._get_client()
+            response = client.chat.completions.create(
                 model=vision_model,
                 messages=messages,
                 temperature=0.3,
@@ -389,7 +395,7 @@ def _create_draft_todo(todo_data: dict[str, Any]) -> dict[str, Any] | None:
     scheduled_time = None
     if time_info:
         try:
-            reference_time = datetime.now()
+            reference_time = get_utc_now()
             scheduled_time = calculate_scheduled_time(time_info, reference_time)
         except Exception as e:
             logger.warning(f"计算 scheduled_time 失败: {e}")

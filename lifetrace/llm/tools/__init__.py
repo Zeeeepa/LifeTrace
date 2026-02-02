@@ -8,4 +8,4 @@ from lifetrace.llm.tools.web_search_tool import WebSearchTool
 tool_registry = ToolRegistry()
 tool_registry.register(WebSearchTool())
 
-__all__ = ["Tool", "ToolResult", "ToolRegistry", "tool_registry"]
+__all__ = ["Tool", "ToolRegistry", "ToolResult", "tool_registry"]

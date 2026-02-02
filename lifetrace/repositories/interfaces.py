@@ -147,6 +147,31 @@ class ITodoRepository(ABC):
         """批量重排序"""
         pass
 
+    @abstractmethod
+    def add_attachment(
+        self,
+        *,
+        todo_id: int,
+        file_name: str,
+        file_path: str,
+        file_size: int | None,
+        mime_type: str | None,
+        file_hash: str | None,
+        source: str = "user",
+    ) -> dict[str, Any] | None:
+        """新增附件并绑定到 todo"""
+        pass
+
+    @abstractmethod
+    def remove_attachment(self, *, todo_id: int, attachment_id: int) -> bool:
+        """解绑附件"""
+        pass
+
+    @abstractmethod
+    def get_attachment(self, attachment_id: int) -> dict[str, Any] | None:
+        """获取附件信息"""
+        pass
+
 
 class IJournalRepository(ABC):
     """Journal 仓库接口"""

@@ -254,6 +254,22 @@ Free Todo 的面板开关栏里有一些正在开发中的面板，这些面板�
 
 ## 开发指南
 
+### Git Hooks（Pre-commit）
+
+本仓库使用共享的 `.githooks/` 目录。每个 clone/worktree 只需执行一次：
+
+```bash
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
+
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
+
+> **注意**：不要在此仓库里运行 `pre-commit install`。仓库使用 `core.hooksPath`，因此 `pre-commit install` 会拒绝执行。
+
+更多细节请见： [.github/PRE_COMMIT_GUIDE_CN.md](.github/PRE_COMMIT_GUIDE_CN.md)
+
 ### 项目结构
 
 ```
@@ -263,6 +279,7 @@ Free Todo 的面板开关栏里有一些正在开发中的面板，这些面板�
 │   ├── FRONTEND_GUIDELINES.md  # 前端开发规范
 │   ├── CONTRIBUTING.md         # 贡献指南
 │   └── ...                     # 其他 GitHub 仓库文件
+├── .githooks/                  # 仓库内 Git hooks（pre-commit、post-checkout）
 ├── lifetrace/                  # 后端模块 (FastAPI)
 │   ├── server.py               # Web API 服务入口
 │   ├── config/                 # 配置文件

@@ -35,7 +35,7 @@ async def get_notification():
         return None
     except Exception as e:
         logger.error(f"获取通知失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取通知失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取通知失败: {e!s}") from e
 
 
 @router.delete("/{notification_id}")
@@ -58,4 +58,4 @@ async def delete_notification(notification_id: str):
         return {"success": False, "message": "通知不存在"}
     except Exception as e:
         logger.error(f"删除通知失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"删除通知失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"删除通知失败: {e!s}") from e

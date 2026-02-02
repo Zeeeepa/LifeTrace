@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now, to_utc
 
 logger = get_logger()
 
@@ -65,7 +66,7 @@ def _parse_iso_format(time_expression: str) -> tuple[datetime | None, bool]:
     try:
         result = datetime.fromisoformat(time_expression.replace("Z", "+00:00"))
         time_already_set = "T" in time_expression or " " in time_expression
-        return result, time_already_set
+        return to_utc(result), time_already_set
     except ValueError:
         return None, False
 
@@ -74,8 +75,8 @@ def _parse_date_formats(time_expression: str) -> tuple[datetime | None, bool]:
     """Try common date formats."""
     for fmt, has_time in DATE_FORMATS:
         try:
-            result = datetime.strptime(time_expression, fmt)
-            return result, has_time
+            result = datetime.strptime(time_expression, fmt).astimezone()
+            return to_utc(result), has_time
         except ValueError:
             continue
     return None, False
@@ -198,7 +199,7 @@ class TimeTools:
             Parsed ISO format datetime or error message
         """
         try:
-            now = datetime.now()
+            now = get_utc_now()
             expr = time_expression.lower()
             time_already_set = False
 

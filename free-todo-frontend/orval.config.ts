@@ -14,7 +14,7 @@ export default defineConfig({
 			mode: "tags-split", // 按 API tag 分割文件
 			override: {
 				mutator: {
-					path: "./lib/generated/fetcher.ts",
+					path: "./lib/api/fetcher.ts",
 					name: "customFetcher",
 				},
 				// 生成 Zod schemas

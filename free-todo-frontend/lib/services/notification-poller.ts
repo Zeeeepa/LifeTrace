@@ -1,3 +1,4 @@
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { getNotificationApiNotificationsGet } from "@/lib/generated/notifications/notifications";
 import { listTodosApiTodosGet } from "@/lib/generated/todos/todos";
 import type {
@@ -5,6 +6,7 @@ import type {
 	PollingEndpoint,
 } from "@/lib/store/notification-store";
 import { useNotificationStore } from "@/lib/store/notification-store";
+import type { TodoListResponse } from "@/lib/types";
 
 // 通知响应类型（后端 OpenAPI 未定义响应 schema，手动定义）
 interface NotificationResponse {
@@ -84,14 +86,19 @@ class NotificationPoller {
 			}
 
 			// 标准通知端点 - 使用 Orval 生成的 API
-			const response = (await getNotificationApiNotificationsGet()) as NotificationResponse | null;
-			if (response && (response.title || response.content)) {
+			const response = await getNotificationApiNotificationsGet();
+			const notificationData =
+				unwrapApiData<NotificationResponse | null>(response);
+			if (
+				notificationData &&
+				(notificationData.title || notificationData.content)
+			) {
 				// 转换为通知格式
 				const notification: Notification = {
-					id: response.id || `${endpoint.id}-${Date.now()}`,
-					title: response.title,
-					content: response.content,
-					timestamp: response.timestamp || new Date().toISOString(),
+					id: notificationData.id || `${endpoint.id}-${Date.now()}`,
+					title: notificationData.title,
+					content: notificationData.content,
+					timestamp: notificationData.timestamp || new Date().toISOString(),
 					source: endpoint.id,
 				};
 
@@ -139,6 +146,8 @@ class NotificationPoller {
 				limit,
 				offset: 0,
 			});
+			const data = unwrapApiData<TodoListResponse>(result);
+			const todos = data?.todos ?? [];
 
 			const store = useNotificationStore.getState();
 			const current = store.currentNotification;
@@ -149,8 +158,7 @@ class NotificationPoller {
 				current.source === endpoint.id &&
 				current.todoId !== undefined
 			) {
-				const todoExists =
-					result.todos?.some((todo) => todo.id === current.todoId) ?? false;
+				const todoExists = todos.some((todo) => todo.id === current.todoId);
 				// 如果 todo 不存在了，清除通知
 				if (!todoExists) {
 					store.setNotification(null);
@@ -159,16 +167,16 @@ class NotificationPoller {
 				}
 			}
 
-			if (result.todos && result.todos.length > 0) {
+			if (todos.length > 0) {
 				// 取最新的一个 todo
-				const latestTodo = result.todos[0];
+				const latestTodo = todos[0];
 
 				// 转换为通知格式
 				const notification: Notification = {
 					id: `draft-todo-${latestTodo.id}`,
 					title: "新待办事项待确认",
 					content: latestTodo.name || "待办事项",
-					timestamp: latestTodo.created_at || new Date().toISOString(),
+					timestamp: latestTodo.createdAt || new Date().toISOString(),
 					source: endpoint.id,
 					todoId: latestTodo.id, // 添加 todoId 以便后续操作
 				};

@@ -97,6 +97,8 @@ class DatabaseBase:
     def _create_performance_indexes(self):
         """创建性能优化索引"""
         try:
+            if self.engine is None:
+                raise RuntimeError("Database engine is not initialized.")
             with self.engine.connect() as conn:
                 # 获取现有索引列表（只获取索引名称）
                 existing_indexes = [
@@ -378,6 +380,8 @@ class DatabaseBase:
     @contextmanager
     def get_sqlalchemy_session(self):
         """获取 SQLAlchemy 会话上下文管理器（用于兼容旧代码）"""
+        if self.SessionLocal is None:
+            raise RuntimeError("Database session factory is not initialized.")
         session = self.SessionLocal()
         try:
             yield session
@@ -393,6 +397,8 @@ class DatabaseBase:
 # 数据库会话生成器（用于依赖注入）
 def get_db(db_base: DatabaseBase):
     """获取数据库会话的生成器函数"""
+    if db_base.SessionLocal is None:
+        raise RuntimeError("Database session factory is not initialized.")
     session = db_base.SessionLocal()
     try:
         yield session

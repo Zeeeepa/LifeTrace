@@ -17,7 +17,7 @@ export function VersionInfoSection() {
 	const versionString = `${version}_${buildType}_${gitCommit}`;
 
 	return (
-		<div className="mt-4 text-center text-sm text-muted-foreground">
+		<div className="text-center text-sm text-muted-foreground">
 			<span>{t("currentVersion")}：</span>
 			<span className="font-mono">{versionString}</span>
 		</div>

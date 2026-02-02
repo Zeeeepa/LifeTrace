@@ -158,13 +158,18 @@ class ICalendarService:
                     uid=uid,
                     name=summary,
                     description=description,
+                    user_notes=None,
+                    parent_todo_id=None,
                     start_time=dtstart,
                     deadline=due,
+                    end_time=None,
+                    reminder_offsets=None,
                     status=status,
                     priority=priority,
                     completed_at=completed_at,
                     percent_complete=percent_complete,
                     rrule=rrule,
+                    order=0,
                     tags=tags,
                 )
             )

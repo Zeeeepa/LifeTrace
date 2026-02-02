@@ -12,6 +12,7 @@ from sqlmodel import select
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.storage import get_session
 from lifetrace.storage.models import Transcription
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 
@@ -45,7 +46,7 @@ class AudioExtractionService:
                 str(item.get("deadline") or item.get("time") or ""),
             ]
         )
-        digest = hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(base.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
         return f"{prefix}_{digest}"
 
     def _enrich_extracted_items(self, prefix: str, items: list[dict]) -> list[dict]:
@@ -251,7 +252,7 @@ class AudioExtractionService:
             statement = (
                 select(Transcription)
                 .where(Transcription.audio_recording_id == recording_id)
-                .order_by(Transcription.id.desc())
+                .order_by(col(Transcription.id).desc())
             )
             transcription = session.exec(statement).first()
             if not transcription:
@@ -383,7 +384,8 @@ class AudioExtractionService:
             client = self.llm_client
             client._initialize_client()
 
-            response = client.client.chat.completions.create(
+            openai_client = client._get_client()
+            response = openai_client.chat.completions.create(
                 model=client.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -393,7 +395,7 @@ class AudioExtractionService:
             )
 
             # 解析响应
-            result_text = response.choices[0].message.content.strip()
+            result_text = (response.choices[0].message.content or "").strip()
             result = self._parse_llm_response(result_text)
 
             # 规范化结果格式

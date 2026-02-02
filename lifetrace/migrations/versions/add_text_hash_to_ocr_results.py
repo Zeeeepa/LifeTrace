@@ -50,10 +50,11 @@ def upgrade() -> None:
 
     for row in rows:
         normalized = _normalize_text(row["text_content"])
-        if not normalized:
-            text_hash = None
-        else:
-            text_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest()
+        text_hash = (
+            None
+            if not normalized
+            else hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
+        )
 
         connection.execute(
             sa.text("UPDATE ocr_results SET text_hash = :text_hash WHERE id = :id"),

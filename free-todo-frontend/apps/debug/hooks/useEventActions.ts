@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { useCreateActivityManualApiActivitiesManualPost } from "@/lib/generated/activity/activity";
 import type {
 	LifetraceSchemasTodoExtractionExtractedTodo,
+	ManualActivityCreateResponse,
 	TodoExtractionResponse,
 } from "@/lib/generated/schemas";
 import { useExtractTodosFromEventApiTodoExtractionExtractPost } from "@/lib/generated/todo-extraction/todo-extraction";
@@ -104,10 +106,11 @@ export function useEventActions({
 			const response = await createActivityMutation.mutateAsync({
 				data: { event_ids: eventIds },
 			});
+			const created = unwrapApiData<ManualActivityCreateResponse>(response);
 
 			alert(
 				tDebug("activityCreated", {
-					title: response?.ai_title || tDebug("activity"),
+					title: created?.ai_title || tDebug("activity"),
 					count: eventIds.length,
 				}),
 			);
@@ -136,17 +139,20 @@ export function useEventActions({
 		toastInfo(t("extracting"));
 
 		try {
-			const response: TodoExtractionResponse =
-				await extractTodosMutation.mutateAsync({
-					data: { event_id: eventId },
-				});
+			const response = await extractTodosMutation.mutateAsync({
+				data: { event_id: eventId },
+			});
+			const extracted = unwrapApiData<TodoExtractionResponse>(response);
+			if (!extracted) {
+				throw new Error("Invalid extraction response");
+			}
 
-			if (response.error_message) {
-				toastError(t("extractFailed", { error: response.error_message }));
+			if (extracted.error_message) {
+				toastError(t("extractFailed", { error: extracted.error_message }));
 				return;
 			}
 
-			const todos = response.todos || [];
+			const todos = extracted.todos || [];
 			if (todos.length === 0) {
 				toastInfo(t("noTodosFound"));
 				return;
@@ -156,8 +162,8 @@ export function useEventActions({
 
 			setExtractionResult({
 				todos,
-				eventId: response.event_id,
-				appName: response.app_name || null,
+				eventId: extracted.event_id,
+				appName: extracted.app_name || null,
 			});
 			setIsExtractionModalOpen(true);
 		} catch (error: unknown) {

@@ -1,14 +1,15 @@
 """日记管理器 - 负责日记及标签关联的数据库操作"""
 
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Journal, JournalTagRelation, Tag
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -42,9 +43,9 @@ class JournalManager:
         """获取日记关联的标签"""
         return (
             session.query(Tag)
-            .join(JournalTagRelation, JournalTagRelation.tag_id == Tag.id)
-            .filter(JournalTagRelation.journal_id == journal_id)
-            .filter(Tag.deleted_at.is_(None))
+            .join(JournalTagRelation, col(JournalTagRelation.tag_id) == col(Tag.id))
+            .filter(col(JournalTagRelation.journal_id) == journal_id)
+            .filter(col(Tag.deleted_at).is_(None))
             .all()
         )
 
@@ -57,7 +58,12 @@ class JournalManager:
         if not tag_ids:
             return
 
-        tags = session.query(Tag).filter(Tag.id.in_(tag_ids)).filter(Tag.deleted_at.is_(None)).all()
+        tags = (
+            session.query(Tag)
+            .filter(col(Tag.id).in_(tag_ids))
+            .filter(col(Tag.deleted_at).is_(None))
+            .all()
+        )
         for tag in tags:
             session.add(JournalTagRelation(journal_id=journal_id, tag_id=tag.id))
 
@@ -82,6 +88,8 @@ class JournalManager:
                 )
                 session.add(journal)
                 session.flush()
+                if journal.id is None:
+                    raise ValueError("Journal must have an id before tagging.")
 
                 # 处理标签关联
                 self._replace_tags(session, journal.id, tag_ids)
@@ -99,8 +107,8 @@ class JournalManager:
             with self.db_base.get_session() as session:
                 journal = (
                     session.query(Journal)
-                    .filter(Journal.id == journal_id)
-                    .filter(Journal.deleted_at.is_(None))
+                    .filter(col(Journal.id) == journal_id)
+                    .filter(col(Journal.deleted_at).is_(None))
                     .first()
                 )
                 if not journal:
@@ -123,15 +131,15 @@ class JournalManager:
         """列出日记"""
         try:
             with self.db_base.get_session() as session:
-                query = session.query(Journal).filter(Journal.deleted_at.is_(None))
+                query = session.query(Journal).filter(col(Journal.deleted_at).is_(None))
 
                 if start_date is not None:
-                    query = query.filter(Journal.date >= start_date)
+                    query = query.filter(col(Journal.date) >= start_date)
                 if end_date is not None:
-                    query = query.filter(Journal.date <= end_date)
+                    query = query.filter(col(Journal.date) <= end_date)
 
                 journals = (
-                    query.order_by(Journal.date.desc(), Journal.created_at.desc())
+                    query.order_by(col(Journal.date).desc(), col(Journal.created_at).desc())
                     .offset(offset)
                     .limit(limit)
                     .all()
@@ -150,11 +158,11 @@ class JournalManager:
         """统计日记数量"""
         try:
             with self.db_base.get_session() as session:
-                query = session.query(Journal).filter(Journal.deleted_at.is_(None))
+                query = session.query(Journal).filter(col(Journal.deleted_at).is_(None))
                 if start_date is not None:
-                    query = query.filter(Journal.date >= start_date)
+                    query = query.filter(col(Journal.date) >= start_date)
                 if end_date is not None:
-                    query = query.filter(Journal.date <= end_date)
+                    query = query.filter(col(Journal.date) <= end_date)
                 return query.count()
         except SQLAlchemyError as e:
             logger.error(f"统计日记数量失败: {e}")
@@ -175,8 +183,8 @@ class JournalManager:
             with self.db_base.get_session() as session:
                 journal = (
                     session.query(Journal)
-                    .filter(Journal.id == journal_id)
-                    .filter(Journal.deleted_at.is_(None))
+                    .filter(col(Journal.id) == journal_id)
+                    .filter(col(Journal.deleted_at).is_(None))
                     .first()
                 )
                 if not journal:
@@ -196,7 +204,7 @@ class JournalManager:
                 if tag_ids is not None:
                     self._replace_tags(session, journal_id, tag_ids)
 
-                journal.updated_at = datetime.now()
+                journal.updated_at = get_utc_now()
                 session.flush()
                 logger.info(f"更新日记: {journal_id}")
                 return True

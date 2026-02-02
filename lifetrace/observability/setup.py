@@ -9,13 +9,10 @@ import importlib
 import logging
 import threading
 import warnings
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from lifetrace.observability.config import get_observability_config
 from lifetrace.util.logging_config import get_logger
-
-if TYPE_CHECKING:
-    pass
 
 logger = get_logger()
 
@@ -34,9 +31,7 @@ def _suppress_otel_context_warnings():
             msg = record.getMessage()
             if "Failed to detach context" in msg:
                 return False
-            if "was created in a different Context" in msg:
-                return False
-            return True
+            return "was created in a different Context" not in msg
 
     # 应用到 OpenTelemetry 相关的 logger
     for logger_name in ["opentelemetry", "opentelemetry.context"]:
@@ -50,7 +45,7 @@ def _suppress_otel_context_warnings():
     # 通过 monkey-patch OpenTelemetry 的 detach 函数来抑制警告
     try:
         otel_context = importlib.import_module("opentelemetry.context")
-        otel_context_any = cast(Any, otel_context)
+        otel_context_any = cast("Any", otel_context)
         _original_detach = otel_context_any.detach
 
         def _silent_detach(token):
@@ -66,8 +61,8 @@ def _suppress_otel_context_warnings():
         if hasattr(otel_context, "detach"):
             otel_context_any.detach = _silent_detach
 
-    except Exception:
-        pass  # 如果 patch 失败，继续运行
+    except Exception as e:
+        logger.debug(f"Observability: patch OTel context 失败: {e}")
 
 
 # 全局初始化标志，确保只初始化一次
@@ -81,7 +76,7 @@ def _try_create_phoenix_exporter(config):
         exporter_module = importlib.import_module(
             "opentelemetry.exporter.otlp.proto.http.trace_exporter"
         )
-        OTLPSpanExporter = exporter_module.OTLPSpanExporter
+        otlp_span_exporter_class = exporter_module.OTLPSpanExporter
     except ImportError:
         logger.warning("Phoenix 导出器依赖未安装，跳过 Phoenix 集成")
         return None, None
@@ -91,13 +86,13 @@ def _try_create_phoenix_exporter(config):
         phoenix_module = importlib.import_module(
             "lifetrace.observability.exporters.phoenix_exporter"
         )
-        PhoenixCircuitBreakerExporter = phoenix_module.PhoenixCircuitBreakerExporter
+        phoenix_circuit_breaker_exporter_class = phoenix_module.PhoenixCircuitBreakerExporter
 
-        exporter = OTLPSpanExporter(
+        exporter = otlp_span_exporter_class(
             endpoint=phoenix_endpoint,
             timeout=config.phoenix.export_timeout_sec,
         )
-        safe_exporter = PhoenixCircuitBreakerExporter(
+        safe_exporter = phoenix_circuit_breaker_exporter_class(
             exporter=exporter,
             endpoint=phoenix_endpoint,
             disable_after_failures=config.phoenix.disable_after_failures,
@@ -116,8 +111,8 @@ def _setup_phoenix_exporter(tracer_provider, config) -> None:
         return
 
     exporter_module = importlib.import_module("opentelemetry.sdk.trace.export")
-    SimpleSpanProcessor = exporter_module.SimpleSpanProcessor
-    tracer_provider.add_span_processor(SimpleSpanProcessor(phoenix_exporter))
+    simple_span_processor_class = exporter_module.SimpleSpanProcessor
+    tracer_provider.add_span_processor(simple_span_processor_class(phoenix_exporter))
     logger.info(
         "Observability: Phoenix 导出已启用 "
         f"(failures={config.phoenix.disable_after_failures}, "
@@ -129,8 +124,8 @@ def _setup_agno_instrumentor() -> None:
     """设置 Agno Instrumentor"""
     try:
         agno_module = importlib.import_module("openinference.instrumentation.agno")
-        AgnoInstrumentor = agno_module.AgnoInstrumentor
-        AgnoInstrumentor().instrument()
+        agno_instrumentor_class = agno_module.AgnoInstrumentor
+        agno_instrumentor_class().instrument()
         logger.info("Observability: Agno Instrumentor 已启用")
     except ImportError:
         logger.warning("AgnoInstrumentor 未安装，跳过自动 instrument")
@@ -148,8 +143,8 @@ def _setup_openai_instrumentor() -> None:
     """
     try:
         openai_module = importlib.import_module("openinference.instrumentation.openai")
-        OpenAIInstrumentor = openai_module.OpenAIInstrumentor
-        OpenAIInstrumentor().instrument()
+        openai_instrumentor_class = openai_module.OpenAIInstrumentor
+        openai_instrumentor_class().instrument()
         logger.info("Observability: OpenAI Instrumentor 已启用")
     except ImportError:
         logger.warning("OpenAIInstrumentor 未安装，跳过 OpenAI 自动 instrument")
@@ -184,24 +179,24 @@ def setup_observability() -> bool:
             trace_api = importlib.import_module("opentelemetry.trace")
             trace_sdk = importlib.import_module("opentelemetry.sdk.trace")
             exporter_module = importlib.import_module("opentelemetry.sdk.trace.export")
-            BatchSpanProcessor = exporter_module.BatchSpanProcessor
+            batch_span_processor_class = exporter_module.BatchSpanProcessor
 
             local_exporter_module = importlib.import_module(
                 "lifetrace.observability.exporters.file_exporter"
             )
-            LocalFileExporter = local_exporter_module.LocalFileExporter
+            local_file_exporter_class = local_exporter_module.LocalFileExporter
 
             tracer_provider = trace_sdk.TracerProvider()
 
             # 本地文件导出
             if config.mode in ("local", "both"):
-                file_exporter = LocalFileExporter(
+                file_exporter = local_file_exporter_class(
                     traces_dir=config.local.traces_dir,
                     max_files=config.local.max_files,
                     pretty_print=config.local.pretty_print,
                     summary_only=config.terminal.summary_only,
                 )
-                tracer_provider.add_span_processor(BatchSpanProcessor(file_exporter))
+                tracer_provider.add_span_processor(batch_span_processor_class(file_exporter))
                 logger.info(f"Observability: 本地文件导出已启用 -> {config.local.traces_dir}")
 
             # Phoenix 导出

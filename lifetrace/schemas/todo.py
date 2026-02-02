@@ -5,8 +5,6 @@
 - 数据库存储使用 lifetrace.storage.models 中的 Todo/Tag/Attachment 相关表
 """
 
-from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 
@@ -39,6 +37,7 @@ class TodoAttachmentResponse(BaseModel):
     file_path: str = Field(..., description="文件路径")
     file_size: int | None = Field(None, description="文件大小（字节）")
     mime_type: str | None = Field(None, description="MIME 类型")
+    source: str | None = Field(None, description="来源(user/ai)")
 
     class Config:
         from_attributes = True

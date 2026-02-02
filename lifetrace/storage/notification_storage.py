@@ -29,7 +29,7 @@ def _build_reminder_key(reminder_at: datetime) -> str:
     return naive_as_utc(reminder_at).isoformat()
 
 
-def add_notification(
+def add_notification(  # noqa: PLR0913
     notification_id: str,
     title: str,
     content: str,
@@ -59,7 +59,7 @@ def add_notification(
         logger.debug(f"通知已存在，跳过: {notification_id}")
         return False
 
-    notification = {
+    notification: dict[str, Any] = {
         "id": notification_id,
         "title": title,
         "content": content,

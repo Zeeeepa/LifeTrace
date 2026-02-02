@@ -4,13 +4,14 @@
 与现有的 SQLite 数据库并行工作。
 """
 
-from datetime import datetime
 from typing import Any
 
 from lifetrace.llm.vector_db import create_vector_db
 from lifetrace.storage import event_mgr, get_session
 from lifetrace.storage.models import Event, OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -38,6 +39,11 @@ class VectorService:
         """检查向量服务是否可用"""
         return self.enabled and self.vector_db is not None
 
+    def _require_vector_db(self):
+        if self.vector_db is None:
+            raise RuntimeError("Vector database not initialized")
+        return self.vector_db
+
     def add_ocr_result(self, ocr_result: OCRResult, screenshot: Screenshot | None = None) -> bool:
         """添加 OCR 结果到向量数据库
 
@@ -56,6 +62,7 @@ class VectorService:
             return False
 
         try:
+            vector_db = self._require_vector_db()
             # 构建文档 ID
             doc_id = f"ocr_{ocr_result.id}"
 
@@ -89,7 +96,7 @@ class VectorService:
                 )
 
             # 添加到向量数据库
-            success = self.vector_db.add_document(
+            success = vector_db.add_document(
                 doc_id=doc_id, text=ocr_result.text_content, metadata=metadata
             )
 
@@ -120,6 +127,7 @@ class VectorService:
             return False
 
         try:
+            vector_db = self._require_vector_db()
             doc_id = f"ocr_{ocr_result.id}"
 
             # 构建元数据
@@ -132,7 +140,7 @@ class VectorService:
                 "created_at": (
                     ocr_result.created_at.isoformat() if ocr_result.created_at else None
                 ),
-                "updated_at": datetime.now().isoformat(),
+                "updated_at": get_utc_now().isoformat(),
                 "text_length": len(ocr_result.text_content or ""),
             }
 
@@ -150,7 +158,7 @@ class VectorService:
                     }
                 )
 
-            success = self.vector_db.update_document(
+            success = vector_db.update_document(
                 doc_id=doc_id, text=ocr_result.text_content or "", metadata=metadata
             )
 
@@ -176,8 +184,9 @@ class VectorService:
             return False
 
         try:
+            vector_db = self._require_vector_db()
             doc_id = f"ocr_{ocr_result_id}"
-            success = self.vector_db.delete_document(doc_id)
+            success = vector_db.delete_document(doc_id)
 
             if success:
                 self.logger.debug(f"Deleted OCR result {ocr_result_id} from vector database")
@@ -207,7 +216,7 @@ class VectorService:
             return result
 
         with get_session() as session:
-            ocr_result = session.query(OCRResult).filter(OCRResult.id == ocr_result_id).first()
+            ocr_result = session.query(OCRResult).filter(col(OCRResult.id) == ocr_result_id).first()
             if ocr_result:
                 result["ocr_result"] = {
                     "id": ocr_result.id,
@@ -222,7 +231,7 @@ class VectorService:
 
             if screenshot_id:
                 screenshot = (
-                    session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+                    session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
                 )
                 if screenshot:
                     result["screenshot"] = {
@@ -278,14 +287,15 @@ class VectorService:
             return []
 
         try:
+            vector_db = self._require_vector_db()
             if use_rerank:
                 if retrieve_k is None:
                     retrieve_k = min(top_k * 3, 50)
-                results = self.vector_db.search_and_rerank(
+                results = vector_db.search_and_rerank(
                     query=query, retrieve_k=retrieve_k, rerank_k=top_k, where=filters
                 )
             else:
-                results = self.vector_db.search(query=query, top_k=top_k, where=filters)
+                results = vector_db.search(query=query, top_k=top_k, where=filters)
 
             return [self._enhance_result(r) for r in results]
 
@@ -299,6 +309,7 @@ class VectorService:
         if not self.is_enabled():
             return False
         try:
+            vector_db = self._require_vector_db()
             # 聚合事件文本
             event_text = event_mgr.get_event_text(event_id) or ""
             if not event_text or not event_text.strip():
@@ -308,7 +319,7 @@ class VectorService:
             # 元数据（基本信息）
             # 为了简化，这里不再重复查事件信息，向上层调用者可扩展
             doc_id = f"event_{event_id}"
-            return self.vector_db.update_document(doc_id, event_text, {"event_id": event_id})
+            return vector_db.update_document(doc_id, event_text, {"event_id": event_id})
         except Exception as e:
             self.logger.error(f"事件{event_id}写入向量库失败: {e}")
             return False
@@ -334,17 +345,17 @@ class VectorService:
     ) -> dict[str, Any] | None:
         """获取事件详细信息"""
         with get_session() as session:
-            event = session.query(Event).filter(Event.id == event_id).first()
+            event = session.query(Event).filter(col(Event.id) == event_id).first()
             if not event:
                 return None
 
             screenshot_count = (
-                session.query(Screenshot).filter(Screenshot.event_id == event_id).count()
+                session.query(Screenshot).filter(col(Screenshot.event_id) == event_id).count()
             )
             first_screenshot = (
                 session.query(Screenshot)
-                .filter(Screenshot.event_id == event_id)
-                .order_by(Screenshot.created_at.asc())
+                .filter(col(Screenshot.event_id) == event_id)
+                .order_by(col(Screenshot.created_at).asc())
                 .first()
             )
 
@@ -366,8 +377,9 @@ class VectorService:
             return []
 
         try:
+            vector_db = self._require_vector_db()
             search_limit = max(top_k * 3, 50)
-            all_results = self.vector_db.search(query=query, top_k=search_limit)
+            all_results = vector_db.search(query=query, top_k=search_limit)
             if not all_results:
                 return []
 
@@ -403,7 +415,9 @@ class VectorService:
         synced_count = 0
         for ocr_result in ocr_results:
             screenshot = (
-                session.query(Screenshot).filter(Screenshot.id == ocr_result.screenshot_id).first()
+                session.query(Screenshot)
+                .filter(col(Screenshot.id) == ocr_result.screenshot_id)
+                .first()
             )
             if screenshot is None:
                 self.logger.warning(f"Screenshot not found for OCR result {ocr_result.id}")
@@ -432,7 +446,8 @@ class VectorService:
         try:
             with get_session() as session:
                 total_ocr_count = session.query(OCRResult).count()
-                vector_doc_count = self.vector_db.get_collection_stats().get("document_count", 0)
+                vector_db = self._require_vector_db()
+                vector_doc_count = vector_db.get_collection_stats().get("document_count", 0)
                 self.logger.info(
                     f"SQLite: {total_ocr_count} OCR results, Vector: {vector_doc_count} documents"
                 )
@@ -448,7 +463,7 @@ class VectorService:
                     return 0
 
                 query = session.query(OCRResult).join(
-                    Screenshot, OCRResult.screenshot_id == Screenshot.id
+                    Screenshot, col(OCRResult.screenshot_id) == col(Screenshot.id)
                 )
                 if limit:
                     query = query.limit(limit)
@@ -478,7 +493,8 @@ class VectorService:
             return {"enabled": False, "reason": "Vector database not available"}
 
         try:
-            stats = self.vector_db.get_collection_stats()
+            vector_db = self._require_vector_db()
+            stats = vector_db.get_collection_stats()
             stats["enabled"] = True
             return stats
         except Exception as e:
@@ -495,7 +511,8 @@ class VectorService:
             return False
 
         try:
-            success = self.vector_db.reset_collection()
+            vector_db = self._require_vector_db()
+            success = vector_db.reset_collection()
             if success:
                 self.logger.info("Vector database reset successfully")
             return success

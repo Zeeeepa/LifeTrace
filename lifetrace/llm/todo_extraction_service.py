@@ -13,6 +13,7 @@ from lifetrace.storage import event_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -117,7 +118,7 @@ class TodoExtractionService:
                     "error_message": "事件不存在",
                 }
 
-            app_name = event_info.get("app_name")
+            app_name = event_info.get("app_name") or ""
             if not self.is_whitelist_app(app_name):
                 return {
                     "event_id": event_id,
@@ -154,7 +155,7 @@ class TodoExtractionService:
 
             # 解析时间信息并计算绝对时间
             reference_time = (
-                event_info.get("end_time") or event_info.get("start_time") or datetime.now()
+                event_info.get("end_time") or event_info.get("start_time") or get_utc_now()
             )
             parsed_todos = []
             for todo in todos:
@@ -178,7 +179,7 @@ class TodoExtractionService:
             return {
                 "event_id": event_id,
                 "todos": [],
-                "error_message": f"提取待办失败: {str(e)}",
+                "error_message": f"提取待办失败: {e!s}",
             }
 
     def _call_vision_model(

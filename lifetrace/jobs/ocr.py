@@ -10,6 +10,7 @@ from functools import lru_cache
 from lifetrace.core.lazy_services import get_vector_service as lazy_get_vector_service
 from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path
 from lifetrace.util.settings import settings
@@ -30,11 +31,11 @@ except ImportError:
 
 # 重新导出以保持向后兼容
 __all__ = [
-    "SimpleOCRProcessor",
     "RAPIDOCR_AVAILABLE",
+    "SimpleOCRProcessor",
     "execute_ocr_task",
-    "ocr_service",
     "get_unprocessed_screenshots",
+    "ocr_service",
     "process_screenshot_ocr",
 ]
 
@@ -55,11 +56,13 @@ def get_unprocessed_screenshots(logger_instance=None, limit=50):
             unprocessed = (
                 session.query(Screenshot)
                 .filter(
-                    ~session.query(OCRResult)
-                    .filter(OCRResult.screenshot_id == Screenshot.id)
-                    .exists()
+                    ~col(
+                        session.query(OCRResult)
+                        .filter(col(OCRResult.screenshot_id) == col(Screenshot.id))
+                        .exists()
+                    )
                 )
-                .order_by(Screenshot.created_at.desc())
+                .order_by(col(Screenshot.created_at).desc())
                 .limit(limit)
                 .all()
             )
@@ -142,7 +145,7 @@ def _get_ocr_engine():
             raise
 
 
-def _ensure_ocr_initialized():  # noqa: C901
+def _ensure_ocr_initialized():
     """确保OCR引擎已初始化（用于调度器模式）"""
     ocr_engine = _get_ocr_engine()
     vector_service = None
@@ -246,7 +249,7 @@ def _initialize_ocr_and_vector_service():
 
 def _run_ocr_loop(check_interval: float, ocr, vector_service) -> None:
     """主循环：持续从数据库读取未处理截图并执行 OCR。"""
-    processed_count = 0  # noqa: F841
+    processed_count = 0
 
     while True:
         start_time = time.time()  # noqa: F841

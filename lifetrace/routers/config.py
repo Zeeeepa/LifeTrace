@@ -23,8 +23,8 @@ try:
     from websockets.exceptions import ConnectionClosed, InvalidURI
 except ImportError:
     websockets = None
-    ConnectionClosed = None
-    InvalidURI = None
+    ConnectionClosed = Exception
+    InvalidURI = Exception
 
 logger = get_logger()
 
@@ -68,20 +68,16 @@ def verify_llm_connection_on_startup():
         logger.warning(f"LLM 启动时连接验证失败: {e}")
 
 
-# 应用启动时验证 LLM 连接
-verify_llm_connection_on_startup()
-
-
 def _validate_aliyun_api_key(llm_key: str) -> dict[str, Any] | None:
     """验证阿里云 API Key 格式"""
-    MIN_ALIYUN_KEY_LENGTH = 20
+    min_aliyun_key_length = 20
 
     if not llm_key.startswith("sk-"):
         return {
             "success": False,
             "error": "阿里云 API Key 格式错误，应该以 'sk-' 开头",
         }
-    if len(llm_key) < MIN_ALIYUN_KEY_LENGTH:
+    if len(llm_key) < min_aliyun_key_length:
         return {
             "success": False,
             "error": f"阿里云 API Key 长度异常（当前: {len(llm_key)} 字符），请检查是否完整",
@@ -429,7 +425,7 @@ async def get_config_detailed():
         }
     except Exception as e:
         logger.error(f"获取配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取配置失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取配置失败: {e!s}") from e
 
 
 def _validate_config_fields(config_data: dict[str, str]) -> dict[str, Any] | None:
@@ -516,7 +512,7 @@ async def save_config(settings: dict[str, Any]):
 
     except Exception as e:
         logger.error(f"保存配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"保存配置失败: {e!s}") from e
 
 
 @router.get("/get-chat-prompts")
@@ -555,5 +551,5 @@ async def get_chat_prompts(locale: str = "zh"):
         logger.error(f"获取聊天 prompt 失败: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"获取聊天 prompt 失败: {str(e)}",
+            detail=f"获取聊天 prompt 失败: {e!s}",
         ) from e

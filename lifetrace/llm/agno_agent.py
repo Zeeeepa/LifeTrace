@@ -12,7 +12,6 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
-from collections.abc import Generator
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,6 +26,8 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from agno.tools import Toolkit
 
 # 全局 ContextVar 用于跨 span 传递 session_id
@@ -469,7 +470,7 @@ class AgnoAgentService:
 
         except Exception as e:
             logger.error(f"Agno Agent 流式生成失败: {e}")
-            yield f"Agno Agent 处理失败: {str(e)}"
+            yield f"Agno Agent 处理失败: {e!s}"
         finally:
             # 清理 ContextVar
             current_session_id.set(None)

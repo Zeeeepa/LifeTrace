@@ -98,6 +98,7 @@ settings = Dynaconf(
         Validator("base_dir", default="data"),
         Validator("database_path", default="lifetrace.db"),
         Validator("screenshots_dir", default="screenshots/"),
+        Validator("attachments_dir", default="attachments/"),
         # 日志配置
         Validator("logging.level", default="INFO"),
         Validator("logging.log_path", default="logs/"),

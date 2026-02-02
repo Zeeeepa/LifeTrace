@@ -9,12 +9,15 @@ Create Date: 2026-01-29 23:30:00.000000
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import sqlalchemy as sa
 from alembic import op
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = "d2f7a9c6b1a4"
@@ -77,7 +80,7 @@ def _backfill_todo_ical_fields(connection: sa.Connection) -> None:
         updates["id"] = row["id"]
         sets = ", ".join([f"{key} = :{key}" for key in updates if key != "id"])
         connection.execute(
-            sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),
+            sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),  # nosec B608
             updates,
         )
 

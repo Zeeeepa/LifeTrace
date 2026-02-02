@@ -17,7 +17,9 @@ from lifetrace.services.asr_client import ASRClient
 from lifetrace.services.audio_service import AudioService
 from lifetrace.storage import get_session
 from lifetrace.storage.models import AudioRecording, Transcription
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -60,7 +62,7 @@ async def get_recordings(date: str | None = Query(None)):
                 logger.error(f"日期格式错误: {date}, {e}")
                 return JSONResponse({"error": f"无效的日期格式: {date}"}, status_code=400)
         else:
-            target_date = datetime.utcnow()
+            target_date = get_utc_now().astimezone()
 
         recordings = audio_service.get_recordings_by_date(target_date)
 
@@ -100,7 +102,7 @@ def _parse_date_param(date: str | None) -> datetime:
             logger.error(f"日期格式错误: {date}, {e}")
             raise ValueError(f"无效的日期格式: {date}") from e
     else:
-        return datetime.now()
+        return get_utc_now().astimezone()
 
 
 def _build_timeline_item(
@@ -342,7 +344,7 @@ async def optimize_transcription(recording_id: int):
             trans = session.exec(
                 select(Transcription)
                 .where(Transcription.audio_recording_id == recording_id)
-                .order_by(Transcription.id.desc())
+                .order_by(col(Transcription.id).desc())
             ).first()
             if trans:
                 # 只更新优化文本，保留提取结果等其他字段
@@ -386,9 +388,9 @@ async def extract_todos_and_schedules(recording_id: int, optimized: bool = Query
             trans = session.exec(
                 select(Transcription)
                 .where(Transcription.audio_recording_id == recording_id)
-                .order_by(Transcription.id.desc())
+                .order_by(col(Transcription.id).desc())
             ).first()
-            if trans:
+            if trans and trans.id is not None:
                 audio_service.update_extraction(
                     transcription_id=trans.id,
                     todos=result.get("todos", []),

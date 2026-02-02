@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { ReminderOptions } from "@/components/common/ReminderOptions";
 import {
-	DEFAULT_REMINDER_MINUTES,
 	formatReminderSummary,
 	normalizeReminderOffsets,
 } from "@/lib/reminders";
@@ -51,9 +50,7 @@ export function MetaSection({
 	const [isEditingTags, setIsEditingTags] = useState(false);
 	const [isReminderMenuOpen, setIsReminderMenuOpen] = useState(false);
 	const [draftReminderOffsets, setDraftReminderOffsets] = useState<number[]>(() =>
-		normalizeReminderOffsets(todo.reminderOffsets, [
-			DEFAULT_REMINDER_MINUTES,
-		]),
+		normalizeReminderOffsets(todo.reminderOffsets),
 	);
 	const [tagsInput, setTagsInput] = useState(todo.tags?.join(", ") ?? "");
 
@@ -101,12 +98,8 @@ export function MetaSection({
 		setIsEditingTags(false);
 		setIsReminderMenuOpen(false);
 		setTagsInput(todo.tags?.join(", ") ?? "");
-		setDraftReminderOffsets(
-			normalizeReminderOffsets(todo.reminderOffsets, [
-				DEFAULT_REMINDER_MINUTES,
-			]),
-		);
-	}, [todo.id, todo.reminderOffsets, todo.tags]);
+		setDraftReminderOffsets(normalizeReminderOffsets(todo.reminderOffsets));
+	}, [todo.reminderOffsets, todo.tags]);
 
 	const handleTagsSave = () => {
 		const parsedTags = tagsInput
@@ -123,9 +116,7 @@ export function MetaSection({
 		setIsEditingTags(false);
 	};
 
-	const savedReminderOffsets = normalizeReminderOffsets(todo.reminderOffsets, [
-		DEFAULT_REMINDER_MINUTES,
-	]);
+	const savedReminderOffsets = normalizeReminderOffsets(todo.reminderOffsets);
 	const reminderSummary = formatReminderSummary(
 		tReminder,
 		savedReminderOffsets,

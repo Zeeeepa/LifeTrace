@@ -203,9 +203,9 @@ def create_agno_streaming_response(
                     metadata=metadata,
                 )
                 logger.info("[stream][agno] 消息已保存到数据库")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"[stream][agno] 生成失败: {e}")
-            yield f"Agno Agent 处理失败: {str(e)}"
+            yield f"Agno Agent 处理失败: {e!s}"
 
     headers = {
         "Cache-Control": "no-cache",

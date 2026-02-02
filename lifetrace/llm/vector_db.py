@@ -5,12 +5,12 @@
 """
 
 import hashlib
-from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_vector_db_dir
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -77,6 +77,8 @@ class VectorDatabase:
 
             # 初始化嵌入模型
             if self.embedding_model_name:
+                if SentenceTransformer is None:
+                    raise RuntimeError("SentenceTransformer not available")
                 self.logger.info(f"Loading embedding model: {self.embedding_model_name}")
                 self.embedding_model = SentenceTransformer(self.embedding_model_name)
             else:
@@ -85,6 +87,8 @@ class VectorDatabase:
 
             # 初始化 ChromaDB
             self.logger.info(f"Initializing ChromaDB at: {self.vector_db_path}")
+            if chromadb is None:
+                raise RuntimeError("ChromaDB dependency not available")
             self.chroma_client = chromadb.PersistentClient(
                 path=str(self.vector_db_path),
                 settings=Settings(anonymized_telemetry=False, allow_reset=True),
@@ -102,10 +106,12 @@ class VectorDatabase:
             self.logger.error(f"Failed to initialize vector database: {e}")
             raise
 
-    def _get_cross_encoder(self) -> CrossEncoder:
+    def _get_cross_encoder(self) -> Any:
         """延迟加载交叉编码器"""
         if self.cross_encoder is None:
             self.logger.info(f"Loading cross-encoder model: {self.cross_encoder_model_name}")
+            if CrossEncoder is None:
+                raise RuntimeError("CrossEncoder not available")
             self.cross_encoder = CrossEncoder(self.cross_encoder_model_name)
         return self.cross_encoder
 
@@ -125,7 +131,8 @@ class VectorDatabase:
             raise RuntimeError("Embedding model not available (multimodal mode)")
 
         try:
-            embedding = self.embedding_model.encode(text.strip(), normalize_embeddings=True)
+            embedding_model = self.embedding_model
+            embedding = embedding_model.encode(text.strip(), normalize_embeddings=True)
             return embedding.tolist()
         except Exception as e:
             self.logger.error(f"Failed to embed text: {e}")
@@ -147,6 +154,9 @@ class VectorDatabase:
             return False
 
         try:
+            if self.collection is None:
+                raise RuntimeError("Vector collection not initialized")
+            collection = self.collection
             # 生成嵌入
             embedding = self.embed_text(text)
             if not embedding:
@@ -154,9 +164,9 @@ class VectorDatabase:
 
             # 准备元数据
             doc_metadata = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),
+                "text_hash": hashlib.md5(text.encode(), usedforsecurity=False).hexdigest(),
             }
             if metadata:
                 doc_metadata.update(metadata)
@@ -165,7 +175,7 @@ class VectorDatabase:
             doc_metadata = {k: v for k, v in doc_metadata.items() if v is not None}
 
             # 添加到集合
-            self.collection.add(
+            collection.add(
                 documents=[text],
                 embeddings=[embedding],
                 metadatas=[doc_metadata],
@@ -206,11 +216,14 @@ class VectorDatabase:
             return False
 
         try:
+            if self.collection is None:
+                raise RuntimeError("Vector collection not initialized")
+            collection = self.collection
             # 准备元数据
             doc_metadata = {
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),
+                "text_hash": hashlib.md5(text.encode(), usedforsecurity=False).hexdigest(),
             }
             if metadata:
                 doc_metadata.update(metadata)
@@ -219,7 +232,7 @@ class VectorDatabase:
             doc_metadata = {k: v for k, v in doc_metadata.items() if v is not None}
 
             # 添加到集合
-            self.collection.add(
+            collection.add(
                 documents=[text],
                 embeddings=[embedding],
                 metadatas=[doc_metadata],
@@ -265,6 +278,8 @@ class VectorDatabase:
             是否删除成功
         """
         try:
+            if self.collection is None:
+                raise RuntimeError("Vector collection not initialized")
             self.collection.delete(ids=[doc_id])
             self.logger.debug(f"Deleted document {doc_id} from vector database")
             return True
@@ -289,6 +304,8 @@ class VectorDatabase:
             return []
 
         try:
+            if self.collection is None:
+                raise RuntimeError("Vector collection not initialized")
             # 生成查询嵌入
             query_embedding = self.embed_text(query)
             if not query_embedding:
@@ -301,16 +318,21 @@ class VectorDatabase:
             results = self.collection.query(
                 query_embeddings=[query_embedding], n_results=top_k, where=cleaned_where
             )
+            results_dict = cast("dict[str, Any]", results)
+            ids = results_dict.get("ids") or [[]]
+            documents = results_dict.get("documents") or [[]]
+            metadatas = results_dict.get("metadatas") or [[]]
+            distances = results_dict.get("distances") or []
 
             # 格式化结果
             formatted_results = []
-            for i in range(len(results["ids"][0])):
+            for i in range(len(ids[0])):
                 formatted_results.append(
                     {
-                        "id": results["ids"][0][i],
-                        "document": results["documents"][0][i],
-                        "metadata": (results["metadatas"][0][i] if results["metadatas"][0] else {}),
-                        "distance": (results["distances"][0][i] if results["distances"] else None),
+                        "id": ids[0][i],
+                        "document": documents[0][i],
+                        "metadata": (metadatas[0][i] if metadatas[0] else {}),
+                        "distance": (distances[0][i] if distances else None),
                     }
                 )
 
@@ -437,6 +459,8 @@ class VectorDatabase:
             集合统计信息
         """
         try:
+            if self.collection is None:
+                raise RuntimeError("Vector collection not initialized")
             count = self.collection.count()
             return {
                 "collection_name": self.collection_name,
@@ -456,6 +480,8 @@ class VectorDatabase:
             是否重置成功
         """
         try:
+            if self.chroma_client is None:
+                raise RuntimeError("Chroma client not initialized")
             self.chroma_client.delete_collection(self.collection_name)
             self.collection = self.chroma_client.create_collection(
                 name=self.collection_name,

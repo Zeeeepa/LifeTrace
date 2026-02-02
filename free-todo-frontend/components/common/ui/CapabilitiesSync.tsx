@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { customFetcher } from "@/lib/api/fetcher";
 import type { PanelFeature } from "@/lib/config/panel-config";
-import { customFetcher } from "@/lib/generated/fetcher";
 import { getPanelPlugins } from "@/lib/plugins/registry";
 import { useUiStore } from "@/lib/store/ui-store";
 
@@ -46,10 +46,12 @@ export function CapabilitiesSync() {
 
 		const loadCapabilities = async () => {
 			try {
-				const data = await customFetcher<CapabilitiesResponse>({
-					url: "/api/capabilities",
-					method: "GET",
-				});
+				const data = await customFetcher<CapabilitiesResponse>(
+					"/api/capabilities",
+					{
+						method: "GET",
+					},
+				);
 				if (!data) return;
 				const backendDisabled = computeBackendDisabledFeatures(data);
 				setBackendDisabledFeatures(backendDisabled);

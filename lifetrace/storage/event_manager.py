@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Event, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
@@ -37,8 +38,8 @@ class EventManager:
         """获取最后一个未结束的事件"""
         return (
             session.query(Event)
-            .filter(Event.end_time.is_(None))
-            .order_by(Event.start_time.desc())
+            .filter(col(Event.end_time).is_(None))
+            .order_by(col(Event.start_time).desc())
             .first()
         )
 
@@ -170,7 +171,7 @@ class EventManager:
         """更新事件的AI生成标题和摘要"""
         try:
             with self.db_base.get_session() as session:
-                event = session.query(Event).filter(Event.id == event_id).first()
+                event = session.query(Event).filter(col(Event.id) == event_id).first()
                 if event:
                     event.ai_title = ai_title
                     event.ai_summary = ai_summary
@@ -190,8 +191,11 @@ class EventManager:
             with self.db_base.get_session() as session:
                 event = (
                     session.query(Event)
-                    .filter(Event.app_name == app_name, Event.status.in_(["new", "processing"]))
-                    .order_by(Event.start_time.desc())
+                    .filter(
+                        col(Event.app_name) == app_name,
+                        col(Event.status).in_(["new", "processing"]),
+                    )
+                    .order_by(col(Event.start_time).desc())
                     .first()
                 )
                 return event.id if event else None
@@ -219,7 +223,7 @@ class EventManager:
                 session.flush()
 
                 screenshot = (
-                    session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+                    session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
                 )
                 if screenshot:
                     screenshot.event_id = new_event.id
@@ -236,13 +240,13 @@ class EventManager:
         try:
             with self.db_base.get_session() as session:
                 screenshot = (
-                    session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+                    session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
                 )
                 if not screenshot:
                     logger.warning(f"截图 {screenshot_id} 不存在")
                     return False
 
-                event = session.query(Event).filter(Event.id == event_id).first()
+                event = session.query(Event).filter(col(Event.id) == event_id).first()
                 if not event:
                     logger.warning(f"事件 {event_id} 不存在")
                     return False
@@ -265,7 +269,7 @@ class EventManager:
         """完成事件"""
         try:
             with self.db_base.get_session() as session:
-                event = session.query(Event).filter(Event.id == event_id).first()
+                event = session.query(Event).filter(col(Event.id) == event_id).first()
                 if not event:
                     logger.warning(f"事件 {event_id} 不存在")
                     return False
@@ -342,7 +346,10 @@ class EventManager:
 
     # 委托给 event_stats 模块的方法
     def get_app_usage_stats(
-        self, days: int = None, start_date: datetime = None, end_date: datetime = None
+        self,
+        days: int | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, Any]:
         """获取应用使用统计"""
         return get_app_usage_stats(self.db_base, days, start_date, end_date)

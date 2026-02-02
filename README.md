@@ -257,6 +257,22 @@ Free Todo's panel switch bar contains some panels that are currently under devel
 
 ## Development Guide
 
+### Git Hooks (Pre-commit)
+
+This repo uses a shared `.githooks/` directory. Run the setup script once per clone/worktree:
+
+```bash
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
+
+> **Note**: Do not run `pre-commit install` here. The repo uses `core.hooksPath` and `pre-commit install` will refuse when it is set.
+
+For details, see: [.github/PRE_COMMIT_GUIDE.md](.github/PRE_COMMIT_GUIDE.md)
+
 ### Project Structure
 
 ```
@@ -266,6 +282,7 @@ Free Todo's panel switch bar contains some panels that are currently under devel
 │   ├── FRONTEND_GUIDELINES.md  # Frontend development guidelines
 │   ├── CONTRIBUTING.md         # Contributing guidelines
 │   └── ...                     # Other GitHub repository files
+├── .githooks/                  # Repo-local git hooks (pre-commit, post-checkout)
 ├── lifetrace/                  # Backend modules (FastAPI)
 │   ├── server.py               # Web API service entry point
 │   ├── config/                 # Configuration files

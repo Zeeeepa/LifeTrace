@@ -1,7 +1,5 @@
 """待办提取相关路由"""
 
-from datetime import datetime
-
 from fastapi import APIRouter, HTTPException
 
 from lifetrace.llm.todo_extraction_service import todo_extraction_service
@@ -13,6 +11,7 @@ from lifetrace.schemas.todo_extraction import (
 )
 from lifetrace.storage import event_mgr
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -92,7 +91,7 @@ async def extract_todos_from_event(request: TodoExtractionRequest):
             event_start_time=result.get("event_start_time"),
             event_end_time=result.get("event_end_time"),
             todos=todos,
-            extraction_timestamp=datetime.now(),
+            extraction_timestamp=get_utc_now(),
             screenshot_count=result.get("screenshot_count", 0),
             error_message=result.get("error_message"),
         )
@@ -107,5 +106,5 @@ async def extract_todos_from_event(request: TodoExtractionRequest):
         logger.error(f"提取待办事项失败: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"提取待办事项时发生错误: {str(e)}",
+            detail=f"提取待办事项时发生错误: {e!s}",
         ) from e

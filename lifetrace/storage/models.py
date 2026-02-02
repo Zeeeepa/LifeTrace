@@ -4,6 +4,7 @@
 """
 
 from datetime import datetime
+from typing import ClassVar
 from uuid import uuid4
 
 from sqlmodel import Column, Field, SQLModel, Text
@@ -33,7 +34,7 @@ class TimestampMixin(SQLModel):
 class Screenshot(TimestampMixin, table=True):
     """截图记录模型"""
 
-    __tablename__ = "screenshots"
+    __tablename__: ClassVar[str] = "screenshots"
 
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500, unique=True)  # 文件路径
@@ -56,7 +57,7 @@ class Screenshot(TimestampMixin, table=True):
 class OCRResult(TimestampMixin, table=True):
     """OCR结果模型"""
 
-    __tablename__ = "ocr_results"
+    __tablename__: ClassVar[str] = "ocr_results"
 
     id: int | None = Field(default=None, primary_key=True)
     screenshot_id: int  # 关联截图ID
@@ -77,7 +78,7 @@ class OCRResult(TimestampMixin, table=True):
 class Event(TimestampMixin, table=True):
     """事件模型（按前台应用连续使用区间聚合截图）"""
 
-    __tablename__ = "events"
+    __tablename__: ClassVar[str] = "events"
 
     id: int | None = Field(default=None, primary_key=True)
     app_name: str | None = Field(default=None, max_length=200)  # 前台应用名称
@@ -95,7 +96,7 @@ class Event(TimestampMixin, table=True):
 class Todo(TimestampMixin, table=True):
     """待办事项模型"""
 
-    __tablename__ = "todos"
+    __tablename__: ClassVar[str] = "todos"
 
     id: int | None = Field(default=None, primary_key=True)
     uid: str = Field(
@@ -128,7 +129,7 @@ class Todo(TimestampMixin, table=True):
 class Attachment(TimestampMixin, table=True):
     """附件信息模型"""
 
-    __tablename__ = "attachments"
+    __tablename__: ClassVar[str] = "attachments"
 
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500)  # 本地持久化路径
@@ -144,11 +145,12 @@ class Attachment(TimestampMixin, table=True):
 class TodoAttachmentRelation(SQLModel, table=True):
     """待办与附件的多对多关联关系"""
 
-    __tablename__ = "todo_attachment_relations"
+    __tablename__: ClassVar[str] = "todo_attachment_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     todo_id: int  # 关联的待办ID
     attachment_id: int  # 关联的附件ID
+    source: str = Field(default="user", max_length=20)  # user/ai
     created_at: datetime = Field(default_factory=get_utc_time)
     deleted_at: datetime | None = None
 
@@ -159,7 +161,7 @@ class TodoAttachmentRelation(SQLModel, table=True):
 class Tag(SQLModel, table=True):
     """标签模型"""
 
-    __tablename__ = "tags"
+    __tablename__: ClassVar[str] = "tags"
 
     id: int | None = Field(default=None, primary_key=True)
     tag_name: str = Field(max_length=50, unique=True)  # 标签名称
@@ -173,7 +175,7 @@ class Tag(SQLModel, table=True):
 class TodoTagRelation(SQLModel, table=True):
     """待办与标签的多对多关联关系"""
 
-    __tablename__ = "todo_tag_relations"
+    __tablename__: ClassVar[str] = "todo_tag_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     todo_id: int  # 关联的待办ID
@@ -188,7 +190,7 @@ class TodoTagRelation(SQLModel, table=True):
 class Journal(TimestampMixin, table=True):
     """日记模型"""
 
-    __tablename__ = "journals"
+    __tablename__: ClassVar[str] = "journals"
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)  # 日记标题
@@ -203,7 +205,7 @@ class Journal(TimestampMixin, table=True):
 class JournalTagRelation(SQLModel, table=True):
     """日记与标签的多对多关联关系"""
 
-    __tablename__ = "journal_tag_relations"
+    __tablename__: ClassVar[str] = "journal_tag_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     journal_id: int  # 关联的日记ID
@@ -218,7 +220,7 @@ class JournalTagRelation(SQLModel, table=True):
 class Chat(TimestampMixin, table=True):
     """聊天会话模型"""
 
-    __tablename__ = "chats"
+    __tablename__: ClassVar[str] = "chats"
 
     id: int | None = Field(default=None, primary_key=True)
     session_id: str = Field(max_length=100, unique=True)  # 会话ID
@@ -236,7 +238,7 @@ class Chat(TimestampMixin, table=True):
 class Message(TimestampMixin, table=True):
     """消息模型"""
 
-    __tablename__ = "messages"
+    __tablename__: ClassVar[str] = "messages"
 
     id: int | None = Field(default=None, primary_key=True)
     chat_id: int  # 关联的聊天会话ID
@@ -253,7 +255,7 @@ class Message(TimestampMixin, table=True):
 class TokenUsage(TimestampMixin, table=True):
     """Token使用量记录模型"""
 
-    __tablename__ = "token_usage"
+    __tablename__: ClassVar[str] = "token_usage"
 
     id: int | None = Field(default=None, primary_key=True)
     model: str = Field(max_length=100)  # 使用的模型名称
@@ -276,7 +278,7 @@ class TokenUsage(TimestampMixin, table=True):
 class Activity(TimestampMixin, table=True):
     """活动模型（聚合15分钟内的事件）"""
 
-    __tablename__ = "activities"
+    __tablename__: ClassVar[str] = "activities"
 
     id: int | None = Field(default=None, primary_key=True)
     start_time: datetime  # 活动开始时间
@@ -292,7 +294,7 @@ class Activity(TimestampMixin, table=True):
 class ActivityEventRelation(SQLModel, table=True):
     """活动与事件的关联关系表"""
 
-    __tablename__ = "activity_event_relations"
+    __tablename__: ClassVar[str] = "activity_event_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     activity_id: int  # 关联的活动ID
@@ -307,7 +309,7 @@ class ActivityEventRelation(SQLModel, table=True):
 class AudioRecording(TimestampMixin, table=True):
     """音频录制记录模型"""
 
-    __tablename__ = "audio_recordings"
+    __tablename__: ClassVar[str] = "audio_recordings"
 
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500)  # 音频文件路径
@@ -333,7 +335,7 @@ class AudioRecording(TimestampMixin, table=True):
 class Transcription(TimestampMixin, table=True):
     """转录文本模型"""
 
-    __tablename__ = "transcriptions"
+    __tablename__: ClassVar[str] = "transcriptions"
 
     id: int | None = Field(default=None, primary_key=True)
     audio_recording_id: int  # 关联音频录制ID

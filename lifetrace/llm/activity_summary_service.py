@@ -4,7 +4,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from lifetrace.llm.llm_client import LLMClient
@@ -73,7 +73,9 @@ class ActivitySummaryService:
 
             # 如果有时间信息，按时间排序
             if any("time" in e for e in event_summaries):
-                event_summaries.sort(key=lambda x: x.get("time") or datetime.min)
+                event_summaries.sort(
+                    key=lambda x: x.get("time") or datetime.min.replace(tzinfo=UTC)
+                )
 
             # 使用LLM生成总结
             result = self._generate_summary_with_llm(
@@ -145,7 +147,8 @@ class ActivitySummaryService:
             )
 
             # 调用LLM（增加max_tokens以支持结构化摘要）
-            response = self.llm_client.client.chat.completions.create(
+            client = self.llm_client._get_client()
+            response = client.chat.completions.create(
                 model=self.llm_client.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -167,7 +170,7 @@ class ActivitySummaryService:
                 )
 
             # 解析响应
-            content = response.choices[0].message.content.strip()
+            content = (response.choices[0].message.content or "").strip()
             if content:
                 extracted_content, original_content = self._extract_json_from_response(content)
                 if extracted_content:
@@ -250,10 +253,7 @@ class ActivitySummaryService:
             return {"title": "活动记录", "summary": f"包含 {len(events)} 个事件"}
 
         # 生成简单标题（取第一个标题或合并）
-        if len(titles) == 1:
-            title = titles[0]
-        else:
-            title = f"{titles[0]}等{len(titles)}项活动"
+        title = titles[0] if len(titles) == 1 else f"{titles[0]}等{len(titles)}项活动"
 
         # 生成简单摘要
         summary = f"包含 {len(events)} 个事件："

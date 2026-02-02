@@ -69,7 +69,7 @@ async def chat_with_llm(
 
 
 @router.post("/stream")
-async def chat_with_llm_stream(  # noqa: PLR0911
+async def chat_with_llm_stream(
     message: ChatMessage,
     request: Request,
     chat_service: ChatService = Depends(get_chat_service),
@@ -148,6 +148,6 @@ async def chat_with_llm_stream(  # noqa: PLR0911
             token_generator, media_type="text/plain; charset=utf-8", headers=headers
         )
 
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         logger.error(f"[stream] 聊天处理失败: {e}")
         raise HTTPException(status_code=500, detail="流式聊天处理失败") from e

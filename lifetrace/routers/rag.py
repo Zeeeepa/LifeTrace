@@ -1,14 +1,13 @@
 """RAG服务和应用图标相关路由"""
 
-from datetime import datetime
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from lifetrace.core.dependencies import get_rag_service
 from lifetrace.util.app_utils import get_icon_filename
+from lifetrace.util.base_paths import get_app_root
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_app_root
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -25,7 +24,7 @@ async def rag_health_check():
         return {
             "rag_service": "error",
             "error": str(e),
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": get_utc_now().isoformat(),
         }
 
 
@@ -69,4 +68,4 @@ async def get_app_icon(app_name: str):
         raise
     except Exception as e:
         logger.error(f"获取应用图标失败 {app_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"获取图标失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取图标失败: {e!s}") from e

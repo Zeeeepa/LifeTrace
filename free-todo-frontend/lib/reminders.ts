@@ -1,4 +1,3 @@
-export const DEFAULT_REMINDER_MINUTES = 5;
 export const REMINDER_PRESET_MINUTES = [0, 5, 10, 30, 60, 1440];
 
 export type ReminderUnit = "minutes" | "hours" | "days";
@@ -12,7 +11,7 @@ export const sanitizeReminderOffsets = (value: number[]): number[] => {
 
 export const normalizeReminderOffsets = (
 	value: number[] | null | undefined,
-	fallback: number[] = [DEFAULT_REMINDER_MINUTES],
+	fallback: number[] = [],
 ): number[] => {
 	if (value === null || value === undefined) {
 		return [...fallback];
@@ -21,7 +20,7 @@ export const normalizeReminderOffsets = (
 };
 
 export const formatReminderOffset = (
-	t: (key: string, values?: Record<string, unknown>) => string,
+	t: (key: string, values?: Record<string, string | number | Date>) => string,
 	minutes: number,
 ): string => {
 	if (minutes === 0) return t("atTime");
@@ -36,7 +35,7 @@ export const formatReminderOffset = (
 };
 
 export const formatReminderSummary = (
-	t: (key: string, values?: Record<string, unknown>) => string,
+	t: (key: string, values?: Record<string, string | number | Date>) => string,
 	offsets: number[],
 	emptyLabel: string,
 ): string => {

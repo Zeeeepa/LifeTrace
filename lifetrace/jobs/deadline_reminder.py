@@ -15,18 +15,20 @@ from lifetrace.storage.notification_storage import (
     get_notifications_by_todo_id,
     is_notification_dismissed,
 )
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import get_utc_now, naive_as_utc
 
 logger = get_logger()
 
-DEFAULT_REMINDER_OFFSET_MINUTES = 5
+MINUTES_PER_HOUR = 60
+HOURS_PER_DAY = 24
 
 
-def _normalize_reminder_offsets(value: object | None) -> list[int] | None:
+def _normalize_reminder_offsets(value: object | None) -> list[int]:
     if value is None:
-        return None
+        return []
     if isinstance(value, str):
         if not value.strip():
             return []
@@ -60,35 +62,24 @@ def _parse_notification_deadline(value: str | None) -> datetime | None:
 
 def _format_remaining(deadline: datetime, now: datetime) -> str:
     remaining_seconds = max(0, int((deadline - now).total_seconds()))
-    minutes = remaining_seconds // 60
-    if minutes < 60:
+    minutes = remaining_seconds // MINUTES_PER_HOUR
+    if minutes < MINUTES_PER_HOUR:
         return f"{minutes}分钟"
-    hours = minutes // 60
-    if hours < 24 and minutes % 60 == 0:
+    hours = minutes // MINUTES_PER_HOUR
+    if hours < HOURS_PER_DAY and minutes % MINUTES_PER_HOUR == 0:
         return f"{hours}小时"
-    days = hours // 24
-    if days >= 1 and hours % 24 == 0:
+    days = hours // HOURS_PER_DAY
+    if days >= 1 and hours % HOURS_PER_DAY == 0:
         return f"{days}天"
     return f"{minutes}分钟"
 
 
-def execute_deadline_reminder_task():  # noqa: C901
+def execute_deadline_reminder_task():  # noqa: C901, PLR0912
     """
     执行 DDL 提醒任务
     根据每个待办的提醒偏移，生成通知
     """
     try:
-        default_offset = settings.get(
-            "jobs.deadline_reminder.params.reminder_window_minutes",
-            DEFAULT_REMINDER_OFFSET_MINUTES,
-        )
-        try:
-            default_offset = int(default_offset)
-        except (TypeError, ValueError):
-            default_offset = DEFAULT_REMINDER_OFFSET_MINUTES
-        if default_offset < 0:
-            default_offset = DEFAULT_REMINDER_OFFSET_MINUTES
-
         interval_seconds = settings.get("jobs.deadline_reminder.interval", 30)
         try:
             interval_seconds = float(interval_seconds)
@@ -109,8 +100,8 @@ def execute_deadline_reminder_task():  # noqa: C901
             todos = (
                 session.query(Todo)
                 .filter(
-                    Todo.status == "active",
-                    Todo.deadline.isnot(None),
+                    col(Todo.status) == "active",
+                    col(Todo.deadline).isnot(None),
                 )
                 .all()
             )
@@ -148,8 +139,6 @@ def execute_deadline_reminder_task():  # noqa: C901
                             break
 
                 offsets = _normalize_reminder_offsets(getattr(todo, "reminder_offsets", None))
-                if offsets is None:
-                    offsets = [default_offset]
                 if not offsets:
                     continue
 

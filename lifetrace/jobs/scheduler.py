@@ -117,10 +117,10 @@ class SchedulerManager:
         self,
         func,
         job_id: str,
-        name: str = None,
-        seconds: int = None,
-        minutes: int = None,
-        hours: int = None,
+        name: str | None = None,
+        seconds: int | None = None,
+        minutes: int | None = None,
+        hours: int | None = None,
         replace_existing: bool = True,
         **kwargs,
     ):
@@ -255,9 +255,9 @@ class SchedulerManager:
     def modify_job_interval(
         self,
         job_id: str,
-        seconds: int = None,
-        minutes: int = None,
-        hours: int = None,
+        seconds: int | None = None,
+        minutes: int | None = None,
+        hours: int | None = None,
     ):
         """修改任务的执行间隔
 

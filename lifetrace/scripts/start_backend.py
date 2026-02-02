@@ -5,6 +5,7 @@ Handles data directory setup and config initialization before starting the FastA
 """
 
 import argparse
+import contextlib
 import importlib
 import os
 import shutil
@@ -16,9 +17,10 @@ from pathlib import Path
 if getattr(sys, "frozen", False):
     # PyInstaller bundled - use _MEIPASS for resource path
     # In one-folder bundle, _MEIPASS points to _internal directory
-    if hasattr(sys, "_MEIPASS"):
+    bundle_path = getattr(sys, "_MEIPASS", None)
+    if bundle_path:
         # Add _internal to path where lifetrace modules are located
-        sys.path.insert(0, sys._MEIPASS)
+        sys.path.insert(0, bundle_path)
     else:
         # Fallback: try to find _internal directory relative to executable
         bundle_dir = Path(sys.executable).parent
@@ -33,13 +35,11 @@ else:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import loguru first to ensure PyInstaller detects it
-try:
+with contextlib.suppress(ImportError):
     import loguru  # noqa: F401
-except ImportError:
-    pass  # Will fail later if not available
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 

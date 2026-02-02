@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -13,15 +14,17 @@ def run() -> int:
         print(f"Rust hook skipped: missing {tauri_dir}", file=sys.stderr)
         return 0
 
+    cargo_path = shutil.which("cargo")
+    if not cargo_path:
+        print("cargo not found in PATH. Install Rust and retry.", file=sys.stderr)
+        return 127
+
     try:
-        subprocess.run(
-            ["cargo", "fmt", "--all", "--", "--check"],
+        subprocess.run(  # nosec B603
+            [cargo_path, "fmt", "--all", "--", "--check"],
             cwd=tauri_dir,
             check=True,
         )
-    except FileNotFoundError:
-        print("cargo not found in PATH. Install Rust and retry.", file=sys.stderr)
-        return 127
     except subprocess.CalledProcessError as exc:
         return exc.returncode
 

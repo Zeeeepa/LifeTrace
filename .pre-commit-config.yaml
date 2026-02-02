@@ -35,11 +35,25 @@ repos:
     rev: "v0.6.1"
     hooks:
       - id: biome-check
-        additional_dependencies: ["@biomejs/biome@2.3.8"]
+        additional_dependencies: ["@biomejs/biome@2.3.13"]
         files: ^(free-todo-frontend/)
   # TypeScript type checking for free-todo-frontend
   - repo: local
     hooks:
+      - id: bandit
+        name: Bandit security scan
+        entry: uv run bandit -c bandit.yaml -r lifetrace scripts
+        language: system
+        files: ^(lifetrace|scripts)/.*\.py$
+        pass_filenames: false
+
+      - id: pyright
+        name: Pyright type check
+        entry: uv run python -m pyright --project pyrightconfig.json
+        language: system
+        files: ^(lifetrace|scripts)/.*\.(py|pyi)$
+        pass_filenames: false
+
       - id: tsc-free-todo-frontend
         name: TypeScript type check (free-todo-frontend)
         entry: bash -c 'cd free-todo-frontend && pnpm run type-check'

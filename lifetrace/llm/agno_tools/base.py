@@ -6,12 +6,12 @@ Provides message loader and base utilities for all tools.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_config_dir
 
 logger = get_logger()
 
@@ -23,8 +23,8 @@ class AgnoToolsMessageLoader:
     Supports caching for performance.
     """
 
-    _instances: dict[str, AgnoToolsMessageLoader] = {}
-    _messages: dict[str, dict[str, Any]] = {}
+    _instances: ClassVar[dict[str, AgnoToolsMessageLoader]] = {}
+    _messages: ClassVar[dict[str, dict[str, Any]]] = {}
 
     def __new__(cls, lang: str = "en"):
         """Singleton per language"""

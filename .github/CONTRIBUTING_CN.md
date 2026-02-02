@@ -96,6 +96,20 @@ cd FreeTodo
 git remote add upstream https://github.com/FreeU-group/FreeTodo.git
 ```
 
+### 配置 Git Hooks（Pre-commit）
+
+本仓库使用共享的 `.githooks/` 目录。每个 clone/worktree 只需执行一次：
+
+```bash
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
+
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
+
+> **注意**：不要运行 `pre-commit install`。仓库使用 `core.hooksPath`，因此 `pre-commit install` 会拒绝执行。
+
 ### 后端设置
 
 ```bash

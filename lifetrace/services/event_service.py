@@ -145,6 +145,8 @@ class EventService:
 
         if success:
             updated_event = self.event_repo.get_summary(event_id)
+            if not updated_event:
+                raise HTTPException(status_code=500, detail="事件摘要更新后未找到事件数据")
             return {
                 "success": True,
                 "event_id": event_id,

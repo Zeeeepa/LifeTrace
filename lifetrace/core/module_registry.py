@@ -6,13 +6,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from importlib import util as importlib_util
-
-from fastapi import FastAPI
+from typing import TYPE_CHECKING
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 logger = get_logger()
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 
 @dataclass(frozen=True)
@@ -143,10 +145,7 @@ def get_module_states() -> dict[str, ModuleState]:
     return states
 
 
-def register_enabled_modules(app: FastAPI) -> list[str]:
-    states = get_module_states()
-    enabled_modules: list[str] = []
-
+def log_module_summary(states: dict[str, ModuleState]) -> None:
     enabled_ids = sorted([mid for mid, state in states.items() if state.enabled])
     disabled_ids = sorted([mid for mid, state in states.items() if not state.enabled])
     unavailable_ids = sorted(
@@ -163,9 +162,29 @@ def register_enabled_modules(app: FastAPI) -> list[str]:
     else:
         logger.info("Backend modules unavailable: none")
 
+
+def get_enabled_module_ids(states: dict[str, ModuleState] | None = None) -> list[str]:
+    if states is None:
+        states = get_module_states()
+    return [module.id for module in MODULES if states[module.id].enabled]
+
+
+def register_modules(
+    app: FastAPI,
+    module_ids: Iterable[str],
+    states: dict[str, ModuleState] | None = None,
+) -> list[str]:
+    if states is None:
+        states = get_module_states()
+
+    module_id_set = set(module_ids)
+    enabled_modules: list[str] = []
+
     for module in MODULES:
-        state = states[module.id]
-        if not state.enabled:
+        if module.id not in module_id_set:
+            continue
+        state = states.get(module.id)
+        if not state or not state.enabled:
             continue
         if not state.available:
             logger.warning(
@@ -183,6 +202,13 @@ def register_enabled_modules(app: FastAPI) -> list[str]:
             logger.error("Failed to register module %s: %s", module.id, exc)
 
     return enabled_modules
+
+
+def register_enabled_modules(app: FastAPI) -> list[str]:
+    states = get_module_states()
+    log_module_summary(states)
+    enabled_ids = get_enabled_module_ids(states)
+    return register_modules(app, enabled_ids, states=states)
 
 
 def get_capabilities_report() -> dict[str, object]:

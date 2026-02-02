@@ -3,14 +3,16 @@ Token使用量记录器
 记录LLM API调用的token使用情况，便于后续统计分析
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from functools import lru_cache
 from typing import Any
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import TokenUsage
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -113,7 +115,7 @@ class TokenUsageLogger:
         model: str,
         input_tokens: int,
         output_tokens: int,
-        metadata: dict[str, Any] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """
         记录token使用量
@@ -129,7 +131,7 @@ class TokenUsageLogger:
                 - feature_type: 功能类型（如 event_assistant, project_assistant）
                 - additional_info: 额外信息字典
         """
-        MAX_QUERY_PREVIEW_LENGTH = 200
+        max_query_preview_length = 200
 
         if metadata is None:
             metadata = {}
@@ -151,8 +153,8 @@ class TokenUsageLogger:
             query_length = None
             if user_query:
                 # 只记录查询的前N个字符
-                user_query_preview = user_query[:MAX_QUERY_PREVIEW_LENGTH] + (
-                    "..." if len(user_query) > MAX_QUERY_PREVIEW_LENGTH else ""
+                user_query_preview = user_query[:max_query_preview_length] + (
+                    "..." if len(user_query) > max_query_preview_length else ""
                 )
                 query_length = len(user_query)
 
@@ -171,7 +173,7 @@ class TokenUsageLogger:
                     input_cost=input_cost,
                     output_cost=output_cost,
                     total_cost=total_cost,
-                    created_at=datetime.now(),
+                    created_at=get_utc_now(),
                 )
                 session.add(token_usage)
                 session.flush()
@@ -209,7 +211,7 @@ class TokenUsageLogger:
                 "daily_stats": {},
             }
 
-            end_date = datetime.now()
+            end_date = get_utc_now()
             start_date = end_date - timedelta(days=days)
 
             # 从数据库查询
@@ -217,8 +219,8 @@ class TokenUsageLogger:
                 # 查询时间范围内的所有记录
                 records = (
                     session.query(TokenUsage)
-                    .filter(TokenUsage.created_at >= start_date)
-                    .filter(TokenUsage.created_at <= end_date)
+                    .filter(col(TokenUsage.created_at) >= start_date)
+                    .filter(col(TokenUsage.created_at) <= end_date)
                     .all()
                 )
 
