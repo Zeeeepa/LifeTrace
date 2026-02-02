@@ -110,7 +110,6 @@ select = [
     "A",    # flake8-builtins（避免覆盖内建名）
     "ARG",  # flake8-unused-arguments
 
-    "S",    # flake8-bandit（基础安全问题）
     "N",    # pep8-naming（命名规范）
 
     "TCH",  # flake8-type-checking

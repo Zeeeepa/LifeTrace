@@ -197,7 +197,7 @@ class TodoScreenRecorder:
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="计算文件哈希")
         def _do_calculate_hash():
             with open(file_path, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()  # noqa: S324
+                return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
         try:
             result = _do_calculate_hash()

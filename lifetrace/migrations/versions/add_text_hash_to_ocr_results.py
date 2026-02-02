@@ -51,7 +51,9 @@ def upgrade() -> None:
     for row in rows:
         normalized = _normalize_text(row["text_content"])
         text_hash = (
-            None if not normalized else hashlib.md5(normalized.encode("utf-8")).hexdigest()  # noqa: S324
+            None
+            if not normalized
+            else hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
         )
 
         connection.execute(

@@ -156,7 +156,7 @@ class VectorDatabase:
             doc_metadata = {
                 "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),  # noqa: S324
+                "text_hash": hashlib.md5(text.encode(), usedforsecurity=False).hexdigest(),
             }
             if metadata:
                 doc_metadata.update(metadata)
@@ -210,7 +210,7 @@ class VectorDatabase:
             doc_metadata = {
                 "timestamp": get_utc_now().isoformat(),
                 "text_length": len(text),
-                "text_hash": hashlib.md5(text.encode()).hexdigest(),  # noqa: S324
+                "text_hash": hashlib.md5(text.encode(), usedforsecurity=False).hexdigest(),
             }
             if metadata:
                 doc_metadata.update(metadata)

@@ -29,7 +29,7 @@ def _compute_text_hash(text_content: str) -> str | None:
     normalized = " ".join((text_content or "").strip().split())
     if not normalized:
         return None
-    return hashlib.md5(normalized.encode("utf-8")).hexdigest()  # noqa: S324
+    return hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 class OCRTodoExtractor:

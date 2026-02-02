@@ -1,0 +1,126 @@
+name: Pre-commit
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'lifetrace/**'
+              - 'scripts/**'
+              - 'pyproject.toml'
+              - 'bandit.yaml'
+              - '.pre-commit-config.yaml'
+            frontend:
+              - 'free-todo-frontend/**'
+              - '.pre-commit-config.yaml'
+            rust:
+              - 'free-todo-frontend/src-tauri/**'
+              - 'scripts/precommit_rustfmt.py'
+              - 'scripts/precommit_clippy.py'
+              - '.pre-commit-config.yaml'
+
+  precommit-base:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+      - name: Run base hooks
+        run: |
+          pre-commit run check-yaml \
+            check-toml \
+            check-json \
+            end-of-file-fixer \
+            trailing-whitespace \
+            --all-files
+
+  precommit-python:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.python == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v3
+      - name: Install backend deps
+        run: uv sync --group dev
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+      - name: Run Python hooks
+        run: |
+          pre-commit run ruff \
+            ruff-format \
+            bandit \
+            check-backend-code-lines \
+            --all-files
+
+  precommit-frontend:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "9"
+      - name: Install frontend deps
+        run: pnpm install
+        working-directory: free-todo-frontend
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+      - name: Run frontend hooks
+        run: |
+          pre-commit run biome-check \
+            tsc-free-todo-frontend \
+            check-frontend-code-lines \
+            --all-files
+
+  precommit-rust:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+      - name: Run Rust hooks
+        run: |
+          pre-commit run rustfmt \
+            clippy \
+            check-tauri-rust-code-lines \
+            --all-files

@@ -38,7 +38,9 @@ class OCRManager:
         try:
             normalized = _normalize_text(text_content)
             text_hash = (
-                hashlib.md5(normalized.encode("utf-8")).hexdigest() if normalized else None  # noqa: S324
+                hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
+                if normalized
+                else None
             )
 
             with self.db_base.get_session() as session:

@@ -2,7 +2,7 @@
 
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from functools import lru_cache
 
 from fastapi import APIRouter
@@ -36,7 +36,7 @@ def get_git_commit() -> str:
         return "unknown"
 
     try:
-        return subprocess.check_output(  # noqa: S603
+        return subprocess.check_output(  # nosec B603
             [git_path, "rev-parse", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,

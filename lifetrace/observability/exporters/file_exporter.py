@@ -49,8 +49,8 @@ OPENINFERENCE_OUTPUT_VALUE = "output.value"
 OPENINFERENCE_LLM_MODEL_NAME = "llm.model_name"
 OPENINFERENCE_LLM_INPUT_MESSAGES = "llm.input_messages"
 OPENINFERENCE_LLM_OUTPUT_MESSAGES = "llm.output_messages"
-OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT = "llm.token_count.prompt"  # noqa: S105
-OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION = "llm.token_count.completion"  # noqa: S105
+OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT = "llm.token_count.prompt"  # nosec B105
+OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION = "llm.token_count.completion"  # nosec B105
 OPENINFERENCE_TOOL_NAME = "tool.name"
 OPENINFERENCE_TOOL_PARAMETERS = "tool.parameters"
 

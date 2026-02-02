@@ -40,6 +40,12 @@ repos:
   # TypeScript type checking for free-todo-frontend
   - repo: local
     hooks:
+      - id: bandit
+        name: Bandit security scan
+        entry: uv run bandit -c bandit.yaml -r lifetrace scripts
+        language: system
+        pass_filenames: false
+
       - id: tsc-free-todo-frontend
         name: TypeScript type check (free-todo-frontend)
         entry: bash -c 'cd free-todo-frontend && pnpm run type-check'

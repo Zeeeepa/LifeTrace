@@ -4,7 +4,7 @@ import getpass
 import os
 import re
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -18,7 +18,7 @@ def _get_git_path() -> str:
 
 def run_git(root: Path, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     git_path = _get_git_path()
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(  # nosec B603
         [git_path, "-C", str(root), *args],
         text=True,
         capture_output=True,
@@ -62,13 +62,13 @@ def run_link_deps(root: Path, worktree_path: Path, force: bool) -> int:
         if force:
             cmd.append("--force")
 
-    result = subprocess.run(cmd, check=False)  # noqa: S603
+    result = subprocess.run(cmd, check=False)  # nosec B603
     return result.returncode
 
 
 def get_repo_root() -> Path:
     git_path = _get_git_path()
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # nosec B603
         [git_path, "rev-parse", "--show-toplevel"],
         text=True,
         capture_output=True,

@@ -9,7 +9,7 @@
 import contextlib
 import platform
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 import time
 import uuid
@@ -275,13 +275,13 @@ class WindowCapture:
                 xdotool_path = shutil.which("xdotool")
                 if not xdotool_path:
                     raise FileNotFoundError("xdotool not found")
-                result = subprocess.run(  # noqa: S603
-                    [xdotool_path, "getactivewindow", "getwindowgeometry"],
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                    check=False,
-                )
+                    result = subprocess.run(  # nosec B603
+                        [xdotool_path, "getactivewindow", "getwindowgeometry"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                        check=False,
+                    )
                 if result.returncode == 0:
                     # 解析窗口几何信息
                     geometry = {}
@@ -297,14 +297,14 @@ class WindowCapture:
                             geometry["width"] = width
                             geometry["height"] = height
 
-                    # 获取窗口ID
-                    wid_result = subprocess.run(  # noqa: S603
-                        [xdotool_path, "getactivewindow"],
-                        capture_output=True,
-                        text=True,
-                        timeout=2,
-                        check=False,
-                    )
+                        # 获取窗口ID
+                        wid_result = subprocess.run(  # nosec B603
+                            [xdotool_path, "getactivewindow"],
+                            capture_output=True,
+                            text=True,
+                            timeout=2,
+                            check=False,
+                        )
                     window_id = int(wid_result.stdout.strip()) if wid_result.returncode == 0 else 0
 
                     # 获取进程ID

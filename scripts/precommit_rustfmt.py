@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -20,7 +20,7 @@ def run() -> int:
         return 127
 
     try:
-        subprocess.run(  # noqa: S603
+        subprocess.run(  # nosec B603
             [cargo_path, "fmt", "--all", "--", "--check"],
             cwd=tauri_dir,
             check=True,

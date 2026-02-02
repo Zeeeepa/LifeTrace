@@ -2,7 +2,7 @@ import hashlib
 import os
 import platform
 import shutil
-import subprocess
+import subprocess  # nosec B404
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -47,7 +47,7 @@ except ImportError:
 
 def get_file_hash(file_path: str) -> str:
     """计算文件MD5哈希值"""
-    hash_md5 = hashlib.md5()  # noqa: S324
+    hash_md5 = hashlib.md5(usedforsecurity=False)
     try:
         with open(file_path, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -334,7 +334,7 @@ def _get_linux_active_window_screen() -> int | None:  # noqa: PLR0911
         xdotool_path = shutil.which("xdotool")
         if not xdotool_path:
             return DEFAULT_SCREEN_ID
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(  # nosec B603
             [xdotool_path, "getactivewindow", "getwindowgeometry"],
             capture_output=True,
             text=True,
@@ -351,7 +351,7 @@ def _get_linux_active_window_screen() -> int | None:  # noqa: PLR0911
         xrandr_path = shutil.which("xrandr")
         if not xrandr_path:
             return DEFAULT_SCREEN_ID
-        xrandr_result = subprocess.run(  # noqa: S603
+        xrandr_result = subprocess.run(  # nosec B603
             [xrandr_path, "--current"],
             capture_output=True,
             text=True,
@@ -375,7 +375,7 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
         if not xprop_path:
             return None, None
         # 使用xprop获取活跃窗口ID
-        result = subprocess.run(  # noqa: S603
+        result = subprocess.run(  # nosec B603
             [xprop_path, "-root", "_NET_ACTIVE_WINDOW"],
             capture_output=True,
             text=True,
@@ -385,7 +385,7 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
             window_id = result.stdout.strip().split()[-1]
 
             # 获取窗口标题
-            title_result = subprocess.run(  # noqa: S603
+            title_result = subprocess.run(  # nosec B603
                 [xprop_path, "-id", window_id, "WM_NAME"],
                 capture_output=True,
                 text=True,
@@ -399,7 +399,7 @@ def _get_linux_active_window() -> tuple[str | None, str | None]:
                 )
 
                 # 获取应用名称
-                class_result = subprocess.run(  # noqa: S603
+                class_result = subprocess.run(  # nosec B603
                     [xprop_path, "-id", window_id, "WM_CLASS"],
                     capture_output=True,
                     text=True,

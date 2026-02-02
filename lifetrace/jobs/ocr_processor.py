@@ -234,7 +234,7 @@ def create_screenshot_record(image_path: str):
         pil_image = _OCR_DEPS["Image"]
 
         with open(image_path, "rb") as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()  # noqa: S324
+            file_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
         try:
             with pil_image.open(image_path) as img:

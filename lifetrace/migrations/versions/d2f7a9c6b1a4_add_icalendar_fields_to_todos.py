@@ -80,7 +80,7 @@ def _backfill_todo_ical_fields(connection: sa.Connection) -> None:
         updates["id"] = row["id"]
         sets = ", ".join([f"{key} = :{key}" for key in updates if key != "id"])
         connection.execute(
-            sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),  # noqa: S608
+            sa.text(f"UPDATE todos SET {sets} WHERE id = :id"),  # nosec B608
             updates,
         )
 

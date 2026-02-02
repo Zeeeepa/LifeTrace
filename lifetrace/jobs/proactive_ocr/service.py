@@ -243,7 +243,7 @@ class ProactiveOCRService:
 
             # 计算文件哈希
             with open(file_path, "rb") as f:
-                file_hash = hashlib.md5(f.read()).hexdigest()  # noqa: S324
+                file_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
             # 添加截图记录
             screenshot_id = screenshot_mgr.add_screenshot(
