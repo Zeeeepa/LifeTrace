@@ -17,6 +17,7 @@ import {
 	ceilToMinutes,
 	clampMinutes,
 	DEFAULT_DURATION_MINUTES,
+	DEFAULT_NEW_TIME,
 	DEFAULT_WORK_END_MINUTES,
 	DEFAULT_WORK_START_MINUTES,
 	floorToMinutes,
@@ -28,6 +29,7 @@ import {
 	MINUTES_PER_SLOT,
 	parseTodoDateTime,
 	setMinutesOnDate,
+	toDateKey,
 } from "../utils";
 
 const SLOT_HEIGHT = 12;
@@ -57,10 +59,19 @@ export function DayView({
 		top: number;
 		left: number;
 	} | null>(null);
+	const [createMode, setCreateMode] = useState<"timeline" | "all-day" | null>(
+		null,
+	);
 	const [timelineTitle, setTimelineTitle] = useState("");
 	const [timelineStart, setTimelineStart] = useState("");
 	const [timelineEnd, setTimelineEnd] = useState("");
 	const [timelineDate, setTimelineDate] = useState<Date | null>(null);
+	const [timelinePreview, setTimelinePreview] = useState<{
+		date: Date;
+		startMinutes: number;
+		endMinutes: number;
+	} | null>(null);
+	const [allDayPreview, setAllDayPreview] = useState<Date | null>(null);
 	const weekDayLabels = [
 		t("weekdays.monday"),
 		t("weekdays.tuesday"),
@@ -207,11 +218,51 @@ export function DayView({
 			viewportHeight - popoverHeight,
 		);
 
+		setCreateMode("timeline");
 		setTimelineDate(date);
 		setTimelineStart(formatMinutesLabel(safeStart));
 		setTimelineEnd(formatMinutesLabel(endMinutes));
 		setTimelineTitle("");
 		setTimelineAnchor({ top, left });
+		setTimelinePreview({
+			date,
+			startMinutes: safeStart,
+			endMinutes,
+		});
+		setAllDayPreview(null);
+	};
+
+	const openAllDayCreateAt = (
+		event: React.MouseEvent<HTMLDivElement>,
+	) => {
+		if (typeof window === "undefined") return;
+		if ((event.target as HTMLElement | null)?.closest("[data-all-day-card]")) {
+			return;
+		}
+		const rect = event.currentTarget.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const preferredLeft = rect.left + 16;
+		const preferredTop = rect.bottom + 8;
+		const popoverWidth = 340;
+		const popoverHeight = 220;
+		const left = Math.min(
+			Math.max(12, preferredLeft),
+			viewportWidth - popoverWidth,
+		);
+		const top = Math.min(
+			Math.max(12, preferredTop),
+			viewportHeight - popoverHeight,
+		);
+
+		setCreateMode("all-day");
+		setTimelineDate(currentDate);
+		setTimelineStart(DEFAULT_NEW_TIME);
+		setTimelineEnd(DEFAULT_NEW_TIME);
+		setTimelineTitle("");
+		setTimelineAnchor({ top, left });
+		setTimelinePreview(null);
+		setAllDayPreview(currentDate);
 	};
 
 	const closeTimelineCreate = () => {
@@ -220,10 +271,27 @@ export function DayView({
 		setTimelineTitle("");
 		setTimelineStart("");
 		setTimelineEnd("");
+		setCreateMode(null);
+		setTimelinePreview(null);
+		setAllDayPreview(null);
 	};
 
 	const handleCreateTimelineTodo = async () => {
 		if (!timelineDate || !timelineTitle.trim()) return;
+		if (createMode === "all-day") {
+			const dateKey = toDateKey(timelineDate);
+			try {
+				await createTodo({
+					name: timelineTitle.trim(),
+					deadline: `${dateKey}T00:00:00`,
+					status: "active",
+				});
+				closeTimelineCreate();
+			} catch (error) {
+				console.error("Failed to create all-day todo:", error);
+			}
+			return;
+		}
 		const startMinutes = parseTimeInput(timelineStart);
 		let endMinutes = parseTimeInput(timelineEnd);
 		if (startMinutes === null) return;
@@ -312,7 +380,10 @@ export function DayView({
 				<div className="rounded-xl border border-border bg-card/50 px-4 py-3 text-sm font-semibold text-foreground shadow-sm">
 					{dayHeaderLabel}
 				</div>
-				<div className="rounded-xl border border-border bg-card/50 p-3 shadow-sm">
+				<div
+					className="rounded-xl border border-border bg-card/50 p-3 shadow-sm"
+					onClick={openAllDayCreateAt}
+				>
 					<div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
 						<span>{t("allDay")}</span>
 						<span className="text-[11px] text-muted-foreground">
@@ -327,6 +398,13 @@ export function DayView({
 								onSelect={(selected) => setSelectedTodoId(selected.id)}
 							/>
 						))}
+						{createMode === "all-day" &&
+							allDayPreview &&
+							isSameDay(allDayPreview, currentDate) && (
+								<div className="rounded-lg border border-dashed border-primary/60 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary shadow-sm ring-2 ring-primary/30">
+									{timelineTitle.trim() || t("inputTodoTitle")}
+								</div>
+							)}
 					</div>
 				</div>
 			</div>
@@ -382,6 +460,19 @@ export function DayView({
 							slotMinutes={slotMinutes}
 							slotHeight={SLOT_HEIGHT}
 							pxPerMinute={pxPerMinute}
+							preview={
+								createMode === "timeline" && timelinePreview
+									? {
+											startMinutes: timelinePreview.startMinutes,
+											endMinutes: timelinePreview.endMinutes,
+											timeLabel: formatTimeRangeLabel(
+												timelinePreview.startMinutes,
+												timelinePreview.endMinutes,
+											),
+											title: timelineTitle.trim() || t("inputTodoTitle"),
+										}
+									: undefined
+							}
 							onSelect={(todo) => setSelectedTodoId(todo.id)}
 							onResize={handleResize}
 							onSlotPointerDown={openTimelineCreateAt}
@@ -395,6 +486,7 @@ export function DayView({
 				value={timelineTitle}
 				startTime={timelineStart}
 				endTime={timelineEnd}
+				showTimeFields={createMode !== "all-day"}
 				anchorPoint={timelineAnchor}
 				onChange={setTimelineTitle}
 				onStartTimeChange={setTimelineStart}

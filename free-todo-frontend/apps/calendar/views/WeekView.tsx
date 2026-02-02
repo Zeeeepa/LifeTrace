@@ -18,6 +18,7 @@ import {
 	ceilToMinutes,
 	clampMinutes,
 	DEFAULT_DURATION_MINUTES,
+	DEFAULT_NEW_TIME,
 	DEFAULT_WORK_END_MINUTES,
 	DEFAULT_WORK_START_MINUTES,
 	floorToMinutes,
@@ -78,10 +79,19 @@ export function WeekView({
 		top: number;
 		left: number;
 	} | null>(null);
+	const [createMode, setCreateMode] = useState<"timeline" | "all-day" | null>(
+		null,
+	);
 	const [timelineTitle, setTimelineTitle] = useState("");
 	const [timelineStart, setTimelineStart] = useState("");
 	const [timelineEnd, setTimelineEnd] = useState("");
 	const [timelineDate, setTimelineDate] = useState<Date | null>(null);
+	const [timelinePreview, setTimelinePreview] = useState<{
+		date: Date;
+		startMinutes: number;
+		endMinutes: number;
+	} | null>(null);
+	const [allDayPreview, setAllDayPreview] = useState<Date | null>(null);
 	const maxTimelineMinutes = 24 * 60 - MINUTES_PER_SLOT;
 
 	const parsedTodos = useMemo<ParsedTodo[]>(
@@ -236,11 +246,52 @@ export function WeekView({
 			viewportHeight - popoverHeight,
 		);
 
+		setCreateMode("timeline");
 		setTimelineDate(date);
 		setTimelineStart(formatMinutesLabel(safeStart));
 		setTimelineEnd(formatMinutesLabel(endMinutes));
 		setTimelineTitle("");
 		setTimelineAnchor({ top, left });
+		setTimelinePreview({
+			date,
+			startMinutes: safeStart,
+			endMinutes,
+		});
+		setAllDayPreview(null);
+	};
+
+	const openAllDayCreateAt = (
+		date: Date,
+		event: React.MouseEvent<HTMLDivElement>,
+	) => {
+		if (typeof window === "undefined") return;
+		if ((event.target as HTMLElement | null)?.closest("[data-all-day-card]")) {
+			return;
+		}
+		const rect = event.currentTarget.getBoundingClientRect();
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const preferredLeft = rect.left + 16;
+		const preferredTop = rect.bottom + 8;
+		const popoverWidth = 340;
+		const popoverHeight = 220;
+		const left = Math.min(
+			Math.max(12, preferredLeft),
+			viewportWidth - popoverWidth,
+		);
+		const top = Math.min(
+			Math.max(12, preferredTop),
+			viewportHeight - popoverHeight,
+		);
+
+		setCreateMode("all-day");
+		setTimelineDate(date);
+		setTimelineStart(DEFAULT_NEW_TIME);
+		setTimelineEnd(DEFAULT_NEW_TIME);
+		setTimelineTitle("");
+		setTimelineAnchor({ top, left });
+		setTimelinePreview(null);
+		setAllDayPreview(date);
 	};
 
 	const closeTimelineCreate = () => {
@@ -249,10 +300,27 @@ export function WeekView({
 		setTimelineTitle("");
 		setTimelineStart("");
 		setTimelineEnd("");
+		setCreateMode(null);
+		setTimelinePreview(null);
+		setAllDayPreview(null);
 	};
 
 	const handleCreateTimelineTodo = async () => {
 		if (!timelineDate || !timelineTitle.trim()) return;
+		if (createMode === "all-day") {
+			const dateKey = toDateKey(timelineDate);
+			try {
+				await createTodo({
+					name: timelineTitle.trim(),
+					deadline: `${dateKey}T00:00:00`,
+					status: "active",
+				});
+				closeTimelineCreate();
+			} catch (error) {
+				console.error("Failed to create all-day todo:", error);
+			}
+			return;
+		}
 		const startMinutes = parseTimeInput(timelineStart);
 		let endMinutes = parseTimeInput(timelineEnd);
 		if (startMinutes === null) return;
@@ -385,7 +453,11 @@ export function WeekView({
 						const dateKey = toDateKey(day.date);
 						const allDayTodos = allDayByDay.get(dateKey) || [];
 						return (
-							<div key={dateKey} className="border-l border-border/70 bg-card/50 px-3 py-2">
+							<div
+								key={dateKey}
+								className="border-l border-border/70 bg-card/50 px-3 py-2"
+								onClick={(event) => openAllDayCreateAt(day.date, event)}
+							>
 								<div className="flex flex-wrap gap-2">
 									{allDayTodos.map((todo) => (
 										<FloatingTodoCard
@@ -394,6 +466,13 @@ export function WeekView({
 											onSelect={onSelectTodo}
 										/>
 									))}
+									{createMode === "all-day" &&
+										allDayPreview &&
+										isSameDay(allDayPreview, day.date) && (
+											<div className="rounded-lg border border-dashed border-primary/60 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary shadow-sm ring-2 ring-primary/30">
+												{timelineTitle.trim() || t("inputTodoTitle")}
+											</div>
+										)}
 								</div>
 							</div>
 						);
@@ -460,6 +539,23 @@ export function WeekView({
 											slotMinutes={slotMinutes}
 											slotHeight={SLOT_HEIGHT}
 											pxPerMinute={pxPerMinute}
+											preview={
+												createMode === "timeline" &&
+												timelinePreview &&
+												isSameDay(timelinePreview.date, day.date)
+													? {
+															startMinutes: timelinePreview.startMinutes,
+															endMinutes: timelinePreview.endMinutes,
+															timeLabel: formatTimeRangeLabel(
+																timelinePreview.startMinutes,
+																timelinePreview.endMinutes,
+															),
+															title:
+																timelineTitle.trim() ||
+																t("inputTodoTitle"),
+														}
+													: undefined
+											}
 											onSelect={onSelectTodo}
 											onResize={handleResize}
 											onSlotPointerDown={openTimelineCreateAt}
@@ -476,6 +572,7 @@ export function WeekView({
 				value={timelineTitle}
 				startTime={timelineStart}
 				endTime={timelineEnd}
+				showTimeFields={createMode !== "all-day"}
 				anchorPoint={timelineAnchor}
 				onChange={setTimelineTitle}
 				onStartTimeChange={setTimelineStart}

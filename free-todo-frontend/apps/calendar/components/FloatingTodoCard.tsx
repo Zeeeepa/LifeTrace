@@ -59,6 +59,7 @@ export function FloatingTodoCard({
 					"hover:-translate-y-[1px] hover:ring-1 hover:ring-primary/20",
 					getStatusStyle(todo.status),
 				)}
+				data-all-day-card
 			>
 				{todo.name}
 			</button>

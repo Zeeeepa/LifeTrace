@@ -34,6 +34,7 @@ export function TimelineColumn({
 	slotMinutes,
 	slotHeight,
 	pxPerMinute,
+	preview,
 	onSelect,
 	onResize,
 	onSlotPointerDown,
@@ -45,6 +46,12 @@ export function TimelineColumn({
 	slotMinutes: number[];
 	slotHeight: number;
 	pxPerMinute: number;
+	preview?: {
+		startMinutes: number;
+		endMinutes: number;
+		timeLabel: string;
+		title: string;
+	};
 	onSelect: (todo: Todo) => void;
 	onResize: (todo: Todo, startMinutes: number, endMinutes: number, date: Date) => void;
 	onSlotPointerDown?: (args: {
@@ -95,6 +102,25 @@ export function TimelineColumn({
 		resizePreview,
 		slotHeight,
 	]);
+
+	const previewItem = useMemo(() => {
+		if (!preview) return null;
+		const startMinutes = preview.startMinutes;
+		const endMinutes =
+			preview.endMinutes > preview.startMinutes
+				? preview.endMinutes
+				: preview.startMinutes + DEFAULT_DURATION_MINUTES;
+		const top = (startMinutes - displayStart) * pxPerMinute;
+		const rawHeight = (endMinutes - startMinutes) * pxPerMinute;
+		const height = Math.max(MIN_ITEM_HEIGHT, rawHeight);
+		return {
+			...preview,
+			startMinutes,
+			endMinutes,
+			top,
+			height,
+		};
+	}, [displayStart, preview, pxPerMinute]);
 
 	const startResize = (
 		item: TimelineItem,
@@ -219,6 +245,24 @@ export function TimelineColumn({
 						}
 					/>
 				))}
+				{previewItem && (
+					<div
+						className={cn(
+							"pointer-events-none absolute left-2 right-2 flex flex-col gap-1 rounded-lg border border-dashed border-primary/60 bg-primary/10 px-2 py-1 text-xs text-primary shadow-sm ring-2 ring-primary/30",
+							"shadow-[0_10px_20px_-18px_oklch(var(--primary)/0.7)]",
+						)}
+						style={{ top: previewItem.top, height: previewItem.height }}
+					>
+						<div className="flex flex-col gap-0.5">
+							<p className="truncate text-[12px] font-semibold">
+								{previewItem.title}
+							</p>
+							<span className="text-[11px] text-primary/80">
+								{previewItem.timeLabel}
+							</span>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

@@ -16,6 +16,7 @@ export function TimelineCreatePopover({
 	value,
 	startTime,
 	endTime,
+	showTimeFields = true,
 	anchorPoint,
 	onChange,
 	onStartTimeChange,
@@ -27,6 +28,7 @@ export function TimelineCreatePopover({
 	value: string;
 	startTime: string;
 	endTime: string;
+	showTimeFields?: boolean;
 	anchorPoint: { top: number; left: number } | null;
 	onChange: (v: string) => void;
 	onStartTimeChange: (v: string) => void;
@@ -140,28 +142,30 @@ export function TimelineCreatePopover({
 							placeholder={t("inputTodoTitle")}
 							className="w-full rounded-lg border border-border/70 bg-background/80 px-3 py-2 text-sm shadow-sm transition focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/60"
 						/>
-						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-							<label className="flex items-center gap-2">
-								<span className="min-w-[48px]">{t("startTime")}</span>
-								<input
-									type="time"
-									step={900}
-									value={startTime}
-									onChange={(event) => onStartTimeChange(event.target.value)}
-									className="w-24 rounded-lg border border-border/70 bg-background/80 px-2 py-2 text-sm shadow-sm transition focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
-								/>
-							</label>
-							<label className="flex items-center gap-2">
-								<span className="min-w-[48px]">{t("endTime")}</span>
-								<input
-									type="time"
-									step={900}
-									value={endTime}
-									onChange={(event) => onEndTimeChange(event.target.value)}
-									className="w-24 rounded-lg border border-border/70 bg-background/80 px-2 py-2 text-sm shadow-sm transition focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
-								/>
-							</label>
-						</div>
+						{showTimeFields && (
+							<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+								<label className="flex items-center gap-2">
+									<span className="min-w-[48px]">{t("startTime")}</span>
+									<input
+										type="time"
+										step={900}
+										value={startTime}
+										onChange={(event) => onStartTimeChange(event.target.value)}
+										className="w-24 rounded-lg border border-border/70 bg-background/80 px-2 py-2 text-sm shadow-sm transition focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
+									/>
+								</label>
+								<label className="flex items-center gap-2">
+									<span className="min-w-[48px]">{t("endTime")}</span>
+									<input
+										type="time"
+										step={900}
+										value={endTime}
+										onChange={(event) => onEndTimeChange(event.target.value)}
+										className="w-24 rounded-lg border border-border/70 bg-background/80 px-2 py-2 text-sm shadow-sm transition focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
+									/>
+								</label>
+							</div>
+						)}
 						<button
 							type="button"
 							onClick={onConfirm}
