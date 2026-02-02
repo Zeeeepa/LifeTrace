@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
 	AudioAsrConfigSection,
 	AudioConfigSection,
+	AutomationTasksSection,
 	AutoTodoDetectionSection,
 	DifyConfigSection,
 	DockDisplayModeSection,
@@ -134,7 +135,12 @@ export function SettingsPanel() {
 					</>
 				);
 			case "automation":
-				return <AutoTodoDetectionSection config={config} loading={loading} />;
+				return (
+					<>
+						<AutoTodoDetectionSection config={config} loading={loading} />
+						<AutomationTasksSection loading={loading} />
+					</>
+				);
 			case "ai":
 				return (
 					<>

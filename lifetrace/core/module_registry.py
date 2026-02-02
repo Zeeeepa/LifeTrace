@@ -50,6 +50,11 @@ MODULES: tuple[ModuleDefinition, ...] = (
         requires=("vector",),
     ),
     ModuleDefinition(id="scheduler", router_module="lifetrace.routers.scheduler"),
+    ModuleDefinition(
+        id="automation",
+        router_module="lifetrace.routers.automation",
+        requires=("scheduler",),
+    ),
     ModuleDefinition(id="cost_tracking", router_module="lifetrace.routers.cost_tracking"),
     ModuleDefinition(id="time_allocation", router_module="lifetrace.routers.time_allocation"),
     ModuleDefinition(id="todo", router_module="lifetrace.routers.todo"),

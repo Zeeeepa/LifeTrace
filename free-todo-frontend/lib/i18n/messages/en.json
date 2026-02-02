@@ -813,6 +813,74 @@
 		"removeAttachmentFailed": "Failed to remove attachment",
 		"uploadSizeLimit": "Single file exceeds 50MB"
 	},
+	"automationTasks": {
+		"title": "Automation tasks",
+		"description": "Create lightweight scheduled jobs like fetching content at a specific time.",
+		"createTitle": "New task",
+		"createHint": "Only web fetch is supported for now",
+		"empty": "No automation tasks yet.",
+		"dateLocale": "en-US",
+		"labels": {
+			"name": "Task name",
+			"description": "Description",
+			"url": "Fetch URL",
+			"method": "Method",
+			"enabled": "Enabled",
+			"enabledOn": "Enabled",
+			"enabledOff": "Disabled",
+			"scheduleType": "Schedule type",
+			"intervalMinutes": "Every (minutes)",
+			"cron": "Cron expression",
+			"runAt": "Run at",
+			"lastRun": "Last run: {time}",
+			"status": "Status"
+		},
+		"placeholders": {
+			"name": "Daily check-in",
+			"description": "Optional notes"
+		},
+		"scheduleType": {
+			"interval": "Interval",
+			"cron": "Cron",
+			"once": "Once"
+		},
+		"scheduleSummary": {
+			"interval": "Every {minutes} min",
+			"cron": "Cron: {cron}",
+			"once": "Once at {time}"
+		},
+		"actions": {
+			"create": "Create task",
+			"run": "Run now",
+			"enable": "Enable",
+			"disable": "Disable",
+			"delete": "Delete"
+		},
+		"status": {
+			"success": "Success",
+			"error": "Error",
+			"never": "Never"
+		},
+		"errors": {
+			"nameRequired": "Task name is required",
+			"urlRequired": "URL is required",
+			"intervalRequired": "Interval minutes must be greater than 0",
+			"cronRequired": "Cron expression is required",
+			"runAtRequired": "Run time is required",
+			"createFailed": "Failed to create task: {error}",
+			"runFailed": "Failed to run task: {error}",
+			"updateFailed": "Failed to update task: {error}",
+			"deleteFailed": "Failed to delete task: {error}"
+		},
+		"messages": {
+			"created": "Task created",
+			"ran": "Task executed",
+			"enabled": "Task enabled",
+			"disabled": "Task disabled",
+			"deleted": "Task deleted"
+		},
+		"confirmDelete": "Delete this task?"
+	},
 	"contextMenu": {
 		"selectedCount": "Selected {count} items",
 		"batchCancel": "Batch Cancel",

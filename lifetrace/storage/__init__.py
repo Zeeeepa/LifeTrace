@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 __all__ = [
     "activity_mgr",
+    "automation_task_mgr",
     "chat_mgr",
     "db_base",
     "event_mgr",
@@ -33,6 +34,7 @@ _LAZY_EXPORTS: set[str] = set(__all__)
 if TYPE_CHECKING:
     from lifetrace.storage.database import (
         activity_mgr,
+        automation_task_mgr,
         chat_mgr,
         db_base,
         event_mgr,

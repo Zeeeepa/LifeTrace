@@ -126,6 +126,28 @@ class Todo(TimestampMixin, table=True):
         return f"<Todo(id={self.id}, name={self.name}, status={self.status})>"
 
 
+class AutomationTask(TimestampMixin, table=True):
+    """用户自定义自动化任务"""
+
+    __tablename__: ClassVar[str] = "automation_tasks"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200)
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    enabled: bool = Field(default=True)
+    schedule_type: str = Field(max_length=20)
+    schedule_config: str | None = Field(default=None, sa_column=Column(Text))
+    action_type: str = Field(max_length=50)
+    action_payload: str | None = Field(default=None, sa_column=Column(Text))
+    last_run_at: datetime | None = None
+    last_status: str | None = Field(default=None, max_length=20)
+    last_error: str | None = Field(default=None, sa_column=Column(Text))
+    last_output: str | None = Field(default=None, sa_column=Column(Text))
+
+    def __repr__(self):
+        return f"<AutomationTask(id={self.id}, name={self.name}, enabled={self.enabled})>"
+
+
 class Attachment(TimestampMixin, table=True):
     """附件信息模型"""
 

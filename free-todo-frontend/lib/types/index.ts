@@ -145,3 +145,58 @@ export interface EventListResponse {
 export interface ActivityEventsResponse {
 	eventIds: number[];
 }
+
+// ============================================================================
+// Automation Task Types
+// ============================================================================
+
+export type AutomationScheduleType = "interval" | "cron" | "once";
+
+export interface AutomationSchedule {
+	type: AutomationScheduleType;
+	intervalSeconds?: number;
+	cron?: string;
+	runAt?: string;
+	timezone?: string;
+}
+
+export interface AutomationAction {
+	type: string;
+	payload: Record<string, unknown>;
+}
+
+export interface AutomationTask {
+	id: number;
+	name: string;
+	description?: string;
+	enabled: boolean;
+	schedule: AutomationSchedule;
+	action: AutomationAction;
+	lastRunAt?: string;
+	lastStatus?: string;
+	lastError?: string;
+	lastOutput?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface AutomationTaskListResponse {
+	total: number;
+	tasks: AutomationTask[];
+}
+
+export interface AutomationTaskCreateInput {
+	name: string;
+	description?: string;
+	enabled?: boolean;
+	schedule: AutomationSchedule;
+	action: AutomationAction;
+}
+
+export interface AutomationTaskUpdateInput {
+	name?: string;
+	description?: string;
+	enabled?: boolean;
+	schedule?: AutomationSchedule;
+	action?: AutomationAction;
+}
