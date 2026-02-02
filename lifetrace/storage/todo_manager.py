@@ -45,6 +45,21 @@ def _safe_int_list(value: Any) -> list[int]:
     return []
 
 
+def _normalize_reminder_offsets(value: Any) -> list[int] | None:
+    if value is None:
+        return None
+    offsets = _safe_int_list(value)
+    cleaned = sorted({offset for offset in offsets if offset >= 0})
+    return cleaned
+
+
+def _serialize_reminder_offsets(value: Any) -> str | None:
+    normalized = _normalize_reminder_offsets(value)
+    if normalized is None:
+        return None
+    return json.dumps(normalized)
+
+
 def _normalize_percent(value: Any) -> int:
     if value is None:
         return 0
@@ -103,6 +118,9 @@ class TodoManager:
             "deadline": todo.deadline,
             "start_time": todo.start_time,
             "end_time": todo.end_time,
+            "reminder_offsets": _normalize_reminder_offsets(
+                getattr(todo, "reminder_offsets", None)
+            ),
             "status": todo.status,
             "priority": todo.priority,
             "completed_at": getattr(todo, "completed_at", None),
@@ -194,6 +212,7 @@ class TodoManager:
         deadline: datetime | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        reminder_offsets: list[int] | None = None,
         status: str = "active",
         priority: str = "none",
         completed_at: datetime | None = None,
@@ -227,6 +246,7 @@ class TodoManager:
                     "deadline": deadline,
                     "start_time": start_time,
                     "end_time": end_time,
+                    "reminder_offsets": _serialize_reminder_offsets(reminder_offsets),
                     "status": status,
                     "priority": priority,
                     "completed_at": resolved_completed_at,
@@ -358,6 +378,7 @@ class TodoManager:
         deadline: datetime | None | Any = _UNSET,
         start_time: datetime | None | Any = _UNSET,
         end_time: datetime | None | Any = _UNSET,
+        reminder_offsets: list[int] | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
         completed_at: datetime | None | Any = _UNSET,
@@ -393,6 +414,9 @@ class TodoManager:
             if value is not _UNSET:
                 setattr(todo, attr, value)
 
+        if reminder_offsets is not _UNSET:
+            todo.reminder_offsets = _serialize_reminder_offsets(reminder_offsets)
+
         # 特殊处理 related_activities（需要 JSON 序列化）
         if related_activities is not _UNSET:
             todo.related_activities = json.dumps(_safe_int_list(related_activities))
@@ -408,6 +432,7 @@ class TodoManager:
         deadline: datetime | None | Any = _UNSET,
         start_time: datetime | None | Any = _UNSET,
         end_time: datetime | None | Any = _UNSET,
+        reminder_offsets: list[int] | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
         completed_at: datetime | None | Any = _UNSET,
@@ -448,6 +473,7 @@ class TodoManager:
                     deadline=deadline,
                     start_time=start_time,
                     end_time=end_time,
+                    reminder_offsets=reminder_offsets,
                     status=status,
                     priority=priority,
                     completed_at=resolved_completed_at,

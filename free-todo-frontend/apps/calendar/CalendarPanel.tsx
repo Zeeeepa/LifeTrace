@@ -11,6 +11,7 @@ import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
+import { DEFAULT_REMINDER_MINUTES, normalizeReminderOffsets } from "@/lib/reminders";
 import { useTodoStore } from "@/lib/store/todo-store";
 import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,9 @@ export function CalendarPanel() {
 	const [quickTargetDate, setQuickTargetDate] = useState<Date | null>(null);
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
+	const [quickReminderOffsets, setQuickReminderOffsets] = useState<number[]>(
+		normalizeReminderOffsets(undefined, [DEFAULT_REMINDER_MINUTES]),
+	);
 	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
 	const {
 		monthItems,
@@ -190,11 +194,15 @@ export function CalendarPanel() {
 			await createTodoMutation.mutateAsync({
 				name: quickTitle.trim(),
 				deadline: deadline.toISOString(),
+				reminderOffsets: quickReminderOffsets,
 				status: "active",
 			});
 			setQuickTitle("");
 			setQuickTargetDate(null);
 			setQuickAnchorRect(null);
+			setQuickReminderOffsets(
+				normalizeReminderOffsets(undefined, [DEFAULT_REMINDER_MINUTES]),
+			);
 		} catch (err) {
 			console.error("Failed to create todo:", err);
 		}
@@ -209,6 +217,9 @@ export function CalendarPanel() {
 			setQuickTargetDate(null);
 			setQuickTitle("");
 			setQuickAnchorRect(null);
+			setQuickReminderOffsets(
+				normalizeReminderOffsets(undefined, [DEFAULT_REMINDER_MINUTES]),
+			);
 		};
 
 		return createPortal(
@@ -231,8 +242,10 @@ export function CalendarPanel() {
 						targetDate={quickTargetDate}
 						value={quickTitle}
 						time={quickTime}
+						reminderOffsets={quickReminderOffsets}
 						onChange={setQuickTitle}
 						onTimeChange={setQuickTime}
+						onReminderChange={setQuickReminderOffsets}
 						onConfirm={handleQuickCreate}
 						onCancel={closePopover}
 					/>

@@ -108,6 +108,9 @@ class Todo(TimestampMixin, table=True):
     deadline: datetime | None = None  # 截止时间
     start_time: datetime | None = None  # 开始时间
     end_time: datetime | None = None  # 结束时间
+    reminder_offsets: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 提醒偏移列表（分钟）
     status: str = Field(default="active", max_length=20)  # active/completed/canceled
     priority: str = Field(default="none", max_length=20)  # high/medium/low/none
     completed_at: datetime | None = None  # 完成时间（iCalendar COMPLETED）

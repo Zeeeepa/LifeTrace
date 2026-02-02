@@ -1,8 +1,14 @@
 "use client";
 
-import { Calendar, Flag, Tag as TagIcon } from "lucide-react";
+import { Bell, Calendar, Flag, Tag as TagIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { ReminderOptions } from "@/components/common/ReminderOptions";
+import {
+	DEFAULT_REMINDER_MINUTES,
+	formatReminderSummary,
+	normalizeReminderOffsets,
+} from "@/lib/reminders";
 import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn, getPriorityLabel, getStatusLabel } from "@/lib/utils";
 import {
@@ -20,6 +26,7 @@ interface MetaSectionProps {
 	onPriorityChange: (priority: TodoPriority) => void;
 	onDeadlineChange: (deadline?: string) => void;
 	onTagsChange: (tags: string[]) => void;
+	onReminderChange: (offsets: number[]) => void;
 }
 
 export function MetaSection({
@@ -28,17 +35,26 @@ export function MetaSection({
 	onPriorityChange,
 	onDeadlineChange,
 	onTagsChange,
+	onReminderChange,
 }: MetaSectionProps) {
 	const tCommon = useTranslations("common");
 	const tTodoDetail = useTranslations("todoDetail");
+	const tReminder = useTranslations("reminder");
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
 	const deadlineContainerRef = useRef<HTMLDivElement | null>(null);
+	const reminderMenuRef = useRef<HTMLDivElement | null>(null);
 
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 	const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
 	const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 	const [isEditingTags, setIsEditingTags] = useState(false);
+	const [isReminderMenuOpen, setIsReminderMenuOpen] = useState(false);
+	const [draftReminderOffsets, setDraftReminderOffsets] = useState<number[]>(() =>
+		normalizeReminderOffsets(todo.reminderOffsets, [
+			DEFAULT_REMINDER_MINUTES,
+		]),
+	);
 	const [tagsInput, setTagsInput] = useState(todo.tags?.join(", ") ?? "");
 
 	useEffect(() => {
@@ -53,12 +69,19 @@ export function MetaSection({
 			) {
 				setIsPriorityMenuOpen(false);
 			}
+			if (
+				reminderMenuRef.current &&
+				!reminderMenuRef.current.contains(target)
+			) {
+				setIsReminderMenuOpen(false);
+			}
 		};
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key === "Escape") {
 				setIsStatusMenuOpen(false);
 				setIsPriorityMenuOpen(false);
+				setIsReminderMenuOpen(false);
 			}
 		};
 
@@ -76,8 +99,14 @@ export function MetaSection({
 		setIsPriorityMenuOpen(false);
 		setIsDatePickerOpen(false);
 		setIsEditingTags(false);
+		setIsReminderMenuOpen(false);
 		setTagsInput(todo.tags?.join(", ") ?? "");
-	}, [todo.tags]);
+		setDraftReminderOffsets(
+			normalizeReminderOffsets(todo.reminderOffsets, [
+				DEFAULT_REMINDER_MINUTES,
+			]),
+		);
+	}, [todo.id, todo.reminderOffsets, todo.tags]);
 
 	const handleTagsSave = () => {
 		const parsedTags = tagsInput
@@ -93,6 +122,15 @@ export function MetaSection({
 		setTagsInput("");
 		setIsEditingTags(false);
 	};
+
+	const savedReminderOffsets = normalizeReminderOffsets(todo.reminderOffsets, [
+		DEFAULT_REMINDER_MINUTES,
+	]);
+	const reminderSummary = formatReminderSummary(
+		tReminder,
+		savedReminderOffsets,
+		tReminder("noReminder"),
+	);
 
 	return (
 		<div className="mb-6 text-sm text-muted-foreground">
@@ -240,6 +278,54 @@ export function MetaSection({
 							: tTodoDetail("addTags")}
 					</span>
 				</button>
+
+				<div className="relative flex items-center" ref={reminderMenuRef}>
+					<button
+						type="button"
+						onClick={() => setIsReminderMenuOpen((prev) => !prev)}
+						className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/40"
+						aria-expanded={isReminderMenuOpen}
+						aria-haspopup="dialog"
+					>
+						<Bell className="h-3 w-3" />
+						<span className="truncate">{reminderSummary}</span>
+					</button>
+					{isReminderMenuOpen && (
+						<div className="pointer-events-auto absolute left-0 top-full z-120 mt-2 w-[260px] rounded-xl border border-border bg-background p-3 shadow-lg">
+							{!todo.deadline && (
+								<p className="mb-2 text-xs text-muted-foreground">
+									{tReminder("needsDeadline")}
+								</p>
+							)}
+							<ReminderOptions
+								value={draftReminderOffsets}
+								onChange={setDraftReminderOffsets}
+							/>
+							<div className="mt-3 flex items-center gap-2">
+								<button
+									type="button"
+									onClick={() => {
+										onReminderChange(draftReminderOffsets);
+										setIsReminderMenuOpen(false);
+									}}
+									className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground transition-colors hover:bg-primary/90"
+								>
+									{tTodoDetail("save")}
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setDraftReminderOffsets(savedReminderOffsets);
+										setIsReminderMenuOpen(false);
+									}}
+									className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/40"
+								>
+									{tTodoDetail("cancel")}
+								</button>
+							</div>
+						</div>
+					)}
+				</div>
 			</div>
 
 			{isEditingTags && (

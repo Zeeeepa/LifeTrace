@@ -220,6 +220,9 @@ export function TodoDetail() {
 					onPriorityChange={(priority) => updateTodo(todo.id, { priority })}
 					onDeadlineChange={(deadline) => updateTodo(todo.id, { deadline })}
 					onTagsChange={(tags) => updateTodo(todo.id, { tags })}
+					onReminderChange={(reminderOffsets) =>
+						updateTodo(todo.id, { reminderOffsets })
+					}
 				/>
 
 				<DescriptionSection

@@ -28,6 +28,7 @@ export interface Todo {
 	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	reminderOffsets?: number[] | null;
 	status: TodoStatus;
 	priority: TodoPriority;
 	order?: number;
@@ -46,6 +47,7 @@ export interface CreateTodoInput {
 	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	reminderOffsets?: number[] | null;
 	status?: TodoStatus;
 	priority?: TodoPriority;
 	order?: number;
@@ -62,6 +64,7 @@ export interface UpdateTodoInput {
 	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	reminderOffsets?: number[] | null;
 	order?: number;
 	tags?: string[];
 	parentTodoId?: number | null;

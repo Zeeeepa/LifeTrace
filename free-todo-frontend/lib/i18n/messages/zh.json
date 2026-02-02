@@ -515,6 +515,23 @@
 		},
 		"weekPrefix": "周"
 	},
+	"reminder": {
+		"label": "提醒",
+		"noReminder": "不提醒",
+		"atTime": "准时",
+		"minutesBefore": "{count} 分钟前",
+		"hoursBefore": "{count} 小时前",
+		"daysBefore": "{count} 天前",
+		"custom": "自定义",
+		"add": "添加",
+		"clear": "清空",
+		"needsDeadline": "提醒会基于截止时间触发",
+		"unit": {
+			"minutes": "分钟",
+			"hours": "小时",
+			"days": "天"
+		}
+	},
 	"datePicker": {
 		"time": "时间",
 		"clear": "清除",
@@ -602,7 +619,7 @@
 			"task_summary_job": "（旧版）生成任务执行总结",
 			"clean_data_job": "清理过期的截图和数据",
 			"activity_aggregator_job": "聚合用户活动事件",
-			"deadline_reminder_job": "检查待办事项的截止日期，在 DDL 前 5 分钟发送提醒通知",
+			"deadline_reminder_job": "检查待办事项的截止日期，根据提醒设置发送通知",
 			"todo_recorder_job": "仅录制白名单应用的截图，用于自动待办检测",
 			"proactive_ocr_job": "自动检测并处理微信/飞书窗口进行OCR识别（仅Windows）",
 			"audio_recording_job": "7x24小时持续录音，实时转录和提取信息（间隔为状态检查间隔，非录音间隔）"

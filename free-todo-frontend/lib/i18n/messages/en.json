@@ -514,6 +514,23 @@
 		},
 		"weekPrefix": ""
 	},
+	"reminder": {
+		"label": "Reminder",
+		"noReminder": "No reminder",
+		"atTime": "At time",
+		"minutesBefore": "{count} min before",
+		"hoursBefore": "{count} hr before",
+		"daysBefore": "{count} day before",
+		"custom": "Custom",
+		"add": "Add",
+		"clear": "Clear",
+		"needsDeadline": "Reminders trigger relative to the deadline.",
+		"unit": {
+			"minutes": "minutes",
+			"hours": "hours",
+			"days": "days"
+		}
+	},
 	"datePicker": {
 		"time": "Time",
 		"clear": "Clear",
@@ -601,7 +618,7 @@
 			"task_summary_job": "(Legacy) Generate task execution summary",
 			"clean_data_job": "Clean up expired screenshots and data",
 			"activity_aggregator_job": "Aggregate user activity events",
-			"deadline_reminder_job": "Check todo deadlines and send reminder notifications 5 minutes before DDL",
+			"deadline_reminder_job": "Check todo deadlines and send notifications based on reminder settings",
 			"todo_recorder_job": "Only capture screenshots from whitelisted apps for auto todo detection",
 			"proactive_ocr_job": "Automatically detect and process WeChat/Feishu windows for OCR (Windows only)",
 			"audio_recording_job": "7x24 continuous audio recording with real-time transcription and information extraction"

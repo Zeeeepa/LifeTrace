@@ -55,6 +55,9 @@ class TodoCreate(BaseModel):
     deadline: datetime | None = Field(None, description="截止时间")
     start_time: datetime | None = Field(None, description="开始时间")
     end_time: datetime | None = Field(None, description="结束时间")
+    reminder_offsets: list[int] | None = Field(
+        None, description="提醒偏移列表（分钟，基于 deadline）"
+    )
     status: TodoStatus = Field(TodoStatus.ACTIVE, description="状态")
     priority: TodoPriority = Field(TodoPriority.NONE, description="优先级")
     completed_at: datetime | None = Field(None, description="完成时间")
@@ -75,6 +78,9 @@ class TodoUpdate(BaseModel):
     deadline: datetime | None = Field(None, description="截止时间（显式传 null 可清空）")
     start_time: datetime | None = Field(None, description="开始时间（显式传 null 可清空）")
     end_time: datetime | None = Field(None, description="结束时间（显式传 null 可清空）")
+    reminder_offsets: list[int] | None = Field(
+        None, description="提醒偏移列表（分钟，显式传 null 可回退默认）"
+    )
     status: TodoStatus | None = Field(None, description="状态")
     priority: TodoPriority | None = Field(None, description="优先级")
     completed_at: datetime | None = Field(None, description="完成时间（显式传 null 可清空）")
@@ -99,6 +105,9 @@ class TodoResponse(BaseModel):
     deadline: datetime | None = Field(None, description="截止时间")
     start_time: datetime | None = Field(None, description="开始时间")
     end_time: datetime | None = Field(None, description="结束时间")
+    reminder_offsets: list[int] | None = Field(
+        None, description="提醒偏移列表（分钟，基于 deadline）"
+    )
     status: str = Field(..., description="状态")
     priority: str = Field(..., description="优先级")
     completed_at: datetime | None = Field(None, description="完成时间")

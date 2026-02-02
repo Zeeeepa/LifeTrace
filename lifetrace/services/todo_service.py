@@ -9,6 +9,10 @@ from fastapi import HTTPException
 
 from lifetrace.repositories.interfaces import ITodoRepository
 from lifetrace.schemas.todo import TodoCreate, TodoResponse, TodoUpdate
+from lifetrace.storage.notification_storage import (
+    clear_dismissed_mark,
+    clear_notification_by_todo_id,
+)
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -49,6 +53,7 @@ class TodoService:
             deadline=data.deadline,
             start_time=data.start_time,
             end_time=data.end_time,
+            reminder_offsets=data.reminder_offsets,
             status=data.status.value if data.status else "active",
             priority=data.priority.value if data.priority else "none",
             completed_at=data.completed_at,
@@ -85,6 +90,10 @@ class TodoService:
 
         if not self.repository.update(todo_id, **kwargs):
             raise HTTPException(status_code=500, detail="更新 todo 失败")
+
+        if "deadline" in fields_set or "reminder_offsets" in fields_set:
+            clear_notification_by_todo_id(todo_id)
+            clear_dismissed_mark(todo_id)
 
         return self.get_todo(todo_id)
 
