@@ -136,15 +136,6 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 **Install dependencies and sync environment:**
 
 ```bash
-# macOS prerequisites
-brew install portaudio
-
-# Linux prerequisites
-sudo apt install portaudio19-dev
-```
-
-
-```bash
 # Sync dependencies from pyproject.toml and uv.lock
 uv sync
 
