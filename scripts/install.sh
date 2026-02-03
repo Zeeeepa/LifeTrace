@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_URL="${LIFETRACE_REPO:-https://github.com/FreeU-group/FreeTodo.git}"
-REF="${LIFETRACE_REF:-main}"
+REF="${LIFETRACE_REF:-dev-liji}"
 REPO_NAME="${REPO_URL##*/}"
 REPO_NAME="${REPO_NAME%.git}"
 TARGET_DIR="${LIFETRACE_DIR:-$REPO_NAME}"

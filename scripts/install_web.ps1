@@ -11,7 +11,7 @@ if (-not $Repo) {
     $Repo = "https://github.com/FreeU-group/FreeTodo.git"
 }
 if (-not $Ref) {
-    $Ref = "main"
+    $Ref = "dev-liji"
 }
 $repoName = [IO.Path]::GetFileNameWithoutExtension($Repo)
 if (-not $Dir) {

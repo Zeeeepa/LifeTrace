@@ -71,13 +71,13 @@ FreeTodo 采用**前后端分离**架构：
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.ps1 | iex
 ```
 
 脚本会安装依赖并启动后端/前端开发服务；按 `Ctrl+C` 结束前端会同时停止后端。
@@ -85,14 +85,14 @@ iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/i
 可选环境变量（用于自定义安装目录/仓库/分支）：
 
 - `LIFETRACE_DIR`：安装目录（默认使用仓库名）
-- `LIFETRACE_REPO`：仓库地址（默认 `https://github.com/freeugroup/free-to-do.git`）
-- `LIFETRACE_REF`：分支或标签（默认 `main`）
+- `LIFETRACE_REPO`：仓库地址（默认 `https://github.com/FreeU-group/FreeTodo.git`）
+- `LIFETRACE_REF`：分支或标签（默认 `dev-liji`）
 
 PowerShell 示例：
 
 ```powershell
 $env:LIFETRACE_DIR="LifeTrace-dev"
-iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.ps1 | iex
 ```
 
 ### 安装依赖
