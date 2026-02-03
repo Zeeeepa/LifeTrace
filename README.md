@@ -64,38 +64,9 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 - Node.js 20+
 - pnpm package manager
 
-### One-Click Install & Start (Web)
+### One-Click Install & Start
 
-> Requires Python 3.12+, Node.js 20+, and Git.
-
-**macOS/Linux**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.sh | bash
-```
-
-**Windows (PowerShell)**
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.ps1 | iex
-```
-
-The script installs dependencies and starts backend + frontend dev servers; press `Ctrl+C` to stop both.
-
-Optional environment variables (custom install dir/repo/ref):
-
-- `LIFETRACE_DIR`: install directory (defaults to repo name)
-- `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/FreeU-group/FreeTodo.git`)
-- `LIFETRACE_REF`: branch or tag (defaults to `main`, use `dev` for unstable builds)
-
-PowerShell example:
-
-```powershell
-$env:LIFETRACE_DIR="LifeTrace-dev"
-iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.ps1 | iex
-```
-
-### One-Click Install & Start (Desktop / Tauri)
+> Requires Python 3.12+, Node.js 20+, and Git. Tauri/Electron build also requires Rust.
 
 **macOS/Linux**
 
@@ -109,17 +80,35 @@ curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/i
 iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
 ```
 
+Defaults: `mode=tauri`, `variant=web`, `frontend=build`, `backend=script`.
+
 Optional environment variables:
 
 - `LIFETRACE_DIR`: install directory (defaults to repo name)
 - `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/FreeU-group/FreeTodo.git`)
 - `LIFETRACE_REF`: branch or tag (defaults to `main`, use `dev` for unstable builds)
-- `LIFETRACE_MODE`: `tauri` (default) or `web`
+- `LIFETRACE_MODE`: `web`, `tauri`, `electron`, or `island`
+- `LIFETRACE_VARIANT`: `web` or `island`
+- `LIFETRACE_FRONTEND`: `build` or `dev` (web defaults to `dev`)
+- `LIFETRACE_BACKEND`: `script` or `pyinstaller`
 - `LIFETRACE_RUN`: `1` (default) to run after install, `0` to only install
 
-Pass a ref directly without env vars:
+Examples:
 
 ```bash
+# Web dev
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode web --frontend dev
+
+# Tauri dev (starts backend + frontend dev server, then tauri dev)
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode tauri --frontend dev
+
+# Electron island dev
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode electron --variant island --frontend dev
+
+# Tauri build with PyInstaller backend
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode tauri --frontend build --backend pyinstaller
+
+# Switch ref
 curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --ref dev
 ```
 
