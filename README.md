@@ -100,13 +100,13 @@ iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/in
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://openclaw.ai/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://openclaw.ai/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
 ```
 
 Optional environment variables:
