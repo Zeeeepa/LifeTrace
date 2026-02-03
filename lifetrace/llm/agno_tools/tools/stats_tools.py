@@ -25,6 +25,16 @@ def _parse_datetime(value: str | datetime) -> datetime:
     return value
 
 
+def _get_schedule_time(todo: dict) -> datetime | None:
+    """Return schedule time from todo with legacy fallback."""
+    schedule = (
+        todo.get("due") or todo.get("dtstart") or todo.get("deadline") or todo.get("start_time")
+    )
+    if not schedule:
+        return None
+    return _parse_datetime(schedule)
+
+
 def _get_start_date(date_range: str, now: datetime) -> datetime | None:
     """Get start date based on date range string."""
     if date_range == "today":
@@ -49,10 +59,10 @@ def _count_overdue(todos: list, now: datetime) -> int:
     """Count overdue active todos."""
     count = 0
     for t in todos:
-        if t.get("status") != "active" or not t.get("deadline"):
+        if t.get("status") != "active":
             continue
-        deadline = _parse_datetime(t["deadline"])
-        if deadline < now:
+        schedule = _get_schedule_time(t)
+        if schedule and schedule < now:
             count += 1
     return count
 
@@ -129,12 +139,11 @@ class StatsTools:
 
             overdue = []
             for todo in todos:
-                deadline = todo.get("deadline")
-                if not deadline:
+                schedule = _get_schedule_time(todo)
+                if not schedule:
                     continue
-                deadline = _parse_datetime(deadline)
-                if deadline < now:
-                    days_overdue = (now - deadline).days
+                if schedule < now:
+                    days_overdue = (now - schedule).days
                     overdue.append({"id": todo["id"], "name": todo["name"], "days": days_overdue})
 
             if not overdue:

@@ -26,6 +26,91 @@ import type {
  */
 const handlerRegistry: Partial<Record<HandlerKey, DragDropHandler>> = {};
 
+// Normalize date strings that may lack timezone info.
+const normalizeTodoDate = (value?: string) => {
+	if (!value) return null;
+	let normalized = value;
+	if (
+		value.includes("T") &&
+		!value.includes("Z") &&
+		!value.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(value)
+	) {
+		normalized = `${value}Z`;
+	}
+	const parsed = new Date(normalized);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const updateTodoCache = (
+	todoId: number,
+	updates: {
+		deadline?: string;
+		startTime?: string;
+		endTime?: string;
+	},
+) => {
+	const queryClient = getQueryClient();
+
+	void queryClient.cancelQueries({ queryKey: queryKeys.todos.all });
+
+	const previousTodos = queryClient.getQueryData(queryKeys.todos.list());
+
+	flushSync(() => {
+		queryClient.setQueryData<TodoListResponse>(
+			queryKeys.todos.list(),
+			(oldData) => {
+				if (!oldData) return oldData;
+
+				if (oldData && "todos" in oldData && Array.isArray(oldData.todos)) {
+					const updatedTodos = oldData.todos.map((t: TodoResponse) => {
+						if (t.id !== todoId) return t;
+						const tRecord = t as unknown as Record<string, unknown>;
+						const updated = {
+							...t,
+							...(updates.deadline ? { deadline: updates.deadline } : {}),
+						} as Record<string, unknown>;
+						if ("start_time" in tRecord) {
+							updated.start_time = updates.startTime ?? tRecord.start_time;
+						}
+						if ("startTime" in tRecord) {
+							updated.startTime = updates.startTime ?? tRecord.startTime;
+						}
+						if ("end_time" in tRecord) {
+							updated.end_time = updates.endTime ?? tRecord.end_time;
+						}
+						if ("endTime" in tRecord) {
+							updated.endTime = updates.endTime ?? tRecord.endTime;
+						}
+						return updated as unknown as TodoResponse;
+					});
+					return {
+						...oldData,
+						todos: updatedTodos,
+					};
+				}
+
+				if (Array.isArray(oldData)) {
+					return oldData.map((t) =>
+						t.id === todoId
+							? {
+									...t,
+									...(updates.deadline ? { deadline: updates.deadline } : {}),
+									...(updates.startTime ? { startTime: updates.startTime } : {}),
+									...(updates.endTime ? { endTime: updates.endTime } : {}),
+								}
+							: t,
+					) as unknown as TodoListResponse;
+				}
+
+				return oldData;
+			},
+		);
+	});
+
+	return previousTodos;
+};
+
 /**
  * 注册拖拽处理器
  */
@@ -46,7 +131,7 @@ export function getHandler(key: HandlerKey): DragDropHandler | undefined {
 
 /**
  * TODO_CARD -> CALENDAR_DATE
- * 将待办拖到日历日期上，设置 deadline
+ * 将待办拖到日历日期上，设置 startTime/endTime
  * 使用乐观更新：先更新前端缓存，再调用 API
  */
 const handleTodoToCalendarDate: DragDropHandler = (
@@ -60,21 +145,6 @@ const handleTodoToCalendarDate: DragDropHandler = (
 	const { todo } = dragData.payload;
 	const { date } = dropData.metadata;
 
-	const normalizeTodoDate = (value?: string) => {
-		if (!value) return null;
-		let normalized = value;
-		if (
-			value.includes("T") &&
-			!value.includes("Z") &&
-			!value.includes("+") &&
-			!/\d{2}:\d{2}:\d{2}-/.test(value)
-		) {
-			normalized = `${value}Z`;
-		}
-		const parsed = new Date(normalized);
-		return Number.isNaN(parsed.getTime()) ? null : parsed;
-	};
-
 	const applyDate = (targetDate: Date, timeSource: Date) => {
 		const updated = new Date(targetDate);
 		updated.setHours(
@@ -86,26 +156,27 @@ const handleTodoToCalendarDate: DragDropHandler = (
 		return updated;
 	};
 
-	const existingDeadline = normalizeTodoDate(todo.deadline);
 	const existingStart = normalizeTodoDate(todo.startTime);
 	const existingEnd = normalizeTodoDate(todo.endTime);
-	const shouldUpdateDeadline =
-		Boolean(existingDeadline) || (!existingStart && !existingEnd);
+	const baseStart = existingStart;
+	const durationMs =
+		existingStart && existingEnd
+			? existingEnd.getTime() - existingStart.getTime()
+			: null;
 
-	const newDeadline = shouldUpdateDeadline
-		? existingDeadline
-			? applyDate(date, existingDeadline)
-			: applyDate(date, new Date(0))
-		: null;
-	const newStart = existingStart ? applyDate(date, existingStart) : null;
-	const newEnd = existingEnd ? applyDate(date, existingEnd) : null;
-
-	if (newDeadline && !existingDeadline) {
+	const newStart = baseStart
+		? applyDate(date, baseStart)
+		: applyDate(date, new Date(0));
+	if (!baseStart) {
 		// 默认设置为上午9点
-		newDeadline.setHours(9, 0, 0, 0);
+		newStart.setHours(9, 0, 0, 0);
 	}
+	const newEnd = existingEnd
+		? durationMs !== null
+			? new Date(newStart.getTime() + durationMs)
+			: applyDate(date, existingEnd)
+		: null;
 
-	const newDeadlineStr = newDeadline ? newDeadline.toISOString() : undefined;
 	const newStartStr = newStart ? newStart.toISOString() : undefined;
 	const newEndStr = newEnd ? newEnd.toISOString() : undefined;
 	const queryClient = getQueryClient();
@@ -131,7 +202,6 @@ const handleTodoToCalendarDate: DragDropHandler = (
 							const tRecord = t as unknown as Record<string, unknown>;
 							const updated = {
 								...t,
-								deadline: newDeadlineStr ?? tRecord.deadline,
 							} as Record<string, unknown>;
 							if ("start_time" in tRecord) {
 								updated.start_time = newStartStr ?? tRecord.start_time;
@@ -161,7 +231,6 @@ const handleTodoToCalendarDate: DragDropHandler = (
 						t.id === todo.id
 							? {
 									...t,
-									deadline: newDeadlineStr ?? t.deadline,
 									startTime: newStartStr ?? t.startTime,
 									endTime: newEndStr ?? t.endTime,
 								}
@@ -176,27 +245,112 @@ const handleTodoToCalendarDate: DragDropHandler = (
 
 	// 异步调用 API
 	void updateTodoApiTodosTodoIdPut(todo.id, {
-		...(newDeadlineStr ? { deadline: newDeadlineStr } : {}),
-		...(newStartStr ? { startTime: newStartStr } : {}),
-		...(newEndStr ? { endTime: newEndStr } : {}),
+		...(newStartStr ? { start_time: newStartStr } : {}),
+		...(newEndStr ? { end_time: newEndStr } : {}),
 	})
 		.then(() => {
 			// API 成功后刷新缓存以确保数据一致性
-			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+			void getQueryClient().invalidateQueries({ queryKey: queryKeys.todos.all });
 		})
 		.catch((error) => {
 			// API 失败时回滚到之前的数据
-			console.error("[DnD] Failed to update deadline:", error);
+			console.error("[DnD] Failed to update schedule:", error);
 			if (previousTodos) {
-				queryClient.setQueryData(queryKeys.todos.list(), previousTodos);
+				getQueryClient().setQueryData(queryKeys.todos.list(), previousTodos);
 			}
-			void queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+			void getQueryClient().invalidateQueries({ queryKey: queryKeys.todos.all });
 		});
 
 	return {
 		success: true,
 		message: `已将 "${todo.name}" 设置到 ${dropData.metadata.dateKey}`,
 	};
+};
+
+/**
+ * TODO_CARD -> CALENDAR_TIMELINE_SLOT
+ * Move todo into timeline slot (deadline or start/end).
+ */
+const handleTodoToCalendarTimelineSlot: DragDropHandler = (
+	dragData,
+	dropData,
+): DragDropResult => {
+	if (
+		dragData.type !== "TODO_CARD" ||
+		dropData.type !== "CALENDAR_TIMELINE_SLOT"
+	) {
+		return { success: false, message: "Invalid drag/drop type combination" };
+	}
+
+	const { todo } = dragData.payload;
+	const { date, minutes } = dropData.metadata;
+
+	const slotDate = new Date(date);
+	slotDate.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+
+	const existingStart = normalizeTodoDate(todo.startTime);
+	const existingEnd = normalizeTodoDate(todo.endTime);
+	const existingDeadline = normalizeTodoDate(todo.deadline);
+	const hasRange = Boolean(existingStart || existingEnd);
+
+	const MINUTES_PER_SLOT = 15;
+	const DEFAULT_DURATION_MINUTES = 30;
+
+	const getDurationMinutes = () => {
+		if (existingStart && existingEnd) {
+			const diff = (existingEnd.getTime() - existingStart.getTime()) / 60000;
+			if (Number.isFinite(diff) && diff > 0) return diff;
+		}
+		return DEFAULT_DURATION_MINUTES;
+	};
+
+	const rawDuration = getDurationMinutes();
+	const snappedDuration = Math.max(
+		MINUTES_PER_SLOT,
+		Math.round(rawDuration / MINUTES_PER_SLOT) * MINUTES_PER_SLOT,
+	);
+
+	let newDeadline: Date | null = null;
+	let newStart: Date | null = null;
+	let newEnd: Date | null = null;
+
+	if (hasRange) {
+		newStart = slotDate;
+		newEnd = new Date(slotDate.getTime() + snappedDuration * 60000);
+	} else if (existingDeadline) {
+		newDeadline = slotDate;
+	} else {
+		newStart = slotDate;
+		newEnd = new Date(slotDate.getTime() + DEFAULT_DURATION_MINUTES * 60000);
+	}
+
+	const newDeadlineStr = newDeadline ? newDeadline.toISOString() : undefined;
+	const newStartStr = newStart ? newStart.toISOString() : undefined;
+	const newEndStr = newEnd ? newEnd.toISOString() : undefined;
+
+	const previousTodos = updateTodoCache(todo.id, {
+		...(newDeadlineStr ? { deadline: newDeadlineStr } : {}),
+		...(newStartStr ? { startTime: newStartStr } : {}),
+		...(newEndStr ? { endTime: newEndStr } : {}),
+	});
+
+	void updateTodoApiTodosTodoIdPut(todo.id, {
+		...(newDeadlineStr ? { deadline: newDeadlineStr } : {}),
+		...(newStartStr ? { startTime: newStartStr } : {}),
+		...(newEndStr ? { endTime: newEndStr } : {}),
+	})
+		.then(() => {
+			void getQueryClient().invalidateQueries({ queryKey: queryKeys.todos.all });
+		})
+		.catch((error) => {
+			console.error("[DnD] Failed to update timeline slot:", error);
+			if (previousTodos) {
+				getQueryClient().setQueryData(queryKeys.todos.list(), previousTodos);
+			}
+			void getQueryClient().invalidateQueries({ queryKey: queryKeys.todos.all });
+		});
+
+	return { success: true };
 };
 
 /**
@@ -357,6 +511,10 @@ const handlePanelHeaderToPanelHeader: DragDropHandler = (
 // ============================================================================
 
 registerHandler("TODO_CARD->CALENDAR_DATE", handleTodoToCalendarDate);
+registerHandler(
+	"TODO_CARD->CALENDAR_TIMELINE_SLOT",
+	handleTodoToCalendarTimelineSlot,
+);
 registerHandler("TODO_CARD->TODO_LIST", handleTodoToTodoList);
 registerHandler("TODO_CARD->TODO_CARD_SLOT", handleTodoToTodoCardSlot);
 registerHandler("TODO_CARD->TODO_DROP_ZONE", handleTodoToTodoDropZone);

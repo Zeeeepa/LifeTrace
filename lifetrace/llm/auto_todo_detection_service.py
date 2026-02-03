@@ -302,7 +302,7 @@ class AutoTodoDetectionService:
             name=title,
             description=description,
             user_notes=user_notes,
-            deadline=scheduled_time,
+            start_time=scheduled_time,
             status="draft",  # 关键：创建为draft状态
             priority="none",
             tags=["自动提取"],

@@ -17,7 +17,7 @@ update_failed: "更新待办失败: {error}"
 # 列表
 list_header: "待办列表 ({status}, 共 {count} 项):\n"
 list_item: "- #{id} [{priority}] {name}"
-list_item_with_deadline: " (截止: {deadline})"
+list_item_with_time: " (时间: {time})"
 list_empty: "没有找到{status}的待办事项"
 
 # 搜索

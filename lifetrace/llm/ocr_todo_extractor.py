@@ -221,8 +221,12 @@ class OCRTodoExtractor:
                         name = (t.get("name") or "").strip()
                         if not name:
                             continue
-                        deadline = t.get("deadline")
-                        time_key = deadline.isoformat() if isinstance(deadline, datetime) else None
+                        schedule_time = t.get("start_time") or t.get("deadline")
+                        time_key = (
+                            schedule_time.isoformat()
+                            if isinstance(schedule_time, datetime)
+                            else None
+                        )
                         dedupe_keys.add((name, time_key))
                 except Exception as e:
                     logger.warning(f"构建去重集合失败，将跳过本地去重逻辑: {e}")
@@ -294,7 +298,7 @@ class OCRTodoExtractor:
                             name=title,
                             description=description,
                             user_notes=user_notes,
-                            deadline=scheduled_time,
+                            start_time=scheduled_time,
                             status="draft",
                             priority="none",
                             tags=["自动提取"],

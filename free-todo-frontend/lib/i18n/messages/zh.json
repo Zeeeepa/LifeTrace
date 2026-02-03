@@ -459,13 +459,13 @@
 			"name": "名称",
 			"description": "描述",
 			"notes": "备注",
-			"deadline": "截止日期",
+			"deadline": "时间",
 			"priority": "优先级",
 			"status": "状态",
 			"tags": "标签",
 			"parentTodoId": "父待办ID",
 			"parentName": "父待办名称",
-			"due": "截止: {deadline}",
+			"due": "时间: {deadline}",
 			"tagsLabel": "标签: {tags}"
 		},
 		"toolCall": {
@@ -518,6 +518,11 @@
 		"inputTodoTitle": "输入待办标题...",
 		"noTodosDue": "无截止待办，点击下方创建一个吧",
 		"allDay": "全天",
+		"startTime": "开始",
+		"endTime": "结束",
+		"floating": "未定时",
+		"floatingEmpty": "暂无未定时任务",
+		"workingHours": "工作时间",
 		"weekdays": {
 			"monday": "一",
 			"tuesday": "二",
@@ -529,8 +534,45 @@
 		},
 		"weekPrefix": "周"
 	},
+	"reminder": {
+		"label": "提醒",
+		"noReminder": "不提醒",
+		"atTime": "准时",
+		"minutesBefore": "{count} 分钟前",
+		"hoursBefore": "{count} 小时前",
+		"daysBefore": "{count} 天前",
+		"custom": "自定义",
+		"add": "添加",
+		"clear": "清空",
+		"needsDeadline": "提醒会基于截止时间触发",
+		"needsSchedule": "提醒会基于时间触发",
+		"unit": {
+			"minutes": "分钟",
+			"hours": "小时",
+			"days": "天"
+		}
+	},
 	"datePicker": {
+		"dateTab": "日期",
+		"rangeTab": "时间段",
+		"dateLabel": "日期",
+		"timeLabel": "时间",
+		"pickDate": "选择日期",
+		"allDay": "全天",
+		"repeatLabel": "重复",
+		"repeatNone": "不重复",
+		"repeatDaily": "每天",
+		"repeatWeekly": "每周",
+		"repeatMonthly": "每月",
+		"repeatYearly": "每年",
+		"rangeLabel": "时间段",
+		"startLabel": "开始",
+		"endLabel": "结束",
+		"timeZoneLabel": "时区",
 		"time": "时间",
+		"timeRange": "时间段",
+		"startTime": "开始时间",
+		"endTime": "结束时间",
 		"clear": "清除",
 		"confirm": "确定"
 	},
@@ -616,7 +658,7 @@
 			"task_summary_job": "（旧版）生成任务执行总结",
 			"clean_data_job": "清理过期的截图和数据",
 			"activity_aggregator_job": "聚合用户活动事件",
-			"deadline_reminder_job": "检查待办事项的截止日期，在 DDL 前 5 分钟发送提醒通知",
+			"deadline_reminder_job": "检查待办事项的截止日期，根据提醒设置发送通知",
 			"todo_recorder_job": "仅录制白名单应用的截图，用于自动待办检测",
 			"proactive_ocr_job": "自动检测并处理微信/飞书窗口进行OCR识别（仅Windows）",
 			"audio_recording_job": "7x24小时持续录音，实时转录和提取信息（间隔为状态检查间隔，非录音间隔）"
@@ -716,7 +758,7 @@
 		"searchPlaceholder": "搜索待办...",
 		"loadFailed": "加载失败: {error}",
 		"noTodos": "暂无待办事项",
-		"deadline": "截止日期",
+		"deadline": "日期",
 		"description": "描述",
 		"descriptionPlaceholder": "描述任务细节...",
 		"tags": "标签（逗号分隔）",
@@ -727,7 +769,7 @@
 		"filter": "筛选",
 		"filterStatus": "状态",
 		"filterTag": "标签",
-		"filterDueTime": "截止时间",
+		"filterDueTime": "时间",
 		"filterAll": "全部",
 		"statusActive": "进行中",
 		"statusCompleted": "已完成",
@@ -751,7 +793,7 @@
 		"artifactsViewLabel": "Artifacts",
 		"markAsComplete": "标记为完成",
 		"delete": "删除",
-		"addDeadline": "添加截止时间",
+		"addDeadline": "添加日期",
 		"addTags": "添加标签",
 		"tagsPlaceholder": "使用逗号分隔多个标签",
 		"save": "保存",
@@ -795,6 +837,74 @@
 		"uploadFailed": "上传失败",
 		"removeAttachmentFailed": "移除附件失败",
 		"uploadSizeLimit": "单文件不能超过 50MB"
+	},
+	"automationTasks": {
+		"title": "自定义定时任务",
+		"description": "创建轻量定时任务，比如在指定时间抓取内容。",
+		"createTitle": "新建任务",
+		"createHint": "暂时仅支持网页抓取",
+		"empty": "暂无定时任务",
+		"dateLocale": "zh-CN",
+		"labels": {
+			"name": "任务名称",
+			"description": "描述",
+			"url": "抓取 URL",
+			"method": "请求方式",
+			"enabled": "启用",
+			"enabledOn": "已启用",
+			"enabledOff": "已停用",
+			"scheduleType": "调度类型",
+			"intervalMinutes": "间隔（分钟）",
+			"cron": "Cron 表达式",
+			"runAt": "执行时间",
+			"lastRun": "上次执行：{time}",
+			"status": "状态"
+		},
+		"placeholders": {
+			"name": "每日检查",
+			"description": "可选备注"
+		},
+		"scheduleType": {
+			"interval": "固定间隔",
+			"cron": "Cron",
+			"once": "仅一次"
+		},
+		"scheduleSummary": {
+			"interval": "每 {minutes} 分钟",
+			"cron": "Cron：{cron}",
+			"once": "执行于 {time}"
+		},
+		"actions": {
+			"create": "创建任务",
+			"run": "立即执行",
+			"enable": "启用",
+			"disable": "停用",
+			"delete": "删除"
+		},
+		"status": {
+			"success": "成功",
+			"error": "失败",
+			"never": "从未"
+		},
+		"errors": {
+			"nameRequired": "需要填写任务名称",
+			"urlRequired": "需要填写 URL",
+			"intervalRequired": "间隔必须大于 0",
+			"cronRequired": "需要填写 Cron 表达式",
+			"runAtRequired": "需要选择执行时间",
+			"createFailed": "创建任务失败：{error}",
+			"runFailed": "执行任务失败：{error}",
+			"updateFailed": "更新任务失败：{error}",
+			"deleteFailed": "删除任务失败：{error}"
+		},
+		"messages": {
+			"created": "任务已创建",
+			"ran": "任务已执行",
+			"enabled": "任务已启用",
+			"disabled": "任务已停用",
+			"deleted": "任务已删除"
+		},
+		"confirmDelete": "确认删除该任务？"
 	},
 	"contextMenu": {
 		"selectedCount": "已选中 {count} 项",

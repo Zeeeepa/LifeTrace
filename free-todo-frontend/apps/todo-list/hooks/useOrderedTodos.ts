@@ -9,12 +9,13 @@ export type OrderedTodo = {
 };
 
 function isDueTimeMatch(todo: Todo, dueTimeFilter: DueTimeFilter): boolean {
-	if (!todo.deadline) {
-		// If no deadline, only match "all" or "future"
+	const scheduleTime = todo.startTime ?? todo.endTime;
+	if (!scheduleTime) {
+		// If no schedule time, only match "all" or "future"
 		return dueTimeFilter === "all" || dueTimeFilter === "future";
 	}
 
-	const deadline = new Date(todo.deadline);
+	const deadline = new Date(scheduleTime);
 	const now = new Date();
 
 	// Normalize to date only (remove time)

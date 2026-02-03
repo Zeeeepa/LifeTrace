@@ -118,7 +118,7 @@ export function DayColumn({
 			<div className="flex flex-col gap-1">
 				{todos.map((item) => (
 					<DraggableTodo
-						key={item.todo.id}
+						key={`${item.todo.id}-${item.dateKey}`}
 						calendarTodo={item}
 						onSelect={onSelectTodo}
 					/>
