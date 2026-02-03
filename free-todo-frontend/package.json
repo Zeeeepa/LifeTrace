@@ -53,6 +53,7 @@
 		"electron:dev:utf8": "pnpm electron",
 		"tauri": "tauri",
 		"tauri:dev": "tauri dev",
+		"tauri:build": "tauri build",
 		"build:tauri:web:script:full": "cross-env WINDOW_MODE=web FREETODO_BACKEND_RUNTIME=script pnpm build:frontend:web && tauri build --config src-tauri/tauri.web.script.json",
 		"build:tauri:island:script:full": "cross-env WINDOW_MODE=island FREETODO_BACKEND_RUNTIME=script pnpm build:frontend:island && tauri build --config src-tauri/tauri.island.script.json",
 		"build:tauri:web:pyinstaller:full": "cross-env WINDOW_MODE=web FREETODO_BACKEND_RUNTIME=pyinstaller pnpm build:frontend:web && pnpm build:backend:pyinstaller && tauri build --config src-tauri/tauri.web.pyinstaller.json",

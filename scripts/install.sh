@@ -6,6 +6,8 @@ REF="${LIFETRACE_REF:-main}"
 REPO_NAME="${REPO_URL##*/}"
 REPO_NAME="${REPO_NAME%.git}"
 TARGET_DIR="${LIFETRACE_DIR:-$REPO_NAME}"
+MODE="${LIFETRACE_MODE:-tauri}"
+RUN_AFTER_INSTALL="${LIFETRACE_RUN:-1}"
 
 require_cmd() {
   local name="$1"
@@ -49,6 +51,10 @@ fi
 require_cmd git "Install Git and retry."
 require_cmd node "Install Node.js 20+ and retry."
 
+if [ "$MODE" = "tauri" ]; then
+  require_cmd cargo "Install Rust (rustup) and retry."
+fi
+
 if ! command -v uv >/dev/null 2>&1; then
   echo "Installing uv..."
   download "https://astral.sh/uv/install.sh" | sh
@@ -76,21 +82,31 @@ if [ ! -d "$TARGET_DIR/.git" ]; then
 fi
 
 cd "$TARGET_DIR"
-
 uv sync
 
-echo "Starting backend..."
-uv run "$PYTHON_BIN" -m lifetrace.server &
-BACKEND_PID=$!
+if [ "$RUN_AFTER_INSTALL" = "1" ]; then
+  if [ "$MODE" = "web" ]; then
+    echo "Starting backend..."
+    uv run "$PYTHON_BIN" -m lifetrace.server &
+    BACKEND_PID=$!
+    cleanup() {
+      if kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
+        kill "$BACKEND_PID" >/dev/null 2>&1 || true
+      fi
+    }
+    trap cleanup EXIT
 
-cleanup() {
-  if kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
-    kill "$BACKEND_PID" >/dev/null 2>&1 || true
+    echo "Starting frontend..."
+    cd free-todo-frontend
+    pnpm install
+    pnpm dev
+  else
+    echo "Starting Tauri app..."
+    cd free-todo-frontend
+    pnpm install
+    pnpm tauri:dev
   fi
-}
-trap cleanup EXIT
-
-echo "Starting frontend..."
-cd free-todo-frontend
-pnpm install
-pnpm dev
+else
+  echo "Install complete."
+  echo "Run 'pnpm tauri:dev' or 'pnpm dev' from free-todo-frontend to start."
+fi

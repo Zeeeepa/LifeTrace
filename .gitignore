@@ -70,6 +70,7 @@ dist-backend/
 
 # Rust / Tauri
 **/target/
+**/target-clippy*/
 **/*.rs.bk
 **/Cargo.lock
 **/WixTools/

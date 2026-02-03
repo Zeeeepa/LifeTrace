@@ -42,17 +42,20 @@ repos:
     hooks:
       - id: bandit
         name: Bandit security scan
-        entry: uv run bandit -c bandit.yaml -r lifetrace scripts
+        # Avoid uv venv sync races in concurrent hooks (Windows file-lock issues).
+        entry: uv run --no-sync bandit -c bandit.yaml -r lifetrace scripts
         language: system
         files: ^(lifetrace|scripts)/.*\.py$
         pass_filenames: false
+        require_serial: true
 
       - id: pyright
         name: Pyright type check
-        entry: uv run python -m pyright --project pyrightconfig.json
+        entry: uv run --no-sync python -m pyright --project pyrightconfig.json
         language: system
         files: ^(lifetrace|scripts)/.*\.(py|pyi)$
         pass_filenames: false
+        require_serial: true
 
       - id: tsc-free-todo-frontend
         name: TypeScript type check (free-todo-frontend)
@@ -74,10 +77,11 @@ repos:
       # pre-commit 会传入暂存的文件，只检查这些文件
       - id: check-backend-code-lines
         name: Check backend Python code lines (max 500)
-        entry: uv run python lifetrace/scripts/check_code_lines.py --include lifetrace,scripts --exclude lifetrace/__pycache__,lifetrace/dist,lifetrace/migrations/versions
+        entry: uv run --no-sync python lifetrace/scripts/check_code_lines.py --include lifetrace,scripts --exclude lifetrace/__pycache__,lifetrace/dist,lifetrace/migrations/versions
         language: system
         files: ^(lifetrace|scripts)/.*\.py$
         pass_filenames: true
+        require_serial: true
 
       # Tauri Rust 有效代码行数检查（不含空行和注释，上限 500 行）
       # pre-commit 会传入暂存的文件，只检查这些文件

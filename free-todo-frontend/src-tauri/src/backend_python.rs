@@ -76,6 +76,10 @@ fn build_uv_env() -> Vec<(String, String)> {
     }
 }
 
+pub fn uv_env_pairs() -> Vec<(String, String)> {
+    build_uv_env()
+}
+
 fn run_command(command: &str, args: &[&str], envs: &[(&str, &str)]) -> Result<String, String> {
     let mut cmd = Command::new(command);
     cmd.args(args);

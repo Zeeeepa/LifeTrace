@@ -1,30 +1,28 @@
 {
   "$schema": "https://schema.tauri.app/config/2.1",
-  "productName": "FreeTodo Island",
+  "productName": "FreeTodo",
   "version": "0.1.2",
-  "identifier": "com.freeugroup.freetodo.island",
+  "identifier": "com.freeugroup.freetodo",
   "build": {
-    "beforeBuildCommand": "pnpm build:frontend:island",
+    "beforeBuildCommand": "",
     "devUrl": "http://localhost:3001",
-    "frontendDist": "dist"
+    "frontendDist": ".tauri-lint-dist"
   },
   "app": {
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "FreeTodo Island",
-        "width": 380,
-        "height": 120,
-        "minWidth": 300,
-        "minHeight": 80,
-        "resizable": false,
+        "title": "FreeTodo",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
         "fullscreen": false,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
+        "transparent": false,
+        "decorations": true,
         "visible": true,
-        "center": false
+        "center": true
       }
     ],
     "security": {
@@ -48,10 +46,7 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "resources": [
-      "../../lifetrace",
-      "../../requirements-runtime.txt"
-    ],
+    "resources": [],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

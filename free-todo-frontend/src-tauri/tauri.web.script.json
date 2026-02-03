@@ -47,8 +47,8 @@
     ],
     "targets": "all",
     "resources": [
-      "../lifetrace",
-      "../requirements-runtime.txt"
+      "../../lifetrace",
+      "../../requirements-runtime.txt"
     ],
     "windows": {
       "certificateThumbprint": null,

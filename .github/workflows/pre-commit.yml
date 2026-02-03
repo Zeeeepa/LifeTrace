@@ -46,12 +46,11 @@ jobs:
         run: python -m pip install --upgrade pip pre-commit
       - name: Run base hooks
         run: |
-          pre-commit run check-yaml \
-            check-toml \
-            check-json \
-            end-of-file-fixer \
-            trailing-whitespace \
-            --all-files
+          pre-commit run check-yaml --all-files
+          pre-commit run check-toml --all-files
+          pre-commit run check-json --all-files
+          pre-commit run end-of-file-fixer --all-files
+          pre-commit run trailing-whitespace --all-files
 
   precommit-python:
     runs-on: ubuntu-latest
@@ -63,18 +62,21 @@ jobs:
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v3
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
       - name: Install backend deps
         run: uv sync --group dev
       - name: Install pre-commit
         run: python -m pip install --upgrade pip pre-commit
       - name: Run Python hooks
         run: |
-          pre-commit run ruff \
-            ruff-format \
-            bandit \
-            pyright \
-            check-backend-code-lines \
-            --all-files
+          pre-commit run ruff --all-files
+          pre-commit run ruff-format --all-files
+          pre-commit run bandit --all-files
+          pre-commit run pyright --all-files
+          pre-commit run check-backend-code-lines --all-files
 
   precommit-frontend:
     runs-on: ubuntu-latest
@@ -98,10 +100,9 @@ jobs:
         run: python -m pip install --upgrade pip pre-commit
       - name: Run frontend hooks
         run: |
-          pre-commit run biome-check \
-            tsc-free-todo-frontend \
-            check-frontend-code-lines \
-            --all-files
+          pre-commit run biome-check --all-files
+          pre-commit run tsc-free-todo-frontend --all-files
+          pre-commit run check-frontend-code-lines --all-files
 
   precommit-rust:
     runs-on: ubuntu-latest
@@ -122,7 +123,6 @@ jobs:
         run: python -m pip install --upgrade pip pre-commit
       - name: Run Rust hooks
         run: |
-          pre-commit run rustfmt \
-            clippy \
-            check-tauri-rust-code-lines \
-            --all-files
+          pre-commit run rustfmt --all-files
+          pre-commit run clippy --all-files
+          pre-commit run check-tauri-rust-code-lines --all-files

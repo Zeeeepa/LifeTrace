@@ -1,42 +1,57 @@
 //! Python Backend Sidecar Management
 //!
 //! This module handles the lifecycle of the Python backend server,
-//! including starting, health checking, and stopping the process.
+//! including starting, health checking, proxying, and stopping the process.
 
 use crate::backend_paths::{
     get_backend_path, get_backend_script_entry, get_backend_script_root, get_data_dir,
     get_requirements_path, get_runtime_root,
 };
-use crate::backend_python::{ensure_uv, ensure_venv, find_python312, install_requirements};
-use crate::config::{self, timeouts};
+use crate::backend_proxy::{start_proxy_server, ProxyState};
+use crate::backend_python::{
+    ensure_uv, ensure_venv, find_python312, install_requirements, uv_env_pairs,
+};
+use crate::backend_support::{
+    check_backend_health as check_backend_health_with_timeout, detect_running_backend_port,
+    is_lifetrace_backend, pick_backend_port, verify_backend_mode, wait_for_backend,
+};
+use crate::config::{self, timeouts, ServerMode};
 use log::{error, info, warn};
-use reqwest::Client;
-use serde::Deserialize;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::AppHandle;
 
-/// Global backend process reference
-static BACKEND_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+struct BackendState {
+    backend_port: Arc<AtomicU16>,
+    ready: Arc<AtomicBool>,
+    proxy_port: AtomicU16,
+    stopping: AtomicBool,
+    proxy_started: AtomicBool,
+    process: Mutex<Option<Child>>,
+    uv_synced: AtomicBool,
+}
 
-/// Current backend port
-static BACKEND_PORT: AtomicU16 = AtomicU16::new(8001);
+static STATE: OnceLock<BackendState> = OnceLock::new();
 
-/// Flag indicating if backend is stopping
-static IS_STOPPING: AtomicBool = AtomicBool::new(false);
-
-/// Health check response structure
-#[derive(Deserialize, Debug)]
-struct HealthResponse {
-    app: Option<String>,
-    server_mode: Option<String>,
+fn state() -> &'static BackendState {
+    STATE.get_or_init(|| BackendState {
+        backend_port: Arc::new(AtomicU16::new(0)),
+        ready: Arc::new(AtomicBool::new(false)),
+        proxy_port: AtomicU16::new(0),
+        stopping: AtomicBool::new(false),
+        proxy_started: AtomicBool::new(false),
+        process: Mutex::new(None),
+        uv_synced: AtomicBool::new(false),
+    })
 }
 
 /// Backend runtime type
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum BackendRuntime {
+    Uv,
     Script,
     PyInstaller,
 }
@@ -45,6 +60,9 @@ enum BackendRuntime {
 fn get_backend_runtime() -> BackendRuntime {
     if let Ok(value) = std::env::var("FREETODO_BACKEND_RUNTIME") {
         let normalized = value.to_lowercase();
+        if normalized == "uv" || normalized == "uv-run" || normalized == "uvrun" {
+            return BackendRuntime::Uv;
+        }
         if normalized == "pyinstaller" {
             return BackendRuntime::PyInstaller;
         }
@@ -60,186 +78,236 @@ fn get_backend_runtime() -> BackendRuntime {
         if value.eq_ignore_ascii_case("script") {
             return BackendRuntime::Script;
         }
-    }
-
-    BackendRuntime::PyInstaller
-}
-
-/// Get the backend URL
-pub fn get_backend_url() -> String {
-    let port = BACKEND_PORT.load(Ordering::Relaxed);
-    format!("http://127.0.0.1:{}", port)
-}
-
-/// Set the backend port
-pub fn set_backend_port(port: u16) {
-    BACKEND_PORT.store(port, Ordering::Relaxed);
-}
-
-/// Check if the backend is a LifeTrace server
-async fn is_lifetrace_backend(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{}/health", port);
-    let client = Client::builder()
-        .timeout(Duration::from_secs(2))
-        .build()
-        .unwrap_or_default();
-
-    match client.get(&url).send().await {
-        Ok(response) => {
-            if response.status().is_success() {
-                if let Ok(health) = response.json::<HealthResponse>().await {
-                    return health.app.as_deref() == Some("lifetrace");
-                }
-            }
-            false
+        if value.eq_ignore_ascii_case("uv") || value.eq_ignore_ascii_case("uv-run") {
+            return BackendRuntime::Uv;
         }
-        Err(_) => false,
     }
+
+    BackendRuntime::Uv
+}
+
+fn run_uv_sync_if_needed(backend_root: &Path) -> Result<(), String> {
+    let state = state();
+    if state.uv_synced.load(Ordering::Relaxed) {
+        return Ok(());
+    }
+
+    let mut cmd = Command::new("uv");
+    cmd.arg("sync").current_dir(backend_root);
+    for (key, value) in uv_env_pairs() {
+        cmd.env(key, value);
+    }
+
+    let status = cmd
+        .status()
+        .map_err(|e| format!("Failed to run uv sync: {}", e))?;
+    if status.success() {
+        state.uv_synced.store(true, Ordering::Relaxed);
+        Ok(())
+    } else {
+        Err(format!("uv sync failed with status {}", status))
+    }
+}
+
+fn server_mode() -> ServerMode {
+    ServerMode::current()
+}
+
+fn mode_label(mode: ServerMode) -> &'static str {
+    match mode {
+        ServerMode::Dev => "dev",
+        ServerMode::Build => "build",
+    }
+}
+
+/// Get the backend URL (proxy port)
+pub fn get_backend_url() -> String {
+    let port = state().proxy_port.load(Ordering::Relaxed);
+    let port = if port == 0 {
+        config::ports::backend_port(server_mode())
+    } else {
+        port
+    };
+    format!("http://127.0.0.1:{}", port)
 }
 
 /// Check backend health
 pub async fn check_backend_health(
     port: u16,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let url = format!("http://127.0.0.1:{}/health", port);
-    let client = Client::builder()
-        .timeout(Duration::from_millis(timeouts::HEALTH_CHECK))
-        .build()?;
-
-    match client.get(&url).send().await {
-        Ok(response) => Ok(response.status().is_success()),
-        Err(_) => Ok(false),
-    }
+    check_backend_health_with_timeout(port, timeouts::HEALTH_CHECK).await
 }
 
-/// Detect running backend server port
-async fn detect_running_backend_port() -> Option<u16> {
-    // Check priority ports first
-    let priority_ports = [
-        config::ports::DEV_BACKEND_PORT,
-        config::ports::DEV_BACKEND_PORT + 1,
-        config::ports::BUILD_BACKEND_PORT,
-        config::ports::BUILD_BACKEND_PORT + 1,
-    ];
-
-    for port in priority_ports {
-        if is_lifetrace_backend(port).await {
-            info!("Detected backend running on port: {}", port);
-            return Some(port);
-        }
-    }
-
-    // Check other possible ports
-    let start_port = config::ports::DEV_BACKEND_PORT + 2;
-    let end_port = config::ports::DEV_BACKEND_PORT + 100;
-
-    for port in start_port..end_port {
-        if is_lifetrace_backend(port).await {
-            info!("Detected backend running on port: {}", port);
-            return Some(port);
-        }
-    }
-
-    None
-}
-
-/// Wait for backend to be ready
-async fn wait_for_backend(port: u16, timeout_secs: u64) -> Result<(), String> {
-    let start = std::time::Instant::now();
-    let timeout = Duration::from_secs(timeout_secs);
-    let retry_interval = Duration::from_millis(timeouts::HEALTH_CHECK_RETRY);
-
-    while start.elapsed() < timeout {
-        if check_backend_health(port).await.unwrap_or(false) {
-            return Ok(());
-        }
-        tokio::time::sleep(retry_interval).await;
-    }
-
-    Err("Backend did not start in time".to_string())
-}
-
-/// Find available port starting from default
-async fn find_available_port(start_port: u16, max_attempts: u16) -> Result<u16, String> {
-    for i in 0..max_attempts {
-        let port = start_port + i;
-        if !check_backend_health(port).await.unwrap_or(false) {
-            // Port is likely available (not responding)
-            return Ok(port);
-        }
-    }
-    Err(format!(
-        "Could not find available port after {} attempts",
-        max_attempts
-    ))
-}
-
-/// Start the Python backend server
+/// Start the Python backend server (with proxy)
 pub async fn start_backend(
     app: &AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let backend_runtime = get_backend_runtime();
-    info!("Detecting running backend server...");
+    let state = state();
+    let mode = server_mode();
+    let proxy_port = config::ports::backend_port(mode);
 
-    // Check if backend is already running
-    if let Some(port) = detect_running_backend_port().await {
-        set_backend_port(port);
-        info!("Using existing backend server at port {}", port);
-        start_health_check_loop(port);
-        return Ok(());
-    }
+    state.stopping.store(false, Ordering::Relaxed);
+    state.backend_port.store(0, Ordering::Relaxed);
+    state.ready.store(false, Ordering::Relaxed);
+    state.proxy_port.store(proxy_port, Ordering::Relaxed);
 
-    info!("No running backend detected, starting new instance...");
-
-    let backend_path = if backend_runtime == BackendRuntime::PyInstaller {
-        match get_backend_path(app) {
-            Ok(path) => path,
-            Err(e) => {
-                warn!("Backend executable not found: {}", e);
-                if cfg!(debug_assertions) {
-                    let port = config::get_backend_port();
-                    info!(
-                        "Development mode: waiting for external backend on port {}",
-                        port
-                    );
-                    set_backend_port(port);
-                    if wait_for_backend(port, 30).await.is_ok() {
-                        info!("External backend is ready");
-                        start_health_check_loop(port);
-                        return Ok(());
-                    }
-                }
-                return Err(e.into());
+    if !state.proxy_started.swap(true, Ordering::Relaxed) {
+        let proxy_state = ProxyState::new(state.backend_port.clone(), state.ready.clone());
+        if let Err(err) = start_proxy_server(proxy_port, proxy_state).await {
+            state.proxy_started.store(false, Ordering::Relaxed);
+            if is_lifetrace_backend(proxy_port).await {
+                warn!(
+                    "Proxy port {} already has a backend instance, using it directly",
+                    proxy_port
+                );
+                state.backend_port.store(proxy_port, Ordering::Relaxed);
+                state.ready.store(true, Ordering::Relaxed);
+            } else {
+                return Err(err.into());
             }
         }
+    }
+
+    let app_handle = app.clone();
+    tokio::spawn(async move {
+        if let Err(err) = backend_supervisor(app_handle, mode).await {
+            error!("Backend supervisor exited: {}", err);
+        }
+    });
+
+    Ok(())
+}
+
+async fn backend_supervisor(app: AppHandle, mode: ServerMode) -> Result<(), String> {
+    let state = state();
+    let mut backoff = Duration::from_millis(500);
+    let max_backoff = Duration::from_secs(10);
+    let interval = Duration::from_millis(config::health_check::BACKEND_INTERVAL);
+
+    loop {
+        if state.stopping.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let mut exited = false;
+        let mut managed = false;
+        {
+            let mut guard = state.process.lock().unwrap();
+            if let Some(child) = guard.as_mut() {
+                managed = true;
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        warn!("Backend exited: {}", status);
+                        *guard = None;
+                        exited = true;
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        warn!("Failed to check backend status: {}", err);
+                    }
+                }
+            }
+        }
+
+        if exited {
+            state.ready.store(false, Ordering::Relaxed);
+            state.backend_port.store(0, Ordering::Relaxed);
+        }
+
+        let backend_port = state.backend_port.load(Ordering::Relaxed);
+
+        if managed {
+            if backend_port != 0 {
+                let healthy = check_backend_health(backend_port).await.unwrap_or(false);
+                state.ready.store(healthy, Ordering::Relaxed);
+                if !healthy {
+                    warn!("Backend health check failed");
+                }
+            }
+            tokio::time::sleep(interval).await;
+            continue;
+        }
+
+        if backend_port != 0 {
+            let healthy = check_backend_health(backend_port).await.unwrap_or(false);
+            if healthy {
+                state.ready.store(true, Ordering::Relaxed);
+                tokio::time::sleep(interval).await;
+                continue;
+            }
+            state.ready.store(false, Ordering::Relaxed);
+            state.backend_port.store(0, Ordering::Relaxed);
+        }
+
+        if let Some(port) = detect_running_backend_port(mode).await {
+            state.backend_port.store(port, Ordering::Relaxed);
+            state.ready.store(true, Ordering::Relaxed);
+            backoff = Duration::from_millis(500);
+            tokio::time::sleep(interval).await;
+            continue;
+        }
+
+        match start_backend_process(&app, mode).await {
+            Ok(port) => {
+                state.backend_port.store(port, Ordering::Relaxed);
+                state.ready.store(true, Ordering::Relaxed);
+                backoff = Duration::from_millis(500);
+            }
+            Err(err) => {
+                state.ready.store(false, Ordering::Relaxed);
+                warn!("Failed to start backend: {}", err);
+                tokio::time::sleep(backoff).await;
+                backoff = (backoff * 2).min(max_backoff);
+            }
+        }
+
+        tokio::time::sleep(interval).await;
+    }
+
+    Ok(())
+}
+
+async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16, String> {
+    let state = state();
+    let backend_runtime = get_backend_runtime();
+    let port = pick_backend_port(mode)?;
+    let mode_label = mode_label(mode);
+
+    state.ready.store(false, Ordering::Relaxed);
+
+    let backend_path = if backend_runtime == BackendRuntime::PyInstaller {
+        get_backend_path(app).map_err(|e| {
+            warn!("Backend executable not found: {}", e);
+            e
+        })?
     } else {
         let backend_root = get_backend_script_root(app)?;
         get_backend_script_entry(&backend_root)
     };
 
-    // Get data directory
-    let data_dir = get_data_dir(app)?;
-
-    // Find available port
-    let port = find_available_port(config::get_backend_port(), 50).await?;
-    set_backend_port(port);
-
-    info!("Starting backend server...");
-    info!("Backend runtime: {:?}", backend_runtime);
-    info!("Backend path: {:?}", backend_path);
-    info!("Data directory: {:?}", data_dir);
-    info!("Port: {}", port);
-
-    // Get server mode
-    let mode = if cfg!(debug_assertions) {
-        "dev"
-    } else {
-        "build"
-    };
-
+    let data_dir = get_data_dir(app, mode)?;
     let mut backend_workdir = backend_path.parent().unwrap_or(&backend_path).to_path_buf();
 
-    let mut command = if backend_runtime == BackendRuntime::Script {
+    let mut command = if backend_runtime == BackendRuntime::Uv {
+        let backend_root = get_backend_script_root(app)?;
+        backend_workdir = backend_root;
+        run_uv_sync_if_needed(&backend_workdir)?;
+        let mut cmd = Command::new("uv");
+        cmd.args([
+            "run",
+            "python",
+            "-m",
+            "lifetrace.server",
+            "--port",
+            &port.to_string(),
+            "--mode",
+            mode_label,
+        ]);
+        for (key, value) in uv_env_pairs() {
+            cmd.env(key, value);
+        }
+        cmd
+    } else if backend_runtime == BackendRuntime::Script {
         let runtime_root = get_runtime_root(app)?;
         let venv_dir = runtime_root.join("python-venv");
         let system_python = find_python312().ok_or("Python 3.12 not found")?;
@@ -248,7 +316,10 @@ pub async fn start_backend(
         let backend_root = get_backend_script_root(app)?;
         let requirements_path = get_requirements_path(&backend_root);
         if !requirements_path.exists() {
-            return Err(format!("Requirements file not found at {:?}", requirements_path).into());
+            return Err(format!(
+                "Requirements file not found at {:?}",
+                requirements_path
+            ));
         }
         install_requirements(
             uv_path.as_path(),
@@ -258,26 +329,36 @@ pub async fn start_backend(
 
         backend_workdir = backend_root;
         let mut cmd = Command::new(venv_python);
-        cmd.arg(backend_path);
+        cmd.arg(&backend_path);
         cmd
     } else {
         Command::new(&backend_path)
     };
 
-    command
-        .args([
+    if backend_runtime != BackendRuntime::Uv {
+        command.args([
             "--port",
             &port.to_string(),
             "--data-dir",
             data_dir.to_str().unwrap_or(""),
             "--mode",
-            mode,
-        ])
+            mode_label,
+        ]);
+    }
+
+    command
         .current_dir(backend_workdir)
         .env("PYTHONUNBUFFERED", "1")
         .env("PYTHONUTF8", "1")
+        .env("LIFETRACE_DATA_DIR", data_dir.to_str().unwrap_or(""))
         .env("LIFETRACE__OBSERVABILITY__ENABLED", "false")
         .env("LIFETRACE__SERVER__DEBUG", "false");
+
+    info!("Starting backend server on port {}", port);
+    info!("Backend runtime: {:?}", backend_runtime);
+    info!("Backend path: {:?}", backend_path);
+    info!("Data directory: {:?}", data_dir);
+    info!("Server mode: {}", mode_label);
 
     let child = command
         .stdout(Stdio::piped())
@@ -285,99 +366,39 @@ pub async fn start_backend(
         .spawn()
         .map_err(|e| format!("Failed to start backend: {}", e))?;
 
-    // Store process reference
     {
-        let mut guard = BACKEND_PROCESS.lock().unwrap();
+        let mut guard = state.process.lock().unwrap();
         *guard = Some(child);
     }
 
-    // Wait for backend to be ready
     info!("Waiting for backend server to be ready...");
-    wait_for_backend(port, timeouts::BACKEND_READY / 1000).await?;
+    if let Err(err) = wait_for_backend(
+        port,
+        timeouts::BACKEND_READY / 1000,
+        timeouts::HEALTH_CHECK,
+        timeouts::HEALTH_CHECK_RETRY,
+    )
+    .await
+    {
+        stop_managed_backend();
+        return Err(err);
+    }
     info!("Backend server is ready at http://127.0.0.1:{}", port);
 
-    // Verify backend mode
-    verify_backend_mode(port, mode).await?;
-
-    // Start health check loop
-    start_health_check_loop(port);
-
-    Ok(())
-}
-
-/// Verify backend server mode matches expected mode
-async fn verify_backend_mode(port: u16, expected_mode: &str) -> Result<(), String> {
-    let url = format!("http://127.0.0.1:{}/health", port);
-    let client = Client::builder()
-        .timeout(Duration::from_secs(5))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    match client.get(&url).send().await {
-        Ok(response) => {
-            if let Ok(health) = response.json::<HealthResponse>().await {
-                if health.app.as_deref() != Some("lifetrace") {
-                    return Err(format!(
-                        "Backend at port {} is not a LifeTrace server",
-                        port
-                    ));
-                }
-                if let Some(mode) = health.server_mode {
-                    if mode != expected_mode {
-                        warn!(
-                            "Backend mode mismatch: expected '{}', got '{}'",
-                            expected_mode, mode
-                        );
-                    }
-                }
-            }
-            Ok(())
-        }
-        Err(e) => {
-            warn!("Could not verify backend mode: {}", e);
-            Ok(())
-        }
+    if let Err(err) = verify_backend_mode(port, mode_label).await {
+        stop_managed_backend();
+        return Err(err);
     }
+
+    Ok(port)
 }
 
-/// Start health check loop
-fn start_health_check_loop(port: u16) {
-    tokio::spawn(async move {
-        let interval = Duration::from_millis(config::health_check::BACKEND_INTERVAL);
-
-        loop {
-            tokio::time::sleep(interval).await;
-
-            if IS_STOPPING.load(Ordering::Relaxed) {
-                break;
-            }
-
-            match check_backend_health(port).await {
-                Ok(healthy) => {
-                    if !healthy {
-                        warn!("Backend health check failed");
-                    }
-                }
-                Err(e) => {
-                    warn!("Backend health check error: {}", e);
-                }
-            }
-        }
-    });
-}
-
-/// Stop the backend server
-pub fn stop_backend() {
-    IS_STOPPING.store(true, Ordering::Relaxed);
-
-    let mut guard = BACKEND_PROCESS.lock().unwrap();
+fn stop_managed_backend() {
+    let state = state();
+    let mut guard = state.process.lock().unwrap();
     if let Some(mut child) = guard.take() {
-        info!("Stopping backend server...");
-
-        // Try graceful shutdown first
         #[cfg(unix)]
         {
-            use std::os::unix::process::CommandExt;
             unsafe {
                 libc::kill(child.id() as i32, libc::SIGTERM);
             }
@@ -385,7 +406,31 @@ pub fn stop_backend() {
 
         #[cfg(windows)]
         {
-            // On Windows, try to terminate gracefully
+            let _ = child.kill();
+        }
+    }
+}
+
+/// Stop the backend server
+pub fn stop_backend() {
+    let state = state();
+    state.stopping.store(true, Ordering::Relaxed);
+    state.ready.store(false, Ordering::Relaxed);
+
+    let mut guard = state.process.lock().unwrap();
+    if let Some(mut child) = guard.take() {
+        info!("Stopping backend server...");
+
+        // Try graceful shutdown first
+        #[cfg(unix)]
+        {
+            unsafe {
+                libc::kill(child.id() as i32, libc::SIGTERM);
+            }
+        }
+
+        #[cfg(windows)]
+        {
             let _ = child.kill();
         }
 

@@ -1,6 +1,6 @@
 //! Backend path resolution helpers
 
-use crate::config::process;
+use crate::config::{process, ServerMode};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
@@ -130,12 +130,24 @@ pub fn get_runtime_root(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Get data directory for backend
-pub fn get_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let data_dir = app
+pub fn get_data_dir(app: &AppHandle, mode: ServerMode) -> Result<PathBuf, String> {
+    let app_data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
-        .join(process::BACKEND_DATA_DIR);
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let legacy_dir = app_data_dir.join(process::BACKEND_DATA_DIR);
+    let mode_suffix = match mode {
+        ServerMode::Dev => "dev",
+        ServerMode::Build => "build",
+    };
+    let mode_dir = app_data_dir.join(format!("{}-{}", process::BACKEND_DATA_DIR, mode_suffix));
+
+    let data_dir = if mode == ServerMode::Build && legacy_dir.exists() {
+        legacy_dir
+    } else {
+        mode_dir
+    };
 
     if !data_dir.exists() {
         std::fs::create_dir_all(&data_dir)
