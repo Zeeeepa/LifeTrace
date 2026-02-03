@@ -83,9 +83,12 @@ if (Test-Path $Dir) {
 }
 
 Set-Location $Dir
-git fetch --depth 1 origin $Ref
-git checkout -q $Ref
-git pull --ff-only origin $Ref
+git diff --quiet
+if ($LASTEXITCODE -ne 0) {
+    throw "Repository has local changes. Commit or stash and retry."
+}
+git fetch --depth 1 "$Repo" "$Ref"
+git checkout -q -B "$Ref" FETCH_HEAD
 uv sync
 
 if ($Run -eq "1") {

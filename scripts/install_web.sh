@@ -108,9 +108,12 @@ if [ ! -d "$TARGET_DIR/.git" ]; then
 fi
 
 cd "$TARGET_DIR"
-git fetch --depth 1 origin "$REF"
-git checkout -q "$REF"
-git pull --ff-only origin "$REF"
+if ! git diff --quiet; then
+  echo "Repository has local changes. Commit or stash and retry." >&2
+  exit 1
+fi
+git fetch --depth 1 "$REPO_URL" "$REF"
+git checkout -q -B "$REF" FETCH_HEAD
 
 uv sync
 
