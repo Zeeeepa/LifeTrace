@@ -24,3 +24,14 @@ def test_todo_to_dict_coerces_is_all_day_none() -> None:
     data = manager._todo_to_dict(None, todo)
 
     assert data["is_all_day"] is False
+
+
+def test_todo_to_dict_normalizes_reminder_offsets() -> None:
+    manager = StubTodoManager()
+    todo = Todo(name="Test")
+    todo.id = 1
+    todo.reminder_offsets = '[30, "15", -5, "bad"]'
+
+    data = manager._todo_to_dict(None, todo)
+
+    assert data["reminder_offsets"] == [15, 30]

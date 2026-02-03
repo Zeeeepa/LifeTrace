@@ -100,3 +100,14 @@ def test_create_todo_duration_conflict_raises() -> None:
 
     with pytest.raises(HTTPException):
         service.create_todo(TodoCreate(name="Test", duration="PT30M", due=due))
+
+
+def test_update_todo_time_zone_sets_tzid() -> None:
+    repo = FakeTodoRepository()
+    service = TodoService(repo)
+
+    service.update_todo(1, TodoUpdate(time_zone="Asia/Shanghai"))
+
+    assert repo.updated is not None
+    assert repo.updated["time_zone"] == "Asia/Shanghai"
+    assert repo.updated["tzid"] == "Asia/Shanghai"
