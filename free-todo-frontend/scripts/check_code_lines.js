@@ -1,30 +1,30 @@
 #!/usr/bin/env node
 /**
- * 检查 TypeScript/TSX 文件的有效代码行数（不含空行和注释行）。
- * 超过指定行数上限的文件将被报告，脚本以非零状态码退出。
+ * Check effective TypeScript/TSX code lines (excluding blank lines and comments).
+ * Files over the limit are reported and the script exits non-zero.
  *
- * 使用方法：
- *   # 检查整个目录（单独运行）
+ * Usage:
+ *   # Scan the entire directory (standalone)
  *   node check_code_lines.js [--include dirs] [--exclude dirs] [--max lines]
  *
- *   # 检查指定文件（pre-commit 模式）
+ *   # Check specified files (pre-commit mode)
  *   node check_code_lines.js [options] file1.ts file2.tsx ...
  *
- * 示例：
- *   # 扫描整个前端目录
+ * Examples:
+ *   # Scan the whole frontend directory
  *   node check_code_lines.js --include apps,components,lib --exclude lib/generated --max 500
  *
- *   # 只检查指定文件（pre-commit 会传入暂存的文件）
+ *   # Check specific files (pre-commit passes staged files)
  *   node check_code_lines.js apps/chat/ChatPanel.tsx apps/todo/TodoList.tsx
  */
 
 const { existsSync, readdirSync, readFileSync } = require("node:fs");
 const { dirname, isAbsolute, join, relative, resolve } = require("node:path");
 
-// 获取脚本所在目录（CommonJS 方式）
-// 在 CommonJS 中，__dirname 和 __filename 是自动可用的
+// Script directory (CommonJS)
+// In CommonJS, __dirname and __filename are available by default.
 
-// 默认配置
+// Default configuration
 const DEFAULT_INCLUDE = ["apps", "components", "electron", "lib"];
 const DEFAULT_EXCLUDE = ["lib/generated"];
 const DEFAULT_MAX_LINES = 500;
@@ -34,11 +34,11 @@ const DEFAULT_MAX_LINES = 500;
  * @property {string[]} includeDirs
  * @property {string[]} excludeDirs
  * @property {number} maxLines
- * @property {string[]} files - 指定的文件列表
+ * @property {string[]} files - Explicit file list
  */
 
 /**
- * 解析命令行参数
+ * Parse CLI arguments.
  * @returns {Config}
  */
 function parseArgs() {
@@ -67,7 +67,7 @@ function parseArgs() {
       maxLines = parseInt(args[i + 1], 10);
       i++;
     } else if (!arg.startsWith("--")) {
-      // 位置参数视为文件路径
+      // Positional args are treated as file paths
       files.push(arg);
     }
   }
@@ -76,9 +76,9 @@ function parseArgs() {
 }
 
 /**
- * 判断行是否为注释行
+ * Check whether a line is a comment-only line.
  *
- * 规则：trim() 后以 //、/*、*、*\/ 开头的行视为注释行
+ * Rule: after trim(), lines starting with //, /*, *, or * / are comments.
  * @param {string} line
  * @returns {boolean}
  */
@@ -93,7 +93,7 @@ function isCommentLine(line) {
 }
 
 /**
- * 统计文件的有效代码行数（不含空行和注释行）
+ * Count effective code lines (excluding blank lines and comments).
  * @param {string} filePath
  * @returns {number}
  */
@@ -105,27 +105,27 @@ function countCodeLines(filePath) {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      // 跳过空行
+      // Skip blank lines
       if (!trimmed) {
         continue;
       }
-      // 跳过注释行
+      // Skip comment-only lines
       if (isCommentLine(line)) {
         continue;
       }
-      // 有效代码行
+      // Counted line
       codeLines++;
     }
 
     return codeLines;
   } catch (error) {
-    console.error(`警告：无法读取文件 ${filePath}: ${error}`);
+    console.error(`Warning: failed to read file ${filePath}: ${error}`);
     return 0;
   }
 }
 
 /**
- * 规范化路径分隔符为 /（兼容 Windows）
+ * Normalize path separators to / (Windows-friendly).
  * @param {string} p
  * @returns {string}
  */
@@ -134,17 +134,17 @@ function normalizePath(p) {
 }
 
 /**
- * 判断文件是否应该被检查
+ * Determine whether a file should be checked.
  * @param {string} relPath
  * @param {string[]} includeDirs
  * @param {string[]} excludeDirs
  * @returns {boolean}
  */
 function shouldCheckFile(relPath, includeDirs, excludeDirs) {
-  // 规范化路径为 / 分隔符
+  // Normalize to / separators
   const normalizedPath = normalizePath(relPath);
 
-  // 检查是否在包含目录中
+  // Check include directories
   const inInclude = includeDirs.some((inc) =>
     normalizedPath.startsWith(normalizePath(inc))
   );
@@ -152,7 +152,7 @@ function shouldCheckFile(relPath, includeDirs, excludeDirs) {
     return false;
   }
 
-  // 检查是否在排除目录中
+  // Check exclude directories
   const inExclude = excludeDirs.some((exc) =>
     normalizedPath.startsWith(normalizePath(exc))
   );
@@ -164,7 +164,7 @@ function shouldCheckFile(relPath, includeDirs, excludeDirs) {
 }
 
 /**
- * 递归遍历目录，获取所有 .ts 和 .tsx 文件
+ * Recursively walk a directory for .ts and .tsx files.
  * @param {string} dir
  * @returns {Generator<string>}
  */
@@ -174,7 +174,7 @@ function* walkDir(dir) {
     for (const entry of entries) {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
-        // 跳过 node_modules 和隐藏目录
+        // Skip node_modules and hidden directories
         if (entry.name === "node_modules" || entry.name.startsWith(".")) {
           continue;
         }
@@ -186,12 +186,12 @@ function* walkDir(dir) {
       }
     }
   } catch {
-    // 忽略无法访问的目录
+    // Ignore inaccessible directories
   }
 }
 
 /**
- * 获取要检查的文件列表
+ * Get the list of files to check.
  * @param {Config} config
  * @param {string} rootDir
  * @returns {string[]}
@@ -201,27 +201,27 @@ function getFilesToCheck(config, rootDir) {
   const filesToCheck = [];
 
   if (config.files.length > 0) {
-    // 模式 1: 检查指定的文件（pre-commit 模式）
+    // Mode 1: Check specified files (pre-commit mode)
     for (const fileStr of config.files) {
-      // 处理相对路径和绝对路径
+      // Handle relative and absolute paths
       const filePath = isAbsolute(fileStr) ? fileStr : resolve(fileStr);
 
-      // 只检查 .ts/.tsx 文件
+      // Only check .ts/.tsx files
       if (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx")) {
         continue;
       }
 
-      // 检查文件是否存在
+      // Skip missing files
       if (!existsSync(filePath)) {
         continue;
       }
 
-      // 获取相对于前端根目录的路径
+      // Get path relative to frontend root
       /** @type {string} */
       let relPath;
       try {
         relPath = relative(rootDir, filePath);
-        // 如果相对路径以 .. 开头，说明文件不在前端目录下
+        // If rel path starts with "..", it's outside the frontend directory
         if (relPath.startsWith("..")) {
           continue;
         }
@@ -229,13 +229,13 @@ function getFilesToCheck(config, rootDir) {
         continue;
       }
 
-      // 检查是否在 include/exclude 范围内
+      // Check include/exclude filters
       if (shouldCheckFile(relPath, config.includeDirs, config.excludeDirs)) {
         filesToCheck.push(filePath);
       }
     }
   } else {
-    // 模式 2: 扫描整个目录（单独运行模式）
+    // Mode 2: Scan entire directory (standalone mode)
     for (const filePath of walkDir(rootDir)) {
       const relPath = relative(rootDir, filePath);
       if (shouldCheckFile(relPath, config.includeDirs, config.excludeDirs)) {
@@ -248,29 +248,29 @@ function getFilesToCheck(config, rootDir) {
 }
 
 /**
- * 主函数
+ * Main entrypoint.
  * @returns {number}
  */
 function main() {
   const config = parseArgs();
 
-  // 获取前端项目根目录（脚本位于 free-todo-frontend/scripts/ 下）
+  // Frontend root (script lives in free-todo-frontend/scripts/)
   const rootDir = dirname(__dirname);
 
-  // 获取要检查的文件
+  // Collect files to check
   const filesToCheck = getFilesToCheck(config, rootDir);
 
   if (filesToCheck.length === 0) {
     if (config.files.length > 0) {
-      // pre-commit 模式下没有匹配的文件，直接通过
+      // No matching files in pre-commit mode
       return 0;
     } else {
-      console.log("未找到需要检查的 TS/TSX 文件");
+      console.log("No TS/TSX files to check.");
       return 0;
     }
   }
 
-  // 收集超限文件
+  // Collect violations
   /** @type {Array<{ path: string; lines: number }>} */
   const violations = [];
 
@@ -282,19 +282,21 @@ function main() {
     }
   }
 
-  // 输出结果
+  // Output results
   if (violations.length > 0) {
-    console.log(`❌ 以下文件代码行数超过 ${config.maxLines} 行：`);
+    console.log(
+      `[ERROR] The following files exceed ${config.maxLines} code lines:`
+    );
     violations.sort((a, b) => a.path.localeCompare(b.path));
     for (const { path, lines } of violations) {
-      console.log(`  ${path} -> ${lines} 行`);
+      console.log(`  ${path} -> ${lines} lines`);
     }
     return 1;
   } else {
     const modeDesc =
-      config.files.length > 0 ? `检查了 ${filesToCheck.length} 个文件，` : "";
+      config.files.length > 0 ? `Checked ${filesToCheck.length} files, ` : "";
     console.log(
-      `✓ ${modeDesc}所有 TS/TSX 文件代码行数均不超过 ${config.maxLines} 行`
+      `[OK] ${modeDesc}all TS/TSX files are within ${config.maxLines} code lines`
     );
     return 0;
   }
