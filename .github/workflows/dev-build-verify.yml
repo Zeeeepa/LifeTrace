@@ -95,10 +95,10 @@ jobs:
   backend-uv-verify:
     continue-on-error: true
     runs-on: ubuntu-latest
-    env:
-      LIFETRACE_DATA_DIR: ${{ runner.temp }}/lifetrace
     steps:
       - uses: actions/checkout@v4
+      - name: Set Lifetrace data dir
+        run: echo "LIFETRACE_DATA_DIR=$RUNNER_TEMP/lifetrace" >> "$GITHUB_ENV"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
