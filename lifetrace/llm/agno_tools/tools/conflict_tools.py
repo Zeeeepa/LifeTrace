@@ -49,6 +49,7 @@ def _parse_duration_value(value: str | None) -> timedelta | None:  # noqa: C901,
             days = int(date_part[:-1] or 0)
     if time_part:
         number = ""
+        value_int = 0
         for ch in time_part:
             if ch.isdigit():
                 number += ch

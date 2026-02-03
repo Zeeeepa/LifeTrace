@@ -17,16 +17,19 @@ export interface PollingEndpoint {
 }
 
 interface NotificationStoreState {
-	// 当前通知
-	currentNotification: Notification | null;
+	// 当前通知列表
+	notifications: Notification[];
 	// 轮询端点配置
 	endpoints: Map<string, PollingEndpoint>;
 	// 展开/收起状态
 	isExpanded: boolean;
-	// 最后发送系统通知的 ID（用于去重）
-	lastNotifiedId: string | null;
+	// 已触发系统通知的 ID（用于去重）
+	notifiedIds: Set<string>;
 	// 方法
-	setNotification: (notification: Notification | null) => void;
+	setNotificationsFromSource: (source: string, notifications: Notification[]) => void;
+	upsertNotification: (notification: Notification) => void;
+	removeNotification: (id: string) => void;
+	removeNotificationsBySource: (source: string) => void;
 	registerEndpoint: (endpoint: PollingEndpoint) => void;
 	unregisterEndpoint: (id: string) => void;
 	toggleExpanded: () => void;
@@ -35,77 +38,111 @@ interface NotificationStoreState {
 	getAllEndpoints: () => PollingEndpoint[];
 }
 
-export const useNotificationStore = create<NotificationStoreState>(
-	(set, get) => ({
-		currentNotification: null,
-		endpoints: new Map(),
-		isExpanded: false,
-		lastNotifiedId: null,
+function sortNotifications(notifications: Notification[]): Notification[] {
+	return [...notifications].sort((a, b) => {
+		const aTime = new Date(a.timestamp).getTime();
+		const bTime = new Date(b.timestamp).getTime();
+		const safeATime = Number.isNaN(aTime) ? 0 : aTime;
+		const safeBTime = Number.isNaN(bTime) ? 0 : bTime;
+		return safeBTime - safeATime;
+	});
+}
 
-		setNotification: (notification) => {
-			set({ currentNotification: notification });
+function notifySystem(notification: Notification): void {
+	if (typeof window === "undefined" || !window.electronAPI?.showNotification) {
+		return;
+	}
+	window.electronAPI
+		.showNotification({
+			id: notification.id,
+			title: notification.title,
+			content: notification.content,
+			timestamp: notification.timestamp,
+		})
+		.catch((error) => {
+			// 静默处理错误，不影响应用运行
+			console.warn("Failed to show system notification:", error);
+		});
+}
 
-			// 如果有新通知且与上次通知不同，触发 Electron 系统通知
-			if (notification) {
-				const { lastNotifiedId } = get();
-				const isNewNotification = notification.id !== lastNotifiedId;
+export const useNotificationStore = create<NotificationStoreState>((set, get) => ({
+	notifications: [],
+	endpoints: new Map(),
+	isExpanded: false,
+	notifiedIds: new Set(),
 
-				if (isNewNotification) {
-					// 更新最后通知的 ID
-					set({ lastNotifiedId: notification.id });
+	setNotificationsFromSource: (source, notifications) => {
+		const current = get().notifications;
+		const filtered = current.filter((item) => item.source !== source);
+		const tagged = notifications.map((notification) => ({
+			...notification,
+			source,
+		}));
+		const next = sortNotifications([...filtered, ...tagged]);
 
-					// 在 Electron 环境中显示系统通知
-					if (
-						typeof window !== "undefined" &&
-						window.electronAPI?.showNotification
-					) {
-						window.electronAPI
-							.showNotification({
-								id: notification.id,
-								title: notification.title,
-								content: notification.content,
-								timestamp: notification.timestamp,
-							})
-							.catch((error) => {
-								// 静默处理错误，不影响应用运行
-								console.warn("Failed to show system notification:", error);
-							});
-					}
-				}
-			} else {
-				// 通知被清除时，不清除 lastNotifiedId，保持去重状态
-				// 这样如果同一个通知再次出现，不会重复触发系统通知
+		const nextNotifiedIds = new Set(get().notifiedIds);
+		for (const notification of tagged) {
+			if (!nextNotifiedIds.has(notification.id)) {
+				notifySystem(notification);
+				nextNotifiedIds.add(notification.id);
 			}
-		},
+		}
 
-		registerEndpoint: (endpoint) => {
-			const { endpoints } = get();
-			const newEndpoints = new Map(endpoints);
-			newEndpoints.set(endpoint.id, endpoint);
-			set({ endpoints: newEndpoints });
-		},
+		set({ notifications: next, notifiedIds: nextNotifiedIds });
+	},
 
-		unregisterEndpoint: (id) => {
-			const { endpoints } = get();
-			const newEndpoints = new Map(endpoints);
-			newEndpoints.delete(id);
-			set({ endpoints: newEndpoints });
-		},
+	upsertNotification: (notification) => {
+		const current = get().notifications.filter((item) => item.id !== notification.id);
+		const next = sortNotifications([...current, notification]);
 
-		toggleExpanded: () => {
-			set((state) => ({ isExpanded: !state.isExpanded }));
-		},
+		const nextNotifiedIds = new Set(get().notifiedIds);
+		if (!nextNotifiedIds.has(notification.id)) {
+			notifySystem(notification);
+			nextNotifiedIds.add(notification.id);
+		}
 
-		setExpanded: (expanded) => {
-			set({ isExpanded: expanded });
-		},
+		set({ notifications: next, notifiedIds: nextNotifiedIds });
+	},
 
-		getEndpoint: (id) => {
-			return get().endpoints.get(id);
-		},
+	removeNotification: (id) => {
+		const current = get().notifications;
+		const next = current.filter((item) => item.id !== id);
+		set({ notifications: next });
+	},
 
-		getAllEndpoints: () => {
-			return Array.from(get().endpoints.values());
-		},
-	}),
-);
+	removeNotificationsBySource: (source) => {
+		const current = get().notifications;
+		const next = current.filter((item) => item.source !== source);
+		set({ notifications: next });
+	},
+
+	registerEndpoint: (endpoint) => {
+		const { endpoints } = get();
+		const newEndpoints = new Map(endpoints);
+		newEndpoints.set(endpoint.id, endpoint);
+		set({ endpoints: newEndpoints });
+	},
+
+	unregisterEndpoint: (id) => {
+		const { endpoints } = get();
+		const newEndpoints = new Map(endpoints);
+		newEndpoints.delete(id);
+		set({ endpoints: newEndpoints });
+	},
+
+	toggleExpanded: () => {
+		set((state) => ({ isExpanded: !state.isExpanded }));
+	},
+
+	setExpanded: (expanded) => {
+		set({ isExpanded: expanded });
+	},
+
+	getEndpoint: (id) => {
+		return get().endpoints.get(id);
+	},
+
+	getAllEndpoints: () => {
+		return Array.from(get().endpoints.values());
+	},
+}));

@@ -58,7 +58,8 @@ export default function HomePageClient() {
 		setPanelAWidth,
 		setPanelCWidth,
 	} = useUiStore();
-	const { currentNotification, setNotification } = useNotificationStore();
+	const { notifications, upsertNotification, removeNotificationsBySource } =
+		useNotificationStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
@@ -75,25 +76,29 @@ export default function HomePageClient() {
 	const { data: llmStatus } = useLlmStatus();
 
 	// 根据 LLM 配置状态显示或隐藏通知
+	const hasLlmConfigNotification = notifications.some(
+		(notification) => notification.source === "llm-config",
+	);
+
 	useEffect(() => {
 		if (!llmStatus) return;
 
 		if (!llmStatus.configured) {
 			// LLM 未配置，显示通知提示用户去设置
-			setNotification({
-				id: "llm-config-missing",
-				title: t("llmConfigMissing"),
-				content: t("llmConfigMissingHint"),
-				timestamp: new Date().toISOString(),
-				source: "llm-config",
-			});
-		} else {
-			// LLM 已配置，如果当前显示的是 LLM 配置通知，则清除它
-			if (currentNotification?.source === "llm-config") {
-				setNotification(null);
+			if (!hasLlmConfigNotification) {
+				upsertNotification({
+					id: "llm-config-missing",
+					title: t("llmConfigMissing"),
+					content: t("llmConfigMissingHint"),
+					timestamp: new Date().toISOString(),
+					source: "llm-config",
+				});
 			}
+		} else if (hasLlmConfigNotification) {
+			// LLM 已配置，清除提示通知
+			removeNotificationsBySource("llm-config");
 		}
-	}, [llmStatus, currentNotification?.source, setNotification, t]);
+	}, [llmStatus, hasLlmConfigNotification, removeNotificationsBySource, t, upsertNotification]);
 
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const setGlobalResizeCursor = useCallback((enabled: boolean) => {
@@ -229,7 +234,7 @@ export default function HomePageClient() {
 					}}
 				>
 					<AppHeader
-						currentNotification={currentNotification}
+						hasNotifications={notifications.length > 0}
 						isElectron={isElectron}
 					/>
 					<div
