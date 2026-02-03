@@ -183,34 +183,51 @@ export function TimelineColumn({
 		window.addEventListener("pointerup", handleUp);
 	};
 
+	const triggerSlotCreate = (
+		anchorRect: DOMRect,
+		clientX: number,
+		clientY: number,
+	) => {
+		if (!onSlotPointerDown) return;
+		const minutes = clampMinutes(
+			displayStart +
+				Math.round((clientY - anchorRect.top) / pxPerMinute / MINUTES_PER_SLOT) *
+					MINUTES_PER_SLOT,
+			0,
+			MAX_TIMELINE_MINUTES,
+		);
+		onSlotPointerDown({
+			date,
+			minutes,
+			anchorRect,
+			clientX,
+			clientY,
+		});
+	};
+
 	return (
 		<div
 			ref={containerRef}
 			className={cn("relative h-full w-full", className)}
 			onClick={(event) => {
-				if (!onSlotPointerDown) return;
 				if (
 					(event.target as HTMLElement | null)?.closest("[data-timeline-item]")
 				) {
 					return;
 				}
 				const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
-				const offset = event.clientY - rect.top;
-				const minutes = clampMinutes(
-					displayStart +
-						Math.round((offset / pxPerMinute) / MINUTES_PER_SLOT) *
-							MINUTES_PER_SLOT,
-					0,
-					MAX_TIMELINE_MINUTES,
-				);
-				onSlotPointerDown({
-					date,
-					minutes,
-					anchorRect: rect,
-					clientX: event.clientX,
-					clientY: event.clientY,
-				});
+				triggerSlotCreate(rect, event.clientX, event.clientY);
 			}}
+			onKeyDown={(event) => {
+				if (event.key !== "Enter" && event.key !== " ") return;
+				event.preventDefault();
+				const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+				const midX = rect.left + rect.width / 2;
+				const midY = rect.top + rect.height / 2;
+				triggerSlotCreate(rect, midX, midY);
+			}}
+			role="button"
+			tabIndex={0}
 		>
 			<div className="absolute inset-0">
 				{slotMinutes.map((minutes) => (

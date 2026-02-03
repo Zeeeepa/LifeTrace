@@ -67,6 +67,21 @@ export function toDateKey(date: Date): string {
 	return `${y}-${m}-${d}`;
 }
 
+export function parseTodoDateTime(value?: string): Date | null {
+	if (!value) return null;
+	let normalizedValue = value;
+	if (
+		value.includes("T") &&
+		!value.includes("Z") &&
+		!value.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(value)
+	) {
+		normalizedValue = `${value}Z`;
+	}
+	const parsed = new Date(normalizedValue);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export function parseScheduleTime(value?: string): Date | null {
 	if (!value) return null;
 	// 如果时间字符串没有时区信息（没有 Z 或 +/- 偏移），

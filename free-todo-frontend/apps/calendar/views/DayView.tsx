@@ -7,10 +7,40 @@ import type React from "react";
 import { useMemo, useState } from "react";
 import { useTodoMutations } from "@/lib/query";
 import { useTodoStore } from "@/lib/store/todo-store";
-import { cn } from "@/lib/utils";
-import type { CalendarTodo } from "../types";
-import { getScheduleSeverity, getStatusStyle } from "../types";
-import { formatTimeLabel, toDateKey } from "../utils";
+import type { Todo } from "@/lib/types";
+import { FloatingTodoCard } from "../components/FloatingTodoCard";
+import { TimelineColumn } from "../components/TimelineColumn";
+import { TimelineCreatePopover } from "../components/TimelineCreatePopover";
+import type { TimelineItem } from "../types";
+import {
+	addMinutes,
+	ceilToMinutes,
+	clampMinutes,
+	DEFAULT_DURATION_MINUTES,
+	DEFAULT_NEW_TIME,
+	DEFAULT_WORK_END_MINUTES,
+	DEFAULT_WORK_START_MINUTES,
+	floorToMinutes,
+	formatMinutesLabel,
+	formatTimeRangeLabel,
+	getMinutesFromDate,
+	isAllDayDeadlineString,
+	isSameDay,
+	MINUTES_PER_SLOT,
+	parseTodoDateTime,
+	setMinutesOnDate,
+	toDateKey,
+} from "../utils";
+
+const SLOT_HEIGHT = 12;
+
+interface ParsedTodo {
+	todo: Todo;
+	deadlineRaw?: string;
+	deadline: Date | null;
+	start: Date | null;
+	end: Date | null;
+}
 
 export function DayView({
 	currentDate,
@@ -87,7 +117,8 @@ export function DayView({
 			}
 
 			if (entry.start || entry.end) {
-				const start = entry.start ?? addMinutes(entry.end as Date, -DEFAULT_DURATION_MINUTES);
+				const start =
+					entry.start ?? addMinutes(entry.end as Date, -DEFAULT_DURATION_MINUTES);
 				const end = entry.end ?? addMinutes(start, DEFAULT_DURATION_MINUTES);
 				const startMinutes = getMinutesFromDate(start);
 				const endMinutes = Math.max(
@@ -164,10 +195,7 @@ export function DayView({
 		clientY: number;
 	}) => {
 		if (typeof window === "undefined") return;
-		const safeStart = Math.min(
-			minutes,
-			maxTimelineMinutes - MINUTES_PER_SLOT,
-		);
+		const safeStart = Math.min(minutes, maxTimelineMinutes - MINUTES_PER_SLOT);
 		const endMinutes = clampMinutes(
 			safeStart + DEFAULT_DURATION_MINUTES,
 			0,
@@ -203,13 +231,14 @@ export function DayView({
 	};
 
 	const openAllDayCreateAt = (
-		event: React.MouseEvent<HTMLDivElement>,
+		target: HTMLElement,
+		eventTarget?: HTMLElement,
 	) => {
 		if (typeof window === "undefined") return;
-		if ((event.target as HTMLElement | null)?.closest("[data-all-day-card]")) {
+		if (eventTarget?.closest("[data-all-day-card]")) {
 			return;
 		}
-		const rect = event.currentTarget.getBoundingClientRect();
+		const rect = target.getBoundingClientRect();
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
 		const preferredLeft = rect.left + 16;
@@ -352,7 +381,20 @@ export function DayView({
 				</div>
 				<div
 					className="rounded-xl border border-border bg-card/50 p-3 shadow-sm"
-					onClick={openAllDayCreateAt}
+					onClick={(event) =>
+						openAllDayCreateAt(
+							event.currentTarget,
+							event.target as HTMLElement,
+						)
+					}
+					onKeyDown={(event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							openAllDayCreateAt(event.currentTarget);
+						}
+					}}
+					role="button"
+					tabIndex={0}
 				>
 					<div className="mb-2 flex items-center justify-between text-xs font-semibold text-muted-foreground">
 						<span>{t("allDay")}</span>
@@ -360,53 +402,19 @@ export function DayView({
 							{allDayTodos.length}
 						</span>
 					</div>
-				) : (
-					todaysTodos.map((item) => (
-						<TodoContextMenu
-							key={`${item.todo.id}-${item.dateKey}`}
-							todoId={item.todo.id}
-						>
-							<div
-								className={cn(
-									"group relative flex flex-col gap-1 rounded-xl border p-3 text-xs shadow-sm transition-all duration-200 ease-out",
-									"cursor-pointer hover:-translate-y-[1px] hover:ring-1 hover:ring-primary/20 hover:shadow-[0_14px_28px_-20px_oklch(var(--primary)/0.45)]",
-									"active:translate-y-0 active:scale-[0.995]",
-									"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-									getStatusStyle(item.todo.status),
-								)}
-								onClick={(event) => {
-									event.stopPropagation();
-									setSelectedTodoId(item.todo.id);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										e.stopPropagation();
-										setSelectedTodoId(item.todo.id);
-									}
-								}}
-								role="button"
-								tabIndex={0}
-							>
-								<div className="flex items-center justify-between gap-2">
-									<p className="truncate text-base font-semibold transition-colors group-hover:text-foreground">
-										{item.todo.name}
-									</p>
-									<span
-										className={cn(
-											"shrink-0 text-sm font-medium transition-colors",
-											getScheduleSeverity(item.startTime) === "overdue"
-												? "text-red-600"
-												: getScheduleSeverity(item.startTime) === "soon"
-													? "text-amber-600"
-													: "text-muted-foreground",
-										)}
-									>
-										{formatTimeLabel(
-											item.isAllDay ? null : item.startTime,
-											t("allDay"),
-										)}
-									</span>
+					<div className="flex flex-wrap gap-2">
+						{allDayTodos.map((todo) => (
+							<FloatingTodoCard
+								key={todo.id}
+								todo={todo}
+								onSelect={(selected) => setSelectedTodoId(selected.id)}
+							/>
+						))}
+						{createMode === "all-day" &&
+							allDayPreview &&
+							isSameDay(allDayPreview, currentDate) && (
+								<div className="rounded-lg border border-dashed border-primary/60 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary shadow-sm ring-2 ring-primary/30">
+									{timelineTitle.trim() || t("inputTodoTitle")}
 								</div>
 							)}
 					</div>

@@ -214,8 +214,13 @@ class TodoTools:
                     priority=todo.get("priority", "none"),
                     name=todo["name"],
                 )
-                start_time = todo.get("start_time") or todo.get("deadline")
-                end_time = todo.get("end_time")
+                start_time = (
+                    todo.get("dtstart")
+                    or todo.get("due")
+                    or todo.get("start_time")
+                    or todo.get("deadline")
+                )
+                end_time = todo.get("dtend") or todo.get("end_time")
                 if start_time:
                     if isinstance(start_time, datetime):
                         start_label = start_time.strftime("%Y-%m-%d %H:%M")

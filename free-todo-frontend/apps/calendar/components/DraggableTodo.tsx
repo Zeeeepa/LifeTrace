@@ -93,7 +93,7 @@ export function DraggableTodo({
 						{calendarTodo.todo.name}
 					</p>
 					<span className="shrink-0 text-[10px] text-muted-foreground">
-						DDL {formatTimeLabel(calendarTodo.deadline, "--:--")}
+						{formatTimeLabel(calendarTodo.startTime, "--:--")}
 					</span>
 				</div>
 			</div>

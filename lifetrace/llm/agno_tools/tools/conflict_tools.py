@@ -5,6 +5,7 @@ Schedule conflict detection for todos.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -27,16 +28,72 @@ def _parse_datetime(value: str | datetime) -> datetime:
     return value
 
 
+def _parse_duration_value(value: str | None) -> timedelta | None:  # noqa: C901, PLR0912
+    if not value:
+        return None
+    match = value.strip().upper().removeprefix("P")
+    if not match:
+        return None
+    # Basic ISO 8601 duration parsing: PnW, PnD, PTnHnMnS.
+    weeks = days = hours = minutes = seconds = 0
+    if "T" in match:
+        date_part, time_part = match.split("T", 1)
+    else:
+        date_part, time_part = match, ""
+    if date_part.endswith("W"):
+        with contextlib.suppress(ValueError):
+            weeks = int(date_part[:-1] or 0)
+        date_part = ""
+    if date_part.endswith("D"):
+        with contextlib.suppress(ValueError):
+            days = int(date_part[:-1] or 0)
+    if time_part:
+        number = ""
+        for ch in time_part:
+            if ch.isdigit():
+                number += ch
+                continue
+            with contextlib.suppress(ValueError):
+                value_int = int(number or 0)
+            if ch == "H":
+                hours = value_int
+            elif ch == "M":
+                minutes = value_int
+            elif ch == "S":
+                seconds = value_int
+            number = ""
+    total_days = days + weeks * 7
+    if total_days == hours == minutes == seconds == 0:
+        return None
+    return timedelta(days=total_days, hours=hours, minutes=minutes, seconds=seconds)
+
+
 def _get_todo_range(todo: dict) -> tuple[datetime, datetime] | None:
-    start_raw = todo.get("start_time") or todo.get("deadline")
+    start_raw = todo.get("dtstart") or todo.get("start_time")
+    end_raw = todo.get("dtend") or todo.get("end_time")
+    due_raw = todo.get("due") or todo.get("deadline")
+
+    if not start_raw:
+        start_raw = due_raw
     if not start_raw:
         return None
+
     todo_start = _parse_datetime(start_raw)
-    end_raw = todo.get("end_time")
+    if not end_raw and due_raw and start_raw is not due_raw:
+        end_raw = due_raw
+
     if end_raw:
         todo_end = _parse_datetime(end_raw)
     else:
-        todo_end = todo_start + timedelta(hours=DEFAULT_TODO_DURATION_HOURS)
+        duration_raw = todo.get("duration")
+        duration = _parse_duration_value(duration_raw)
+        if duration is not None:
+            try:
+                todo_end = todo_start + duration
+            except Exception:
+                todo_end = todo_start + timedelta(hours=DEFAULT_TODO_DURATION_HOURS)
+        else:
+            todo_end = todo_start + timedelta(hours=DEFAULT_TODO_DURATION_HOURS)
     return todo_start, todo_end
 
 

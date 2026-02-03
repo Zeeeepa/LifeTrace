@@ -6,9 +6,10 @@ from datetime import date, datetime, time
 from typing import Any
 
 from icalendar import Calendar, vRecur
+from icalendar import Event as VEvent
 from icalendar import Todo as VTodo
 
-from lifetrace.schemas.todo import TodoCreate, TodoPriority, TodoStatus
+from lifetrace.schemas.todo import TodoCreate, TodoItemType, TodoPriority, TodoStatus
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import ensure_utc, naive_as_utc, to_local
 
@@ -59,29 +60,29 @@ def _build_calendar() -> Calendar:
     return cal
 
 
-def _add_optional_text(component: VTodo, name: str, value: Any) -> None:
+def _add_optional_text(component: VTodo | VEvent, name: str, value: Any) -> None:
     text = (value or "").strip()
     if text:
         component.add(name, text)
 
 
-def _add_optional_dt(component: VTodo, name: str, value: Any) -> None:
+def _add_optional_dt(component: VTodo | VEvent, name: str, value: Any) -> None:
     dt_value = _to_local_time(value)
     if dt_value:
         component.add(name, dt_value)
 
 
-def _add_optional_value(component: VTodo, name: str, value: Any) -> None:
+def _add_optional_value(component: VTodo | VEvent, name: str, value: Any) -> None:
     if value is not None:
         component.add(name, value)
 
 
-def _add_optional_categories(component: VTodo, tags: list[Any]) -> None:
+def _add_optional_categories(component: VTodo | VEvent, tags: list[Any]) -> None:
     if tags:
         component.add("categories", [str(t) for t in tags if t])
 
 
-def _add_optional_rrule(component: VTodo, rrule: str) -> None:
+def _add_optional_rrule(component: VTodo | VEvent, rrule: str) -> None:
     if not rrule:
         return
     try:
@@ -97,7 +98,11 @@ class ICalendarService:
         cal = _build_calendar()
         for todo in todos:
             try:
-                cal.add_component(self._todo_to_vtodo(todo))
+                item_type = (todo.get("item_type") or "VTODO").upper()
+                if item_type == "VEVENT":
+                    cal.add_component(self._todo_to_vevent(todo))
+                else:
+                    cal.add_component(self._todo_to_vtodo(todo))
             except Exception as exc:
                 logger.warning(f"跳过 todo 导出（ICS）: {exc}")
 
@@ -108,26 +113,33 @@ class ICalendarService:
         todos: list[TodoCreate] = []
 
         for component in cal.walk():
-            if component.name != "VTODO":
+            if component.name not in ("VTODO", "VEVENT"):
                 continue
 
             summary = str(component.get("summary") or "").strip()
             if not summary:
                 continue
 
+            item_type = TodoItemType.VEVENT if component.name == "VEVENT" else TodoItemType.VTODO
             uid = str(component.get("uid")) if component.get("uid") else None
             description = (
                 str(component.get("description")).strip() if component.get("description") else None
             )
 
             dtstart = _from_ical_dt(component.get("dtstart"))
-            due = _from_ical_dt(component.get("due"))
+            dtend = _from_ical_dt(component.get("dtend")) if item_type == "VEVENT" else None
+            due = _from_ical_dt(component.get("due")) if item_type == "VTODO" else None
+            duration_prop = component.get("duration")
+            duration = None
+            if duration_prop is not None:
+                try:
+                    duration = duration_prop.to_ical().decode("utf-8")
+                except Exception:
+                    duration = str(duration_prop)
             completed_at = _from_ical_dt(component.get("completed"))
 
             start_time = dtstart or due
-            end_time = None
-            if dtstart and due and due > dtstart:
-                end_time = due
+            end_time = dtend
 
             percent_complete = _normalize_percent(component.get("percent-complete"))
             status = self._status_from_ical(component.get("status"))
@@ -162,14 +174,34 @@ class ICalendarService:
                 TodoCreate(
                     uid=uid,
                     name=summary,
+                    summary=summary,
                     description=description,
                     user_notes=None,
                     parent_todo_id=None,
+                    item_type=item_type,
+                    location=None,
+                    categories=",".join(tags) if tags else None,
+                    classification=None,
                     start_time=start_time,
                     deadline=None,
                     end_time=end_time,
+                    dtstart=dtstart,
+                    dtend=dtend,
+                    due=due,
+                    duration=duration,
                     time_zone=None,
+                    tzid=None,
                     is_all_day=None,
+                    dtstamp=None,
+                    created=None,
+                    last_modified=None,
+                    sequence=None,
+                    rdate=None,
+                    exdate=None,
+                    recurrence_id=None,
+                    related_to_uid=None,
+                    related_to_reltype=None,
+                    ical_status=None,
                     reminder_offsets=None,
                     status=status,
                     priority=priority,
@@ -238,13 +270,26 @@ class ICalendarService:
         if uid:
             vtodo.add("uid", uid)
 
-        _add_optional_text(vtodo, "summary", todo.get("name"))
+        summary = todo.get("summary") or todo.get("name")
+        _add_optional_text(vtodo, "summary", summary)
         _add_optional_text(vtodo, "description", todo.get("description"))
-        _add_optional_dt(vtodo, "dtstart", todo.get("start_time"))
-        _add_optional_dt(vtodo, "due", todo.get("end_time") or todo.get("start_time"))
-        _add_optional_dt(vtodo, "created", todo.get("created_at"))
-        _add_optional_dt(vtodo, "last-modified", todo.get("updated_at"))
-        _add_optional_value(vtodo, "status", self._status_to_ical(todo.get("status")))
+        dtstart = todo.get("dtstart") or todo.get("start_time") or todo.get("deadline")
+        due = todo.get("due") or todo.get("deadline")
+        duration = todo.get("duration")
+        _add_optional_dt(vtodo, "dtstart", dtstart)
+        if duration:
+            _add_optional_value(vtodo, "duration", duration)
+        else:
+            _add_optional_dt(vtodo, "due", due or dtstart)
+        _add_optional_dt(vtodo, "created", todo.get("created") or todo.get("created_at"))
+        _add_optional_dt(
+            vtodo,
+            "last-modified",
+            todo.get("last_modified") or todo.get("updated_at"),
+        )
+        _add_optional_value(
+            vtodo, "status", todo.get("ical_status") or self._status_to_ical(todo.get("status"))
+        )
         _add_optional_value(vtodo, "priority", self._priority_to_ical(todo.get("priority")))
         _add_optional_dt(vtodo, "completed", todo.get("completed_at"))
 
@@ -252,6 +297,47 @@ class ICalendarService:
         if percent_complete:
             vtodo.add("percent-complete", percent_complete)
 
-        _add_optional_categories(vtodo, todo.get("tags") or [])
+        categories_text = (todo.get("categories") or "").strip()
+        categories = []
+        if categories_text:
+            categories = [c.strip() for c in categories_text.split(",") if c.strip()]
+        categories.extend(todo.get("tags") or [])
+        _add_optional_categories(vtodo, categories)
         _add_optional_rrule(vtodo, (todo.get("rrule") or "").strip())
         return vtodo
+
+    def _todo_to_vevent(self, todo: dict[str, Any]) -> VEvent:
+        vevent = VEvent()
+        uid = todo.get("uid") or str(todo.get("id") or "")
+        if uid:
+            vevent.add("uid", uid)
+
+        summary = todo.get("summary") or todo.get("name")
+        _add_optional_text(vevent, "summary", summary)
+        _add_optional_text(vevent, "description", todo.get("description"))
+        dtstart = todo.get("dtstart") or todo.get("start_time")
+        dtend = todo.get("dtend") or todo.get("end_time")
+        duration = todo.get("duration")
+        _add_optional_dt(vevent, "dtstart", dtstart)
+        if duration:
+            _add_optional_value(vevent, "duration", duration)
+        else:
+            _add_optional_dt(vevent, "dtend", dtend)
+        _add_optional_dt(vevent, "created", todo.get("created") or todo.get("created_at"))
+        _add_optional_dt(
+            vevent,
+            "last-modified",
+            todo.get("last_modified") or todo.get("updated_at"),
+        )
+        _add_optional_value(
+            vevent, "status", todo.get("ical_status") or self._status_to_ical(todo.get("status"))
+        )
+        _add_optional_value(vevent, "priority", self._priority_to_ical(todo.get("priority")))
+        categories_text = (todo.get("categories") or "").strip()
+        categories = []
+        if categories_text:
+            categories = [c.strip() for c in categories_text.split(",") if c.strip()]
+        categories.extend(todo.get("tags") or [])
+        _add_optional_categories(vevent, categories)
+        _add_optional_rrule(vevent, (todo.get("rrule") or "").strip())
+        return vevent

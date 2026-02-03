@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
 	formatReminderOffset,
 	REMINDER_PRESET_MINUTES,
@@ -24,6 +24,7 @@ export function ReminderOptions({
 	showClear = true,
 }: ReminderOptionsProps) {
 	const t = useTranslations("reminder");
+	const customInputId = useId();
 	const [customValue, setCustomValue] = useState("");
 	const [customUnit, setCustomUnit] = useState<ReminderUnit>("minutes");
 
@@ -73,10 +74,14 @@ export function ReminderOptions({
 				))}
 			</div>
 			<div className="flex flex-wrap items-center gap-2">
-				<label className="text-xs text-muted-foreground">
+				<label
+					className="text-xs text-muted-foreground"
+					htmlFor={customInputId}
+				>
 					{t("custom")}
 				</label>
 				<input
+					id={customInputId}
 					type="number"
 					min={1}
 					value={customValue}

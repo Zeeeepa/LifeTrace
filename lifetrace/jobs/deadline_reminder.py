@@ -1,6 +1,6 @@
 """
-DDL 提醒任务
-定期检查待办事项的截止日期，根据每个待办的提醒设置生成通知
+Todo 提醒任务
+定期检查待办事项的时间字段，根据每个待办的提醒设置生成通知
 """
 
 import json
@@ -76,7 +76,7 @@ def _format_remaining(deadline: datetime, now: datetime) -> str:
     return f"{minutes}分钟"
 
 
-def execute_deadline_reminder_task():  # noqa: C901, PLR0912
+def execute_deadline_reminder_task():  # noqa: C901, PLR0912, PLR0915
     """
     执行 DDL 提醒任务
     根据每个待办的提醒偏移，生成通知
@@ -103,7 +103,12 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
                 session.query(Todo)
                 .filter(
                     col(Todo.status) == "active",
-                    or_(col(Todo.start_time).isnot(None), col(Todo.deadline).isnot(None)),
+                    or_(
+                        col(Todo.due).isnot(None),
+                        col(Todo.dtstart).isnot(None),
+                        col(Todo.deadline).isnot(None),
+                        col(Todo.start_time).isnot(None),
+                    ),
                 )
                 .all()
             )
@@ -116,7 +121,11 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
 
             # 为每个待办生成通知
             for todo in todos:
-                schedule_time = todo.start_time or todo.deadline
+                item_type = (getattr(todo, "item_type", None) or "VTODO").upper()
+                if item_type == "VEVENT":
+                    schedule_time = todo.dtstart or todo.start_time or todo.due or todo.deadline
+                else:
+                    schedule_time = todo.due or todo.deadline or todo.dtstart or todo.start_time
                 if not schedule_time:
                     continue
 

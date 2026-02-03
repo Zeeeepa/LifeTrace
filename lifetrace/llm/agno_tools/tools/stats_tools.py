@@ -27,7 +27,9 @@ def _parse_datetime(value: str | datetime) -> datetime:
 
 def _get_schedule_time(todo: dict) -> datetime | None:
     """Return schedule time from todo with legacy fallback."""
-    schedule = todo.get("start_time") or todo.get("deadline")
+    schedule = (
+        todo.get("due") or todo.get("dtstart") or todo.get("deadline") or todo.get("start_time")
+    )
     if not schedule:
         return None
     return _parse_datetime(schedule)

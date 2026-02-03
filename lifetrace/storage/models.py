@@ -103,14 +103,36 @@ class Todo(TimestampMixin, table=True):
         default_factory=lambda: str(uuid4()), max_length=64, index=True
     )  # iCalendar UID
     name: str = Field(max_length=200)  # 待办名称
+    summary: str | None = Field(default=None, max_length=200)  # iCalendar SUMMARY
     description: str | None = Field(default=None, sa_column=Column(Text))  # 描述
     user_notes: str | None = Field(default=None, sa_column=Column(Text))  # 用户笔记
     parent_todo_id: int | None = None  # 父级待办ID（自关联）
+    item_type: str = Field(default="VTODO", max_length=10)  # iCalendar VTODO/VEVENT
+    location: str | None = Field(default=None, max_length=200)  # iCalendar LOCATION
+    categories: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar CATEGORIES
+    classification: str | None = Field(default=None, max_length=20)  # iCalendar CLASS
     deadline: datetime | None = None  # 截止时间（旧字段，逐步废弃）
     start_time: datetime | None = None  # 开始时间
     end_time: datetime | None = None  # 结束时间
+    dtstart: datetime | None = None  # iCalendar DTSTART
+    dtend: datetime | None = None  # iCalendar DTEND
+    due: datetime | None = None  # iCalendar DUE
+    duration: str | None = Field(default=None, max_length=64)  # iCalendar DURATION (ISO 8601)
     time_zone: str | None = Field(default=None, max_length=64)  # 时区（IANA）
+    tzid: str | None = Field(default=None, max_length=64)  # iCalendar TZID
     is_all_day: bool = Field(default=False)  # 是否全天
+    dtstamp: datetime | None = None  # iCalendar DTSTAMP
+    created: datetime | None = None  # iCalendar CREATED
+    last_modified: datetime | None = None  # iCalendar LAST-MODIFIED
+    sequence: int = Field(default=0)  # iCalendar SEQUENCE
+    rdate: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar RDATE
+    exdate: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar EXDATE
+    recurrence_id: datetime | None = None  # iCalendar RECURRENCE-ID
+    related_to_uid: str | None = Field(default=None, max_length=64)  # iCalendar RELATED-TO UID
+    related_to_reltype: str | None = Field(
+        default=None, max_length=20
+    )  # iCalendar RELATED-TO RELTYPE
+    ical_status: str | None = Field(default=None, max_length=20)  # iCalendar STATUS
     reminder_offsets: str | None = Field(
         default=None, sa_column=Column(Text)
     )  # 提醒偏移列表（分钟）

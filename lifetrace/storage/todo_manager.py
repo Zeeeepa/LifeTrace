@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,26 +10,17 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
 from lifetrace.storage.sql_utils import col
 from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
-from lifetrace.storage.todo_manager_utils import (
-    _normalize_percent,
-    _normalize_reminder_offsets,
-    _safe_int_list,
-    _serialize_reminder_offsets,
-)
+from lifetrace.storage.todo_manager_ical import TodoIcalMixin
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
-_UNSET = object()
-
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from lifetrace.storage.database_base import DatabaseBase
 
 
-class TodoManager(TodoAttachmentMixin):
+class TodoManager(TodoAttachmentMixin, TodoIcalMixin):
     """Todo 管理类"""
 
     def __init__(self, db_base: DatabaseBase):
@@ -45,43 +35,6 @@ class TodoManager(TodoAttachmentMixin):
             .all()
         )
         return [r[0] for r in rows if r and r[0]]
-
-    def _todo_to_dict(self, session, todo: Todo) -> dict[str, Any]:
-        todo_id = todo.id
-        if todo_id is None:
-            raise ValueError("Todo must have an id before serialization.")
-        return {
-            "id": todo_id,
-            "uid": getattr(todo, "uid", None),
-            "name": todo.name,
-            "description": todo.description,
-            "user_notes": todo.user_notes,
-            "parent_todo_id": todo.parent_todo_id,
-            "deadline": todo.deadline,
-            "start_time": todo.start_time,
-            "end_time": todo.end_time,
-            "time_zone": getattr(todo, "time_zone", None),
-            "is_all_day": getattr(todo, "is_all_day", False),
-            "reminder_offsets": _normalize_reminder_offsets(
-                getattr(todo, "reminder_offsets", None)
-            ),
-            "status": todo.status,
-            "priority": todo.priority,
-            "completed_at": getattr(todo, "completed_at", None),
-            "percent_complete": (
-                todo.percent_complete if getattr(todo, "percent_complete", None) is not None else 0
-            ),
-            "rrule": getattr(todo, "rrule", None),
-            "order": getattr(todo, "order", 0),
-            "tags": self._get_todo_tags(session, todo_id),
-            "attachments": self._get_todo_attachments(session, todo_id),
-            "related_activities": _safe_int_list(todo.related_activities),
-            "source_type": getattr(todo, "source_type", None),
-            "source_key": getattr(todo, "source_key", None),
-            "source_date": getattr(todo, "source_date", None),
-            "created_at": todo.created_at,
-            "updated_at": todo.updated_at,
-        }
 
     def get_todo_context(self, todo_id: int) -> dict[str, Any] | None:
         """获取任务的所有相关上下文（父任务链、同级任务、子任务）"""
@@ -146,84 +99,6 @@ class TodoManager(TodoAttachmentMixin):
             return None
 
     # ========== CRUD ==========
-    def create_todo(  # noqa: PLR0913
-        self,
-        *,
-        name: str,
-        description: str | None = None,
-        user_notes: str | None = None,
-        parent_todo_id: int | None = None,
-        deadline: datetime | None = None,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        time_zone: str | None = None,
-        is_all_day: bool | None = None,
-        reminder_offsets: list[int] | None = None,
-        status: str = "active",
-        priority: str = "none",
-        completed_at: datetime | None = None,
-        percent_complete: int | None = None,
-        rrule: str | None = None,
-        uid: str | None = None,
-        order: int = 0,
-        tags: list[str] | None = None,
-        related_activities: list[int] | None = None,
-    ) -> int | None:
-        try:
-            resolved_percent = (
-                _normalize_percent(percent_complete) if percent_complete is not None else None
-            )
-            if resolved_percent is None:
-                resolved_percent = 100 if status == "completed" else 0
-
-            resolved_completed_at = completed_at
-            if resolved_completed_at is None and status == "completed":
-                resolved_completed_at = get_utc_now()
-
-            cleaned_rrule = (rrule or "").strip() or None
-            cleaned_uid = (uid or "").strip() or None
-
-            with self.db_base.get_session() as session:
-                if start_time is None and deadline is not None:
-                    start_time = deadline
-                    deadline = None
-                todo_kwargs: dict[str, Any] = {
-                    "name": name,
-                    "description": description,
-                    "user_notes": user_notes,
-                    "parent_todo_id": parent_todo_id,
-                    "deadline": deadline,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "time_zone": time_zone,
-                    "is_all_day": bool(is_all_day) if is_all_day is not None else False,
-                    "reminder_offsets": _serialize_reminder_offsets(reminder_offsets),
-                    "status": status,
-                    "priority": priority,
-                    "completed_at": resolved_completed_at,
-                    "percent_complete": resolved_percent,
-                    "rrule": cleaned_rrule,
-                    "order": order,
-                    "related_activities": json.dumps(_safe_int_list(related_activities)),
-                }
-                if cleaned_uid:
-                    todo_kwargs["uid"] = cleaned_uid
-
-                todo = Todo(**todo_kwargs)
-                session.add(todo)
-                session.flush()
-
-                if tags is not None:
-                    if todo.id is None:
-                        raise ValueError("Todo must have an id before tagging.")
-                    self._set_todo_tags(session, todo.id, tags)
-
-                logger.info(f"创建 todo: {todo.id} - {name}")
-                return todo.id
-        except SQLAlchemyError as e:
-            logger.error(f"创建 todo 失败: {e}")
-            return None
-
     def get_todo(self, todo_id: int) -> dict[str, Any] | None:
         try:
             with self.db_base.get_session() as session:
@@ -304,158 +179,19 @@ class TodoManager(TodoAttachmentMixin):
 
                 result: list[dict[str, Any]] = []
                 for t in todos:
+                    schedule = t.dtstart or t.start_time or t.due or t.deadline
                     result.append(
                         {
                             "id": t.id,
                             "name": t.name,
                             "description": t.description,
-                            "start_time": t.start_time.isoformat() if t.start_time else None,
+                            "start_time": schedule.isoformat() if schedule else None,
                         }
                     )
                 return result
         except SQLAlchemyError as e:
             logger.error(f"获取用于提示词的活跃 todo 列表失败: {e}")
             return []
-
-    def _apply_todo_updates(  # noqa: PLR0913
-        self,
-        todo: Todo,
-        *,
-        name: str | Any = _UNSET,
-        description: str | Any = _UNSET,
-        user_notes: str | Any = _UNSET,
-        parent_todo_id: int | None | Any = _UNSET,
-        deadline: datetime | None | Any = _UNSET,
-        start_time: datetime | None | Any = _UNSET,
-        end_time: datetime | None | Any = _UNSET,
-        time_zone: str | None | Any = _UNSET,
-        is_all_day: bool | None | Any = _UNSET,
-        reminder_offsets: list[int] | None | Any = _UNSET,
-        status: str | Any = _UNSET,
-        priority: str | Any = _UNSET,
-        completed_at: datetime | None | Any = _UNSET,
-        percent_complete: int | Any = _UNSET,
-        rrule: str | None | Any = _UNSET,
-        order: int | Any = _UNSET,
-        related_activities: list[int] | Any = _UNSET,
-    ) -> None:
-        """应用待办字段更新"""
-        # 使用字典映射来减少复杂度
-        if percent_complete is not _UNSET:
-            percent_complete = _normalize_percent(percent_complete)
-        if rrule is not _UNSET:
-            rrule = (rrule or "").strip() or None
-
-        updates = {
-            "name": name,
-            "description": description,
-            "user_notes": user_notes,
-            "parent_todo_id": parent_todo_id,
-            "deadline": deadline,
-            "start_time": start_time,
-            "end_time": end_time,
-            "time_zone": time_zone,
-            "is_all_day": is_all_day,
-            "status": status,
-            "priority": priority,
-            "completed_at": completed_at,
-            "percent_complete": percent_complete,
-            "rrule": rrule,
-            "order": order,
-        }
-
-        for attr, value in updates.items():
-            if value is not _UNSET:
-                setattr(todo, attr, value)
-
-        if reminder_offsets is not _UNSET:
-            todo.reminder_offsets = _serialize_reminder_offsets(reminder_offsets)
-
-        # 特殊处理 related_activities（需要 JSON 序列化）
-        if related_activities is not _UNSET:
-            todo.related_activities = json.dumps(_safe_int_list(related_activities))
-
-    def update_todo(  # noqa: PLR0913, C901
-        self,
-        todo_id: int,
-        *,
-        name: str | Any = _UNSET,
-        description: str | Any = _UNSET,
-        user_notes: str | Any = _UNSET,
-        parent_todo_id: int | None | Any = _UNSET,
-        deadline: datetime | None | Any = _UNSET,
-        start_time: datetime | None | Any = _UNSET,
-        end_time: datetime | None | Any = _UNSET,
-        time_zone: str | None | Any = _UNSET,
-        is_all_day: bool | None | Any = _UNSET,
-        reminder_offsets: list[int] | None | Any = _UNSET,
-        status: str | Any = _UNSET,
-        priority: str | Any = _UNSET,
-        completed_at: datetime | None | Any = _UNSET,
-        percent_complete: int | Any = _UNSET,
-        rrule: str | None | Any = _UNSET,
-        order: int | Any = _UNSET,
-        tags: list[str] | Any = _UNSET,
-        related_activities: list[int] | Any = _UNSET,
-    ) -> bool:
-        try:
-            with self.db_base.get_session() as session:
-                todo = session.query(Todo).filter_by(id=todo_id).first()
-                if not todo:
-                    logger.warning(f"todo 不存在: {todo_id}")
-                    return False
-
-                resolved_completed_at = completed_at
-                resolved_percent = percent_complete
-
-                if status is not _UNSET:
-                    if status == "completed":
-                        if completed_at is _UNSET:
-                            resolved_completed_at = get_utc_now()
-                        if percent_complete is _UNSET:
-                            resolved_percent = 100
-                    else:
-                        if completed_at is _UNSET:
-                            resolved_completed_at = None
-                        if percent_complete is _UNSET:
-                            resolved_percent = 0
-
-                if deadline is not _UNSET and start_time is _UNSET:
-                    start_time = deadline
-                    deadline = None
-
-                self._apply_todo_updates(
-                    todo,
-                    name=name,
-                    description=description,
-                    user_notes=user_notes,
-                    parent_todo_id=parent_todo_id,
-                    deadline=deadline,
-                    start_time=start_time,
-                    end_time=end_time,
-                    time_zone=time_zone,
-                    is_all_day=is_all_day,
-                    reminder_offsets=reminder_offsets,
-                    status=status,
-                    priority=priority,
-                    completed_at=resolved_completed_at,
-                    percent_complete=resolved_percent,
-                    rrule=rrule,
-                    order=order,
-                    related_activities=related_activities,
-                )
-
-                todo.updated_at = get_utc_now()
-                session.flush()
-
-                if tags is not _UNSET:
-                    self._set_todo_tags(session, todo_id, tags or [])
-
-                logger.info(f"更新 todo: {todo_id}")
-                return True
-        except SQLAlchemyError as e:
-            logger.error(f"更新 todo 失败: {e}")
-            return False
 
     def _delete_todo_recursive(self, session, todo_id: int) -> None:
         """递归删除 todo 及其所有子任务"""
