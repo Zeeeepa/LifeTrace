@@ -11,7 +11,9 @@
 
 pub mod backend;
 mod backend_paths;
+mod backend_proxy;
 mod backend_python;
+mod backend_support;
 pub mod config;
 pub mod nextjs;
 pub mod shortcut;

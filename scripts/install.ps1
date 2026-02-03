@@ -1,7 +1,9 @@
 param(
     [string]$Dir = $env:LIFETRACE_DIR,
     [string]$Repo = $env:LIFETRACE_REPO,
-    [string]$Ref = $env:LIFETRACE_REF
+    [string]$Ref = $env:LIFETRACE_REF,
+    [string]$Mode = $env:LIFETRACE_MODE,
+    [string]$Run = $env:LIFETRACE_RUN
 )
 
 Set-StrictMode -Version Latest
@@ -13,6 +15,13 @@ if (-not $Repo) {
 if (-not $Ref) {
     $Ref = "main"
 }
+if (-not $Mode) {
+    $Mode = "tauri"
+}
+if (-not $Run) {
+    $Run = "1"
+}
+
 $repoName = [IO.Path]::GetFileNameWithoutExtension($Repo)
 if (-not $Dir) {
     $Dir = $repoName
@@ -45,6 +54,10 @@ if (-not $pythonCmd) {
 Require-Command git "Install Git and retry."
 Require-Command node "Install Node.js 20+ and retry."
 
+if ($Mode -eq "tauri") {
+    Require-Command cargo "Install Rust (rustup) and retry."
+}
+
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
     Write-Host "Installing uv..."
     irm https://astral.sh/uv/install.ps1 | iex
@@ -71,22 +84,31 @@ if (Test-Path $Dir) {
 Set-Location $Dir
 uv sync
 
-$uvPath = (Get-Command uv).Source
-$backendJob = Start-Job -ScriptBlock {
-    param($RepoDir, $UvPath, $PythonCmd)
-    Set-Location $RepoDir
-    & $UvPath run $PythonCmd -m lifetrace.server
-} -ArgumentList (Get-Location).Path, $uvPath, $pythonCmd
-
-try {
+if ($Run -eq "1") {
     Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
     pnpm install
-    pnpm dev
-} finally {
-    if ($backendJob -and $backendJob.State -eq "Running") {
-        Stop-Job $backendJob | Out-Null
+    if ($Mode -eq "web") {
+        $uvPath = (Get-Command uv).Source
+        $backendJob = Start-Job -ScriptBlock {
+            param($RepoDir, $UvPath, $PythonCmd)
+            Set-Location $RepoDir
+            & $UvPath run $PythonCmd -m lifetrace.server
+        } -ArgumentList (Resolve-Path "..").Path, $uvPath, $pythonCmd
+
+        try {
+            pnpm dev
+        } finally {
+            if ($backendJob -and $backendJob.State -eq "Running") {
+                Stop-Job $backendJob | Out-Null
+            }
+            if ($backendJob) {
+                Remove-Job $backendJob -Force | Out-Null
+            }
+        }
+    } else {
+        pnpm tauri:dev
     }
-    if ($backendJob) {
-        Remove-Job $backendJob -Force | Out-Null
-    }
+} else {
+    Write-Host "Install complete."
+    Write-Host "Run 'pnpm tauri:dev' or 'pnpm dev' from free-todo-frontend to start."
 }

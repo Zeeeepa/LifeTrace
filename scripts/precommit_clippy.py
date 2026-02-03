@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess  # nosec B404
 import sys
@@ -19,10 +20,17 @@ def run() -> int:
         print("cargo not found in PATH. Install Rust and retry.", file=sys.stderr)
         return 127
 
+    env = os.environ.copy()
+    lint_config = tauri_dir / "tauri.lint.json"
+    if lint_config.exists():
+        env["TAURI_CONFIG"] = lint_config.read_text(encoding="utf-8")
+    env.setdefault("CARGO_TARGET_DIR", str(tauri_dir / "target-clippy"))
+
     try:
         subprocess.run(  # nosec B603
             [cargo_path, "clippy", "--all-targets", "--all-features", "--", "-D", "warnings"],
             cwd=tauri_dir,
+            env=env,
             check=True,
         )
     except subprocess.CalledProcessError as exc:
