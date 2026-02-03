@@ -88,6 +88,12 @@ iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/script
 - `LIFETRACE_REPO`：仓库地址（默认 `https://github.com/FreeU-group/FreeTodo.git`）
 - `LIFETRACE_REF`：分支或标签（默认 `dev-liji`）
 
+也可以直接通过参数传入 ref：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.sh | bash -s -- --ref dev-liji
+```
+
 PowerShell 示例：
 
 ```powershell

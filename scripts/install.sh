@@ -9,6 +9,38 @@ TARGET_DIR="${LIFETRACE_DIR:-$REPO_NAME}"
 MODE="${LIFETRACE_MODE:-tauri}"
 RUN_AFTER_INSTALL="${LIFETRACE_RUN:-1}"
 
+usage() {
+  cat <<'EOF'
+Usage: install.sh [--ref <branch_or_tag>]
+
+Options:
+  --ref, -r   Git branch or tag to clone (overrides LIFETRACE_REF)
+  --help, -h  Show this help message
+EOF
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ref|-r)
+      if [ $# -lt 2 ]; then
+        echo "Missing value for --ref." >&2
+        exit 1
+      fi
+      REF="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
 require_cmd() {
   local name="$1"
   local hint="${2:-}"

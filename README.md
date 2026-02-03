@@ -117,6 +117,12 @@ Optional environment variables:
 - `LIFETRACE_MODE`: `tauri` (default) or `web`
 - `LIFETRACE_RUN`: `1` (default) to run after install, `0` to only install
 
+Pass a ref directly without env vars:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install.sh | bash -s -- --ref dev-liji
+```
+
 ### Install Dependencies
 
 This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.

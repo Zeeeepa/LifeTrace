@@ -1,6 +1,7 @@
 param(
     [string]$Dir = $env:LIFETRACE_DIR,
     [string]$Repo = $env:LIFETRACE_REPO,
+    [Alias("r", "ref")]
     [string]$Ref = $env:LIFETRACE_REF
 )
 
@@ -65,7 +66,7 @@ if (Test-Path $Dir) {
         throw "Target path '$Dir' exists and is not a git repo. Set LIFETRACE_DIR to a new folder."
     }
 } else {
-    git clone --depth 1 --branch $Ref $Repo $Dir
+    git clone --depth 1 --branch "$Ref" "$Repo" "$Dir"
 }
 
 Set-Location $Dir
