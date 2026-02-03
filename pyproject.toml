@@ -21,9 +21,9 @@ dependencies = [
     "opencv-python>=4.8.0",  # For proactive OCR image processing
     # OCR processing (rapidocr requires numpy)
     "rapidocr-onnxruntime",
-    "numpy>=1.21.0,<2.0.0", # 限制到 1.x 版本以确保 PyInstaller 兼容性
+    "numpy>=2.4.2",
     # Audio processing (for ASR WebSocket stream)
-    "websockets>=12.0",      # WebSocket 客户端（用于连接 WhisperLiveKit 服务器）
+    "websockets>=16.0",      # WebSocket 客户端（用于连接 WhisperLiveKit 服务器）
     "python-socks>=2.0.0",   # SOCKS 代理支持（websockets 库的可选依赖）
     # FunASR 语音识别（可选，需要 Visual C++ 构建工具）
     # 如果安装失败，系统音频实时识别功能将不可用
@@ -34,37 +34,37 @@ dependencies = [
     # Data processing
     "pyyaml>=6.0",
     "sentence-transformers>=2.2.0", # 文本嵌入模型
-    "chromadb>=0.4.0",              # 向量数据库
+    "chromadb>=1.4.1",              # 向量数据库
     "scipy>=1.9.0",                 # 科学计算（用于余弦距离）
     "hdbscan>=0.8.0",               # 文本聚类算法
     # Scheduler
     "apscheduler>=3.10.0",
     # Utils
-    "psutil>=5.9.0",
+    "psutil>=7.2.0",
     # OpenAI API
-    "openai>=1.0.0",
+    "openai>=2.16.0",
     # DashScope API (阿里云百炼)
-    "dashscope>=1.17.0",
+    "dashscope>=1.25.0",
     # Agno Agent Framework
-    "agno>=2.4.1",
+    "agno>=2.4.8",
     # DuckDuckGo search for Agno Agent
-    "ddgs>=8.0.0",
+    "ddgs>=9.10.0",
     # Tavily API for web search
-    "tavily-python>=0.5.0",
+    "tavily-python>=0.7.0",
     # Configuration management with hot reload support (includes yaml support)
     "dynaconf[yaml]>=3.2.0",
     # Logging
     "loguru>=0.7.3",
     # Observability (Phoenix + OpenInference)
-    "arize-phoenix>=8.0.0",  # Phoenix 服务器和 UI（包含 phoenix serve 命令）
-    "arize-phoenix-otel>=0.11.0",  # Phoenix OTEL 集成
+    "arize-phoenix>=12.33.0",  # Phoenix 服务器和 UI（包含 phoenix serve 命令）
+    "arize-phoenix-otel>=0.14.0",  # Phoenix OTEL 集成
     "openinference-instrumentation>=0.1.0",  # OpenInference 基础工具（using_session 等）
     "openinference-instrumentation-agno>=0.1.0",  # Agno 自动 instrument
-    "opentelemetry-sdk>=1.20.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.20.0",
+    "opentelemetry-sdk>=1.39.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.39.0",
     # macOS specific dependencies (only install on macOS)
-    "pyobjc-framework-Cocoa>=9.0; sys_platform == 'darwin'",
-    "pyobjc-framework-Quartz>=9.0; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa>=12.1; sys_platform == 'darwin'",
+    "pyobjc-framework-Quartz>=12.1; sys_platform == 'darwin'",
     # Windows specific dependencies (only install on Windows)
     "pywin32>=306; sys_platform == 'win32'",
     "openinference-instrumentation-openai>=0.1.41",
@@ -103,7 +103,7 @@ select = [
 
     "N",    # pep8-naming（命名规范）
 
-    "TCH",  # flake8-type-checking
+    "TC",  # flake8-type-checking
     "FA",   # future annotations
 
     "ISC",  # implicit string concatenation
@@ -159,9 +159,9 @@ extra-index-url = ["https://pypi.org/simple"]
 [dependency-groups]
 # 开发工具
 dev = [
-    "bandit>=1.7.9",
-    "pre-commit>=4.4.0",
+    "bandit>=1.9.3",
+    "pre-commit>=4.5.1",
     "pyright>=1.1.408",
-    "ruff>=0.14.4",
-    "pyinstaller>=6.0.0",
+    "ruff>=0.14.14",
+    "pyinstaller>=6.18.0",
 ]
