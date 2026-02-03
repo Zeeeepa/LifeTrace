@@ -64,6 +64,9 @@ class TodoIcalMixin:
         last_modified = getattr(todo, "last_modified", None) or todo.updated_at
         dtstamp = getattr(todo, "dtstamp", None) or todo.updated_at
         ical_status = getattr(todo, "ical_status", None) or _to_ical_status(todo.status)
+        is_all_day = getattr(todo, "is_all_day", None)
+        if is_all_day is None:
+            is_all_day = False
         return {
             "id": todo_id,
             "uid": getattr(todo, "uid", None),
@@ -85,7 +88,7 @@ class TodoIcalMixin:
             "duration": getattr(todo, "duration", None),
             "time_zone": getattr(todo, "time_zone", None),
             "tzid": tzid,
-            "is_all_day": getattr(todo, "is_all_day", False),
+            "is_all_day": bool(is_all_day),
             "dtstamp": dtstamp,
             "created": created,
             "last_modified": last_modified,
