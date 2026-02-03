@@ -36,7 +36,10 @@ jobs:
               - '.pre-commit-config.yaml'
 
   precommit-base:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,7 +56,10 @@ jobs:
           pre-commit run trailing-whitespace --all-files
 
   precommit-python:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.python == 'true' }}
     steps:
@@ -63,6 +69,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v3
       - name: Install system deps
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y portaudio19-dev
@@ -79,7 +86,10 @@ jobs:
           pre-commit run check-backend-code-lines --all-files
 
   precommit-frontend:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
@@ -105,7 +115,10 @@ jobs:
           pre-commit run check-frontend-code-lines --all-files
 
   precommit-rust:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
@@ -116,6 +129,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libglib2.0-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
