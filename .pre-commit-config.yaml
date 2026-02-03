@@ -57,6 +57,14 @@ repos:
         pass_filenames: false
         require_serial: true
 
+      - id: pytest-quick
+        name: Pytest quick checks
+        entry: uv run --no-sync pytest -q tests/test_todo_service_mapping.py tests/test_icalendar_service.py tests/test_todo_serialization.py
+        language: system
+        files: ^(lifetrace|tests)/.*\.py$
+        pass_filenames: false
+        require_serial: true
+
       - id: tsc-free-todo-frontend
         name: TypeScript type check (free-todo-frontend)
         entry: bash -c 'cd free-todo-frontend && pnpm run type-check'

@@ -22,6 +22,7 @@ jobs:
             python:
               - 'lifetrace/**'
               - 'scripts/**'
+              - 'tests/**'
               - 'pyproject.toml'
               - 'pyrightconfig.json'
               - 'bandit.yaml'
@@ -83,6 +84,7 @@ jobs:
           pre-commit run ruff-format --all-files
           pre-commit run bandit --all-files
           pre-commit run pyright --all-files
+          pre-commit run pytest-quick --all-files
           pre-commit run check-backend-code-lines --all-files
 
   migration-check:
