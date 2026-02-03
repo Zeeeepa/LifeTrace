@@ -209,7 +209,6 @@ export interface JournalTag {
 
 export interface Journal {
 	id: number;
-	uid?: string;
 	name: string;
 	userNotes: string;
 	date: string;
@@ -232,7 +231,6 @@ export interface JournalListResponse {
 }
 
 export interface JournalCreateInput {
-	uid?: string | null;
 	name?: string | null;
 	userNotes: string;
 	date: string;

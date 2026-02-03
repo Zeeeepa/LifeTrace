@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.2
  */
 
-export interface NewChatResponse {
-  session_id: string;
-  message: string;
-  timestamp: string;
+/**
+ * 生成结果响应
+ */
+export interface JournalGenerateResponse {
+  /** 生成内容 */
+  content: string;
 }

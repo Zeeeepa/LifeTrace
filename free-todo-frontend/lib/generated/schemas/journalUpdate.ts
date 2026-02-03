@@ -18,6 +18,20 @@ export interface JournalUpdate {
   date?: string | null;
   /** 内容格式：markdown/html/json */
   content_format?: string | null;
-  /** 关联的标签ID列表（覆盖替换） */
-  tag_ids?: number[] | null;
+  /** 客观记录 */
+  content_objective?: string | null;
+  /** AI 视角 */
+  content_ai?: string | null;
+  /** 情绪 */
+  mood?: string | null;
+  /** 精力 */
+  energy?: number | null;
+  /** 日记归属刷新点 */
+  day_bucket_start?: string | null;
+  /** 关联的标签列表（覆盖替换） */
+  tags?: string[] | null;
+  /** 关联待办ID列表 */
+  related_todo_ids?: number[] | null;
+  /** 关联活动ID列表 */
+  related_activity_ids?: number[] | null;
 }
