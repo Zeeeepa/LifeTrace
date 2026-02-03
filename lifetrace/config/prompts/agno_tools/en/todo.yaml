@@ -17,7 +17,7 @@ update_failed: "Failed to update todo: {error}"
 # List
 list_header: "Todo list ({status}, {count} items):\n"
 list_item: "- #{id} [{priority}] {name}"
-list_item_with_deadline: " (due: {deadline})"
+list_item_with_time: " (time: {time})"
 list_empty: "No {status} todos found"
 
 # Search

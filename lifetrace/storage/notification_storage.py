@@ -35,6 +35,7 @@ def add_notification(  # noqa: PLR0913
     content: str,
     timestamp: datetime,
     todo_id: int | None = None,
+    schedule_time: datetime | None = None,
     deadline: datetime | None = None,
     reminder_at: datetime | None = None,
     reminder_offset: int | None = None,
@@ -48,7 +49,8 @@ def add_notification(  # noqa: PLR0913
         content: 通知内容
         timestamp: 通知时间戳
         todo_id: 关联的待办 ID（可选）
-        deadline: 待办截止时间（可选，用于检测deadline更新）
+        schedule_time: 待办时间点（可选，用于检测更新时间）
+        deadline: 待办截止时间（旧字段，兼容旧调用）
         reminder_at: 提醒触发时间（可选，用于去重和取消）
         reminder_offset: 提醒偏移分钟数（可选）
 
@@ -69,6 +71,9 @@ def add_notification(  # noqa: PLR0913
     if todo_id is not None:
         notification["todo_id"] = todo_id
 
+    effective_time = schedule_time or deadline
+    if effective_time is not None:
+        notification["schedule_time"] = effective_time.isoformat()
     if deadline is not None:
         notification["deadline"] = deadline.isoformat()
 
@@ -130,7 +135,9 @@ def clear_notification(notification_id: str) -> bool:
         notification = _notifications[notification_id]
         todo_id = notification.get("todo_id")
         reminder_at = _parse_iso_datetime(
-            notification.get("reminder_at") or notification.get("deadline")
+            notification.get("reminder_at")
+            or notification.get("schedule_time")
+            or notification.get("deadline")
         )
         if todo_id is not None and reminder_at is not None:
             key = _build_reminder_key(reminder_at)
@@ -206,7 +213,7 @@ def is_notification_dismissed(todo_id: int, reminder_at: datetime) -> bool:
 
 def clear_dismissed_mark(todo_id: int) -> None:
     """
-    清除指定待办的已取消标记（用于deadline更新时）
+    清除指定待办的已取消标记（用于时间更新时）
 
     Args:
         todo_id: 待办ID

@@ -3,14 +3,10 @@
 import { Calendar, Flag, Tag as TagIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import {
-	formatReminderSummary,
-	normalizeReminderOffsets,
-} from "@/lib/reminders";
 import type { Todo, TodoPriority, TodoStatus, UpdateTodoInput } from "@/lib/types";
 import { cn, getPriorityLabel, getStatusLabel } from "@/lib/utils";
 import {
-	formatDeadline,
+	formatScheduleSummary,
 	getPriorityClassNames,
 	getStatusClassNames,
 	priorityOptions,
@@ -35,10 +31,9 @@ export function MetaSection({
 }: MetaSectionProps) {
 	const tCommon = useTranslations("common");
 	const tTodoDetail = useTranslations("todoDetail");
-	const tReminder = useTranslations("reminder");
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
-	const deadlineButtonRef = useRef<HTMLButtonElement | null>(null);
+	const scheduleButtonRef = useRef<HTMLButtonElement | null>(null);
 
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 	const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
@@ -99,19 +94,13 @@ export function MetaSection({
 		setIsEditingTags(false);
 	};
 
-	const savedReminderOffsets = normalizeReminderOffsets(todo.reminderOffsets);
-	const reminderSummary = formatReminderSummary(
-		tReminder,
-		savedReminderOffsets,
-		tReminder("noReminder"),
-	);
-	const timeRangeSummary = formatTimeRange(todo.startTime, todo.endTime);
-	const scheduleSummaryParts = [
-		todo.deadline ? formatDeadline(todo.deadline) : tTodoDetail("addDeadline"),
-		timeRangeSummary,
-		savedReminderOffsets.length ? reminderSummary : "",
-	].filter(Boolean);
-	const scheduleSummary = scheduleSummaryParts.join(" · ");
+	const scheduleSummary =
+		formatScheduleSummary({
+			startTime: todo.startTime,
+			endTime: todo.endTime,
+			timeZone: todo.timeZone,
+			isAllDay: todo.isAllDay,
+		}) || tTodoDetail("addDeadline");
 
 	return (
 		<div className="mb-6 text-sm text-muted-foreground">
@@ -224,7 +213,7 @@ export function MetaSection({
 
 				<div className="relative flex items-center">
 					<button
-						ref={deadlineButtonRef}
+						ref={scheduleButtonRef}
 						type="button"
 						onClick={() => setIsDatePickerOpen((prev) => !prev)}
 						className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/40"
@@ -236,11 +225,13 @@ export function MetaSection({
 					</button>
 					{isDatePickerOpen && (
 						<DatePickerPopover
-							anchorRef={deadlineButtonRef}
-							deadline={todo.deadline}
+							anchorRef={scheduleButtonRef}
 							startTime={todo.startTime}
 							endTime={todo.endTime}
+							timeZone={todo.timeZone}
+							isAllDay={todo.isAllDay}
 							reminderOffsets={todo.reminderOffsets}
+							rrule={todo.rrule}
 							onSave={(input) => onScheduleChange(input)}
 							onClose={() => setIsDatePickerOpen(false)}
 						/>
@@ -303,18 +294,3 @@ export function MetaSection({
 		</div>
 	);
 }
-
-const formatTimeRange = (startTime?: string, endTime?: string): string => {
-	if (!endTime) return "";
-	const start = toTimeDisplay(startTime);
-	const end = toTimeDisplay(endTime);
-	if (start && end) return `${start}-${end}`;
-	return end;
-};
-
-const toTimeDisplay = (value?: string): string => {
-	if (!value) return "";
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return "";
-	return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-};

@@ -1,10 +1,11 @@
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import {
-	localToUtcIso,
-	utcToLocalDisplay,
-	utcToLocalInput,
-} from "@/lib/utils/time";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const statusOptions: TodoStatus[] = [
 	"active",
@@ -69,59 +70,62 @@ export const getPriorityBorderColor = (priority: TodoPriority) => {
 	}
 };
 
-/**
- * 将 UTC 时间转换为本地时间字符串（用于 input[type="datetime-local"]）
- * @param value UTC 时间 ISO 字符串
- * @returns 本地时间字符串，格式为 YYYY-MM-DDTHH:mm
- */
-export const formatDeadlineForInput = (value?: string): string => {
-	if (!value) return "";
-	return utcToLocalInput(value);
+const resolveTimeZone = (timeZone?: string) =>
+	timeZone || dayjs.tz.guess();
+
+const toZoned = (value?: string, timeZone?: string) => {
+	if (!value) return null;
+	const parsed = dayjs(value);
+	if (!parsed.isValid()) return null;
+	return parsed.tz(resolveTimeZone(timeZone));
 };
 
-/**
- * 将本地时间字符串转换为 UTC ISO 字符串（用于发送到后端）
- * @param value 本地时间字符串（来自 input[type="datetime-local"]）
- * @returns UTC ISO 字符串
- */
-export const parseInputToIso = (value: string): string | undefined => {
-	if (!value) return undefined;
-	const iso = localToUtcIso(value);
-	return iso || undefined;
+export const formatDateTime = (value?: string, timeZone?: string): string => {
+	const zoned = toZoned(value, timeZone);
+	if (!zoned) return "";
+	return zoned.format("YYYY-MM-DD HH:mm");
 };
 
-/**
- * 格式化日期时间（已弃用，使用 formatDeadline 代替）
- * @deprecated 使用 formatDeadline 代替
- */
-export const formatDateTime = (value?: string): string => {
-	if (!value) return "";
-	return utcToLocalDisplay(value, "datetime");
+export const formatDateOnly = (value?: string, timeZone?: string): string => {
+	const zoned = toZoned(value, timeZone);
+	if (!zoned) return "";
+	return zoned.format("YYYY-MM-DD");
 };
 
-/**
- * 格式化 deadline，如果本地时间为 0:00:00 则只显示日期，否则显示完整的日期时间
- * @param value UTC 时间 ISO 字符串
- * @returns 本地时间显示字符串
- */
-export const formatDeadline = (value?: string): string => {
-	if (!value) return "";
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return "";
+export const formatScheduleSummary = ({
+	startTime,
+	endTime,
+	timeZone,
+	isAllDay,
+}: {
+	startTime?: string;
+	endTime?: string;
+	timeZone?: string;
+	isAllDay?: boolean;
+}): string => {
+	const baseStart = startTime ?? endTime;
+	const startZoned = toZoned(baseStart, timeZone);
+	if (!startZoned) return "";
+	const endZoned = endTime ? toZoned(endTime, timeZone) : null;
 
-	// 检查本地时间是否为 0:00:00（用户只设置日期时，DatePickerPopover 会设置本地时间为 0:00:00）
-	const hours = date.getHours();
-	const minutes = date.getMinutes();
-	const seconds = date.getSeconds();
-	const milliseconds = date.getMilliseconds();
+	const startDate = startZoned.format("YYYY-MM-DD");
+	const endDate = endZoned?.format("YYYY-MM-DD");
 
-	// 如果本地时间为 0:00:00.000，只显示日期
-	if (hours === 0 && minutes === 0 && seconds === 0 && milliseconds === 0) {
-		return date.toLocaleDateString();
+	if (isAllDay) {
+		if (endDate && endDate !== startDate) {
+			return `${startDate} - ${endDate}`;
+		}
+		return startDate;
 	}
 
-	// 否则显示完整的日期时间
-	return date.toLocaleString();
+	const startTimeLabel = startZoned.format("HH:mm");
+	if (!endZoned) return `${startDate} ${startTimeLabel}`;
+
+	const endTimeLabel = endZoned.format("HH:mm");
+	if (endDate && endDate !== startDate) {
+		return `${startDate} ${startTimeLabel} - ${endDate} ${endTimeLabel}`;
+	}
+	return `${startDate} ${startTimeLabel} - ${endTimeLabel}`;
 };
 
 export const getChildProgress = (todos: Todo[], parentId: number) => {

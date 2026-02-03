@@ -35,17 +35,17 @@ const normalizeStatus = (status: unknown): TodoStatus => {
 	return "active";
 };
 
-function normalizeDeadline(
-	deadline?: string | null,
+function normalizeDateTimeValue(
+	value?: string | null,
 ): string | null | undefined {
 	// undefined 表示不更新；null 表示显式清空
-	if (deadline === undefined) return undefined;
-	if (deadline === null) return null;
+	if (value === undefined) return undefined;
+	if (value === null) return null;
 	// 兼容 <input type="date"> 的 YYYY-MM-DD（后端期望 datetime）
-	if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
-		return `${deadline}T00:00:00`;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		return `${value}T00:00:00`;
 	}
-	return deadline;
+	return value;
 }
 
 /**
@@ -63,7 +63,10 @@ function normalizeTodo(raw: Record<string, unknown>): Todo {
 		deadline: (raw.deadline as string) ?? undefined,
 		startTime: (raw.startTime as string) ?? undefined,
 		endTime: (raw.endTime as string) ?? undefined,
+		timeZone: (raw.timeZone as string) ?? undefined,
+		isAllDay: (raw.isAllDay as boolean) ?? undefined,
 		reminderOffsets: (raw.reminderOffsets as number[] | null) ?? undefined,
+		rrule: (raw.rrule as string | null) ?? undefined,
 		order: (raw.order as number) ?? 0,
 		tags: (raw.tags as string[]) ?? [],
 		attachments: (raw.attachments as Todo["attachments"]) ?? [],
@@ -138,10 +141,12 @@ export function useCreateTodo() {
 				description: input.description,
 				userNotes: input.userNotes,
 				parentTodoId: input.parentTodoId ?? null,
-				deadline: normalizeDeadline(input.deadline),
-				startTime: input.startTime,
-				endTime: input.endTime,
+				startTime: normalizeDateTimeValue(input.startTime),
+				endTime: normalizeDateTimeValue(input.endTime),
+				timeZone: input.timeZone,
+				isAllDay: input.isAllDay,
 				reminderOffsets: input.reminderOffsets,
+				rrule: input.rrule,
 				status: input.status ?? "active",
 				priority: input.priority ?? "none",
 				order: input.order ?? 0,
@@ -208,10 +213,12 @@ export function useUpdateTodo() {
 						}
 
 						try {
-							// Build payload with normalized deadline
+							// Build payload with normalized date/time inputs
 							const payload = {
 								...body,
-								deadline: normalizeDeadline(body.deadline),
+								startTime: normalizeDateTimeValue(body.startTime),
+								endTime: normalizeDateTimeValue(body.endTime),
+								rrule: body.rrule,
 							};
 							const updated = await updateTodoApiTodosTodoIdPut(
 								id,
@@ -235,10 +242,12 @@ export function useUpdateTodo() {
 				throw new Error("No fields to update");
 			}
 
-			// Build payload with normalized deadline
+			// Build payload with normalized date/time inputs
 			const payload = {
 				...body,
-				deadline: normalizeDeadline(body.deadline),
+				startTime: normalizeDateTimeValue(body.startTime),
+				endTime: normalizeDateTimeValue(body.endTime),
+				rrule: body.rrule,
 			};
 			const updated = await updateTodoApiTodosTodoIdPut(id, payload as never);
 			return normalizeTodo(updated as unknown as Record<string, unknown>);

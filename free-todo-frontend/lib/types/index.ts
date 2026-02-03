@@ -29,7 +29,10 @@ export interface Todo {
 	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	timeZone?: string;
+	isAllDay?: boolean;
 	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	status: TodoStatus;
 	priority: TodoPriority;
 	order?: number;
@@ -48,7 +51,10 @@ export interface CreateTodoInput {
 	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	timeZone?: string;
+	isAllDay?: boolean;
 	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	status?: TodoStatus;
 	priority?: TodoPriority;
 	order?: number;
@@ -65,7 +71,10 @@ export interface UpdateTodoInput {
 	deadline?: string | null;
 	startTime?: string | null;
 	endTime?: string | null;
+	timeZone?: string | null;
+	isAllDay?: boolean | null;
 	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	order?: number;
 	tags?: string[];
 	parentTodoId?: number | null;

@@ -106,9 +106,11 @@ class Todo(TimestampMixin, table=True):
     description: str | None = Field(default=None, sa_column=Column(Text))  # 描述
     user_notes: str | None = Field(default=None, sa_column=Column(Text))  # 用户笔记
     parent_todo_id: int | None = None  # 父级待办ID（自关联）
-    deadline: datetime | None = None  # 截止时间
+    deadline: datetime | None = None  # 截止时间（旧字段，逐步废弃）
     start_time: datetime | None = None  # 开始时间
     end_time: datetime | None = None  # 结束时间
+    time_zone: str | None = Field(default=None, max_length=64)  # 时区（IANA）
+    is_all_day: bool = Field(default=False)  # 是否全天
     reminder_offsets: str | None = Field(
         default=None, sa_column=Column(Text)
     )  # 提醒偏移列表（分钟）

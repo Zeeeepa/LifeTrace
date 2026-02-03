@@ -11,6 +11,8 @@ type TodoItem = {
 	dedupe_key?: string;
 	title: string;
 	description?: string;
+	start_time?: string;
+	startTime?: string;
 	deadline?: string;
 	source_text?: string;
 	linked?: boolean;
@@ -37,7 +39,13 @@ interface ExtractionPanelProps {
 	>;
 	parseTimeToIsoWithDate: (raw?: string | null) => string | undefined;
 	// 录音中的实时提取结果（recId=0 表示录音中）
-	liveTodos?: Array<{ title: string; description?: string; deadline?: string; source_text?: string }>;
+	liveTodos?: Array<{
+		title: string;
+		description?: string;
+		startTime?: string;
+		deadline?: string;
+		source_text?: string;
+	}>;
 	liveSchedules?: Array<{ title: string; time?: string; description?: string; source_text?: string }>;
 	isRecording?: boolean;
 	isExtracting?: boolean; // 后端正在提取中
@@ -79,13 +87,14 @@ export function AudioExtractionPanel({
 				const itemKey = (item.source_text || item.title || "").toString();
 				if (!itemKey) continue;
 				const mapKey = `todo:${itemKey}`;
+				const liveTime = item.startTime ?? item.deadline ?? null;
 				if (!aggregated.has(mapKey)) {
 					aggregated.set(mapKey, {
 						key: `audio:${dateKey}:${mapKey}:live`,
 						name: item.source_text || item.title,
 						description: item.source_text || item.description || undefined,
-						deadline: parseTimeToIsoWithDate(item.deadline || null),
-						rawTime: item.deadline || item.source_text || undefined,
+						deadline: parseTimeToIsoWithDate(liveTime),
+						rawTime: liveTime || item.source_text || undefined,
 						tags: [tAudio("linkTodoTag")],
 						_meta: { recordingIds: [0], kind: "todo", itemKey },
 					});
@@ -123,6 +132,7 @@ export function AudioExtractionPanel({
 					continue;
 				}
 				const mapKey = `todo:${itemKey}`;
+				const scheduleTime = item.startTime ?? item.start_time ?? item.deadline ?? null;
 				const existing = aggregated.get(mapKey);
 				if (existing) {
 					if (!existing._meta.recordingIds.includes(recId)) {
@@ -133,8 +143,8 @@ export function AudioExtractionPanel({
 						key: `audio:${dateKey}:${mapKey}`,
 						name: item.source_text || item.title,
 						description: item.source_text || item.description || undefined,
-						deadline: parseTimeToIsoWithDate(item.deadline || null),
-						rawTime: item.deadline || item.source_text || undefined,
+						deadline: parseTimeToIsoWithDate(scheduleTime),
+						rawTime: scheduleTime || item.source_text || undefined,
 						tags: [tAudio("linkTodoTag")],
 						_meta: { recordingIds: [recId], kind: "todo", itemKey },
 					});

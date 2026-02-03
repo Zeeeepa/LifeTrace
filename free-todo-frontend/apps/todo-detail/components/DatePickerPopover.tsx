@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
 	type RefObject,
@@ -11,7 +11,6 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { ReminderOptions } from "@/components/common/ReminderOptions";
 import { normalizeReminderOffsets } from "@/lib/reminders";
 import { useLocaleStore } from "@/lib/store/locale";
 import type { UpdateTodoInput } from "@/lib/types";
@@ -19,30 +18,47 @@ import { cn } from "@/lib/utils";
 import {
 	buildMonthDays,
 	type CalendarDay,
-	toDateKey,
-	WEEKDAY_KEYS,
-	type WeekdayKey,
+	startOfDay,
 } from "../utils";
-import { SOLAR_TERMS } from "../utils/lunar-utils";
+import { CalendarGrid, MonthNavigation, WeekdayHeader } from "./DatePickerCalendar";
+import { DatePickerSidePanel } from "./DatePickerSidePanel";
+import {
+	addMinutes,
+	buildIsoWithZone,
+	DEFAULT_RANGE_MINUTES,
+	DEFAULT_TIME,
+	getTimeZoneOptions,
+	resolveTimeZone,
+	toCalendarDate,
+	toTimeValue,
+} from "./datePickerUtils";
 
 interface DatePickerPopoverProps {
 	anchorRef: RefObject<HTMLElement | null>;
-	deadline?: string;
 	startTime?: string;
 	endTime?: string;
+	timeZone?: string;
+	isAllDay?: boolean;
 	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	onSave: (input: UpdateTodoInput) => void;
 	onClose: () => void;
 }
 
 const POPOVER_MARGIN = 8;
 
+type TabKey = "date" | "range";
+
+type DateTarget = "start" | "end";
+
 export function DatePickerPopover({
 	anchorRef,
-	deadline,
 	startTime,
 	endTime,
+	timeZone,
+	isAllDay,
 	reminderOffsets,
+	rrule,
 	onSave,
 	onClose,
 }: DatePickerPopoverProps) {
@@ -53,39 +69,67 @@ export function DatePickerPopover({
 	const tReminder = useTranslations("reminder");
 	const tTodoDetail = useTranslations("todoDetail");
 
-	const initialDate = useMemo(() => {
-		const candidates = [deadline, startTime, endTime];
-		for (const value of candidates) {
-			if (!value) continue;
-			const parsed = new Date(value);
-			if (!Number.isNaN(parsed.getTime())) {
-				return parsed;
-			}
-		}
-		return null;
-	}, [deadline, endTime, startTime]);
-
-	const [currentMonth, setCurrentMonth] = useState<Date>(
-		() => initialDate ?? new Date(),
+	const initialTimeZone = useMemo(
+		() => resolveTimeZone(timeZone),
+		[timeZone],
 	);
-	const [selectedDate, setSelectedDate] = useState<Date | null>(
-		() => initialDate,
+	const initialStartDate = useMemo(
+		() => toCalendarDate(startTime ?? endTime, initialTimeZone),
+		[startTime, endTime, initialTimeZone],
+	);
+	const initialEndDate = useMemo(
+		() => toCalendarDate(endTime, initialTimeZone),
+		[endTime, initialTimeZone],
+	);
+
+	const [activeTab, setActiveTab] = useState<TabKey>(() =>
+		endTime ? "range" : "date",
+	);
+	const [activeDateTarget, setActiveDateTarget] = useState<DateTarget>(() =>
+		endTime ? "end" : "start",
+	);
+	const [currentMonth, setCurrentMonth] = useState<Date>(
+		() => initialStartDate ?? new Date(),
+	);
+	const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(
+		() => initialStartDate,
+	);
+	const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(
+		() => initialEndDate,
 	);
 	const [startTimeInput, setStartTimeInput] = useState<string>(() =>
-		toTimeValue(deadline ?? startTime),
+		isAllDay ? "" : toTimeValue(startTime, initialTimeZone),
 	);
-	const [endTimeInput, setEndTimeInput] = useState<string>(() =>
-		toTimeValue(endTime),
-	);
+	const [endTimeInput, setEndTimeInput] = useState<string>(() => {
+		const endValue = toTimeValue(endTime, initialTimeZone);
+		if (endValue) return endValue;
+		const startValue = toTimeValue(startTime, initialTimeZone);
+		return startValue ? addMinutes(startValue, DEFAULT_RANGE_MINUTES) : "";
+	});
 	const [draftReminderOffsets, setDraftReminderOffsets] = useState<number[]>(
 		() => normalizeReminderOffsets(reminderOffsets),
 	);
+	const [draftRrule, setDraftRrule] = useState<string | null>(() => rrule ?? null);
+	const [draftTimeZone, setDraftTimeZone] = useState<string>(initialTimeZone);
+
+	useEffect(() => {
+		if (activeTab === "date") {
+			setActiveDateTarget("start");
+		}
+	}, [activeTab]);
 
 	const monthDays = useMemo(
 		() => buildMonthDays(currentMonth),
 		[currentMonth],
 	);
 	const showLunar = locale === "zh";
+
+	const timeZoneOptions = useMemo(() => {
+		const options = getTimeZoneOptions();
+		if (!draftTimeZone) return options;
+		if (options.includes(draftTimeZone)) return options;
+		return [draftTimeZone, ...options];
+	}, [draftTimeZone]);
 
 	const updatePosition = useCallback(() => {
 		if (typeof window === "undefined") return;
@@ -178,155 +222,174 @@ export function DatePickerPopover({
 	const handleToday = () => {
 		const today = new Date();
 		setCurrentMonth(today);
-		setSelectedDate(today);
+		setSelectedStartDate(today);
+		if (activeTab === "range" && activeDateTarget === "end") {
+			setSelectedEndDate(today);
+		}
 	};
 
 	const handleSelectDate = (day: CalendarDay) => {
-		setSelectedDate(day.date);
+		if (activeTab === "range" && activeDateTarget === "end") {
+			setSelectedEndDate(day.date);
+			if (!selectedStartDate) {
+				setSelectedStartDate(day.date);
+			} else if (startOfDay(day.date) < startOfDay(selectedStartDate)) {
+				setSelectedStartDate(day.date);
+			}
+		} else {
+			setSelectedStartDate(day.date);
+			if (
+				selectedEndDate &&
+				startOfDay(selectedEndDate) < startOfDay(day.date)
+			) {
+				setSelectedEndDate(day.date);
+			}
+		}
 		if (day.date.getMonth() !== currentMonth.getMonth()) {
 			setCurrentMonth(day.date);
 		}
 	};
 
-	const handleStartTimeChange = (value: string) => {
-		setStartTimeInput(value);
-		if (!value) {
-			setEndTimeInput("");
-		}
-	};
-
 	const handleClear = () => {
 		onSave({
-			deadline: null,
 			startTime: null,
 			endTime: null,
-			reminderOffsets: draftReminderOffsets,
+			reminderOffsets: [],
+			rrule: null,
+			timeZone: null,
+			isAllDay: null,
 		});
 		onClose();
 	};
 
 	const handleSave = () => {
+		if (!selectedStartDate) return;
 		const payload: UpdateTodoInput = {
 			reminderOffsets: draftReminderOffsets,
+			rrule: draftRrule,
+			timeZone: draftTimeZone,
 		};
+		const zone = resolveTimeZone(draftTimeZone);
 
-		if (selectedDate) {
-			const deadlineIso = buildIsoWithTime(selectedDate, startTimeInput);
-			payload.deadline = deadlineIso;
-
-			const hasExistingStart = Boolean(startTime);
-			const hasExistingEnd = Boolean(endTime);
-			const wantsTimeRange =
-				Boolean(endTimeInput) || hasExistingStart || hasExistingEnd;
-
-			if (startTimeInput && wantsTimeRange) {
-				payload.startTime = deadlineIso;
-			} else if (hasExistingStart) {
-				payload.startTime = null;
-			}
-
-			if (endTimeInput) {
-				payload.endTime = buildIsoWithTime(selectedDate, endTimeInput);
-			} else if (hasExistingEnd) {
-				payload.endTime = null;
-			}
+		if (activeTab === "date") {
+			const timeValue = startTimeInput || "00:00";
+			payload.startTime = buildIsoWithZone(selectedStartDate, timeValue, zone);
+			payload.endTime = null;
+			payload.isAllDay = !startTimeInput;
+		} else {
+			const effectiveEndDate = selectedEndDate ?? selectedStartDate;
+			const startValue = startTimeInput || DEFAULT_TIME;
+			const endValue = endTimeInput || addMinutes(startValue, DEFAULT_RANGE_MINUTES);
+			payload.startTime = buildIsoWithZone(selectedStartDate, startValue, zone);
+			payload.endTime = buildIsoWithZone(effectiveEndDate, endValue, zone);
+			payload.isAllDay = false;
 		}
 
 		onSave(payload);
 		onClose();
 	};
 
+	const canSave = useMemo(() => {
+		if (!selectedStartDate) return false;
+		if (activeTab === "range") {
+			return Boolean(startTimeInput && endTimeInput);
+		}
+		return true;
+	}, [activeTab, endTimeInput, selectedStartDate, startTimeInput]);
+
 	if (typeof document === "undefined") {
 		return null;
 	}
 
 	return createPortal(
-		<div className="fixed inset-0 z-[9999] pointer-events-none">
+		<div className="fixed inset-0 z-[10000] pointer-events-none">
 			<div
 				ref={popoverRef}
 				className={cn(
-					"pointer-events-auto w-[360px] max-w-[calc(100vw-16px)] rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl",
+					"pointer-events-auto w-[620px] max-w-[95vw] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-[0_40px_80px_-40px_oklch(var(--primary)/0.5)]",
 				)}
 				style={{ position: "absolute", left: -9999, top: -9999 }}
 			>
-				<MonthNavigation
-					currentMonth={currentMonth}
-					onPrevMonth={handlePrevMonth}
-					onNextMonth={handleNextMonth}
-					onToday={handleToday}
-					tCalendar={tCalendar}
-				/>
-
-				<WeekdayHeader tCalendar={tCalendar} />
-
-				<CalendarGrid
-					monthDays={monthDays}
-					selectedDate={selectedDate}
-					showLunar={showLunar}
-					onSelectDate={handleSelectDate}
-				/>
-
-				<div className="px-4 py-3">
-					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<Clock className="h-4 w-4" />
-						<span>{tDatePicker("timeRange")}</span>
+				<div className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-3">
+					<div className="flex rounded-full bg-muted/60 p-1 text-xs">
+						<button
+							type="button"
+							onClick={() => setActiveTab("date")}
+							className={cn(
+								"px-3 py-1.5 rounded-full font-medium transition",
+								activeTab === "date"
+									? "bg-background text-foreground shadow-sm"
+									: "text-muted-foreground hover:text-foreground",
+							)}
+						>
+							{tDatePicker("dateTab")}
+						</button>
+						<button
+							type="button"
+							onClick={() => setActiveTab("range")}
+							className={cn(
+								"px-3 py-1.5 rounded-full font-medium transition",
+								activeTab === "range"
+									? "bg-background text-foreground shadow-sm"
+									: "text-muted-foreground hover:text-foreground",
+							)}
+						>
+							{tDatePicker("rangeTab")}
+						</button>
 					</div>
-					<div className="mt-2 grid grid-cols-2 gap-2">
-						<label className="flex flex-col gap-1 text-xs text-muted-foreground">
-							<span>{tDatePicker("startTime")}</span>
-							<input
-								type="time"
-								value={startTimeInput}
-								onChange={(event) =>
-									handleStartTimeChange(event.target.value)
-								}
-								disabled={!selectedDate}
-								className={cn(
-									"rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground",
-									"focus:outline-none focus:ring-2 focus:ring-primary/30",
-									!selectedDate && "cursor-not-allowed opacity-60",
-								)}
-							/>
-						</label>
-						<label className="flex flex-col gap-1 text-xs text-muted-foreground">
-							<span>{tDatePicker("endTime")}</span>
-							<input
-								type="time"
-								value={endTimeInput}
-								onChange={(event) => setEndTimeInput(event.target.value)}
-								disabled={!selectedDate || !startTimeInput}
-								className={cn(
-									"rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground",
-									"focus:outline-none focus:ring-2 focus:ring-primary/30",
-									(!selectedDate || !startTimeInput) &&
-										"cursor-not-allowed opacity-60",
-								)}
-							/>
-						</label>
-					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+						aria-label={tTodoDetail("cancel")}
+					>
+						<X className="h-4 w-4" />
+					</button>
 				</div>
 
-				<div className="border-t border-border/70 px-4 py-3">
-					<div className="flex items-center justify-between text-xs text-muted-foreground">
-						<span className="flex items-center gap-2">
-							<Bell className="h-3.5 w-3.5" />
-							{tReminder("label")}
-						</span>
-						{!selectedDate && (
-							<span className="text-[11px]">{tReminder("needsDeadline")}</span>
-						)}
-					</div>
-					<div className="mt-2 rounded-lg border border-border/60 bg-background/60 p-2">
-						<ReminderOptions
-							value={draftReminderOffsets}
-							onChange={setDraftReminderOffsets}
-							compact
-							showClear
+				<div className="grid grid-cols-[1fr_240px] gap-0">
+					<div className="px-4 py-3">
+						<MonthNavigation
+							currentMonth={currentMonth}
+							onPrevMonth={handlePrevMonth}
+							onNextMonth={handleNextMonth}
+							onToday={handleToday}
+							tCalendar={tCalendar}
+						/>
+						<WeekdayHeader tCalendar={tCalendar} />
+						<CalendarGrid
+							monthDays={monthDays}
+							selectedDate={selectedStartDate}
+							rangeStart={activeTab === "range" ? selectedStartDate : null}
+							rangeEnd={activeTab === "range" ? selectedEndDate : null}
+							showLunar={showLunar}
+							onSelectDate={handleSelectDate}
 						/>
 					</div>
+
+					<DatePickerSidePanel
+						activeTab={activeTab}
+						activeDateTarget={activeDateTarget}
+						selectedStartDate={selectedStartDate}
+						selectedEndDate={selectedEndDate}
+						startTimeInput={startTimeInput}
+						endTimeInput={endTimeInput}
+						onStartTimeChange={setStartTimeInput}
+						onEndTimeChange={setEndTimeInput}
+						onActiveDateTargetChange={setActiveDateTarget}
+						draftReminderOffsets={draftReminderOffsets}
+						onReminderOffsetsChange={setDraftReminderOffsets}
+						draftRrule={draftRrule}
+						onRruleChange={setDraftRrule}
+						timeZoneOptions={timeZoneOptions}
+						draftTimeZone={draftTimeZone}
+						onTimeZoneChange={setDraftTimeZone}
+						tDatePicker={tDatePicker}
+						tReminder={tReminder}
+					/>
 				</div>
 
-				<div className="flex items-center gap-2 p-3">
+				<div className="flex items-center gap-2 border-t border-border/70 p-3">
 					<button
 						type="button"
 						onClick={handleClear}
@@ -337,7 +400,11 @@ export function DatePickerPopover({
 					<button
 						type="button"
 						onClick={handleSave}
-						className="flex-1 rounded-lg bg-primary py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+						disabled={!canSave}
+						className={cn(
+							"flex-1 rounded-lg bg-primary py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90",
+							!canSave && "cursor-not-allowed opacity-60",
+						)}
 					>
 						{tTodoDetail("save")}
 					</button>
@@ -347,175 +414,3 @@ export function DatePickerPopover({
 		document.body,
 	);
 }
-
-interface MonthNavigationProps {
-	currentMonth: Date;
-	onPrevMonth: () => void;
-	onNextMonth: () => void;
-	onToday: () => void;
-	tCalendar: ReturnType<typeof useTranslations<"calendar">>;
-}
-
-function MonthNavigation({
-	currentMonth,
-	onPrevMonth,
-	onNextMonth,
-	onToday,
-	tCalendar,
-}: MonthNavigationProps) {
-	return (
-		<div className="flex items-center justify-between px-4 py-2">
-			<span className="text-sm font-medium">
-				{tCalendar("yearMonth", {
-					year: currentMonth.getFullYear(),
-					month: currentMonth.getMonth() + 1,
-				})}
-			</span>
-			<div className="flex items-center gap-1">
-				<button
-					type="button"
-					onClick={onPrevMonth}
-					className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-				>
-					<ChevronLeft className="h-4 w-4" />
-				</button>
-				<button
-					type="button"
-					onClick={onToday}
-					className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-				>
-					<span className="flex h-4 w-4 items-center justify-center text-xs">
-						○
-					</span>
-				</button>
-				<button
-					type="button"
-					onClick={onNextMonth}
-					className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-				>
-					<ChevronRight className="h-4 w-4" />
-				</button>
-			</div>
-		</div>
-	);
-}
-
-interface WeekdayHeaderProps {
-	tCalendar: ReturnType<typeof useTranslations<"calendar">>;
-}
-
-function WeekdayHeader({ tCalendar }: WeekdayHeaderProps) {
-	return (
-		<div className="grid grid-cols-7 px-2">
-			{WEEKDAY_KEYS.map((key, idx) => (
-				<span
-					key={key}
-					className={cn(
-						"py-1 text-center text-xs font-medium",
-						idx >= 5 ? "text-muted-foreground/70" : "text-muted-foreground",
-					)}
-				>
-					{tCalendar(`weekdays.${key}` as `weekdays.${WeekdayKey}`)}
-				</span>
-			))}
-		</div>
-	);
-}
-
-interface CalendarGridProps {
-	monthDays: CalendarDay[];
-	selectedDate: Date | null;
-	showLunar: boolean;
-	onSelectDate: (day: CalendarDay) => void;
-}
-
-function CalendarGrid({
-	monthDays,
-	selectedDate,
-	showLunar,
-	onSelectDate,
-}: CalendarGridProps) {
-	return (
-		<div className="grid grid-cols-7 gap-0.5 px-2 pb-2">
-			{monthDays.map((day, idx) => {
-				const isSelected =
-					selectedDate && toDateKey(day.date) === toDateKey(selectedDate);
-				const dayOfWeek = (idx % 7) + 1;
-				const isWeekend = dayOfWeek >= 6;
-
-				return (
-					<button
-						key={toDateKey(day.date)}
-						type="button"
-						onClick={() => onSelectDate(day)}
-						className={cn(
-							"relative flex flex-col items-center rounded-lg py-1 transition-colors",
-							!day.inCurrentMonth && "opacity-40",
-							isSelected
-								? "bg-primary text-primary-foreground"
-								: day.isToday
-									? "bg-primary/10 text-primary"
-									: "hover:bg-muted/50",
-						)}
-					>
-						<span
-							className={cn(
-								"text-sm font-medium",
-								isWeekend && !isSelected && "text-muted-foreground/80",
-							)}
-						>
-							{day.date.getDate()}
-						</span>
-						<span
-							className={cn(
-								"text-[10px] leading-tight",
-								isSelected
-									? "text-primary-foreground/80"
-									: day.lunarText.includes("月") ||
-											SOLAR_TERMS.includes(
-												day.lunarText as (typeof SOLAR_TERMS)[number],
-											)
-										? "text-orange-500"
-										: "text-muted-foreground/60",
-							)}
-						>
-							{showLunar ? day.lunarText : ""}
-						</span>
-						{day.holiday?.isHoliday !== undefined && (
-							<span
-								className={cn(
-									"absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-sm text-[8px] font-bold",
-									day.holiday.isHoliday
-										? "bg-green-500 text-white"
-										: "bg-orange-500 text-white",
-								)}
-							>
-								{day.holiday.isHoliday ? "休" : "班"}
-							</span>
-						)}
-					</button>
-				);
-			})}
-		</div>
-	);
-}
-
-const toTimeValue = (value?: string): string => {
-	if (!value) return "";
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return "";
-	const hh = `${date.getHours()}`.padStart(2, "0");
-	const mm = `${date.getMinutes()}`.padStart(2, "0");
-	return `${hh}:${mm}`;
-};
-
-const buildIsoWithTime = (date: Date, time: string): string => {
-	const result = new Date(date);
-	if (time) {
-		const [hh, mm] = time.split(":").map((n) => Number.parseInt(n, 10));
-		result.setHours(hh || 0, mm || 0, 0, 0);
-	} else {
-		result.setHours(0, 0, 0, 0);
-	}
-	return result.toISOString();
-};

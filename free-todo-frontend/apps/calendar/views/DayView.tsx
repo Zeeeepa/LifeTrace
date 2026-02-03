@@ -8,7 +8,7 @@ import { TodoContextMenu } from "@/components/common/context-menu/TodoContextMen
 import { useTodoStore } from "@/lib/store/todo-store";
 import { cn } from "@/lib/utils";
 import type { CalendarTodo } from "../types";
-import { getDeadlineSeverity, getStatusStyle } from "../types";
+import { getScheduleSeverity, getStatusStyle } from "../types";
 import { formatTimeLabel, toDateKey } from "../utils";
 
 export function DayView({
@@ -64,7 +64,10 @@ export function DayView({
 					</div>
 				) : (
 					todaysTodos.map((item) => (
-						<TodoContextMenu key={item.todo.id} todoId={item.todo.id}>
+						<TodoContextMenu
+							key={`${item.todo.id}-${item.dateKey}`}
+							todoId={item.todo.id}
+						>
 							<div
 								className={cn(
 									"group relative flex flex-col gap-1 rounded-xl border p-3 text-xs shadow-sm transition-all duration-200 ease-out",
@@ -94,14 +97,17 @@ export function DayView({
 									<span
 										className={cn(
 											"shrink-0 text-sm font-medium transition-colors",
-											getDeadlineSeverity(item.deadline) === "overdue"
+											getScheduleSeverity(item.startTime) === "overdue"
 												? "text-red-600"
-												: getDeadlineSeverity(item.deadline) === "soon"
+												: getScheduleSeverity(item.startTime) === "soon"
 													? "text-amber-600"
 													: "text-muted-foreground",
 										)}
 									>
-										{formatTimeLabel(item.deadline, t("allDay"))}
+										{formatTimeLabel(
+											item.isAllDay ? null : item.startTime,
+											t("allDay"),
+										)}
 									</span>
 								</div>
 								{item.todo.tags && item.todo.tags.length > 0 && (

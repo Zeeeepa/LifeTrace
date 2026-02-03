@@ -70,7 +70,7 @@ export function TodoExtractionModal({
 				const todoInput: CreateTodoInput = {
 					name: todo.title,
 					description: todo.description || todo.source_text || undefined,
-					deadline: todo.scheduled_time || undefined,
+					startTime: todo.scheduled_time || undefined,
 					tags: [t("autoExtracted")],
 					userNotes: userNotesParts.length > 0 ? userNotesParts.join("\n") : undefined,
 				};

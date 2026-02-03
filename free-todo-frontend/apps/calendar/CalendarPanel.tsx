@@ -13,7 +13,6 @@ import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
 import { normalizeReminderOffsets } from "@/lib/reminders";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QuickCreatePopover } from "./components/QuickCreatePopover";
 import { useMonthScroll } from "./hooks/useMonthScroll";
@@ -24,7 +23,7 @@ import {
 	DEFAULT_NEW_TIME,
 	endOfDay,
 	getWeekOfYear,
-	parseDeadline,
+	parseScheduleTime,
 	startOfDay,
 	startOfMonth,
 	startOfWeek,
@@ -102,32 +101,45 @@ export function CalendarPanel() {
 		return { start, end };
 	}, [currentDate, monthItems, view]);
 
-	const todosWithDeadline: CalendarTodo[] = useMemo(() => {
-		return todos
-			.map((todo: Todo) => {
-				const parsed = parseDeadline(todo.deadline);
-				if (!parsed) return null;
-				return {
+	const todosWithSchedule: CalendarTodo[] = useMemo(() => {
+		const items: CalendarTodo[] = [];
+		for (const todo of todos) {
+			const startRaw = todo.startTime ?? todo.endTime;
+			const startTime = parseScheduleTime(startRaw);
+			if (!startTime) continue;
+			const endTime = parseScheduleTime(todo.endTime ?? undefined);
+			const startDay = startOfDay(startTime);
+			const endDay = startOfDay(endTime ?? startTime);
+			for (
+				let day = startDay;
+				day.getTime() <= endDay.getTime();
+				day = addDays(day, 1)
+			) {
+				const dayValue = new Date(day);
+				items.push({
 					todo,
-					deadline: parsed,
-					dateKey: toDateKey(parsed),
-				};
-			})
-			.filter((item): item is CalendarTodo => item !== null)
-			.sort(
-				(a: CalendarTodo, b: CalendarTodo) =>
-					a.deadline.getTime() - b.deadline.getTime(),
-			);
+					startTime,
+					endTime,
+					dateKey: toDateKey(dayValue),
+					day: dayValue,
+					isAllDay: todo.isAllDay ?? false,
+				});
+			}
+		}
+		return items.sort(
+			(a: CalendarTodo, b: CalendarTodo) =>
+				a.startTime.getTime() - b.startTime.getTime(),
+		);
 	}, [todos]);
 
 	const todosInRange = useMemo(
 		() =>
-			todosWithDeadline.filter(
+			todosWithSchedule.filter(
 				(item) =>
-					item.deadline.getTime() >= range.start.getTime() &&
-					item.deadline.getTime() <= range.end.getTime(),
+					item.day.getTime() >= range.start.getTime() &&
+					item.day.getTime() <= range.end.getTime(),
 			),
-		[range.end, range.start, todosWithDeadline],
+		[range.end, range.start, todosWithSchedule],
 	);
 
 	const groupedByDay = useMemo(() => {
@@ -188,12 +200,12 @@ export function CalendarPanel() {
 	const handleQuickCreate = async () => {
 		if (!quickTargetDate || !quickTitle.trim()) return;
 		const [hh, mm] = quickTime.split(":").map((n) => Number.parseInt(n, 10));
-		const deadline = startOfDay(quickTargetDate);
-		deadline.setHours(hh || 0, mm || 0, 0, 0);
+		const startTime = startOfDay(quickTargetDate);
+		startTime.setHours(hh || 0, mm || 0, 0, 0);
 		try {
 			await createTodoMutation.mutateAsync({
 				name: quickTitle.trim(),
-				deadline: deadline.toISOString(),
+				startTime: startTime.toISOString(),
 				reminderOffsets: quickReminderOffsets,
 				status: "active",
 			});

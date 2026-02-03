@@ -63,20 +63,20 @@ export function toDateKey(date: Date): string {
 	return `${y}-${m}-${d}`;
 }
 
-export function parseDeadline(deadline?: string): Date | null {
-	if (!deadline) return null;
-	// 如果 deadline 字符串没有时区信息（没有 Z 或 +/- 偏移），
+export function parseScheduleTime(value?: string): Date | null {
+	if (!value) return null;
+	// 如果时间字符串没有时区信息（没有 Z 或 +/- 偏移），
 	// 假设它是 UTC 时间并添加 Z 后缀，避免被解析为本地时间导致日期偏移
-	let normalizedDeadline = deadline;
+	let normalizedValue = value;
 	if (
-		deadline.includes("T") &&
-		!deadline.includes("Z") &&
-		!deadline.includes("+") &&
-		!/\d{2}:\d{2}:\d{2}-/.test(deadline)
+		value.includes("T") &&
+		!value.includes("Z") &&
+		!value.includes("+") &&
+		!/\d{2}:\d{2}:\d{2}-/.test(value)
 	) {
-		normalizedDeadline = `${deadline}Z`;
+		normalizedValue = `${value}Z`;
 	}
-	const parsed = new Date(normalizedDeadline);
+	const parsed = new Date(normalizedValue);
 	return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 

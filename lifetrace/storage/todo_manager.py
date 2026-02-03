@@ -11,6 +11,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
 from lifetrace.storage.sql_utils import col
 from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
+from lifetrace.storage.todo_manager_utils import (
+    _normalize_percent,
+    _normalize_reminder_offsets,
+    _safe_int_list,
+    _serialize_reminder_offsets,
+)
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.time_utils import get_utc_now
 
@@ -22,50 +28,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from lifetrace.storage.database_base import DatabaseBase
-
-
-def _safe_int_list(value: Any) -> list[int]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        out: list[int] = []
-        for item in value:
-            with contextlib.suppress(Exception):
-                out.append(int(item))
-        return out
-    # 兼容数据库中存的 JSON 字符串
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-            return _safe_int_list(parsed)
-        except Exception:
-            return []
-    return []
-
-
-def _normalize_reminder_offsets(value: Any) -> list[int] | None:
-    if value is None:
-        return None
-    offsets = _safe_int_list(value)
-    cleaned = sorted({offset for offset in offsets if offset >= 0})
-    return cleaned
-
-
-def _serialize_reminder_offsets(value: Any) -> str | None:
-    normalized = _normalize_reminder_offsets(value)
-    if normalized is None:
-        return None
-    return json.dumps(normalized)
-
-
-def _normalize_percent(value: Any) -> int:
-    if value is None:
-        return 0
-    try:
-        percent = int(value)
-    except Exception:
-        return 0
-    return max(0, min(100, percent))
 
 
 class TodoManager(TodoAttachmentMixin):
@@ -98,6 +60,8 @@ class TodoManager(TodoAttachmentMixin):
             "deadline": todo.deadline,
             "start_time": todo.start_time,
             "end_time": todo.end_time,
+            "time_zone": getattr(todo, "time_zone", None),
+            "is_all_day": getattr(todo, "is_all_day", False),
             "reminder_offsets": _normalize_reminder_offsets(
                 getattr(todo, "reminder_offsets", None)
             ),
@@ -192,6 +156,8 @@ class TodoManager(TodoAttachmentMixin):
         deadline: datetime | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
+        time_zone: str | None = None,
+        is_all_day: bool | None = None,
         reminder_offsets: list[int] | None = None,
         status: str = "active",
         priority: str = "none",
@@ -218,6 +184,9 @@ class TodoManager(TodoAttachmentMixin):
             cleaned_uid = (uid or "").strip() or None
 
             with self.db_base.get_session() as session:
+                if start_time is None and deadline is not None:
+                    start_time = deadline
+                    deadline = None
                 todo_kwargs: dict[str, Any] = {
                     "name": name,
                     "description": description,
@@ -226,6 +195,8 @@ class TodoManager(TodoAttachmentMixin):
                     "deadline": deadline,
                     "start_time": start_time,
                     "end_time": end_time,
+                    "time_zone": time_zone,
+                    "is_all_day": bool(is_all_day) if is_all_day is not None else False,
                     "reminder_offsets": _serialize_reminder_offsets(reminder_offsets),
                     "status": status,
                     "priority": priority,
@@ -338,7 +309,7 @@ class TodoManager(TodoAttachmentMixin):
                             "id": t.id,
                             "name": t.name,
                             "description": t.description,
-                            "deadline": t.deadline.isoformat() if t.deadline else None,
+                            "start_time": t.start_time.isoformat() if t.start_time else None,
                         }
                     )
                 return result
@@ -357,6 +328,8 @@ class TodoManager(TodoAttachmentMixin):
         deadline: datetime | None | Any = _UNSET,
         start_time: datetime | None | Any = _UNSET,
         end_time: datetime | None | Any = _UNSET,
+        time_zone: str | None | Any = _UNSET,
+        is_all_day: bool | None | Any = _UNSET,
         reminder_offsets: list[int] | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
@@ -381,6 +354,8 @@ class TodoManager(TodoAttachmentMixin):
             "deadline": deadline,
             "start_time": start_time,
             "end_time": end_time,
+            "time_zone": time_zone,
+            "is_all_day": is_all_day,
             "status": status,
             "priority": priority,
             "completed_at": completed_at,
@@ -400,7 +375,7 @@ class TodoManager(TodoAttachmentMixin):
         if related_activities is not _UNSET:
             todo.related_activities = json.dumps(_safe_int_list(related_activities))
 
-    def update_todo(  # noqa: PLR0913
+    def update_todo(  # noqa: PLR0913, C901
         self,
         todo_id: int,
         *,
@@ -411,6 +386,8 @@ class TodoManager(TodoAttachmentMixin):
         deadline: datetime | None | Any = _UNSET,
         start_time: datetime | None | Any = _UNSET,
         end_time: datetime | None | Any = _UNSET,
+        time_zone: str | None | Any = _UNSET,
+        is_all_day: bool | None | Any = _UNSET,
         reminder_offsets: list[int] | None | Any = _UNSET,
         status: str | Any = _UNSET,
         priority: str | Any = _UNSET,
@@ -443,6 +420,10 @@ class TodoManager(TodoAttachmentMixin):
                         if percent_complete is _UNSET:
                             resolved_percent = 0
 
+                if deadline is not _UNSET and start_time is _UNSET:
+                    start_time = deadline
+                    deadline = None
+
                 self._apply_todo_updates(
                     todo,
                     name=name,
@@ -452,6 +433,8 @@ class TodoManager(TodoAttachmentMixin):
                     deadline=deadline,
                     start_time=start_time,
                     end_time=end_time,
+                    time_zone=time_zone,
+                    is_all_day=is_all_day,
                     reminder_offsets=reminder_offsets,
                     status=status,
                     priority=priority,

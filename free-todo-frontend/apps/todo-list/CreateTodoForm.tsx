@@ -17,7 +17,6 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
-	const [deadline, setDeadline] = useState("");
 	const [tags, setTags] = useState("");
 	const [userNotes, setUserNotes] = useState("");
 	const [priority, setPriority] = useState<TodoPriority>("none");
@@ -29,7 +28,6 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 		const input: CreateTodoInput = {
 			name: name.trim(),
 			description: description.trim() || undefined,
-			deadline: deadline || undefined,
 			userNotes: userNotes.trim() || undefined,
 			priority,
 			tags:
@@ -43,7 +41,6 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 			await createTodoMutation.mutateAsync(input);
 			setName("");
 			setDescription("");
-			setDeadline("");
 			setTags("");
 			setUserNotes("");
 			setPriority("none");
@@ -81,22 +78,6 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps) {
 
 				{isExpanded && (
 					<div className="mt-3 space-y-3">
-						<div>
-							<label
-								htmlFor="deadline-input"
-								className="mb-1 block text-xs font-medium text-muted-foreground"
-							>
-								{tTodoList("deadline")}
-							</label>
-							<input
-								id="deadline-input"
-								type="date"
-								value={deadline}
-								onChange={(e) => setDeadline(e.target.value)}
-								className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-							/>
-						</div>
-
 						<div>
 							<label
 								htmlFor="description-input"

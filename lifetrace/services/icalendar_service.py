@@ -103,7 +103,7 @@ class ICalendarService:
 
         return cal.to_ical().decode("utf-8")
 
-    def import_todos(self, ics_content: str) -> list[TodoCreate]:
+    def import_todos(self, ics_content: str) -> list[TodoCreate]:  # noqa: C901
         cal = Calendar.from_ical(ics_content)
         todos: list[TodoCreate] = []
 
@@ -123,6 +123,11 @@ class ICalendarService:
             dtstart = _from_ical_dt(component.get("dtstart"))
             due = _from_ical_dt(component.get("due"))
             completed_at = _from_ical_dt(component.get("completed"))
+
+            start_time = dtstart or due
+            end_time = None
+            if dtstart and due and due > dtstart:
+                end_time = due
 
             percent_complete = _normalize_percent(component.get("percent-complete"))
             status = self._status_from_ical(component.get("status"))
@@ -160,9 +165,11 @@ class ICalendarService:
                     description=description,
                     user_notes=None,
                     parent_todo_id=None,
-                    start_time=dtstart,
-                    deadline=due,
-                    end_time=None,
+                    start_time=start_time,
+                    deadline=None,
+                    end_time=end_time,
+                    time_zone=None,
+                    is_all_day=None,
                     reminder_offsets=None,
                     status=status,
                     priority=priority,
@@ -234,7 +241,7 @@ class ICalendarService:
         _add_optional_text(vtodo, "summary", todo.get("name"))
         _add_optional_text(vtodo, "description", todo.get("description"))
         _add_optional_dt(vtodo, "dtstart", todo.get("start_time"))
-        _add_optional_dt(vtodo, "due", todo.get("deadline"))
+        _add_optional_dt(vtodo, "due", todo.get("end_time") or todo.get("start_time"))
         _add_optional_dt(vtodo, "created", todo.get("created_at"))
         _add_optional_dt(vtodo, "last-modified", todo.get("updated_at"))
         _add_optional_value(vtodo, "status", self._status_to_ical(todo.get("status")))

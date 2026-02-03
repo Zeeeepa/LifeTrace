@@ -46,7 +46,7 @@ export function getHandler(key: HandlerKey): DragDropHandler | undefined {
 
 /**
  * TODO_CARD -> CALENDAR_DATE
- * 将待办拖到日历日期上，设置 deadline
+ * 将待办拖到日历日期上，设置 startTime/endTime
  * 使用乐观更新：先更新前端缓存，再调用 API
  */
 const handleTodoToCalendarDate: DragDropHandler = (
@@ -86,26 +86,27 @@ const handleTodoToCalendarDate: DragDropHandler = (
 		return updated;
 	};
 
-	const existingDeadline = normalizeTodoDate(todo.deadline);
 	const existingStart = normalizeTodoDate(todo.startTime);
 	const existingEnd = normalizeTodoDate(todo.endTime);
-	const shouldUpdateDeadline =
-		Boolean(existingDeadline) || (!existingStart && !existingEnd);
+	const baseStart = existingStart;
+	const durationMs =
+		existingStart && existingEnd
+			? existingEnd.getTime() - existingStart.getTime()
+			: null;
 
-	const newDeadline = shouldUpdateDeadline
-		? existingDeadline
-			? applyDate(date, existingDeadline)
-			: applyDate(date, new Date(0))
-		: null;
-	const newStart = existingStart ? applyDate(date, existingStart) : null;
-	const newEnd = existingEnd ? applyDate(date, existingEnd) : null;
-
-	if (newDeadline && !existingDeadline) {
+	const newStart = baseStart
+		? applyDate(date, baseStart)
+		: applyDate(date, new Date(0));
+	if (!baseStart) {
 		// 默认设置为上午9点
-		newDeadline.setHours(9, 0, 0, 0);
+		newStart.setHours(9, 0, 0, 0);
 	}
+	const newEnd = existingEnd
+		? durationMs !== null
+			? new Date(newStart.getTime() + durationMs)
+			: applyDate(date, existingEnd)
+		: null;
 
-	const newDeadlineStr = newDeadline ? newDeadline.toISOString() : undefined;
 	const newStartStr = newStart ? newStart.toISOString() : undefined;
 	const newEndStr = newEnd ? newEnd.toISOString() : undefined;
 	const queryClient = getQueryClient();
@@ -131,7 +132,6 @@ const handleTodoToCalendarDate: DragDropHandler = (
 							const tRecord = t as unknown as Record<string, unknown>;
 							const updated = {
 								...t,
-								deadline: newDeadlineStr ?? tRecord.deadline,
 							} as Record<string, unknown>;
 							if ("start_time" in tRecord) {
 								updated.start_time = newStartStr ?? tRecord.start_time;
@@ -161,7 +161,6 @@ const handleTodoToCalendarDate: DragDropHandler = (
 						t.id === todo.id
 							? {
 									...t,
-									deadline: newDeadlineStr ?? t.deadline,
 									startTime: newStartStr ?? t.startTime,
 									endTime: newEndStr ?? t.endTime,
 								}
@@ -176,9 +175,8 @@ const handleTodoToCalendarDate: DragDropHandler = (
 
 	// 异步调用 API
 	void updateTodoApiTodosTodoIdPut(todo.id, {
-		...(newDeadlineStr ? { deadline: newDeadlineStr } : {}),
-		...(newStartStr ? { startTime: newStartStr } : {}),
-		...(newEndStr ? { endTime: newEndStr } : {}),
+		...(newStartStr ? { start_time: newStartStr } : {}),
+		...(newEndStr ? { end_time: newEndStr } : {}),
 	})
 		.then(() => {
 			// API 成功后刷新缓存以确保数据一致性
@@ -186,7 +184,7 @@ const handleTodoToCalendarDate: DragDropHandler = (
 		})
 		.catch((error) => {
 			// API 失败时回滚到之前的数据
-			console.error("[DnD] Failed to update deadline:", error);
+			console.error("[DnD] Failed to update schedule:", error);
 			if (previousTodos) {
 				queryClient.setQueryData(queryKeys.todos.list(), previousTodos);
 			}

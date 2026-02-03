@@ -6,6 +6,8 @@ DDL 提醒任务
 import json
 from datetime import datetime, timedelta
 
+from sqlalchemy import or_
+
 from lifetrace.storage import todo_mgr
 from lifetrace.storage.models import Todo
 from lifetrace.storage.notification_storage import (
@@ -50,7 +52,7 @@ def _normalize_reminder_offsets(value: object | None) -> list[int]:
     return []
 
 
-def _parse_notification_deadline(value: str | None) -> datetime | None:
+def _parse_notification_time(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
@@ -95,45 +97,48 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
         now = get_utc_now()
         window_start = now - timedelta(seconds=lookback_seconds)
 
-        # 查询活跃且有 deadline 的待办事项
+        # 查询活跃且有时间的待办事项
         with todo_mgr.db_base.get_session() as session:
             todos = (
                 session.query(Todo)
                 .filter(
                     col(Todo.status) == "active",
-                    col(Todo.deadline).isnot(None),
+                    or_(col(Todo.start_time).isnot(None), col(Todo.deadline).isnot(None)),
                 )
                 .all()
             )
 
             if not todos:
-                logger.debug("没有带截止时间的待办事项")
+                logger.debug("没有带时间的待办事项")
                 return
 
-            logger.info(f"找到 {len(todos)} 个带截止时间的待办事项")
+            logger.info(f"找到 {len(todos)} 个带时间的待办事项")
 
             # 为每个待办生成通知
             for todo in todos:
-                if not todo.deadline:
+                schedule_time = todo.start_time or todo.deadline
+                if not schedule_time:
                     continue
 
-                # 确保 deadline 是 UTC timezone-aware
+                # 确保时间是 UTC timezone-aware
                 # SQLite 存储 datetime 为字符串，SQLAlchemy 读取时为 naive datetime
                 # 由于我们统一使用 UTC 存储，数据库中的 naive datetime 就是 UTC 时间
-                deadline_utc = naive_as_utc(todo.deadline)
+                schedule_utc = naive_as_utc(schedule_time)
 
                 existing_notifications = get_notifications_by_todo_id(todo.id)
                 if existing_notifications:
                     for existing in existing_notifications:
-                        existing_deadline = _parse_notification_deadline(existing.get("deadline"))
+                        existing_time = _parse_notification_time(
+                            existing.get("schedule_time") or existing.get("deadline")
+                        )
                         if (
-                            existing_deadline
-                            and abs((deadline_utc - existing_deadline).total_seconds()) >= 1
+                            existing_time
+                            and abs((schedule_utc - existing_time).total_seconds()) >= 1
                         ):
                             clear_notification_by_todo_id(todo.id)
                             clear_dismissed_mark(todo.id)
                             logger.debug(
-                                "待办 %s 的 deadline 已更新，清理旧通知",
+                                "待办 %s 的时间已更新，清理旧通知",
                                 todo.id,
                             )
                             break
@@ -143,7 +148,7 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
                     continue
 
                 for offset in offsets:
-                    reminder_at = deadline_utc - timedelta(minutes=offset)
+                    reminder_at = schedule_utc - timedelta(minutes=offset)
                     if reminder_at > now or reminder_at < window_start:
                         continue
 
@@ -156,7 +161,7 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
                         continue
 
                     notification_id = f"todo_{todo.id}_reminder_{int(reminder_at.timestamp())}"
-                    remaining = _format_remaining(deadline_utc, now)
+                    remaining = _format_remaining(schedule_utc, now)
                     title = todo.name
                     content = f"还有 {remaining}"
 
@@ -166,17 +171,17 @@ def execute_deadline_reminder_task():  # noqa: C901, PLR0912
                         content=content,
                         timestamp=now,
                         todo_id=todo.id,
-                        deadline=deadline_utc,
+                        schedule_time=schedule_utc,
                         reminder_at=reminder_at,
                         reminder_offset=offset,
                     )
 
                     if added:
                         logger.info(
-                            "生成 DDL 提醒通知: todo_id=%s, name=%s, deadline=%s, offset=%s",
+                            "生成提醒通知: todo_id=%s, name=%s, time=%s, offset=%s",
                             todo.id,
                             todo.name,
-                            deadline_utc,
+                            schedule_utc,
                             offset,
                         )
 

@@ -44,15 +44,22 @@ class TodoService:
 
     def create_todo(self, data: TodoCreate) -> TodoResponse:
         """创建 Todo"""
+        start_time = data.start_time
+        deadline = data.deadline
+        if start_time is None and deadline is not None:
+            start_time = deadline
+            deadline = None
         todo_id = self.repository.create(
             uid=data.uid,
             name=data.name,
             description=data.description,
             user_notes=data.user_notes,
             parent_todo_id=data.parent_todo_id,
-            deadline=data.deadline,
-            start_time=data.start_time,
+            deadline=deadline,
+            start_time=start_time,
             end_time=data.end_time,
+            time_zone=data.time_zone,
+            is_all_day=data.is_all_day,
             reminder_offsets=data.reminder_offsets,
             status=data.status.value if data.status else "active",
             priority=data.priority.value if data.priority else "none",
@@ -88,10 +95,15 @@ class TodoService:
         if "priority" in kwargs and kwargs["priority"] is not None:
             kwargs["priority"] = kwargs["priority"].value
 
+        if "deadline" in kwargs:
+            if "start_time" not in kwargs:
+                kwargs["start_time"] = kwargs["deadline"]
+            kwargs.pop("deadline", None)
+
         if not self.repository.update(todo_id, **kwargs):
             raise HTTPException(status_code=500, detail="更新 todo 失败")
 
-        if "deadline" in fields_set or "reminder_offsets" in fields_set:
+        if "start_time" in fields_set or "reminder_offsets" in fields_set:
             clear_notification_by_todo_id(todo_id)
             clear_dismissed_mark(todo_id)
 

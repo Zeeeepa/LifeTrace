@@ -51,11 +51,13 @@ class TodoCreate(BaseModel):
     description: str | None = Field(None, description="描述")
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID")
-    deadline: datetime | None = Field(None, description="截止时间")
+    deadline: datetime | None = Field(None, description="截止时间（旧字段，逐步废弃）")
     start_time: datetime | None = Field(None, description="开始时间")
     end_time: datetime | None = Field(None, description="结束时间")
+    time_zone: str | None = Field(None, description="时区（IANA）")
+    is_all_day: bool | None = Field(None, description="是否全天")
     reminder_offsets: list[int] | None = Field(
-        None, description="提醒偏移列表（分钟，基于 deadline）"
+        None, description="提醒偏移列表（分钟，基于 start_time）"
     )
     status: TodoStatus = Field(TodoStatus.ACTIVE, description="状态")
     priority: TodoPriority = Field(TodoPriority.NONE, description="优先级")
@@ -74,9 +76,11 @@ class TodoUpdate(BaseModel):
     description: str | None = Field(None, description="描述")
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID（显式传 null 可清空）")
-    deadline: datetime | None = Field(None, description="截止时间（显式传 null 可清空）")
+    deadline: datetime | None = Field(None, description="截止时间（旧字段，显式传 null 可清空）")
     start_time: datetime | None = Field(None, description="开始时间（显式传 null 可清空）")
     end_time: datetime | None = Field(None, description="结束时间（显式传 null 可清空）")
+    time_zone: str | None = Field(None, description="时区（显式传 null 可清空）")
+    is_all_day: bool | None = Field(None, description="是否全天（显式传 null 可清空）")
     reminder_offsets: list[int] | None = Field(
         None, description="提醒偏移列表（分钟，显式传 null 可回退默认）"
     )
@@ -101,11 +105,13 @@ class TodoResponse(BaseModel):
     description: str | None = Field(None, description="描述")
     user_notes: str | None = Field(None, description="用户笔记")
     parent_todo_id: int | None = Field(None, description="父级待办ID")
-    deadline: datetime | None = Field(None, description="截止时间")
+    deadline: datetime | None = Field(None, description="截止时间（旧字段）")
     start_time: datetime | None = Field(None, description="开始时间")
     end_time: datetime | None = Field(None, description="结束时间")
+    time_zone: str | None = Field(None, description="时区（IANA）")
+    is_all_day: bool = Field(False, description="是否全天")
     reminder_offsets: list[int] | None = Field(
-        None, description="提醒偏移列表（分钟，基于 deadline）"
+        None, description="提醒偏移列表（分钟，基于 start_time）"
     )
     status: str = Field(..., description="状态")
     priority: str = Field(..., description="优先级")

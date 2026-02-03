@@ -8,8 +8,11 @@ export type CalendarView = "month" | "week" | "day";
 
 export interface CalendarTodo {
 	todo: Todo;
-	deadline: Date;
+	startTime: Date;
+	endTime?: Date | null;
 	dateKey: string;
+	day: Date;
+	isAllDay?: boolean;
 }
 
 export interface CalendarDay {
@@ -30,11 +33,11 @@ export function getStatusStyle(status: TodoStatus): string {
 	}
 }
 
-export function getDeadlineSeverity(
-	deadline: Date,
+export function getScheduleSeverity(
+	startTime: Date,
 ): "overdue" | "soon" | "normal" {
 	const now = new Date();
-	if (deadline.getTime() < now.getTime()) return "overdue";
-	const diffHours = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60);
+	if (startTime.getTime() < now.getTime()) return "overdue";
+	const diffHours = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 	return diffHours <= 24 ? "soon" : "normal";
 }

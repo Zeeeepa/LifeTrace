@@ -27,44 +27,39 @@ def _parse_datetime(value: str | datetime) -> datetime:
     return value
 
 
-def _check_deadline_conflict(todo: dict, start: datetime, end: datetime, conflicts: list) -> None:
-    """Check if todo's deadline falls within the time range."""
-    deadline = todo.get("deadline")
-    if not deadline:
+def _get_todo_range(todo: dict) -> tuple[datetime, datetime] | None:
+    start_raw = todo.get("start_time") or todo.get("deadline")
+    if not start_raw:
+        return None
+    todo_start = _parse_datetime(start_raw)
+    end_raw = todo.get("end_time")
+    if end_raw:
+        todo_end = _parse_datetime(end_raw)
+    else:
+        todo_end = todo_start + timedelta(hours=DEFAULT_TODO_DURATION_HOURS)
+    return todo_start, todo_end
+
+
+def _check_schedule_conflict(todo: dict, start: datetime, end: datetime, conflicts: list) -> None:
+    """Check if todo schedule overlaps with the specified range."""
+    todo_range = _get_todo_range(todo)
+    if not todo_range:
         return
+    todo_start, todo_end = todo_range
 
-    deadline = _parse_datetime(deadline)
-    if start <= deadline <= end:
-        conflicts.append({"id": todo["id"], "name": todo["name"], "time": deadline})
-
-
-def _check_time_range_conflict(todo: dict, start: datetime, end: datetime, conflicts: list) -> None:
-    """Check if todo's time range overlaps with the specified range."""
-    todo_start = todo.get("start_time")
-    if not todo_start:
-        return
-
-    todo_start = _parse_datetime(todo_start)
-    deadline = todo.get("deadline")
-    todo_end = (
-        _parse_datetime(deadline)
-        if deadline
-        else todo_start + timedelta(hours=DEFAULT_TODO_DURATION_HOURS)
-    )
-
-    # Check for overlap and avoid duplicates
     if start < todo_end and end > todo_start:
         existing_ids = [c["id"] for c in conflicts]
         if todo["id"] not in existing_ids:
-            conflicts.append({"id": todo["id"], "name": todo["name"], "time": todo_start})
+            conflicts.append(
+                {"id": todo["id"], "name": todo["name"], "start": todo_start, "end": todo_end}
+            )
 
 
 def _find_conflicts(todos: list, start: datetime, end: datetime) -> list:
     """Find all conflicting todos within the time range."""
     conflicts = []
     for todo in todos:
-        _check_deadline_conflict(todo, start, end, conflicts)
-        _check_time_range_conflict(todo, start, end, conflicts)
+        _check_schedule_conflict(todo, start, end, conflicts)
     return conflicts
 
 
@@ -87,8 +82,8 @@ class ConflictTools:
                 "conflict_item",
                 id=c["id"],
                 name=c["name"],
-                start=c["time"].strftime("%H:%M") if c["time"] else "N/A",
-                end="",
+                start=c["start"].strftime("%H:%M") if c.get("start") else "N/A",
+                end=c["end"].strftime("%H:%M") if c.get("end") else "",
             )
             for c in conflicts
         ]
