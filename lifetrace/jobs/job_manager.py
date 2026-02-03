@@ -374,22 +374,22 @@ class JobManager:
             if not scheduler:
                 return
 
-            # 添加到调度器（无论是否启用都添加）
-            interval = settings.get("jobs.deadline_reminder.interval")
-            reminder_id = settings.get("jobs.deadline_reminder.id")
-            scheduler.add_interval_job(
-                func=_execute_deadline_reminder_task,
-                job_id="deadline_reminder_job",
-                name=reminder_id,
-                seconds=interval,
-                replace_existing=True,
-            )
-            logger.info(f"DDL 提醒定时任务已添加，间隔: {interval}秒")
+            # 清理旧的定时扫描任务（历史遗留）
+            if scheduler.get_job("deadline_reminder_job"):
+                scheduler.remove_job("deadline_reminder_job")
+                logger.info("已移除旧的 DDL 提醒扫描任务")
 
-            # 如果未启用，则暂停任务
             if not enabled:
-                scheduler.pause_job("deadline_reminder_job")
-                logger.info("DDL 提醒服务未启用，已暂停")
+                from lifetrace.jobs.deadline_reminder import clear_all_todo_reminder_jobs
+
+                clear_all_todo_reminder_jobs()
+                logger.info("DDL 提醒服务未启用，已清理提醒任务")
+                return
+
+            from lifetrace.jobs.deadline_reminder import sync_all_todo_reminders
+
+            sync_all_todo_reminders()
+            logger.info("DDL 提醒任务已同步")
         except Exception as e:
             logger.error(f"启动 DDL 提醒任务失败: {e}", exc_info=True)
 

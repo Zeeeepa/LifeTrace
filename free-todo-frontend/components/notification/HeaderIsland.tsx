@@ -58,25 +58,25 @@ function formatCurrentTime(t: ReturnType<typeof useTranslations>): {
 
 export function HeaderIsland() {
 	const {
-		currentNotification,
+		notifications,
 		isExpanded,
 		toggleExpanded,
-		setNotification,
+		removeNotification,
+		removeNotificationsBySource,
 		setExpanded,
 	} = useNotificationStore();
 	const t = useTranslations("todoExtraction");
+	const tLayout = useTranslations("layout");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [currentTime, setCurrentTime] = useState(() => formatCurrentTime(t));
 	const updateTodoMutation = useUpdateTodo();
 	const isProcessing = updateTodoMutation.isPending;
 
+	const currentNotification = notifications[0] ?? null;
+	const notificationCount = notifications.length;
+
 	// 使用共享的打开设置 hook
 	const { openSettings } = useOpenSettings();
-
-	// 检查是否是 draft todo 通知
-	const isDraftTodo =
-		currentNotification?.source === "draft-todos" &&
-		currentNotification?.todoId;
 
 	// 检查是否是 LLM 配置通知
 	const isLlmConfigNotification = currentNotification?.source === "llm-config";
@@ -98,7 +98,7 @@ export function HeaderIsland() {
 
 	// 点击外部关闭
 	useEffect(() => {
-		if (!isExpanded || !currentNotification) return;
+		if (!isExpanded || notifications.length === 0) return;
 
 		const handleClickOutside = (event: MouseEvent) => {
 			if (
@@ -113,38 +113,39 @@ export function HeaderIsland() {
 		return () => {
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
-	}, [isExpanded, currentNotification]);
+	}, [isExpanded, notifications.length]);
 
-	const handleClose = async (e: React.MouseEvent) => {
-		e.stopPropagation();
-
-		// 如果有通知ID，先尝试删除后端通知
-		if (currentNotification?.id) {
+	const closeNotification = async (notificationId: string, source?: string) => {
+		if (source === "ddl-reminder" && notificationId) {
 			try {
-				await deleteNotificationApiNotificationsNotificationIdDelete(currentNotification.id);
+				await deleteNotificationApiNotificationsNotificationIdDelete(notificationId);
 			} catch (error) {
 				// 静默处理错误，即使删除失败也关闭前端通知
 				console.warn("Failed to delete notification from backend:", error);
 			}
 		}
 
-		// 关闭前端通知显示
-		setNotification(null);
-		setExpanded(false);
+		removeNotification(notificationId);
+		if (useNotificationStore.getState().notifications.length === 0) {
+			setExpanded(false);
+		}
 	};
 
 	// 同意 draft todo
-	const handleAccept = async (e: React.MouseEvent) => {
+	const handleAccept = async (
+		todoId: number | undefined,
+		e: React.MouseEvent,
+	) => {
 		e.stopPropagation();
-		if (!isDraftTodo || !currentNotification?.todoId || isProcessing) return;
+		if (!todoId || isProcessing) return;
 
 		try {
 			await updateTodoMutation.mutateAsync({
-				id: currentNotification.todoId,
+				id: todoId,
 				input: { status: "active" },
 			});
 			toastSuccess(t("acceptSuccess"));
-			setNotification(null);
+			removeNotificationsBySource("draft-todos");
 			setExpanded(false);
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : String(error);
@@ -154,7 +155,7 @@ export function HeaderIsland() {
 				errorMsg.includes("Not Found") ||
 				errorMsg.includes("不存在")
 			) {
-				setNotification(null);
+				removeNotificationsBySource("draft-todos");
 				setExpanded(false);
 				return;
 			}
@@ -163,17 +164,20 @@ export function HeaderIsland() {
 	};
 
 	// 拒绝 draft todo
-	const handleReject = async (e: React.MouseEvent) => {
+	const handleReject = async (
+		todoId: number | undefined,
+		e: React.MouseEvent,
+	) => {
 		e.stopPropagation();
-		if (!isDraftTodo || !currentNotification?.todoId || isProcessing) return;
+		if (!todoId || isProcessing) return;
 
 		try {
 			await updateTodoMutation.mutateAsync({
-				id: currentNotification.todoId,
+				id: todoId,
 				input: { status: "canceled" },
 			});
 			toastSuccess(t("rejectSuccess"));
-			setNotification(null);
+			removeNotificationsBySource("draft-todos");
 			setExpanded(false);
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : String(error);
@@ -183,7 +187,7 @@ export function HeaderIsland() {
 				errorMsg.includes("Not Found") ||
 				errorMsg.includes("不存在")
 			) {
-				setNotification(null);
+				removeNotificationsBySource("draft-todos");
 				setExpanded(false);
 				return;
 			}
@@ -215,12 +219,11 @@ export function HeaderIsland() {
 					// 有通知时显示通知内容
 					<motion.div
 						onClick={() => {
-							if (isLlmConfigNotification) {
-								// LLM 配置通知点击时打开设置
+							if (!isExpanded && isLlmConfigNotification) {
 								openSettings();
-							} else {
-								toggleExpanded();
+								return;
 							}
+							toggleExpanded();
 						}}
 						whileHover={{
 							scale: 1.02,
@@ -234,11 +237,11 @@ export function HeaderIsland() {
 						onKeyDown={(e) => {
 							if (e.key === "Enter" || e.key === " ") {
 								e.preventDefault();
-								if (isLlmConfigNotification) {
+								if (!isExpanded && isLlmConfigNotification) {
 									openSettings();
-								} else {
-									toggleExpanded();
+									return;
 								}
+								toggleExpanded();
 							}
 						}}
 						className={`
@@ -274,16 +277,16 @@ export function HeaderIsland() {
 										transition={
 											isLlmConfigNotification
 												? {
-														duration: 2,
-														repeat: Infinity,
-														ease: "linear",
-													}
+													duration: 2,
+													repeat: Infinity,
+													ease: "linear",
+												}
 												: {
-														duration: 0.5,
-														repeat: Infinity,
-														repeatDelay: 2,
-														ease: "easeInOut",
-													}
+													duration: 0.5,
+													repeat: Infinity,
+													repeatDelay: 2,
+													ease: "easeInOut",
+												}
 										}
 									>
 										{isLlmConfigNotification ? (
@@ -301,117 +304,156 @@ export function HeaderIsland() {
 											</span>
 										)}
 									</span>
+									{notificationCount > 1 && (
+										<span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+											{notificationCount}
+										</span>
+									)}
 								</motion.div>
 							) : (
-								// 展开状态：显示完整内容（横向布局）
+								// 展开状态：显示完整列表
 								<motion.div
 									key="expanded"
 									initial={{ opacity: 0, scale: 0.95 }}
 									animate={{ opacity: 1, scale: 1 }}
 									exit={{ opacity: 0, scale: 0.95 }}
 									transition={{ duration: 0.2 }}
-									className="flex items-center gap-3 w-full"
+									className="flex flex-col gap-2 w-full max-h-[60vh] overflow-y-auto"
 								>
-									{/* 左侧：图标 */}
-									{isLlmConfigNotification ? (
-										<Settings className="h-4 w-4 text-amber-500 shrink-0" />
-									) : (
-										<Bell className="h-4 w-4 text-primary shrink-0" />
-									)}
-									{/* 中间：待办标题和时间信息（一行显示） */}
-									<div className="flex-1 min-w-0 flex items-center gap-2">
-										<h3 className="text-sm font-semibold text-foreground truncate max-w-[500px]">
-											{currentNotification.title || t("newNotification")}
-											{currentNotification.content && (
-												<span className="text-muted-foreground/70">
-													{" "}
-													（{currentNotification.content}）
-												</span>
-											)}
-										</h3>
-									</div>
-									{/* 时间戳 */}
-									{currentNotification.timestamp && (
-										<span className="text-xs text-muted-foreground/70 shrink-0 whitespace-nowrap">
-											{formatTime(currentNotification.timestamp, t)}
-										</span>
-									)}
-									{/* Draft Todo 操作按钮 */}
-									{isDraftTodo && (
-										<div className="flex items-center gap-2 shrink-0 border-l border-border/50 pl-3">
-											<motion.button
-												type="button"
-												onClick={handleAccept}
-												disabled={isProcessing}
-												whileHover={!isProcessing ? { scale: 1.05 } : {}}
-												whileTap={!isProcessing ? { scale: 0.95 } : {}}
-												className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-												aria-label={t("accept")}
+									{notifications.map((notification) => {
+										const isDraftTodo =
+											notification.source === "draft-todos" &&
+											notification.todoId;
+										const isLlmConfig =
+											notification.source === "llm-config";
+
+										return (
+											<div
+												key={notification.id}
+												className="flex items-center gap-3 w-full border border-border/40 rounded-2xl px-3 py-2 bg-background/80"
 											>
-												{isProcessing ? (
-													<>
-														<motion.div
-															animate={{ rotate: 360 }}
-															transition={{
-																duration: 1,
-																repeat: Infinity,
-																ease: "linear",
-															}}
-														>
-															<Clock className="h-4 w-4" />
-														</motion.div>
-														<span>{t("accepting")}</span>
-													</>
+												{isLlmConfig ? (
+													<Settings className="h-4 w-4 text-amber-500 shrink-0" />
 												) : (
-													<>
-														<Check className="h-4 w-4" />
-														<span>{t("accept")}</span>
-													</>
+													<Bell className="h-4 w-4 text-primary shrink-0" />
 												)}
-											</motion.button>
-											<motion.button
-												type="button"
-												onClick={handleReject}
-												disabled={isProcessing}
-												whileHover={!isProcessing ? { scale: 1.05 } : {}}
-												whileTap={!isProcessing ? { scale: 0.95 } : {}}
-												className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-												aria-label={t("reject")}
-											>
-												{isProcessing ? (
-													<>
-														<motion.div
-															animate={{ rotate: 360 }}
-															transition={{
-																duration: 1,
-																repeat: Infinity,
-																ease: "linear",
-															}}
+												<div className="flex-1 min-w-0 flex items-center gap-2">
+													<h3 className="text-sm font-semibold text-foreground truncate max-w-[500px]">
+														{notification.title || t("newNotification")}
+														{notification.content && (
+															<span className="text-muted-foreground/70">
+																{" "}
+																（{notification.content}）
+															</span>
+														)}
+													</h3>
+												</div>
+												{notification.timestamp && (
+													<span className="text-xs text-muted-foreground/70 shrink-0 whitespace-nowrap">
+														{formatTime(notification.timestamp, t)}
+													</span>
+												)}
+												{isLlmConfig && (
+													<motion.button
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															openSettings();
+														}}
+														whileHover={{ scale: 1.05 }}
+														whileTap={{ scale: 0.95 }}
+														className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600"
+													>
+														{tLayout("openSettings")}
+													</motion.button>
+												)}
+												{isDraftTodo && (
+													<div className="flex items-center gap-2 shrink-0 border-l border-border/50 pl-3">
+														<motion.button
+															type="button"
+															onClick={(e) =>
+															handleAccept(notification.todoId, e)
+														}
+															disabled={isProcessing}
+															whileHover={!isProcessing ? { scale: 1.05 } : {}}
+															whileTap={!isProcessing ? { scale: 0.95 } : {}}
+															className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+															aria-label={t("accept")}
 														>
-															<Clock className="h-4 w-4" />
-														</motion.div>
-														<span>{t("rejecting")}</span>
-													</>
-												) : (
-													<>
-														<X className="h-4 w-4" />
-														<span>{t("reject")}</span>
-													</>
+															{isProcessing ? (
+																<>
+																	<motion.div
+																		animate={{ rotate: 360 }}
+																		transition={{
+																			duration: 1,
+																			repeat: Infinity,
+																			ease: "linear",
+																		}}
+																	>
+																		<Clock className="h-4 w-4" />
+																	</motion.div>
+																	<span>{t("accepting")}</span>
+																</>
+																) : (
+																	<>
+																		<Check className="h-4 w-4" />
+																		<span>{t("accept")}</span>
+																	</>
+																)}
+															</motion.button>
+														<motion.button
+															type="button"
+															onClick={(e) =>
+															handleReject(notification.todoId, e)
+														}
+															disabled={isProcessing}
+															whileHover={!isProcessing ? { scale: 1.05 } : {}}
+															whileTap={!isProcessing ? { scale: 0.95 } : {}}
+															className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+															aria-label={t("reject")}
+														>
+															{isProcessing ? (
+																<>
+																	<motion.div
+																		animate={{ rotate: 360 }}
+																		transition={{
+																			duration: 1,
+																			repeat: Infinity,
+																			ease: "linear",
+																		}}
+																	>
+																		<Clock className="h-4 w-4" />
+																	</motion.div>
+																	<span>{t("rejecting")}</span>
+																</>
+																) : (
+																	<>
+																		<X className="h-4 w-4" />
+																		<span>{t("reject")}</span>
+																	</>
+																)}
+															</motion.button>
+													</div>
 												)}
-											</motion.button>
-										</div>
-									)}
-									{/* 关闭按钮 */}
-									<motion.button
-										type="button"
-										onClick={handleClose}
-										whileHover={{ scale: 1.1, rotate: 90 }}
-										whileTap={{ scale: 0.9 }}
-										className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ml-1"
-										aria-label={t("closeNotification")}
-									>
-										<X className="h-3.5 w-3.5" />
-									</motion.button>
+												<motion.button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														closeNotification(
+															notification.id,
+															notification.source,
+														);
+													}}
+													whileHover={{ scale: 1.1, rotate: 90 }}
+													whileTap={{ scale: 0.9 }}
+													className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ml-1"
+													aria-label={t("closeNotification")}
+												>
+													<X className="h-3.5 w-3.5" />
+												</motion.button>
+											</div>
+										);
+									})}
 								</motion.div>
 							)}
 						</AnimatePresence>

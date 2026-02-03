@@ -41,13 +41,13 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false, onDragSta
   const [isPinned, setIsPinned] = useState(true);
 
   // 获取当前通知状态
-  const { currentNotification } = useNotificationStore();
+  const { notifications } = useNotificationStore();
 
   // 检测是否为 Electron 环境
   const isElectron = typeof window !== "undefined" && !!window.electronAPI;
 
   // 显示通知岛的条件：有通知 且 在 Electron 环境（匹配原设计）
-  const showNotification = currentNotification && isElectron;
+  const showNotification = notifications.length > 0 && isElectron;
 
   // 显示工具按钮的条件：全屏模式 或 侧边栏已展开到 2+ 栏（宽度足够）
   const shouldShowTools = isFullscreen || (isSidebar && isExpanded);

@@ -95,17 +95,19 @@ def get_latest_notification() -> dict[str, Any] | None:
     Returns:
         最新通知的字典，如果没有通知则返回 None
     """
-    if not _notifications:
-        return None
+    notifications = get_notifications()
+    return notifications[0] if notifications else None
 
-    # 按时间戳排序，返回最新的
-    sorted_notifications = sorted(
+
+def get_notifications() -> list[dict[str, Any]]:
+    """获取所有通知（按时间倒序）"""
+    if not _notifications:
+        return []
+    return sorted(
         _notifications.values(),
         key=lambda x: x.get("timestamp", ""),
         reverse=True,
     )
-
-    return sorted_notifications[0] if sorted_notifications else None
 
 
 def get_notification(notification_id: str) -> dict[str, Any] | None:
