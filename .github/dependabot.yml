@@ -9,21 +9,6 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "dev"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-251205"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-liji"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev_backup_20251121"
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -33,21 +18,6 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "dev"
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-251205"
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-liji"
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev_backup_20251121"
   - package-ecosystem: "npm"
     directory: "/free-todo-frontend"
     schedule:
@@ -57,18 +27,3 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "dev"
-  - package-ecosystem: "npm"
-    directory: "/free-todo-frontend"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-251205"
-  - package-ecosystem: "npm"
-    directory: "/free-todo-frontend"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev-liji"
-  - package-ecosystem: "npm"
-    directory: "/free-todo-frontend"
-    schedule:
-      interval: "weekly"
-    target-branch: "dev_backup_20251121"
