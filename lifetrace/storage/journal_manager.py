@@ -29,6 +29,7 @@ class JournalManager:
         tag_list = [{"id": t.id, "tag_name": t.tag_name} for t in tags] if tags is not None else []
         return {
             "id": journal.id,
+            "uid": journal.uid,
             "name": journal.name,
             "user_notes": journal.user_notes,
             "date": journal.date,
@@ -71,6 +72,7 @@ class JournalManager:
     def create_journal(
         self,
         *,
+        uid: str | None = None,
         name: str,
         user_notes: str,
         date,
@@ -80,12 +82,15 @@ class JournalManager:
         """创建日记"""
         try:
             with self.db_base.get_session() as session:
-                journal = Journal(
-                    name=name,
-                    user_notes=user_notes,
-                    date=date,
-                    content_format=content_format or "markdown",
-                )
+                journal_data = {
+                    "name": name,
+                    "user_notes": user_notes,
+                    "date": date,
+                    "content_format": content_format or "markdown",
+                }
+                if uid:
+                    journal_data["uid"] = uid
+                journal = Journal(**journal_data)
                 session.add(journal)
                 session.flush()
                 if journal.id is None:

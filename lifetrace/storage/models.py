@@ -192,6 +192,9 @@ class Journal(TimestampMixin, table=True):
     __tablename__: ClassVar[str] = "journals"
 
     id: int | None = Field(default=None, primary_key=True)
+    uid: str = Field(
+        default_factory=lambda: str(uuid4()), max_length=64, index=True
+    )  # iCalendar UID
     name: str = Field(max_length=200)  # 日记标题
     user_notes: str = Field(sa_column=Column(Text))  # 富文本内容
     date: datetime  # 日记日期

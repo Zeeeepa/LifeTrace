@@ -15,6 +15,7 @@ class JournalTag(BaseModel):
 class JournalCreate(BaseModel):
     """创建日记请求模型"""
 
+    uid: str | None = Field(None, max_length=64, description="iCalendar UID")
     name: str = Field(..., min_length=1, max_length=200, description="日记标题")
     user_notes: str = Field(..., description="日记内容（富文本）")
     date: datetime = Field(..., description="日记日期")
@@ -40,6 +41,7 @@ class JournalResponse(BaseModel):
     """日记响应模型"""
 
     id: int = Field(..., description="日记ID")
+    uid: str = Field(..., description="iCalendar UID")
     name: str = Field(..., description="日记标题")
     user_notes: str = Field(..., description="日记内容（富文本）")
     date: datetime = Field(..., description="日记日期")

@@ -243,6 +243,12 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_journals_deleted_at ON journals(deleted_at)",
                     ),
                     (
+                        "idx_journals_uid",
+                        "journals",
+                        ["uid"],
+                        "CREATE INDEX IF NOT EXISTS idx_journals_uid ON journals(uid)",
+                    ),
+                    (
                         "idx_journal_tag_relations_journal_id",
                         "journal_tag_relations",
                         ["journal_id"],

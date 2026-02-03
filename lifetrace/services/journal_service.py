@@ -50,6 +50,7 @@ class JournalService:
     def create_journal(self, data: JournalCreate) -> JournalResponse:
         """创建日记"""
         journal_id = self.repository.create(
+            uid=data.uid,
             name=data.name,
             user_notes=data.user_notes,
             date=data.date,
