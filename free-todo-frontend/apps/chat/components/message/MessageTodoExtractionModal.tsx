@@ -12,6 +12,7 @@ interface ExtractedTodo {
 	name: string;
 	description?: string | null;
 	tags: string[];
+	startTime?: string | null;
 	deadline?: string | null;
 	rawTime?: string | null;
 	key?: string;
@@ -79,7 +80,7 @@ export function MessageTodoExtractionModal({
 		setSelectedTodos(newSelected);
 	};
 
-	const normalizeDeadline = (value?: string | null): string | undefined => {
+	const normalizeScheduleTime = (value?: string | null): string | undefined => {
 		if (!value) return undefined;
 		const parsed = Date.parse(value);
 		if (Number.isNaN(parsed)) return undefined;
@@ -105,14 +106,16 @@ export function MessageTodoExtractionModal({
 				const userNotesParts = [
 					todo.rawTime ? `时间: ${todo.rawTime}` : null,
 				].filter(Boolean);
-				const safeDeadline = normalizeDeadline(todo.deadline);
+				const safeStartTime = normalizeScheduleTime(
+					todo.startTime ?? todo.deadline,
+				);
 				const created = await createTodoMutation.mutateAsync({
 					name: todo.name,
 					description: todo.description || undefined,
 					tags: todo.tags,
 					status: "draft",
 					parentTodoId: parentTodoId,
-					deadline: safeDeadline,
+					startTime: safeStartTime,
 					userNotes: userNotesParts.length > 0 ? userNotesParts.join("\n") : undefined,
 				});
 				createdTodos.push(created);

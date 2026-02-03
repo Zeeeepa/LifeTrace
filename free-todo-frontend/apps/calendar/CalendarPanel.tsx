@@ -11,8 +11,8 @@ import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
+import { normalizeReminderOffsets } from "@/lib/reminders";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { QuickCreatePopover } from "./components/QuickCreatePopover";
 import { useMonthScroll } from "./hooks/useMonthScroll";
@@ -23,7 +23,7 @@ import {
 	DEFAULT_NEW_TIME,
 	endOfDay,
 	getWeekOfYear,
-	parseDeadline,
+	parseScheduleTime,
 	startOfDay,
 	startOfMonth,
 	startOfWeek,
@@ -50,6 +50,9 @@ export function CalendarPanel() {
 	const [quickTargetDate, setQuickTargetDate] = useState<Date | null>(null);
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
+	const [quickReminderOffsets, setQuickReminderOffsets] = useState<number[]>(
+		normalizeReminderOffsets(undefined),
+	);
 	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
 	const {
 		monthItems,
@@ -98,32 +101,45 @@ export function CalendarPanel() {
 		return { start, end };
 	}, [currentDate, monthItems, view]);
 
-	const todosWithDeadline: CalendarTodo[] = useMemo(() => {
-		return todos
-			.map((todo: Todo) => {
-				const parsed = parseDeadline(todo.deadline);
-				if (!parsed) return null;
-				return {
+	const todosWithSchedule: CalendarTodo[] = useMemo(() => {
+		const items: CalendarTodo[] = [];
+		for (const todo of todos) {
+			const startRaw = todo.startTime ?? todo.endTime;
+			const startTime = parseScheduleTime(startRaw);
+			if (!startTime) continue;
+			const endTime = parseScheduleTime(todo.endTime ?? undefined);
+			const startDay = startOfDay(startTime);
+			const endDay = startOfDay(endTime ?? startTime);
+			for (
+				let day = startDay;
+				day.getTime() <= endDay.getTime();
+				day = addDays(day, 1)
+			) {
+				const dayValue = new Date(day);
+				items.push({
 					todo,
-					deadline: parsed,
-					dateKey: toDateKey(parsed),
-				};
-			})
-			.filter((item): item is CalendarTodo => item !== null)
-			.sort(
-				(a: CalendarTodo, b: CalendarTodo) =>
-					a.deadline.getTime() - b.deadline.getTime(),
-			);
+					startTime,
+					endTime,
+					dateKey: toDateKey(dayValue),
+					day: dayValue,
+					isAllDay: todo.isAllDay ?? false,
+				});
+			}
+		}
+		return items.sort(
+			(a: CalendarTodo, b: CalendarTodo) =>
+				a.startTime.getTime() - b.startTime.getTime(),
+		);
 	}, [todos]);
 
 	const todosInRange = useMemo(
 		() =>
-			todosWithDeadline.filter(
+			todosWithSchedule.filter(
 				(item) =>
-					item.deadline.getTime() >= range.start.getTime() &&
-					item.deadline.getTime() <= range.end.getTime(),
+					item.day.getTime() >= range.start.getTime() &&
+					item.day.getTime() <= range.end.getTime(),
 			),
-		[range.end, range.start, todosWithDeadline],
+		[range.end, range.start, todosWithSchedule],
 	);
 
 	const groupedByDay = useMemo(() => {
@@ -184,17 +200,19 @@ export function CalendarPanel() {
 	const handleQuickCreate = async () => {
 		if (!quickTargetDate || !quickTitle.trim()) return;
 		const [hh, mm] = quickTime.split(":").map((n) => Number.parseInt(n, 10));
-		const deadline = startOfDay(quickTargetDate);
-		deadline.setHours(hh || 0, mm || 0, 0, 0);
+		const startTime = startOfDay(quickTargetDate);
+		startTime.setHours(hh || 0, mm || 0, 0, 0);
 		try {
 			await createTodoMutation.mutateAsync({
 				name: quickTitle.trim(),
-				deadline: deadline.toISOString(),
+				startTime: startTime.toISOString(),
+				reminderOffsets: quickReminderOffsets,
 				status: "active",
 			});
 			setQuickTitle("");
 			setQuickTargetDate(null);
 			setQuickAnchorRect(null);
+			setQuickReminderOffsets(normalizeReminderOffsets(undefined));
 		} catch (err) {
 			console.error("Failed to create todo:", err);
 		}
@@ -209,6 +227,7 @@ export function CalendarPanel() {
 			setQuickTargetDate(null);
 			setQuickTitle("");
 			setQuickAnchorRect(null);
+			setQuickReminderOffsets(normalizeReminderOffsets(undefined));
 		};
 
 		return createPortal(
@@ -231,8 +250,10 @@ export function CalendarPanel() {
 						targetDate={quickTargetDate}
 						value={quickTitle}
 						time={quickTime}
+						reminderOffsets={quickReminderOffsets}
 						onChange={setQuickTitle}
 						onTimeChange={setQuickTime}
+						onReminderChange={setQuickReminderOffsets}
 						onConfirm={handleQuickCreate}
 						onCancel={closePopover}
 					/>
@@ -344,10 +365,10 @@ export function CalendarPanel() {
 				ref={monthScrollRef}
 				className="flex-1 overflow-y-auto bg-background p-3"
 			>
-				{view !== "day" && (
-					<div className="grid grid-cols-7">
-						{WEEKDAY_LABELS.map((label) => (
-							<span
+					{view === "month" && (
+						<div className="grid grid-cols-7">
+							{WEEKDAY_LABELS.map((label) => (
+								<span
 								key={label}
 								className="py-2 text-center text-xs font-medium text-muted-foreground"
 							>
@@ -381,27 +402,16 @@ export function CalendarPanel() {
 					{view === "week" && (
 						<WeekView
 							currentDate={currentDate}
-							groupedByDay={groupedByDay}
+							todos={todos}
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
-							renderQuickCreate={(date) =>
-								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
-							}
 						/>
 					)}
 					{view === "day" && (
 						<DayView
 							currentDate={currentDate}
-							todos={todosInRange}
-							onBlankClick={() => {
-								setQuickTargetDate(startOfDay(currentDate));
-								setQuickAnchorRect(null);
-							}}
-							quickCreateSlot={renderQuickCreate(
-								currentDate,
-								"absolute right-3 top-3 z-20 w-96 max-w-[90vw]",
-							)}
+							todos={todos}
 						/>
 					)}
 				</div>

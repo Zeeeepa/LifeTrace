@@ -43,7 +43,7 @@ class AudioExtractionService:
         base = "|".join(
             [
                 str(item.get("source_text") or ""),
-                str(item.get("deadline") or item.get("time") or ""),
+                str(item.get("start_time") or item.get("deadline") or item.get("time") or ""),
             ]
         )
         digest = hashlib.sha1(base.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
@@ -69,7 +69,7 @@ class AudioExtractionService:
                 "|".join(
                     [
                         str(it2.get("source_text") or ""),
-                        str(it2.get("deadline") or it2.get("time") or ""),
+                        str(it2.get("start_time") or it2.get("deadline") or it2.get("time") or ""),
                     ]
                 ),
             )

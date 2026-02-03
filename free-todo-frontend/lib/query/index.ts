@@ -11,6 +11,15 @@ export {
 	useEvents,
 	useEventsList,
 } from "./activities";
+// Automation Hooks
+export {
+	useAutomationTasks,
+	useCreateAutomationTask,
+	useDeleteAutomationTask,
+	useRunAutomationTask,
+	useToggleAutomationTask,
+	useUpdateAutomationTask,
+} from "./automation";
 // Chat Hooks
 export { useChatHistory, useChatSessions } from "./chat";
 // Config Hooks

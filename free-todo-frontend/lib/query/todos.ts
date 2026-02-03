@@ -35,16 +35,17 @@ const normalizeStatus = (status: unknown): TodoStatus => {
 	return "active";
 };
 
-function normalizeDeadline(
-	deadline?: string | null,
+function normalizeDateTimeValue(
+	value?: string | null,
 ): string | null | undefined {
-	// 如果 deadline 为 null 或 undefined，返回 null（显式清空）
-	if (deadline === null || deadline === undefined) return null;
+	// undefined 表示不更新；null 表示显式清空
+	if (value === undefined) return undefined;
+	if (value === null) return null;
 	// 兼容 <input type="date"> 的 YYYY-MM-DD（后端期望 datetime）
-	if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
-		return `${deadline}T00:00:00`;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		return `${value}T00:00:00`;
 	}
-	return deadline;
+	return value;
 }
 
 /**
@@ -55,13 +56,37 @@ function normalizeTodo(raw: Record<string, unknown>): Todo {
 	return {
 		id: raw.id as number,
 		name: raw.name as string,
+		summary: (raw.summary as string) ?? undefined,
 		description: (raw.description as string) ?? undefined,
 		userNotes: (raw.userNotes as string) ?? undefined,
 		status: normalizeStatus(raw.status),
 		priority: normalizePriority(raw.priority),
+		itemType: (raw.itemType as string) ?? undefined,
+		location: (raw.location as string) ?? undefined,
+		categories: (raw.categories as string) ?? undefined,
+		classification: (raw.classification as string) ?? undefined,
 		deadline: (raw.deadline as string) ?? undefined,
 		startTime: (raw.startTime as string) ?? undefined,
 		endTime: (raw.endTime as string) ?? undefined,
+		dtstart: (raw.dtstart as string) ?? undefined,
+		dtend: (raw.dtend as string) ?? undefined,
+		due: (raw.due as string) ?? undefined,
+		duration: (raw.duration as string) ?? undefined,
+		timeZone: (raw.timeZone as string) ?? undefined,
+		tzid: (raw.tzid as string) ?? undefined,
+		isAllDay: (raw.isAllDay as boolean) ?? undefined,
+		dtstamp: (raw.dtstamp as string) ?? undefined,
+		created: (raw.created as string) ?? undefined,
+		lastModified: (raw.lastModified as string) ?? undefined,
+		sequence: (raw.sequence as number) ?? undefined,
+		rdate: (raw.rdate as string) ?? undefined,
+		exdate: (raw.exdate as string) ?? undefined,
+		recurrenceId: (raw.recurrenceId as string) ?? undefined,
+		relatedToUid: (raw.relatedToUid as string) ?? undefined,
+		relatedToReltype: (raw.relatedToReltype as string) ?? undefined,
+		icalStatus: (raw.icalStatus as string) ?? undefined,
+		reminderOffsets: (raw.reminderOffsets as number[] | null) ?? undefined,
+		rrule: (raw.rrule as string | null) ?? undefined,
 		order: (raw.order as number) ?? 0,
 		tags: (raw.tags as string[]) ?? [],
 		attachments: (raw.attachments as Todo["attachments"]) ?? [],
@@ -70,6 +95,8 @@ function normalizeTodo(raw: Record<string, unknown>): Todo {
 				? null
 				: (raw.parentTodoId as number),
 		relatedActivities: (raw.relatedActivities as number[]) ?? [],
+		completedAt: (raw.completedAt as string) ?? undefined,
+		percentComplete: (raw.percentComplete as number) ?? undefined,
 		createdAt: raw.createdAt as string,
 		updatedAt: raw.updatedAt as string,
 	};
@@ -133,14 +160,40 @@ export function useCreateTodo() {
 			// and snake_case -> camelCase for response
 			const payload = {
 				name: input.name,
+				summary: input.summary,
 				description: input.description,
 				userNotes: input.userNotes,
 				parentTodoId: input.parentTodoId ?? null,
-				deadline: normalizeDeadline(input.deadline),
-				startTime: input.startTime,
-				endTime: input.endTime,
+				itemType: input.itemType,
+				location: input.location,
+				categories: input.categories,
+				classification: input.classification,
+				deadline: normalizeDateTimeValue(input.deadline),
+				startTime: normalizeDateTimeValue(input.startTime),
+				endTime: normalizeDateTimeValue(input.endTime),
+				dtstart: normalizeDateTimeValue(input.dtstart),
+				dtend: normalizeDateTimeValue(input.dtend),
+				due: normalizeDateTimeValue(input.due),
+				duration: input.duration,
+				timeZone: input.timeZone,
+				tzid: input.tzid,
+				isAllDay: input.isAllDay,
+				dtstamp: normalizeDateTimeValue(input.dtstamp),
+				created: normalizeDateTimeValue(input.created),
+				lastModified: normalizeDateTimeValue(input.lastModified),
+				sequence: input.sequence,
+				rdate: input.rdate,
+				exdate: input.exdate,
+				recurrenceId: normalizeDateTimeValue(input.recurrenceId),
+				relatedToUid: input.relatedToUid,
+				relatedToReltype: input.relatedToReltype,
+				icalStatus: input.icalStatus,
+				reminderOffsets: input.reminderOffsets,
+				rrule: input.rrule,
 				status: input.status ?? "active",
 				priority: input.priority ?? "none",
+				completedAt: normalizeDateTimeValue(input.completedAt),
+				percentComplete: input.percentComplete,
 				order: input.order ?? 0,
 				tags: input.tags ?? [],
 				relatedActivities: input.relatedActivities ?? [],
@@ -205,10 +258,21 @@ export function useUpdateTodo() {
 						}
 
 						try {
-							// Build payload with normalized deadline
+							// Build payload with normalized date/time inputs
 							const payload = {
 								...body,
-								deadline: normalizeDeadline(body.deadline),
+								deadline: normalizeDateTimeValue(body.deadline),
+								startTime: normalizeDateTimeValue(body.startTime),
+								endTime: normalizeDateTimeValue(body.endTime),
+								dtstart: normalizeDateTimeValue(body.dtstart),
+								dtend: normalizeDateTimeValue(body.dtend),
+								due: normalizeDateTimeValue(body.due),
+								dtstamp: normalizeDateTimeValue(body.dtstamp),
+								created: normalizeDateTimeValue(body.created),
+								lastModified: normalizeDateTimeValue(body.lastModified),
+								recurrenceId: normalizeDateTimeValue(body.recurrenceId),
+								completedAt: normalizeDateTimeValue(body.completedAt),
+								rrule: body.rrule,
 							};
 							const updated = await updateTodoApiTodosTodoIdPut(
 								id,
@@ -232,10 +296,21 @@ export function useUpdateTodo() {
 				throw new Error("No fields to update");
 			}
 
-			// Build payload with normalized deadline
+			// Build payload with normalized date/time inputs
 			const payload = {
 				...body,
-				deadline: normalizeDeadline(body.deadline),
+				deadline: normalizeDateTimeValue(body.deadline),
+				startTime: normalizeDateTimeValue(body.startTime),
+				endTime: normalizeDateTimeValue(body.endTime),
+				dtstart: normalizeDateTimeValue(body.dtstart),
+				dtend: normalizeDateTimeValue(body.dtend),
+				due: normalizeDateTimeValue(body.due),
+				dtstamp: normalizeDateTimeValue(body.dtstamp),
+				created: normalizeDateTimeValue(body.created),
+				lastModified: normalizeDateTimeValue(body.lastModified),
+				recurrenceId: normalizeDateTimeValue(body.recurrenceId),
+				completedAt: normalizeDateTimeValue(body.completedAt),
+				rrule: body.rrule,
 			};
 			const updated = await updateTodoApiTodosTodoIdPut(id, payload as never);
 			return normalizeTodo(updated as unknown as Record<string, unknown>);

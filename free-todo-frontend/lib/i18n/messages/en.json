@@ -459,13 +459,13 @@
 			"name": "Name",
 			"description": "Description",
 			"notes": "Notes",
-			"deadline": "Deadline",
+			"deadline": "Time",
 			"priority": "Priority",
 			"status": "Status",
 			"tags": "Tags",
 			"parentTodoId": "Parent Todo ID",
 			"parentName": "Parent Name",
-			"due": "Due: {deadline}",
+			"due": "Time: {deadline}",
 			"tagsLabel": "Tags: {tags}"
 		},
 		"toolCall": {
@@ -518,6 +518,11 @@
 		"inputTodoTitle": "Enter todo title...",
 		"noTodosDue": "No todos due, click below to create one",
 		"allDay": "All day",
+		"startTime": "Start",
+		"endTime": "End",
+		"floating": "Floating",
+		"floatingEmpty": "No floating todos",
+		"workingHours": "Working hours",
 		"weekdays": {
 			"monday": "Mon",
 			"tuesday": "Tue",
@@ -529,8 +534,45 @@
 		},
 		"weekPrefix": ""
 	},
+	"reminder": {
+		"label": "Reminder",
+		"noReminder": "No reminder",
+		"atTime": "At time",
+		"minutesBefore": "{count} min before",
+		"hoursBefore": "{count} hr before",
+		"daysBefore": "{count} day before",
+		"custom": "Custom",
+		"add": "Add",
+		"clear": "Clear",
+		"needsDeadline": "Reminders trigger relative to the deadline.",
+		"needsSchedule": "Reminders trigger relative to the scheduled time.",
+		"unit": {
+			"minutes": "minutes",
+			"hours": "hours",
+			"days": "days"
+		}
+	},
 	"datePicker": {
+		"dateTab": "Date",
+		"rangeTab": "Time range",
+		"dateLabel": "Date",
+		"timeLabel": "Time",
+		"pickDate": "Pick a date",
+		"allDay": "All day",
+		"repeatLabel": "Repeat",
+		"repeatNone": "Does not repeat",
+		"repeatDaily": "Daily",
+		"repeatWeekly": "Weekly",
+		"repeatMonthly": "Monthly",
+		"repeatYearly": "Yearly",
+		"rangeLabel": "Time range",
+		"startLabel": "Start",
+		"endLabel": "End",
+		"timeZoneLabel": "Time zone",
 		"time": "Time",
+		"timeRange": "Time range",
+		"startTime": "Start",
+		"endTime": "End",
 		"clear": "Clear",
 		"confirm": "Confirm"
 	},
@@ -616,7 +658,7 @@
 			"task_summary_job": "(Legacy) Generate task execution summary",
 			"clean_data_job": "Clean up expired screenshots and data",
 			"activity_aggregator_job": "Aggregate user activity events",
-			"deadline_reminder_job": "Check todo deadlines and send reminder notifications 5 minutes before DDL",
+			"deadline_reminder_job": "Check todo deadlines and send notifications based on reminder settings",
 			"todo_recorder_job": "Only capture screenshots from whitelisted apps for auto todo detection",
 			"proactive_ocr_job": "Automatically detect and process WeChat/Feishu windows for OCR (Windows only)",
 			"audio_recording_job": "7x24 continuous audio recording with real-time transcription and information extraction"
@@ -716,7 +758,7 @@
 		"searchPlaceholder": "Search todos...",
 		"loadFailed": "Load failed: {error}",
 		"noTodos": "No todos",
-		"deadline": "Deadline",
+		"deadline": "Date",
 		"description": "Description",
 		"descriptionPlaceholder": "Describe task details...",
 		"tags": "Tags (comma-separated)",
@@ -727,7 +769,7 @@
 		"filter": "Filter",
 		"filterStatus": "Status",
 		"filterTag": "Tag",
-		"filterDueTime": "Due Time",
+		"filterDueTime": "Time",
 		"filterAll": "All",
 		"statusActive": "Active",
 		"statusCompleted": "Completed",
@@ -751,7 +793,7 @@
 		"artifactsViewLabel": "Artifacts",
 		"markAsComplete": "Mark as complete",
 		"delete": "Delete",
-		"addDeadline": "Add deadline",
+		"addDeadline": "Add date",
 		"addTags": "Add tags",
 		"tagsPlaceholder": "Separate multiple tags with commas",
 		"save": "Save",
@@ -795,6 +837,74 @@
 		"uploadFailed": "Upload failed",
 		"removeAttachmentFailed": "Failed to remove attachment",
 		"uploadSizeLimit": "Single file exceeds 50MB"
+	},
+	"automationTasks": {
+		"title": "Automation tasks",
+		"description": "Create lightweight scheduled jobs like fetching content at a specific time.",
+		"createTitle": "New task",
+		"createHint": "Only web fetch is supported for now",
+		"empty": "No automation tasks yet.",
+		"dateLocale": "en-US",
+		"labels": {
+			"name": "Task name",
+			"description": "Description",
+			"url": "Fetch URL",
+			"method": "Method",
+			"enabled": "Enabled",
+			"enabledOn": "Enabled",
+			"enabledOff": "Disabled",
+			"scheduleType": "Schedule type",
+			"intervalMinutes": "Every (minutes)",
+			"cron": "Cron expression",
+			"runAt": "Run at",
+			"lastRun": "Last run: {time}",
+			"status": "Status"
+		},
+		"placeholders": {
+			"name": "Daily check-in",
+			"description": "Optional notes"
+		},
+		"scheduleType": {
+			"interval": "Interval",
+			"cron": "Cron",
+			"once": "Once"
+		},
+		"scheduleSummary": {
+			"interval": "Every {minutes} min",
+			"cron": "Cron: {cron}",
+			"once": "Once at {time}"
+		},
+		"actions": {
+			"create": "Create task",
+			"run": "Run now",
+			"enable": "Enable",
+			"disable": "Disable",
+			"delete": "Delete"
+		},
+		"status": {
+			"success": "Success",
+			"error": "Error",
+			"never": "Never"
+		},
+		"errors": {
+			"nameRequired": "Task name is required",
+			"urlRequired": "URL is required",
+			"intervalRequired": "Interval minutes must be greater than 0",
+			"cronRequired": "Cron expression is required",
+			"runAtRequired": "Run time is required",
+			"createFailed": "Failed to create task: {error}",
+			"runFailed": "Failed to run task: {error}",
+			"updateFailed": "Failed to update task: {error}",
+			"deleteFailed": "Failed to delete task: {error}"
+		},
+		"messages": {
+			"created": "Task created",
+			"ran": "Task executed",
+			"enabled": "Task enabled",
+			"disabled": "Task disabled",
+			"deleted": "Task deleted"
+		},
+		"confirmDelete": "Delete this task?"
 	},
 	"contextMenu": {
 		"selectedCount": "Selected {count} items",

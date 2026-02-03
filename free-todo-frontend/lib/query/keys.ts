@@ -76,6 +76,14 @@ export const queryKeys = {
 		session: (sessionId: string) =>
 			["chatHistory", "session", sessionId] as const,
 	},
+
+	/**
+	 * 自动化任务查询键
+	 */
+	automationTasks: {
+		all: ["automationTasks"] as const,
+		list: () => ["automationTasks", "list"] as const,
+	},
 } as const;
 
 /**

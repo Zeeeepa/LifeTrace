@@ -137,6 +137,9 @@ class JobManager:
         # 启动 DDL 提醒任务
         self._start_deadline_reminder_job()
 
+        # 启动用户自定义自动化任务
+        self._start_automation_tasks()
+
         # 启动主动OCR任务
         self._start_proactive_ocr_job()
 
@@ -430,6 +433,24 @@ class JobManager:
                 _execute_proactive_ocr_task()
         except Exception as e:
             logger.error(f"启动主动OCR任务失败: {e}", exc_info=True)
+
+    def _start_automation_tasks(self):
+        """启动用户自定义自动化任务"""
+        if not self._is_module_active("automation", "scheduler"):
+            logger.info("自动化模块未启用，跳过自动化任务")
+            return
+
+        scheduler = self._get_scheduler()
+        if not scheduler:
+            return
+
+        try:
+            from lifetrace.services.automation_task_service import AutomationTaskService
+
+            AutomationTaskService().sync_all_tasks()
+            logger.info("自动化任务同步完成")
+        except Exception as e:
+            logger.error(f"自动化任务同步失败: {e}", exc_info=True)
 
     def _start_audio_recording_job(self):
         """启动音频录制状态检查任务

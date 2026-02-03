@@ -7,6 +7,7 @@
 import { Calendar, Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
+import { ReminderOptions } from "@/components/common/ReminderOptions";
 import { cn } from "@/lib/utils";
 import { formatHumanDate } from "../utils";
 
@@ -14,20 +15,25 @@ export function QuickCreatePopover({
 	targetDate,
 	value,
 	time,
+	reminderOffsets,
 	onChange,
 	onTimeChange,
+	onReminderChange,
 	onConfirm,
 	onCancel,
 }: {
 	targetDate: Date | null;
 	value: string;
 	time: string;
+	reminderOffsets: number[];
 	onChange: (v: string) => void;
 	onTimeChange: (v: string) => void;
+	onReminderChange: (v: number[]) => void;
 	onConfirm: () => void;
 	onCancel: () => void;
 }) {
 	const t = useTranslations("calendar");
+	const tReminder = useTranslations("reminder");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -143,6 +149,17 @@ export function QuickCreatePopover({
 						<Plus className="h-4 w-4" />
 						{t("create")}
 					</button>
+				</div>
+				<div className="flex items-center justify-between text-xs text-muted-foreground">
+					<span>{tReminder("label")}</span>
+				</div>
+				<div className="rounded-lg border border-border/60 bg-background/70 p-2">
+					<ReminderOptions
+						value={reminderOffsets}
+						onChange={onReminderChange}
+						compact
+						showClear
+					/>
 				</div>
 			</div>
 		</div>

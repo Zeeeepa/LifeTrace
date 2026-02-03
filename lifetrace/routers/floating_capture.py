@@ -415,7 +415,7 @@ def _create_draft_todo(todo_data: dict[str, Any]) -> dict[str, Any] | None:
         name=title,
         description=description,
         user_notes=user_notes,
-        deadline=scheduled_time,
+        start_time=scheduled_time,
         status="draft",
         priority="none",
         tags=["悬浮窗提取"],

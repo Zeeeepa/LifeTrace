@@ -30,8 +30,13 @@ def _format_todo_context(context: dict[str, Any]) -> str:  # noqa: C901
         user_notes = todo.get("user_notes")
         if user_notes and user_notes.strip():
             parts.append(f"{prefix}  用户笔记: {user_notes}")
-        if todo.get("deadline"):
-            parts.append(f"{prefix}  截止日期: {todo['deadline']}")
+        schedule_start = todo.get("start_time") or todo.get("deadline")
+        schedule_end = todo.get("end_time")
+        if schedule_start:
+            schedule_label = schedule_start
+            if schedule_end:
+                schedule_label = f"{schedule_start} ~ {schedule_end}"
+            parts.append(f"{prefix}  时间: {schedule_label}")
         if todo.get("priority") and todo["priority"] != "none":
             parts.append(f"{prefix}  优先级: {todo['priority']}")
         if todo.get("tags"):
