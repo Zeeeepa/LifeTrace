@@ -64,35 +64,52 @@ FreeTodo 采用**前后端分离**架构：
 - Node.js 20+
 - pnpm 包管理器
 
-### 一键安装并启动（Web 版）
+### 一键安装并启动
 
-> 需要安装 Python 3.12+、Node.js 20+、Git。
+> 需要安装 Python 3.12+、Node.js 20+、Git；Tauri/Electron 构建还需要 Rust。
 
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
 ```
 
-脚本会安装依赖并启动后端/前端开发服务；按 `Ctrl+C` 结束前端会同时停止后端。
+默认：`mode=tauri`、`variant=web`、`frontend=build`、`backend=script`。
 
-可选环境变量（用于自定义安装目录/仓库/分支）：
+可选环境变量：
 
 - `LIFETRACE_DIR`：安装目录（默认使用仓库名）
-- `LIFETRACE_REPO`：仓库地址（默认 `https://github.com/freeugroup/free-to-do.git`）
-- `LIFETRACE_REF`：分支或标签（默认 `main`）
+- `LIFETRACE_REPO`：仓库地址（默认 `https://github.com/FreeU-group/FreeTodo.git`）
+- `LIFETRACE_REF`：分支或标签（默认 `main`，不稳定开发版使用 `dev`）
+- `LIFETRACE_MODE`：`web`、`tauri`、`electron` 或 `island`
+- `LIFETRACE_VARIANT`：`web` 或 `island`
+- `LIFETRACE_FRONTEND`：`build` 或 `dev`（`web` 默认 `dev`）
+- `LIFETRACE_BACKEND`：`script` 或 `pyinstaller`
+- `LIFETRACE_RUN`：`1`（默认）安装后自动运行，`0` 仅安装
 
-PowerShell 示例：
+示例：
 
-```powershell
-$env:LIFETRACE_DIR="LifeTrace-dev"
-iwr -useb https://raw.githubusercontent.com/freeugroup/free-to-do/main/scripts/install_web.ps1 | iex
+```bash
+# Web 开发
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode web --frontend dev
+
+# Tauri 开发（启动后端 + 前端 dev，再运行 tauri dev）
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode tauri --frontend dev
+
+# Electron Island 开发
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode electron --variant island --frontend dev
+
+# Tauri 构建（后端 PyInstaller）
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --mode tauri --frontend build --backend pyinstaller
+
+# 切换分支
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --ref dev
 ```
 
 ### 安装依赖
@@ -117,14 +134,6 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 > 或者，您也可以直接打开一个新的终端窗口，`uv` 将自动可用。
 
 **安装依赖并同步环境:**
-
-```bash
-# macOS prerequisites
-brew install portaudio
-
-# Linux prerequisites
-sudo apt install portaudio19-dev
-```
 
 ```bash
 # 从 pyproject.toml 和 uv.lock 同步依赖

@@ -3,6 +3,8 @@
 使用 SQLModel 重写所有数据模型，保持与现有数据库表结构兼容。
 """
 
+# pyright: reportIncompatibleVariableOverride=false
+
 from datetime import datetime
 from typing import ClassVar
 from uuid import uuid4

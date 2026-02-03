@@ -36,7 +36,10 @@ jobs:
               - '.pre-commit-config.yaml'
 
   precommit-base:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,7 +56,10 @@ jobs:
           pre-commit run trailing-whitespace --all-files
 
   precommit-python:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.python == 'true' }}
     steps:
@@ -63,6 +69,7 @@ jobs:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v3
       - name: Install system deps
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y portaudio19-dev
@@ -78,8 +85,73 @@ jobs:
           pre-commit run pyright --all-files
           pre-commit run check-backend-code-lines --all-files
 
-  precommit-frontend:
+  migration-check:
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.python == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v3
+      - name: Set data directory
+        run: echo "LIFETRACE_DATA_DIR=${{ runner.temp }}/lifetrace" >> "$GITHUB_ENV"
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
+      - name: Install backend deps
+        run: uv sync --group dev
+      - name: Prepare data directories
+        run: mkdir -p "$LIFETRACE_DATA_DIR/data"
+      - name: Alembic heads check
+        run: |
+          set +e
+          uv run alembic -c lifetrace/alembic.ini heads > /tmp/alembic_heads.txt 2> /tmp/alembic_heads_err.txt
+          alembic_status=$?
+          if [ $alembic_status -ne 0 ]; then
+            echo "Alembic heads command failed with exit code ${alembic_status}."
+            echo "Alembic stdout:"
+            cat /tmp/alembic_heads.txt || true
+            echo "Alembic stderr:"
+            cat /tmp/alembic_heads_err.txt || true
+          elif [ -s /tmp/alembic_heads_err.txt ]; then
+            echo "Alembic stderr:"
+            cat /tmp/alembic_heads_err.txt
+          fi
+          python - <<'PY'
+          from pathlib import Path
+
+          output_path = Path("/tmp/alembic_heads.txt")
+          if output_path.exists():
+              output = output_path.read_text().strip().splitlines()
+          else:
+              output = []
+          heads = [line for line in output if line.strip()]
+          if not heads:
+              print("Alembic heads output was empty.")
+          if len(heads) > 1:
+              print("Multiple Alembic heads detected:")
+              print("\n".join(heads))
+              raise SystemExit(1)
+          PY
+          python_status=$?
+          set -e
+          if [ $python_status -ne 0 ]; then
+            exit $python_status
+          fi
+          if [ $alembic_status -ne 0 ]; then
+            exit $alembic_status
+          fi
+      - name: Alembic upgrade check
+        run: uv run alembic -c lifetrace/alembic.ini upgrade head
+
+  precommit-frontend:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     steps:
@@ -105,7 +177,10 @@ jobs:
           pre-commit run check-frontend-code-lines --all-files
 
   precommit-rust:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     needs: changes
     if: ${{ needs.changes.outputs.rust == 'true' }}
     steps:
@@ -116,6 +191,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libglib2.0-dev libgtk-3-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev libsoup-3.0-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

@@ -26,6 +26,7 @@ except ImportError as e:
     CrossEncoder = None
     chromadb = None
     np = None
+    Settings = None
 
 
 class VectorDatabase:
@@ -66,6 +67,7 @@ class VectorDatabase:
                 CrossEncoder is not None,
                 chromadb is not None,
                 np is not None,
+                Settings is not None,
             ]
         )
 
@@ -89,6 +91,8 @@ class VectorDatabase:
             self.logger.info(f"Initializing ChromaDB at: {self.vector_db_path}")
             if chromadb is None:
                 raise RuntimeError("ChromaDB dependency not available")
+            if Settings is None:
+                raise RuntimeError("ChromaDB Settings not available")
             self.chroma_client = chromadb.PersistentClient(
                 path=str(self.vector_db_path),
                 settings=Settings(anonymized_telemetry=False, allow_reset=True),
@@ -501,7 +505,7 @@ def create_vector_db() -> VectorDatabase | None:
         向量数据库实例，如果依赖不可用则返回 None
     """
     # 检查依赖
-    if not all([SentenceTransformer, CrossEncoder, chromadb, np]):
+    if not all([SentenceTransformer, CrossEncoder, chromadb, np, Settings]):
         logger.warning("Vector database dependencies not available")
         return None
 

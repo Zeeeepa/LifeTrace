@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * 检查 Rust 文件的有效代码行数（不含空行和注释行）。
- * 超过指定行数上限的文件将被报告，脚本以非零状态码退出。
+ * Check effective Rust code lines (excluding blank lines and comments).
+ * Files over the limit are reported and the script exits non-zero.
  *
- * 使用方法：
- *   # 检查整个目录（单独运行）
+ * Usage:
+ *   # Scan the entire directory (standalone)
  *   node check_rust_code_lines.js [--include dirs] [--exclude dirs] [--max lines]
  *
- *   # 检查指定文件（pre-commit 模式）
+ *   # Check specified files (pre-commit mode)
  *   node check_rust_code_lines.js [options] file1.rs file2.rs ...
  */
 
@@ -80,7 +80,7 @@ function countCodeLines(filePath) {
 
     return codeLines;
   } catch (error) {
-    console.error(`警告：无法读取文件 ${filePath}: ${error}`);
+    console.error(`Warning: failed to read file ${filePath}: ${error}`);
     return 0;
   }
 }
@@ -126,7 +126,7 @@ function* walkDir(dir) {
       }
     }
   } catch {
-    // ignore inaccessible dirs
+    // Ignore inaccessible directories
   }
 }
 
@@ -180,7 +180,7 @@ function main() {
     if (config.files.length > 0) {
       return 0;
     }
-    console.log("未找到需要检查的 Rust 文件");
+    console.log("No Rust files to check.");
     return 0;
   }
 
@@ -196,18 +196,20 @@ function main() {
   }
 
   if (violations.length > 0) {
-    console.log(`❌ 以下文件代码行数超过 ${config.maxLines} 行：`);
+    console.log(
+      `[ERROR] The following files exceed ${config.maxLines} code lines:`
+    );
     violations.sort((a, b) => a.path.localeCompare(b.path));
     for (const { path, lines } of violations) {
-      console.log(`  ${path} -> ${lines} 行`);
+      console.log(`  ${path} -> ${lines} lines`);
     }
     return 1;
   }
 
   const modeDesc =
-    config.files.length > 0 ? `检查了 ${filesToCheck.length} 个文件，` : "";
+    config.files.length > 0 ? `Checked ${filesToCheck.length} files, ` : "";
   console.log(
-    `✓ ${modeDesc}所有 Rust 文件代码行数均不超过 ${config.maxLines} 行`
+    `[OK] ${modeDesc}all Rust files are within ${config.maxLines} code lines`
   );
   return 0;
 }

@@ -63,11 +63,7 @@ MODULES: tuple[ModuleDefinition, ...] = (
     ModuleDefinition(id="vision", router_module="lifetrace.routers.vision"),
     ModuleDefinition(id="notification", router_module="lifetrace.routers.notification"),
     ModuleDefinition(id="floating_capture", router_module="lifetrace.routers.floating_capture"),
-    ModuleDefinition(
-        id="audio",
-        router_module="lifetrace.routers.audio",
-        dependencies=("faster_whisper", "pyaudio", "whisperlivekit"),
-    ),
+    ModuleDefinition(id="audio", router_module="lifetrace.routers.audio"),
     ModuleDefinition(id="proactive_ocr", router_module="lifetrace.routers.proactive_ocr"),
 )
 

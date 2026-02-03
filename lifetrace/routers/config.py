@@ -117,6 +117,7 @@ def _get_config_value(config_data: dict[str, Any], camel_key: str, snake_key: st
 @router.post("/test-llm-config")
 async def test_llm_config(config_data: dict[str, str]):
     """测试LLM配置是否可用（仅验证认证）"""
+    model = ""
     try:
         # 同时支持 camelCase 和 snake_case 格式（前端 fetcher 会自动转换为 snake_case）
         llm_key = _get_config_value(config_data, "llmApiKey", "llm_api_key")
