@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 # revision identifiers, used by Alembic.
 revision: str = "b53d9b7c8e21"
-down_revision: str | None = "remove_project_task"
+down_revision: str | None = "merge_heads_journal_todo_20260203"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

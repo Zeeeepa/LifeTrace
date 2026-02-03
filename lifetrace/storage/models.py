@@ -248,6 +248,11 @@ class Journal(TimestampMixin, table=True):
     user_notes: str = Field(sa_column=Column(Text))  # 富文本内容
     date: datetime  # 日记日期
     content_format: str = Field(default="markdown", max_length=20)  # 内容格式
+    content_objective: str | None = Field(default=None, sa_column=Column(Text))  # 客观记录
+    content_ai: str | None = Field(default=None, sa_column=Column(Text))  # AI 视角
+    mood: str | None = Field(default=None, max_length=50)  # 情绪
+    energy: int | None = None  # 精力
+    day_bucket_start: datetime | None = None  # 日记归属的刷新点时间
 
     def __repr__(self):
         return f"<Journal(id={self.id}, name={self.name}, date={self.date})>"
@@ -266,6 +271,39 @@ class JournalTagRelation(SQLModel, table=True):
 
     def __repr__(self):
         return f"<JournalTagRelation(id={self.id}, journal_id={self.journal_id}, tag_id={self.tag_id})>"
+
+
+class JournalTodoRelation(SQLModel, table=True):
+    """日记与待办的关联关系"""
+
+    __tablename__: ClassVar[str] = "journal_todo_relations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    journal_id: int  # 关联的日记ID
+    todo_id: int  # 关联的待办ID
+    created_at: datetime = Field(default_factory=get_utc_time)
+    deleted_at: datetime | None = None
+
+    def __repr__(self):
+        return f"<JournalTodoRelation(id={self.id}, journal_id={self.journal_id}, todo_id={self.todo_id})>"
+
+
+class JournalActivityRelation(SQLModel, table=True):
+    """日记与活动的关联关系"""
+
+    __tablename__: ClassVar[str] = "journal_activity_relations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    journal_id: int  # 关联的日记ID
+    activity_id: int  # 关联的活动ID
+    created_at: datetime = Field(default_factory=get_utc_time)
+    deleted_at: datetime | None = None
+
+    def __repr__(self):
+        return (
+            f"<JournalActivityRelation(id={self.id}, journal_id={self.journal_id}, "
+            f"activity_id={self.activity_id})>"
+        )
 
 
 class Chat(TimestampMixin, table=True):
