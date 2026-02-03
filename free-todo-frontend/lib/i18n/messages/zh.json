@@ -518,6 +518,11 @@
 		"inputTodoTitle": "输入待办标题...",
 		"noTodosDue": "无截止待办，点击下方创建一个吧",
 		"allDay": "全天",
+		"startTime": "开始",
+		"endTime": "结束",
+		"floating": "未定时",
+		"floatingEmpty": "暂无未定时任务",
+		"workingHours": "工作时间",
 		"weekdays": {
 			"monday": "一",
 			"tuesday": "二",

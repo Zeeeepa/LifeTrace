@@ -58,6 +58,7 @@ export type DragData =
  */
 export type DropTargetType =
 	| "CALENDAR_DATE"
+	| "CALENDAR_TIMELINE_SLOT"
 	| "TODO_LIST"
 	| "TODO_CARD_SLOT"
 	| "TODO_DROP_ZONE"
@@ -74,6 +75,14 @@ export type DropData =
 			metadata: {
 				dateKey: string; // 格式: YYYY-MM-DD
 				date: Date;
+			};
+	  }
+	| {
+			type: "CALENDAR_TIMELINE_SLOT";
+			metadata: {
+				dateKey: string; // 格式: YYYY-MM-DD
+				date: Date;
+				minutes: number;
 			};
 	  }
 	| {
