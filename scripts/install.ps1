@@ -83,6 +83,9 @@ if (Test-Path $Dir) {
 }
 
 Set-Location $Dir
+git fetch --depth 1 origin $Ref
+git checkout -q $Ref
+git pull --ff-only origin $Ref
 uv sync
 
 if ($Run -eq "1") {

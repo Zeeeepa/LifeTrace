@@ -114,6 +114,9 @@ if [ ! -d "$TARGET_DIR/.git" ]; then
 fi
 
 cd "$TARGET_DIR"
+git fetch --depth 1 origin "$REF"
+git checkout -q "$REF"
+git pull --ff-only origin "$REF"
 uv sync
 
 if [ "$RUN_AFTER_INSTALL" = "1" ]; then
