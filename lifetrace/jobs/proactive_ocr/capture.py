@@ -45,6 +45,8 @@ if sys.platform == "win32":
 
         WIN32_AVAILABLE = True
     except ImportError:
+        c_void_p = None
+        windll = None
         win32con = None
         win32gui = None
         win32process = None
@@ -52,6 +54,8 @@ if sys.platform == "win32":
         WIN32_AVAILABLE = False
         logger.warning("pywin32 not available, PrintWindow capture disabled")
 else:
+    c_void_p = None
+    windll = None
     win32con = None
     win32gui = None
     win32process = None
@@ -71,7 +75,7 @@ BGRA_CHANNELS = 4
 # 设置DPI感知，解决高DPI缩放问题（仅Windows）
 def set_dpi_awareness():
     """设置进程DPI感知模式"""
-    if not WIN32_AVAILABLE:
+    if not WIN32_AVAILABLE or windll is None or c_void_p is None:
         return
 
     # Windows 10 1607+ 使用 SetProcessDpiAwarenessContext
@@ -308,14 +312,14 @@ class WindowCapture:
                             geometry["width"] = width
                             geometry["height"] = height
 
-                        # 获取窗口ID
-                        wid_result = subprocess.run(  # nosec B603
-                            [xdotool_path, "getactivewindow"],
-                            capture_output=True,
-                            text=True,
-                            timeout=2,
-                            check=False,
-                        )
+                    # 获取窗口ID
+                    wid_result = subprocess.run(  # nosec B603
+                        [xdotool_path, "getactivewindow"],
+                        capture_output=True,
+                        text=True,
+                        timeout=2,
+                        check=False,
+                    )
                     window_id = int(wid_result.stdout.strip()) if wid_result.returncode == 0 else 0
 
                     # 获取进程ID
@@ -377,7 +381,13 @@ class WindowCapture:
         """
         使用PrintWindow API捕获完整窗口（可捕获被遮挡的窗口，仅Windows）
         """
-        if not WIN32_AVAILABLE or win32gui is None or win32ui is None or win32con is None:
+        if (
+            not WIN32_AVAILABLE
+            or win32gui is None
+            or win32ui is None
+            or win32con is None
+            or windll is None
+        ):
             return self._capture_with_mss(window)
 
         try:
