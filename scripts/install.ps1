@@ -14,7 +14,7 @@ if (-not $Repo) {
     $Repo = "https://github.com/FreeU-group/FreeTodo.git"
 }
 if (-not $Ref) {
-    $Ref = "dev-liji"
+    $Ref = "main"
 }
 if (-not $Mode) {
     $Mode = "tauri"

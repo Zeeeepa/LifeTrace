@@ -71,13 +71,13 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.ps1 | iex
 ```
 
 The script installs dependencies and starts backend + frontend dev servers; press `Ctrl+C` to stop both.
@@ -86,13 +86,13 @@ Optional environment variables (custom install dir/repo/ref):
 
 - `LIFETRACE_DIR`: install directory (defaults to repo name)
 - `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/FreeU-group/FreeTodo.git`)
-- `LIFETRACE_REF`: branch or tag (defaults to `dev-liji`)
+- `LIFETRACE_REF`: branch or tag (defaults to `main`, use `dev` for unstable builds)
 
 PowerShell example:
 
 ```powershell
 $env:LIFETRACE_DIR="LifeTrace-dev"
-iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install_web.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install_web.ps1 | iex
 ```
 
 ### One-Click Install & Start (Desktop / Tauri)
@@ -100,27 +100,27 @@ iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/script
 **macOS/Linux**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
 ```
 
 Optional environment variables:
 
 - `LIFETRACE_DIR`: install directory (defaults to repo name)
 - `LIFETRACE_REPO`: repo URL (defaults to `https://github.com/FreeU-group/FreeTodo.git`)
-- `LIFETRACE_REF`: branch or tag (defaults to `dev-liji`)
+- `LIFETRACE_REF`: branch or tag (defaults to `main`, use `dev` for unstable builds)
 - `LIFETRACE_MODE`: `tauri` (default) or `web`
 - `LIFETRACE_RUN`: `1` (default) to run after install, `0` to only install
 
 Pass a ref directly without env vars:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/dev-liji/scripts/install.sh | bash -s -- --ref dev-liji
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --ref dev
 ```
 
 ### Install Dependencies
