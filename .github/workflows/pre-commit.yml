@@ -107,17 +107,37 @@ jobs:
         run: mkdir -p "$LIFETRACE_DATA_DIR/data"
       - name: Alembic heads check
         run: |
-          uv run alembic -c lifetrace/alembic.ini heads > /tmp/alembic_heads.txt
+          set +e
+          uv run alembic -c lifetrace/alembic.ini heads > /tmp/alembic_heads.txt 2> /tmp/alembic_heads_err.txt
+          alembic_status=$?
+          if [ -s /tmp/alembic_heads_err.txt ]; then
+            echo "Alembic stderr:"
+            cat /tmp/alembic_heads_err.txt
+          fi
           python - <<'PY'
           from pathlib import Path
 
-          output = Path("/tmp/alembic_heads.txt").read_text().strip().splitlines()
+          output_path = Path("/tmp/alembic_heads.txt")
+          if output_path.exists():
+              output = output_path.read_text().strip().splitlines()
+          else:
+              output = []
           heads = [line for line in output if line.strip()]
+          if not heads:
+              print("Alembic heads output was empty.")
           if len(heads) > 1:
               print("Multiple Alembic heads detected:")
               print("\n".join(heads))
               raise SystemExit(1)
           PY
+          python_status=$?
+          set -e
+          if [ $python_status -ne 0 ]; then
+            exit $python_status
+          fi
+          if [ $alembic_status -ne 0 ]; then
+            exit $alembic_status
+          fi
       - name: Alembic upgrade check
         run: uv run alembic -c lifetrace/alembic.ini upgrade head
 
