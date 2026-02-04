@@ -95,6 +95,9 @@ export function PanelRegion({
 	const showPanelA = panelAVisible;
 	const showPanelB = shouldShowPanelB && panelBVisible;
 	const showPanelC = shouldShowPanelC && panelCVisible;
+	const showPanelAHandle = showPanelA && showPanelB;
+	const showPanelCHandle = showPanelC && (showPanelB || showPanelA);
+	const isACOnly = showPanelA && showPanelC && !showPanelB;
 
 	// 计算实际显示的 panel 槽位数量（用于 BottomDock）
 	// - 只由宽度阈值决定（1 / 2 / 3），和页面上可分配的槽位数保持同步
@@ -281,9 +284,7 @@ export function PanelRegion({
 					isDragging={isDraggingPanelA || isDraggingPanelC || isResizingPanel}
 					// 当只有 A / C 两个 Panel（B 被关闭）时，A/C 中间不再额外加双倍边距，只留中间一条分隔条
 					className={
-						shouldShowPanelC && panelCVisible && shouldShowPanelB && !panelBVisible
-							? "mr-0"
-							: "mx-1"
+						"mx-1"
 					}
 				>
 					<PanelContent position="panelA" />
@@ -296,7 +297,7 @@ export function PanelRegion({
 							onPointerDown={onPanelAResizePointerDown || (() => {})}
 							isDragging={isDraggingPanelA}
 							// 当中间 Panel 实际关闭时，隐藏这条分隔线，避免出现双分隔条
-							isVisible={panelBVisible}
+							isVisible={showPanelAHandle}
 						/>
 
 						<PanelContainer
@@ -320,10 +321,14 @@ export function PanelRegion({
 					<>
 						<ResizeHandle
 							key="panelC-resize-handle"
-							onPointerDown={onPanelCResizePointerDown || (() => {})}
-							isDragging={isDraggingPanelC}
+							onPointerDown={
+								(isACOnly
+									? onPanelAResizePointerDown
+									: onPanelCResizePointerDown) || (() => {})
+							}
+							isDragging={isACOnly ? isDraggingPanelA : isDraggingPanelC}
 							// 右侧分隔线只在右侧 Panel 实际可见时显示
-							isVisible={panelCVisible}
+							isVisible={showPanelCHandle}
 						/>
 
 						<PanelContainer
@@ -333,9 +338,7 @@ export function PanelRegion({
 							width={layoutState.panelCWidth}
 							isDragging={isDraggingPanelA || isDraggingPanelC || isResizingPanel}
 							className={
-								shouldShowPanelB && !panelBVisible && panelAVisible
-									? "ml-0"
-									: "mx-1"
+								"mx-1"
 							}
 						>
 							<PanelContent position="panelC" />

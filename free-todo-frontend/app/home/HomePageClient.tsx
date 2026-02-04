@@ -52,6 +52,7 @@ export default function HomePageClient() {
 
 	const {
 		isPanelCOpen,
+		isPanelBOpen,
 		panelCWidth,
 		setPanelAWidth,
 		setPanelCWidth,
@@ -203,6 +204,7 @@ export default function HomePageClient() {
 	const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } =
 		usePanelResize({
 			containerRef,
+			isPanelBOpen,
 			isPanelCOpen,
 			panelCWidth,
 			setPanelAWidth,

@@ -28,6 +28,7 @@ export function IslandFullscreenContent({ onModeChange }: IslandFullscreenConten
 
   const {
     isPanelCOpen,
+    isPanelBOpen,
     panelCWidth,
     setPanelAWidth,
     setPanelCWidth,
@@ -103,6 +104,7 @@ export function IslandFullscreenContent({ onModeChange }: IslandFullscreenConten
   // 使用 usePanelResize hook 进行面板拖拽调整
   const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } = usePanelResize({
     containerRef,
+    isPanelBOpen,
     isPanelCOpen,
     panelCWidth,
     setPanelAWidth,

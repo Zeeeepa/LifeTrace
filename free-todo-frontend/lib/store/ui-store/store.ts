@@ -80,7 +80,10 @@ export const useUiStore = create<UiStoreState>()(
 			// 位置槽位宽度设置方法
 			setPanelAWidth: (width: number) =>
 				set((state) => {
-					if (!state.isPanelAOpen || !state.isPanelBOpen) {
+					if (
+						!state.isPanelAOpen ||
+						(!state.isPanelBOpen && !state.isPanelCOpen)
+					) {
 						return state;
 					}
 

@@ -168,6 +168,7 @@ export function IslandSidebarContent({ onModeChange, onHeaderDragStart, isDraggi
   // 使用 usePanelResize hook 进行面板拖拽调整
   const { handlePanelAResizePointerDown, handlePanelCResizePointerDown } = usePanelResize({
     containerRef,
+    isPanelBOpen,
     isPanelCOpen: isRightExpanded && isPanelCOpen,
     panelCWidth,
     setPanelAWidth,
@@ -372,7 +373,7 @@ export function IslandSidebarContent({ onModeChange, onHeaderDragStart, isDraggi
             <ResizeHandle
               onPointerDown={handlePanelAResizePointerDown}
               isDragging={isDraggingPanelA}
-              isVisible={isPanelBOpen}
+              isVisible={isPanelAOpen && isPanelBOpen}
             />
           )}
 
@@ -392,7 +393,7 @@ export function IslandSidebarContent({ onModeChange, onHeaderDragStart, isDraggi
             <ResizeHandle
               onPointerDown={handlePanelCResizePointerDown}
               isDragging={isDraggingPanelC}
-              isVisible={isPanelCOpen}
+              isVisible={isPanelCOpen && (isPanelBOpen || isPanelAOpen)}
             />
           )}
 

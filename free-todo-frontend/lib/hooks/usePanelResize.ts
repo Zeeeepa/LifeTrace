@@ -8,6 +8,7 @@ import { useCallback } from "react";
 
 interface UsePanelResizeOptions {
 	containerRef: React.RefObject<HTMLDivElement | null>;
+	isPanelBOpen: boolean;
 	isPanelCOpen: boolean;
 	panelCWidth: number;
 	setPanelAWidth: (width: number) => void;
@@ -19,6 +20,7 @@ interface UsePanelResizeOptions {
 
 export function usePanelResize({
 	containerRef,
+	isPanelBOpen,
 	isPanelCOpen,
 	panelCWidth,
 	setPanelAWidth,
@@ -41,7 +43,7 @@ export function usePanelResize({
 			// 当 panelC 打开时，panelA 的宽度是相对于 baseWidth 的比例
 			// baseWidth = 1 - panelCWidth
 			// 所以需要将 ratio 转换为相对于 baseWidth 的比例
-			if (isPanelCOpen) {
+			if (isPanelCOpen && isPanelBOpen) {
 				const baseWidth = 1 - panelCWidth;
 				if (baseWidth > 0) {
 					const adjustedRatio = ratio / baseWidth;
@@ -53,7 +55,7 @@ export function usePanelResize({
 				setPanelAWidth(ratio);
 			}
 		},
-		[setPanelAWidth, isPanelCOpen, panelCWidth, containerRef],
+		[setPanelAWidth, isPanelCOpen, isPanelBOpen, panelCWidth, containerRef],
 	);
 
 	const handlePanelCDragAtClientX = useCallback(
