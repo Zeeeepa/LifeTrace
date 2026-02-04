@@ -3,7 +3,7 @@ param(
     [string]$Repo = $env:LIFETRACE_REPO,
     [Alias("r")]
     [string]$Ref = $env:LIFETRACE_REF,
-    [Alias("m", "mode")]
+    [Alias("m")]
     [string]$Mode = $env:LIFETRACE_MODE,
     [string]$Variant = $env:LIFETRACE_VARIANT,
     [string]$Frontend = $env:LIFETRACE_FRONTEND,
