@@ -12,7 +12,7 @@ import {
 	AudioConfigSection,
 	AutomationTasksSection,
 	AutoTodoDetectionSection,
-	DifyConfigSection,
+	// DifyConfigSection,
 	DockDisplayModeSection,
 	JournalSettingsSection,
 	LlmConfigSection,
@@ -153,7 +153,7 @@ export function SettingsPanel() {
 			case "developer":
 				return (
 					<>
-						<DifyConfigSection config={config} loading={loading} />
+						{/* <DifyConfigSection config={config} loading={loading} /> */}
 						<SchedulerSection loading={loading} />
 						<RecorderConfigSection config={config} loading={loading} />
 						{isAudioPanelEnabled && (
