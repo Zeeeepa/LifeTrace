@@ -82,10 +82,10 @@ fn port_available(port: u16) -> bool {
 
 pub fn pick_backend_port(mode: ServerMode) -> Result<u16, String> {
     let (start_port, end_port) = backend_port_range(mode);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for _ in 0..10 {
-        let port = rng.gen_range(start_port..=end_port);
+        let port = rng.random_range(start_port..=end_port);
         if port_available(port) {
             return Ok(port);
         }
