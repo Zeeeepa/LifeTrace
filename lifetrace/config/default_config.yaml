@@ -136,7 +136,6 @@ jobs:
     id: deadline_reminder # 任务ID
     name: DDL提醒 # 任务显示名称（中文）
     enabled: false # 是否启用 DDL 提醒任务（默认关闭，需用户手动开启）
-    interval: 30 # 检查间隔（秒），默认30秒检查一次
     params:
       reminder_window_minutes: 5 # 兼容保留字段，不再作为待办默认提醒
   proactive_ocr:

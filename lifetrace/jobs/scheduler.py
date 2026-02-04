@@ -171,6 +171,36 @@ class SchedulerManager:
             logger.error(f"添加任务失败: {e}")
             return None
 
+    def add_date_job(
+        self,
+        func,
+        job_id: str,
+        run_date,
+        name: str | None = None,
+        replace_existing: bool = True,
+        **kwargs,
+    ):
+        """添加一次性任务（指定时间触发）"""
+        if not self.scheduler:
+            logger.error("调度器未初始化")
+            return None
+
+        try:
+            job = self.scheduler.add_job(
+                func,
+                trigger="date",
+                id=job_id,
+                name=name,
+                run_date=run_date,
+                replace_existing=replace_existing,
+                kwargs=kwargs,
+            )
+            logger.info(f"添加一次性任务: {job_id} ({name}), 触发时间: {job.next_run_time}")
+            return job
+        except Exception as e:
+            logger.error(f"添加一次性任务失败: {e}")
+            return None
+
     def remove_job(self, job_id: str):
         """移除任务
 
