@@ -4,7 +4,7 @@
   "version": "0.1.2",
   "identifier": "com.freeugroup.freetodo",
   "build": {
-    "beforeBuildCommand": "pnpm build:frontend:web",
+    "beforeBuildCommand": "pnpm build:frontend:web && pnpm tauri:prebuild",
     "devUrl": "http://localhost:3001",
     "frontendDist": "dist"
   },
