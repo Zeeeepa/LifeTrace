@@ -89,9 +89,10 @@ def get_journal_repository(
 
 def get_journal_service(
     repo: IJournalRepository = Depends(get_journal_repository),
+    db_base: DatabaseBase = Depends(get_db_base),
 ) -> JournalService:
     """获取 Journal 服务实例"""
-    return JournalService(repo)
+    return JournalService(repo, db_base)
 
 
 # ========== Event 模块依赖注入 ==========

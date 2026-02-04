@@ -37,11 +37,11 @@ class SqlJournalRepository(IJournalRepository):
     def count(self, start_date: datetime | None, end_date: datetime | None) -> int:
         return self._manager.count_journals(start_date=start_date, end_date=end_date)
 
-    def create(self, **kwargs) -> int | None:
-        return self._manager.create_journal(**kwargs)
+    def create(self, payload: Any) -> int | None:
+        return self._manager.create_journal(payload)
 
-    def update(self, journal_id: int, **kwargs) -> bool:
-        return self._manager.update_journal(journal_id, **kwargs)
+    def update(self, journal_id: int, payload: Any) -> bool:
+        return self._manager.update_journal(journal_id, payload)
 
     def delete(self, journal_id: int) -> bool:
         return self._manager.delete_journal(journal_id)

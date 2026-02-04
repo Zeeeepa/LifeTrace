@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lifetrace.core.dependencies import get_journal_service
 from lifetrace.schemas.journal import (
+    JournalAutoLinkRequest,
+    JournalAutoLinkResponse,
     JournalCreate,
+    JournalGenerateRequest,
+    JournalGenerateResponse,
     JournalListResponse,
     JournalResponse,
     JournalUpdate,
@@ -97,3 +101,48 @@ async def delete_journal(
     except Exception as e:
         logger.error(f"删除日记失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"删除日记失败: {e!s}") from e
+
+
+@router.post("/api/journals/auto-link", response_model=JournalAutoLinkResponse)
+async def auto_link_journal(
+    payload: JournalAutoLinkRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """自动关联 Todo/活动"""
+    try:
+        return service.auto_link(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"自动关联失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"自动关联失败: {e!s}") from e
+
+
+@router.post("/api/journals/generate-objective", response_model=JournalGenerateResponse)
+async def generate_objective_journal(
+    payload: JournalGenerateRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """生成客观记录"""
+    try:
+        return service.generate_objective(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成客观记录失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成客观记录失败: {e!s}") from e
+
+
+@router.post("/api/journals/generate-ai", response_model=JournalGenerateResponse)
+async def generate_ai_journal(
+    payload: JournalGenerateRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """生成 AI 视角记录"""
+    try:
+        return service.generate_ai_view(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成 AI 视角失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成 AI 视角失败: {e!s}") from e

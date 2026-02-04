@@ -32,6 +32,8 @@ export {
 } from "./config";
 // Cost Hooks
 export { useCostConfig, useCostStats } from "./cost";
+// Journal Hooks
+export { useJournalMutations, useJournals } from "./journals";
 // Query Keys
 export { type QueryKeys, queryKeys } from "./keys";
 // Provider

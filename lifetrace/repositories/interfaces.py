@@ -198,12 +198,12 @@ class IJournalRepository(ABC):
         pass
 
     @abstractmethod
-    def create(self, **kwargs) -> int | None:
+    def create(self, payload: Any) -> int | None:
         """创建日记，返回ID"""
         pass
 
     @abstractmethod
-    def update(self, journal_id: int, **kwargs) -> bool:
+    def update(self, journal_id: int, payload: Any) -> bool:
         """更新日记"""
         pass
 

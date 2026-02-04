@@ -5,7 +5,7 @@
  * FreeTodo API (part of FreeU Project)
  * OpenAPI spec version: 0.1.2
  */
-import type { LifetraceSchemasTodoExtractionExtractedTodo } from './lifetraceSchemasTodoExtractionExtractedTodo';
+import type { ExtractedTodo } from './extractedTodo';
 
 /**
  * 待办提取响应模型
@@ -22,7 +22,7 @@ export interface TodoExtractionResponse {
   /** 事件结束时间 */
   event_end_time?: string | null;
   /** 提取的待办列表 */
-  todos?: LifetraceSchemasTodoExtractionExtractedTodo[];
+  todos?: ExtractedTodo[];
   /** 提取时间戳 */
   extraction_timestamp?: string;
   /** 实际分析的截图数量 */

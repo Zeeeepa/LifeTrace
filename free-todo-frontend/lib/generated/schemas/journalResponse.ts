@@ -13,6 +13,8 @@ import type { JournalTag } from './journalTag';
 export interface JournalResponse {
   /** 日记ID */
   id: number;
+  /** iCalendar UID */
+  uid: string;
   /** 日记标题 */
   name: string;
   /** 日记内容（富文本） */
@@ -21,6 +23,16 @@ export interface JournalResponse {
   date: string;
   /** 内容格式 */
   content_format: string;
+  /** 客观记录 */
+  content_objective?: string | null;
+  /** AI 视角 */
+  content_ai?: string | null;
+  /** 情绪 */
+  mood?: string | null;
+  /** 精力 */
+  energy?: number | null;
+  /** 日记归属刷新点 */
+  day_bucket_start?: string | null;
   /** 创建时间 */
   created_at: string;
   /** 更新时间 */
@@ -29,4 +41,8 @@ export interface JournalResponse {
   deleted_at?: string | null;
   /** 关联标签列表 */
   tags?: JournalTag[];
+  /** 关联待办ID列表 */
+  related_todo_ids?: number[];
+  /** 关联活动ID列表 */
+  related_activity_ids?: number[];
 }
