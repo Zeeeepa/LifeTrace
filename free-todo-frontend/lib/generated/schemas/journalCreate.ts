@@ -10,10 +10,12 @@
  * 创建日记请求模型
  */
 export interface JournalCreate {
-  /** iCalendar UID */
-  uid?: string | null;
-  /** 日记标题 */
-  name?: string | null;
+  /**
+   * 日记标题
+   * @minLength 1
+   * @maxLength 200
+   */
+  name: string;
   /** 日记内容（富文本） */
   user_notes: string;
   /** 日记日期 */
@@ -23,20 +25,6 @@ export interface JournalCreate {
    * @maxLength 20
    */
   content_format?: string;
-  /** 客观记录 */
-  content_objective?: string | null;
-  /** AI 视角 */
-  content_ai?: string | null;
-  /** 情绪 */
-  mood?: string | null;
-  /** 精力 */
-  energy?: number | null;
-  /** 日记归属刷新点 */
-  day_bucket_start?: string | null;
-  /** 关联的标签列表 */
-  tags?: string[];
-  /** 关联待办ID列表 */
-  related_todo_ids?: number[];
-  /** 关联活动ID列表 */
-  related_activity_ids?: number[];
+  /** 关联的标签ID列表 */
+  tag_ids?: number[];
 }
