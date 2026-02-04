@@ -6,7 +6,12 @@
 from typing import Any, cast
 
 from lifetrace.storage.database_base import DatabaseBase
-from lifetrace.storage.models import Journal, JournalTagRelation
+from lifetrace.storage.models import (
+    Journal,
+    JournalActivityRelation,
+    JournalTagRelation,
+    JournalTodoRelation,
+)
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -21,6 +26,8 @@ def migrate():
     with db_base.engine.begin() as conn:
         cast("Any", Journal).__table__.create(bind=conn, checkfirst=True)
         cast("Any", JournalTagRelation).__table__.create(bind=conn, checkfirst=True)
+        cast("Any", JournalTodoRelation).__table__.create(bind=conn, checkfirst=True)
+        cast("Any", JournalActivityRelation).__table__.create(bind=conn, checkfirst=True)
         logger.info("journals 相关表检查/创建完成")
 
     # 补充索引

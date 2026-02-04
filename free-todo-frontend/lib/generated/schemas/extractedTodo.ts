@@ -5,24 +5,28 @@
  * FreeTodo API (part of FreeU Project)
  * OpenAPI spec version: 0.1.2
  */
-import type { ExtractedTodoTimeInfo } from './extractedTodoTimeInfo';
+import type { TodoTimeInfo } from './todoTimeInfo';
 
 /**
- * 提取的待办项
+ * 提取的待办项结构
  */
 export interface ExtractedTodo {
-  /** 待办标题 */
+  /**
+   * 待办标题
+   * @minLength 1
+   * @maxLength 100
+   */
   title: string;
-  /** 待办描述 */
+  /** 待办描述（可选） */
   description?: string | null;
   /** 时间信息 */
-  time_info?: ExtractedTodoTimeInfo;
-  /** 来源文本 */
-  source_text?: string | null;
-  /**
-   * 置信度
-   * @minimum 0
-   * @maximum 1
-   */
-  confidence?: number;
+  time_info: TodoTimeInfo;
+  /** 解析后的绝对时间（程序计算得出） */
+  scheduled_time?: string | null;
+  /** 来源文本片段，用于验证 */
+  source_text: string;
+  /** 置信度（0.0-1.0），可选 */
+  confidence?: number | null;
+  /** 相关的截图ID列表 */
+  screenshot_ids?: number[];
 }

@@ -13,11 +13,10 @@ import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
 
 interface MaximizeHeaderProps {
-	currentNotification: { id: string; title: string; content: string; timestamp: string; source?: string } | null;
-	isElectron: boolean;
+	hasNotifications: boolean;
 }
 
-export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHeaderProps) {
+export function MaximizeHeader({ hasNotifications }: MaximizeHeaderProps) {
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
 			{/* 左侧：Logo */}
@@ -45,15 +44,15 @@ export function MaximizeHeader({ currentNotification, isElectron }: MaximizeHead
 				</h1>
 			</div>
 
-			{/* 中间：通知区域 - 只在有通知时且是 Electron 环境时显示 */}
-			{currentNotification && isElectron && (
+			{/* 中间：通知区域 */}
+			{hasNotifications && (
 				<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
 					<HeaderIsland />
 				</div>
 			)}
 
 			{/* 占位符：当没有通知时保持布局平衡 */}
-			{!currentNotification && <div className="flex-1" />}
+			{!hasNotifications && <div className="flex-1" />}
 
 			{/* 右侧：工具 */}
 			<div className="flex items-center gap-2 shrink-0">

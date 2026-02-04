@@ -12,9 +12,11 @@ import {
 	AudioConfigSection,
 	AutomationTasksSection,
 	AutoTodoDetectionSection,
-	DifyConfigSection,
+	// DifyConfigSection,
 	DockDisplayModeSection,
+	JournalSettingsSection,
 	LlmConfigSection,
+	NotificationPermissionSection,
 	OnboardingSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
@@ -132,11 +134,13 @@ export function SettingsPanel() {
 					<>
 						<DockDisplayModeSection loading={loading} />
 						<PanelSwitchesSection loading={loading} />
+						<NotificationPermissionSection loading={loading} />
 					</>
 				);
 			case "automation":
 				return (
 					<>
+						<JournalSettingsSection />
 						<AutoTodoDetectionSection config={config} loading={loading} />
 						<AutomationTasksSection loading={loading} />
 					</>
@@ -151,7 +155,7 @@ export function SettingsPanel() {
 			case "developer":
 				return (
 					<>
-						<DifyConfigSection config={config} loading={loading} />
+						{/* <DifyConfigSection config={config} loading={loading} /> */}
 						<SchedulerSection loading={loading} />
 						<RecorderConfigSection config={config} loading={loading} />
 						{isAudioPanelEnabled && (

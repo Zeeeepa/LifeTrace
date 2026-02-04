@@ -1,23 +1,20 @@
 """
-Todo 提醒任务
-定期检查待办事项的时间字段，根据每个待办的提醒设置生成通知
+Todo 提醒调度（基于 APScheduler 的按时触发）
 """
 
-import json
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import or_
 
+from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.storage import todo_mgr
 from lifetrace.storage.models import Todo
-from lifetrace.storage.notification_storage import (
-    add_notification,
-    clear_dismissed_mark,
-    clear_notification_by_todo_id,
-    get_notifications_by_todo_id,
-    is_notification_dismissed,
-)
+from lifetrace.storage.notification_storage import add_notification, is_notification_dismissed
 from lifetrace.storage.sql_utils import col
+from lifetrace.storage.todo_manager_utils import _normalize_reminder_offsets
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import get_utc_now, naive_as_utc
@@ -26,33 +23,23 @@ logger = get_logger()
 
 MINUTES_PER_HOUR = 60
 HOURS_PER_DAY = 24
+REMINDER_JOB_PREFIX = "todo_reminder"
 
 
-def _normalize_reminder_offsets(value: object | None) -> list[int]:
-    if value is None:
+def _normalize_offsets(value: object | None) -> list[int]:
+    offsets = _normalize_reminder_offsets(value)
+    if not offsets:
         return []
-    if isinstance(value, str):
-        if not value.strip():
-            return []
-        try:
-            value = json.loads(value)
-        except json.JSONDecodeError:
-            return []
-    if isinstance(value, list):
-        offsets: list[int] = []
-        for item in value:
-            try:
-                offset = int(item)
-            except (TypeError, ValueError):
-                continue
-            if offset < 0:
-                continue
-            offsets.append(offset)
-        return sorted(set(offsets))
-    return []
+    return offsets
 
 
-def _parse_notification_time(value: str | None) -> datetime | None:
+def _get_field(todo: object, name: str) -> Any:
+    if isinstance(todo, dict):
+        return todo.get(name)
+    return getattr(todo, name, None)
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
@@ -60,6 +47,32 @@ def _parse_notification_time(value: str | None) -> datetime | None:
     except (TypeError, ValueError):
         return None
     return naive_as_utc(parsed)
+
+
+def _coerce_datetime(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return _parse_datetime(value)
+    return None
+
+
+def _resolve_schedule_time(todo: object) -> datetime | None:
+    item_type_raw = _get_field(todo, "item_type")
+    item_type = item_type_raw.upper() if isinstance(item_type_raw, str) else "VTODO"
+    if item_type == "VEVENT":
+        return _coerce_datetime(
+            _get_field(todo, "dtstart")
+            or _get_field(todo, "start_time")
+            or _get_field(todo, "due")
+            or _get_field(todo, "deadline")
+        )
+    return _coerce_datetime(
+        _get_field(todo, "due")
+        or _get_field(todo, "deadline")
+        or _get_field(todo, "dtstart")
+        or _get_field(todo, "start_time")
+    )
 
 
 def _format_remaining(deadline: datetime, now: datetime) -> str:
@@ -76,123 +89,220 @@ def _format_remaining(deadline: datetime, now: datetime) -> str:
     return f"{minutes}分钟"
 
 
-def execute_deadline_reminder_task():  # noqa: C901, PLR0912, PLR0915
-    """
-    执行 DDL 提醒任务
-    根据每个待办的提醒偏移，生成通知
-    """
+def _build_reminder_job_id(todo_id: int, reminder_at: datetime) -> str:
+    return f"{REMINDER_JOB_PREFIX}_{todo_id}_{int(reminder_at.timestamp())}"
+
+
+def _build_notification_id(todo_id: int, reminder_at: datetime) -> str:
+    return f"todo_{todo_id}_reminder_{int(reminder_at.timestamp())}"
+
+
+def execute_todo_reminder_job(
+    todo_id: int,
+    reminder_at: str,
+    reminder_offset: int | None = None,
+) -> None:
+    """按时触发的提醒任务（由 APScheduler 直接调度）"""
     try:
-        interval_seconds = settings.get("jobs.deadline_reminder.interval", 30)
-        try:
-            interval_seconds = float(interval_seconds)
-        except (TypeError, ValueError):
-            interval_seconds = 30
-        misfire_grace = settings.get("scheduler.misfire_grace_time", 60)
-        try:
-            misfire_grace = int(misfire_grace)
-        except (TypeError, ValueError):
-            misfire_grace = 60
-        lookback_seconds = max(60, int(interval_seconds * 2), misfire_grace)
+        todo = todo_mgr.get_todo(todo_id)
+        if not todo:
+            logger.info("提醒任务跳过：todo 不存在: %s", todo_id)
+            return
+
+        if todo.get("status") != "active":
+            logger.info("提醒任务跳过：todo 非 active: %s", todo_id)
+            return
+
+        schedule_time = _resolve_schedule_time(todo)
+        if not schedule_time:
+            logger.info("提醒任务跳过：todo 无有效时间: %s", todo_id)
+            return
+
+        schedule_utc = naive_as_utc(schedule_time)
+        reminder_at_dt = _parse_datetime(reminder_at) or schedule_utc
+
+        offset = reminder_offset
+        if offset is None:
+            offset = max(0, int((schedule_utc - reminder_at_dt).total_seconds() // 60))
+
+        expected_reminder_at = schedule_utc - timedelta(minutes=offset)
+        if abs((expected_reminder_at - reminder_at_dt).total_seconds()) >= 1:
+            logger.info(
+                "提醒任务跳过：时间不匹配 todo_id=%s expected=%s actual=%s",
+                todo_id,
+                expected_reminder_at,
+                reminder_at_dt,
+            )
+            return
+
+        if is_notification_dismissed(todo_id, reminder_at_dt):
+            logger.debug(
+                "提醒任务跳过：通知已取消 todo_id=%s reminder_at=%s",
+                todo_id,
+                reminder_at_dt,
+            )
+            return
 
         now = get_utc_now()
-        window_start = now - timedelta(seconds=lookback_seconds)
+        remaining = _format_remaining(schedule_utc, now)
+        notification_id = _build_notification_id(todo_id, reminder_at_dt)
 
-        # 查询活跃且有时间的待办事项
-        with todo_mgr.db_base.get_session() as session:
-            todos = (
-                session.query(Todo)
-                .filter(
-                    col(Todo.status) == "active",
-                    or_(
-                        col(Todo.due).isnot(None),
-                        col(Todo.dtstart).isnot(None),
-                        col(Todo.deadline).isnot(None),
-                        col(Todo.start_time).isnot(None),
-                    ),
-                )
-                .all()
+        added = add_notification(
+            notification_id=notification_id,
+            title=todo.get("name") or "",
+            content=f"还有 {remaining}",
+            timestamp=now,
+            todo_id=todo_id,
+            schedule_time=schedule_utc,
+            reminder_at=reminder_at_dt,
+            reminder_offset=offset,
+        )
+
+        if added:
+            logger.info(
+                "生成提醒通知: todo_id=%s, name=%s, time=%s, offset=%s",
+                todo_id,
+                todo.get("name"),
+                schedule_utc,
+                offset,
             )
-
-            if not todos:
-                logger.debug("没有带时间的待办事项")
-                return
-
-            logger.info(f"找到 {len(todos)} 个带时间的待办事项")
-
-            # 为每个待办生成通知
-            for todo in todos:
-                item_type = (getattr(todo, "item_type", None) or "VTODO").upper()
-                if item_type == "VEVENT":
-                    schedule_time = todo.dtstart or todo.start_time or todo.due or todo.deadline
-                else:
-                    schedule_time = todo.due or todo.deadline or todo.dtstart or todo.start_time
-                if not schedule_time:
-                    continue
-
-                # 确保时间是 UTC timezone-aware
-                # SQLite 存储 datetime 为字符串，SQLAlchemy 读取时为 naive datetime
-                # 由于我们统一使用 UTC 存储，数据库中的 naive datetime 就是 UTC 时间
-                schedule_utc = naive_as_utc(schedule_time)
-
-                existing_notifications = get_notifications_by_todo_id(todo.id)
-                if existing_notifications:
-                    for existing in existing_notifications:
-                        existing_time = _parse_notification_time(
-                            existing.get("schedule_time") or existing.get("deadline")
-                        )
-                        if (
-                            existing_time
-                            and abs((schedule_utc - existing_time).total_seconds()) >= 1
-                        ):
-                            clear_notification_by_todo_id(todo.id)
-                            clear_dismissed_mark(todo.id)
-                            logger.debug(
-                                "待办 %s 的时间已更新，清理旧通知",
-                                todo.id,
-                            )
-                            break
-
-                offsets = _normalize_reminder_offsets(getattr(todo, "reminder_offsets", None))
-                if not offsets:
-                    continue
-
-                for offset in offsets:
-                    reminder_at = schedule_utc - timedelta(minutes=offset)
-                    if reminder_at > now or reminder_at < window_start:
-                        continue
-
-                    if is_notification_dismissed(todo.id, reminder_at):
-                        logger.debug(
-                            "待办 %s 的提醒 %s 已被取消，跳过",
-                            todo.id,
-                            reminder_at,
-                        )
-                        continue
-
-                    notification_id = f"todo_{todo.id}_reminder_{int(reminder_at.timestamp())}"
-                    remaining = _format_remaining(schedule_utc, now)
-                    title = todo.name
-                    content = f"还有 {remaining}"
-
-                    added = add_notification(
-                        notification_id=notification_id,
-                        title=title,
-                        content=content,
-                        timestamp=now,
-                        todo_id=todo.id,
-                        schedule_time=schedule_utc,
-                        reminder_at=reminder_at,
-                        reminder_offset=offset,
-                    )
-
-                    if added:
-                        logger.info(
-                            "生成提醒通知: todo_id=%s, name=%s, time=%s, offset=%s",
-                            todo.id,
-                            todo.name,
-                            schedule_utc,
-                            offset,
-                        )
-
     except Exception as e:
-        logger.error(f"执行 DDL 提醒任务失败: {e}", exc_info=True)
+        logger.error("执行提醒任务失败: %s", e, exc_info=True)
+
+
+def schedule_todo_reminders(todo: object) -> list[str]:
+    """为单个 Todo 创建按时提醒任务"""
+    todo_id = _get_field(todo, "id")
+    schedule_time = _resolve_schedule_time(todo)
+    offsets = _normalize_offsets(_get_field(todo, "reminder_offsets"))
+    scheduler = get_scheduler_manager()
+    can_schedule = (
+        settings.get("jobs.deadline_reminder.enabled", False)
+        and isinstance(todo_id, int)
+        and _get_field(todo, "status") == "active"
+        and schedule_time is not None
+        and offsets
+        and scheduler
+        and scheduler.scheduler
+    )
+    if not can_schedule:
+        if isinstance(todo_id, int) and scheduler and not scheduler.scheduler:
+            logger.warning("调度器未初始化，跳过提醒任务创建: todo_id=%s", todo_id)
+        return []
+
+    todo_id = cast("int", todo_id)
+    schedule_time = cast("datetime", schedule_time)
+
+    schedule_utc = naive_as_utc(schedule_time)
+    now = get_utc_now()
+    grace_seconds = settings.get("scheduler.misfire_grace_time", 60)
+    try:
+        grace_seconds = int(grace_seconds)
+    except (TypeError, ValueError):
+        grace_seconds = 60
+
+    created_jobs: list[str] = []
+    for offset in offsets:
+        reminder_at = schedule_utc - timedelta(minutes=offset)
+        if reminder_at <= now:
+            if (now - reminder_at).total_seconds() <= grace_seconds:
+                reminder_at = now
+            else:
+                continue
+
+        job_id = _build_reminder_job_id(todo_id, reminder_at)
+        scheduler.add_date_job(
+            func=execute_todo_reminder_job,
+            job_id=job_id,
+            name=f"todo_{todo_id}_reminder",
+            run_date=reminder_at,
+            replace_existing=True,
+            todo_id=todo_id,
+            reminder_at=reminder_at.isoformat(),
+            reminder_offset=offset,
+        )
+        created_jobs.append(job_id)
+
+    return created_jobs
+
+
+def remove_todo_reminder_jobs(todo_id: int) -> int:
+    """移除指定 Todo 的所有提醒任务"""
+    scheduler = get_scheduler_manager()
+    if not scheduler or not scheduler.scheduler:
+        return 0
+
+    prefix = f"{REMINDER_JOB_PREFIX}_{todo_id}_"
+    removed = 0
+    for job in scheduler.get_all_jobs():
+        if job.id.startswith(prefix) and scheduler.remove_job(job.id):
+            removed += 1
+
+    if removed:
+        logger.debug("已移除 %s 个提醒任务: todo_id=%s", removed, todo_id)
+    return removed
+
+
+def refresh_todo_reminders(todo: object) -> list[str]:
+    """刷新单个 Todo 的提醒任务（先清理再重建）"""
+    todo_id = _get_field(todo, "id")
+    if isinstance(todo_id, int):
+        remove_todo_reminder_jobs(todo_id)
+    return schedule_todo_reminders(todo)
+
+
+def clear_all_todo_reminder_jobs() -> int:
+    """清理所有按时提醒任务"""
+    scheduler = get_scheduler_manager()
+    if not scheduler or not scheduler.scheduler:
+        return 0
+
+    removed = 0
+    for job in scheduler.get_all_jobs():
+        if job.id.startswith(f"{REMINDER_JOB_PREFIX}_") and scheduler.remove_job(job.id):
+            removed += 1
+
+    if removed:
+        logger.info("清理提醒任务: %s", removed)
+    return removed
+
+
+def sync_all_todo_reminders() -> int:
+    """同步所有待办的提醒任务（启动时调用）"""
+    if not settings.get("jobs.deadline_reminder.enabled", False):
+        logger.info("DDL 提醒未启用，跳过同步")
+        return 0
+
+    scheduler = get_scheduler_manager()
+    if not scheduler or not scheduler.scheduler:
+        logger.warning("调度器未初始化，跳过提醒同步")
+        return 0
+
+    clear_all_todo_reminder_jobs()
+
+    with todo_mgr.db_base.get_session() as session:
+        todos = (
+            session.query(Todo)
+            .filter(
+                col(Todo.status) == "active",
+                or_(
+                    col(Todo.due).isnot(None),
+                    col(Todo.dtstart).isnot(None),
+                    col(Todo.deadline).isnot(None),
+                    col(Todo.start_time).isnot(None),
+                ),
+            )
+            .all()
+        )
+
+        created = 0
+        for todo in todos:
+            created += len(schedule_todo_reminders(todo))
+
+    logger.info("提醒任务同步完成: %s", created)
+    return created
+
+
+def execute_deadline_reminder_task() -> None:
+    """兼容旧任务入口：执行一次提醒同步"""
+    sync_all_todo_reminders()

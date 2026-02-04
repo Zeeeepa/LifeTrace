@@ -4,7 +4,6 @@
  * Island 专用 Header 组件
  * 用于形态3/4，提供窗口控制按钮
  * 与原 FreeTodo Header 共享 HeaderIsland 组件
- * 遵循原设计：HeaderIsland 仅在有通知且为 Electron 环境时显示
  */
 
 import { Maximize2, Minimize2, Pin, PinOff, X } from "lucide-react";
@@ -41,13 +40,13 @@ export function IslandHeader({ mode, onModeChange, isExpanded = false, onDragSta
   const [isPinned, setIsPinned] = useState(true);
 
   // 获取当前通知状态
-  const { currentNotification } = useNotificationStore();
+  const { notifications } = useNotificationStore();
 
   // 检测是否为 Electron 环境
   const isElectron = typeof window !== "undefined" && !!window.electronAPI;
 
-  // 显示通知岛的条件：有通知 且 在 Electron 环境（匹配原设计）
-  const showNotification = currentNotification && isElectron;
+  // 显示通知岛的条件：有通知
+  const showNotification = notifications.length > 0;
 
   // 显示工具按钮的条件：全屏模式 或 侧边栏已展开到 2+ 栏（宽度足够）
   const shouldShowTools = isFullscreen || (isSidebar && isExpanded);

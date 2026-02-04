@@ -14,6 +14,7 @@ interface NotificationResponse {
 	title: string;
 	content: string;
 	timestamp?: string;
+	todoId?: number;
 }
 
 class NotificationPoller {
@@ -87,32 +88,31 @@ class NotificationPoller {
 
 			// 标准通知端点 - 使用 Orval 生成的 API
 			const response = await getNotificationApiNotificationsGet();
-			const notificationData =
-				unwrapApiData<NotificationResponse | null>(response);
-			if (
-				notificationData &&
-				(notificationData.title || notificationData.content)
-			) {
-				// 转换为通知格式
-				const notification: Notification = {
-					id: notificationData.id || `${endpoint.id}-${Date.now()}`,
-					title: notificationData.title,
-					content: notificationData.content,
-					timestamp: notificationData.timestamp || new Date().toISOString(),
-					source: endpoint.id,
-				};
+			const notificationData = unwrapApiData<
+				NotificationResponse[] | NotificationResponse | null
+			>(response);
 
-				// 检查是否是新通知（简单去重：比较 ID 和内容）
-				const store = useNotificationStore.getState();
-				const current = store.currentNotification;
-				if (
-					!current ||
-					current.id !== notification.id ||
-					current.content !== notification.content
-				) {
-					store.setNotification(notification);
-				}
-			}
+			const rawList = Array.isArray(notificationData)
+				? notificationData
+				: notificationData
+					? [notificationData]
+					: [];
+
+			const notifications: Notification[] = rawList
+				.filter((item) => item && (item.title || item.content))
+				.map((item, index) => ({
+					id:
+						item.id ||
+						`${endpoint.id}-${item.timestamp || Date.now()}-${index}`,
+					title: item.title,
+					content: item.content,
+					timestamp: item.timestamp || new Date().toISOString(),
+					source: endpoint.id,
+					todoId: item.todoId,
+				}));
+
+			const store = useNotificationStore.getState();
+			store.setNotificationsFromSource(endpoint.id, notifications);
 		} catch (error) {
 			// 静默处理错误，避免频繁失败请求
 			console.warn(`Failed to poll endpoint ${endpoint.id}:`, error);
@@ -150,7 +150,9 @@ class NotificationPoller {
 			const todos = data?.todos ?? [];
 
 			const store = useNotificationStore.getState();
-			const current = store.currentNotification;
+			const current = store.notifications.find(
+				(notification) => notification.source === endpoint.id,
+			);
 
 			// 如果当前有 draft todo 通知，检查对应的 todo 是否还存在
 			if (
@@ -161,7 +163,7 @@ class NotificationPoller {
 				const todoExists = todos.some((todo) => todo.id === current.todoId);
 				// 如果 todo 不存在了，清除通知
 				if (!todoExists) {
-					store.setNotification(null);
+					store.removeNotificationsBySource(endpoint.id);
 					store.setExpanded(false);
 					return;
 				}
@@ -180,21 +182,11 @@ class NotificationPoller {
 					source: endpoint.id,
 					todoId: latestTodo.id, // 添加 todoId 以便后续操作
 				};
-
-				// 检查是否是新通知（比较 todo ID）
-				if (
-					!current ||
-					current.id !== notification.id ||
-					current.content !== notification.content
-				) {
-					store.setNotification(notification);
-				}
+				store.setNotificationsFromSource(endpoint.id, [notification]);
 			} else {
 				// 如果没有 draft todos 了，且当前通知是来自这个端点的，清除通知
-				if (current && current.source === endpoint.id) {
-					store.setNotification(null);
-					store.setExpanded(false);
-				}
+				store.removeNotificationsBySource(endpoint.id);
+				store.setExpanded(false);
 			}
 		} catch (error) {
 			// 静默处理错误，避免频繁失败请求

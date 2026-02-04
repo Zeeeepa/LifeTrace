@@ -13,7 +13,6 @@ import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
-import { isElectronEnvironment } from "@/lib/utils/electron";
 
 export default function HomePageClient() {
 	// 全局自动录音：根据配置决定是否在应用启动时自动开始录音
@@ -51,14 +50,14 @@ export default function HomePageClient() {
 		}
 	}, []);
 
-	const isElectron = mounted ? isElectronEnvironment() : false;
 	const {
 		isPanelCOpen,
 		panelCWidth,
 		setPanelAWidth,
 		setPanelCWidth,
 	} = useUiStore();
-	const { currentNotification, setNotification } = useNotificationStore();
+	const { notifications, upsertNotification, removeNotificationsBySource } =
+		useNotificationStore();
 	const [isDraggingPanelA, setIsDraggingPanelA] = useState(false);
 	const [isDraggingPanelC, setIsDraggingPanelC] = useState(false);
 
@@ -75,25 +74,29 @@ export default function HomePageClient() {
 	const { data: llmStatus } = useLlmStatus();
 
 	// 根据 LLM 配置状态显示或隐藏通知
+	const hasLlmConfigNotification = notifications.some(
+		(notification) => notification.source === "llm-config",
+	);
+
 	useEffect(() => {
 		if (!llmStatus) return;
 
 		if (!llmStatus.configured) {
 			// LLM 未配置，显示通知提示用户去设置
-			setNotification({
-				id: "llm-config-missing",
-				title: t("llmConfigMissing"),
-				content: t("llmConfigMissingHint"),
-				timestamp: new Date().toISOString(),
-				source: "llm-config",
-			});
-		} else {
-			// LLM 已配置，如果当前显示的是 LLM 配置通知，则清除它
-			if (currentNotification?.source === "llm-config") {
-				setNotification(null);
+			if (!hasLlmConfigNotification) {
+				upsertNotification({
+					id: "llm-config-missing",
+					title: t("llmConfigMissing"),
+					content: t("llmConfigMissingHint"),
+					timestamp: new Date().toISOString(),
+					source: "llm-config",
+				});
 			}
+		} else if (hasLlmConfigNotification) {
+			// LLM 已配置，清除提示通知
+			removeNotificationsBySource("llm-config");
 		}
-	}, [llmStatus, currentNotification?.source, setNotification, t]);
+	}, [llmStatus, hasLlmConfigNotification, removeNotificationsBySource, t, upsertNotification]);
 
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const setGlobalResizeCursor = useCallback((enabled: boolean) => {
@@ -228,10 +231,7 @@ export default function HomePageClient() {
 						overflow: "hidden",
 					}}
 				>
-					<AppHeader
-						currentNotification={currentNotification}
-						isElectron={isElectron}
-					/>
+					<AppHeader hasNotifications={notifications.length > 0} />
 					<div
 						className="flex-1 min-h-0 overflow-hidden"
 						style={{

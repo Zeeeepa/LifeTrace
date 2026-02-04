@@ -243,6 +243,12 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_journals_deleted_at ON journals(deleted_at)",
                     ),
                     (
+                        "idx_journals_uid",
+                        "journals",
+                        ["uid"],
+                        "CREATE INDEX IF NOT EXISTS idx_journals_uid ON journals(uid)",
+                    ),
+                    (
                         "idx_journal_tag_relations_journal_id",
                         "journal_tag_relations",
                         ["journal_id"],
@@ -253,6 +259,30 @@ class DatabaseBase:
                         "journal_tag_relations",
                         ["tag_id"],
                         "CREATE INDEX IF NOT EXISTS idx_journal_tag_relations_tag_id ON journal_tag_relations(tag_id)",
+                    ),
+                    (
+                        "idx_journal_todo_relations_journal_id",
+                        "journal_todo_relations",
+                        ["journal_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_todo_relations_journal_id ON journal_todo_relations(journal_id)",
+                    ),
+                    (
+                        "idx_journal_todo_relations_todo_id",
+                        "journal_todo_relations",
+                        ["todo_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_todo_relations_todo_id ON journal_todo_relations(todo_id)",
+                    ),
+                    (
+                        "idx_journal_activity_relations_journal_id",
+                        "journal_activity_relations",
+                        ["journal_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_activity_relations_journal_id ON journal_activity_relations(journal_id)",
+                    ),
+                    (
+                        "idx_journal_activity_relations_activity_id",
+                        "journal_activity_relations",
+                        ["activity_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_activity_relations_activity_id ON journal_activity_relations(activity_id)",
                     ),
                     (
                         "idx_activities_start_time",

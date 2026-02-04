@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from lifetrace.jobs.deadline_reminder import refresh_todo_reminders, remove_todo_reminder_jobs
 from lifetrace.repositories.interfaces import ITodoRepository
 from lifetrace.schemas.todo import TodoAttachmentResponse, TodoCreate, TodoResponse, TodoUpdate
 from lifetrace.storage.notification_storage import (
@@ -129,7 +130,12 @@ class TodoService:
         if not todo_id:
             raise HTTPException(status_code=500, detail="创建 todo 失败")
 
-        return self.get_todo(todo_id)
+        todo = self.get_todo(todo_id)
+        try:
+            refresh_todo_reminders(todo)
+        except Exception as e:
+            logger.warning(f"创建待办后同步提醒失败: {e}")
+        return todo
 
     def update_todo(self, todo_id: int, data: TodoUpdate) -> TodoResponse:  # noqa: C901, PLR0912, PLR0915
         """更新 Todo"""
@@ -223,17 +229,26 @@ class TodoService:
         if not self.repository.update(todo_id, **kwargs):
             raise HTTPException(status_code=500, detail="更新 todo 失败")
 
-        if (
-            "start_time" in fields_set
-            or "dtstart" in fields_set
-            or "due" in fields_set
-            or "deadline" in fields_set
-            or "reminder_offsets" in fields_set
-        ):
+        schedule_fields = {
+            "start_time",
+            "dtstart",
+            "due",
+            "deadline",
+            "reminder_offsets",
+            "status",
+            "item_type",
+        }
+        if schedule_fields.intersection(fields_set):
             clear_notification_by_todo_id(todo_id)
             clear_dismissed_mark(todo_id)
 
-        return self.get_todo(todo_id)
+        todo = self.get_todo(todo_id)
+        if schedule_fields.intersection(fields_set):
+            try:
+                refresh_todo_reminders(todo)
+            except Exception as e:
+                logger.warning(f"更新待办后同步提醒失败: {e}")
+        return todo
 
     def delete_todo(self, todo_id: int) -> None:
         """删除 Todo"""
@@ -241,6 +256,9 @@ class TodoService:
             raise HTTPException(status_code=404, detail="todo 不存在")
         if not self.repository.delete(todo_id):
             raise HTTPException(status_code=500, detail="删除 todo 失败")
+        remove_todo_reminder_jobs(todo_id)
+        clear_notification_by_todo_id(todo_id)
+        clear_dismissed_mark(todo_id)
 
     def reorder_todos(self, items: list[dict[str, Any]]) -> dict[str, Any]:
         """批量重排序 Todo"""
