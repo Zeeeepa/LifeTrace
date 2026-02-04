@@ -2,13 +2,23 @@ import type { JournalRefreshMode } from "@/lib/store/journal-store";
 
 const pad = (value: number) => value.toString().padStart(2, "0");
 
-export const formatDateTimeLocal = (value: Date) => {
-	return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+export const formatDateInput = (value: Date) => {
+	return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
 };
 
-export const parseDateTimeLocal = (value: string) => {
-	return new Date(value);
+export const parseDateInput = (value: string) => {
+	const [year, month, day] = value.split("-").map(Number);
+	if (!year || !month || !day) return new Date();
+	return new Date(year, month - 1, day);
 };
+
+export const parseJournalDate = (value: string) => {
+	const datePart = value.split("T")[0] ?? value;
+	return parseDateInput(datePart);
+};
+
+export const normalizeDateOnly = (value: Date) =>
+	new Date(value.getFullYear(), value.getMonth(), value.getDate());
 
 const parseTimeString = (value: string) => {
 	const [hours = "0", minutes = "0"] = value.split(":");
