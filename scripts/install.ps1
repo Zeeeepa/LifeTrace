@@ -1,9 +1,9 @@
 param(
     [string]$Dir = $env:LIFETRACE_DIR,
     [string]$Repo = $env:LIFETRACE_REPO,
-    [Alias("r", "ref")]
+    [Alias("r")]
     [string]$Ref = $env:LIFETRACE_REF,
-    [Alias("m", "mode")]
+    [Alias("m")]
     [string]$Mode = $env:LIFETRACE_MODE,
     [string]$Variant = $env:LIFETRACE_VARIANT,
     [string]$Frontend = $env:LIFETRACE_FRONTEND,
@@ -183,7 +183,7 @@ if ($Mode -eq "web") {
     pnpm install
 
     if ($Frontend -eq "build") {
-        pnpm "build:tauri:$Variant:$Backend:full"
+        pnpm "build:tauri:${Variant}:${Backend}:full"
         Write-Host "Build complete."
     } else {
         $uvPath = (Get-Command uv).Source
@@ -222,7 +222,7 @@ if ($Mode -eq "web") {
     pnpm install
 
     if ($Frontend -eq "build") {
-        pnpm "build:electron:$Variant:$Backend:full"
+        pnpm "build:electron:${Variant}:${Backend}:full"
         Write-Host "Build complete."
     } else {
         if ($Backend -eq "pyinstaller") {
