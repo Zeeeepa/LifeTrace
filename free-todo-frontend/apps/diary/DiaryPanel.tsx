@@ -369,7 +369,15 @@ export function DiaryPanel() {
 		});
 	};
 	const handleCopyToOriginal = (content: string) => {
-		setDraft((prev) => ({ ...prev, userNotes: content }));
+		setDraft((prev) => {
+			const trimmed = content.trim();
+			if (!trimmed) return prev;
+			const separator = prev.userNotes.trim().length > 0 ? "\n\n" : "";
+			return {
+				...prev,
+				userNotes: `${prev.userNotes}${separator}${trimmed}`,
+			};
+		});
 		setActiveTab("original");
 	};
 	const handleGenerateObjectiveClick = async () => {
