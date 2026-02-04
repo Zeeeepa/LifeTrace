@@ -10,6 +10,7 @@
 //! - **Island Mode**: Transparent floating window like Dynamic Island (separate build config)
 
 pub mod backend;
+mod backend_log;
 mod backend_paths;
 mod backend_proxy;
 mod backend_python;

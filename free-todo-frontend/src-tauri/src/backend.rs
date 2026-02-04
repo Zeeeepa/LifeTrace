@@ -3,13 +3,15 @@
 //! This module handles the lifecycle of the Python backend server,
 //! including starting, health checking, proxying, and stopping the process.
 
+use crate::backend_log::{emit_backend_log, format_download_progress, spawn_log_reader};
 use crate::backend_paths::{
     get_backend_path, get_backend_script_entry, get_backend_script_root, get_data_dir,
     get_requirements_path, get_runtime_root,
 };
 use crate::backend_proxy::{start_proxy_server, ProxyState};
 use crate::backend_python::{
-    ensure_uv, ensure_venv, find_python312, install_requirements, uv_env_pairs,
+    ensure_uv, ensure_uv_binary_with_progress, ensure_uv_python, ensure_uv_venv, ensure_venv,
+    find_python312, install_requirements, uv_env_pairs,
 };
 use crate::backend_support::{
     check_backend_health as check_backend_health_with_timeout, detect_running_backend_port,
@@ -119,6 +121,8 @@ fn mode_label(mode: ServerMode) -> &'static str {
         ServerMode::Build => "build",
     }
 }
+
+const BACKEND_LOG_LABEL: &str = "backend";
 
 /// Get the backend URL (proxy port)
 pub fn get_backend_url() -> String {
@@ -252,10 +256,12 @@ async fn backend_supervisor(app: AppHandle, mode: ServerMode) -> Result<(), Stri
                 state.backend_port.store(port, Ordering::Relaxed);
                 state.ready.store(true, Ordering::Relaxed);
                 backoff = Duration::from_millis(500);
+                emit_backend_log(&app, format!("Backend ready on port {}", port));
             }
             Err(err) => {
                 state.ready.store(false, Ordering::Relaxed);
                 warn!("Failed to start backend: {}", err);
+                emit_backend_log(&app, format!("Backend start failed: {}", err));
                 tokio::time::sleep(backoff).await;
                 backoff = (backoff * 2).min(max_backoff);
             }
@@ -289,6 +295,7 @@ async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16,
     let mut backend_workdir = backend_path.parent().unwrap_or(&backend_path).to_path_buf();
 
     let mut command = if backend_runtime == BackendRuntime::Uv {
+        emit_backend_log(app, "Starting backend with uv runtime...");
         let backend_root = get_backend_script_root(app)?;
         backend_workdir = backend_root;
         run_uv_sync_if_needed(&backend_workdir)?;
@@ -308,11 +315,9 @@ async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16,
         }
         cmd
     } else if backend_runtime == BackendRuntime::Script {
+        emit_backend_log(app, "Preparing script runtime environment...");
         let runtime_root = get_runtime_root(app)?;
         let venv_dir = runtime_root.join("python-venv");
-        let system_python = find_python312().ok_or("Python 3.12 not found")?;
-        let venv_python = ensure_venv(system_python.as_path(), venv_dir.as_path())?;
-        let uv_path = ensure_uv(venv_python.as_path(), venv_dir.as_path())?;
         let backend_root = get_backend_script_root(app)?;
         let requirements_path = get_requirements_path(&backend_root);
         if !requirements_path.exists() {
@@ -321,11 +326,71 @@ async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16,
                 requirements_path
             ));
         }
-        install_requirements(
-            uv_path.as_path(),
-            venv_python.as_path(),
-            requirements_path.as_path(),
-        )?;
+        let mut venv_python = None;
+
+        emit_backend_log(app, "Ensuring uv binary is available...");
+        match ensure_uv_binary_with_progress(&runtime_root, |progress| {
+            emit_backend_log(app, format_download_progress(&progress));
+        })
+        .await
+        {
+            Ok(uv_path) => {
+                emit_backend_log(app, format!("uv ready at {}", uv_path.display()));
+                emit_backend_log(app, "Ensuring Python 3.12 via uv...");
+                if let Err(err) = ensure_uv_python(uv_path.as_path()) {
+                    emit_backend_log(app, format!("uv python install failed: {}", err));
+                } else {
+                    emit_backend_log(app, "uv Python install completed.");
+                    emit_backend_log(app, "Creating virtual environment with uv...");
+                    match ensure_uv_venv(uv_path.as_path(), venv_dir.as_path()) {
+                        Ok(path) => {
+                            emit_backend_log(app, "uv venv created.");
+                            emit_backend_log(app, "Installing backend dependencies with uv...");
+                            if let Err(err) = install_requirements(
+                                uv_path.as_path(),
+                                path.as_path(),
+                                requirements_path.as_path(),
+                            ) {
+                                emit_backend_log(
+                                    app,
+                                    format!("uv dependency install failed: {}", err),
+                                );
+                            } else {
+                                emit_backend_log(app, "uv dependency install completed.");
+                                venv_python = Some(path);
+                            }
+                        }
+                        Err(err) => {
+                            emit_backend_log(app, format!("uv venv creation failed: {}", err));
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                emit_backend_log(app, format!("uv download failed: {}", err));
+            }
+        }
+
+        if venv_python.is_none() {
+            emit_backend_log(app, "Falling back to system Python 3.12...");
+            let system_python = find_python312().ok_or("Python 3.12 not found")?;
+            let fallback_python = ensure_venv(system_python.as_path(), venv_dir.as_path())?;
+            emit_backend_log(app, "Installing uv in virtual environment...");
+            let uv_path = ensure_uv(fallback_python.as_path(), venv_dir.as_path())?;
+            emit_backend_log(app, "Installing backend dependencies with uv...");
+            install_requirements(
+                uv_path.as_path(),
+                fallback_python.as_path(),
+                requirements_path.as_path(),
+            )?;
+            emit_backend_log(app, "uv dependency install completed.");
+            venv_python = Some(fallback_python);
+        }
+
+        let venv_python = venv_python.ok_or("Failed to prepare Python runtime")?;
+        if !venv_python.exists() {
+            return Err("Virtual environment python not found".to_string());
+        }
 
         backend_workdir = backend_root;
         let mut cmd = Command::new(venv_python);
@@ -360,11 +425,18 @@ async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16,
     info!("Data directory: {:?}", data_dir);
     info!("Server mode: {}", mode_label);
 
-    let child = command
+    let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start backend: {}", e))?;
+
+    if let Some(stdout) = child.stdout.take() {
+        spawn_log_reader(app.clone(), stdout, BACKEND_LOG_LABEL);
+    }
+    if let Some(stderr) = child.stderr.take() {
+        spawn_log_reader(app.clone(), stderr, BACKEND_LOG_LABEL);
+    }
 
     {
         let mut guard = state.process.lock().unwrap();
@@ -381,6 +453,7 @@ async fn start_backend_process(app: &AppHandle, mode: ServerMode) -> Result<u16,
     .await
     {
         stop_managed_backend();
+        emit_backend_log(app, format!("Backend failed to become ready: {}", err));
         return Err(err);
     }
     info!("Backend server is ready at http://127.0.0.1:{}", port);
