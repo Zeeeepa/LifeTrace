@@ -4,6 +4,7 @@ export { AutomationTasksSection } from "./AutomationTasksSection";
 export { AutoTodoDetectionSection } from "./AutoTodoDetectionSection";
 export { DifyConfigSection } from "./DifyConfigSection";
 export { DockDisplayModeSection } from "./DockDisplayModeSection";
+export { JournalSettingsSection } from "./JournalSettingsSection";
 export { LlmConfigSection } from "./LlmConfigSection";
 export { OnboardingSection } from "./OnboardingSection";
 export { PanelSwitchesSection } from "./PanelSwitchesSection";

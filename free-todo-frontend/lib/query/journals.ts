@@ -1,17 +1,26 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { customFetcher } from "@/lib/api/fetcher";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { unwrapApiData } from "@/lib/api/fetcher";
+import {
+	autoLinkJournalApiJournalsAutoLinkPost,
+	createJournalApiJournalsPost,
+	generateAiJournalApiJournalsGenerateAiPost,
+	generateObjectiveJournalApiJournalsGenerateObjectivePost,
+	updateJournalApiJournalsJournalIdPut,
+	useListJournalsApiJournalsGet,
+} from "@/lib/generated/journals/journals";
 import type {
-	Journal,
-	JournalAutoLinkInput,
+	JournalAutoLinkRequest,
 	JournalAutoLinkResponse,
-	JournalCreateInput,
-	JournalGenerateInput,
+	JournalCreate,
+	JournalGenerateRequest,
 	JournalGenerateResponse,
 	JournalListResponse,
-	JournalUpdateInput,
-} from "@/lib/types";
+	JournalResponse,
+	JournalUpdate,
+	ListJournalsApiJournalsGetParams,
+} from "@/lib/generated/schemas";
 import { queryKeys } from "./keys";
 
 interface UseJournalsParams {
@@ -21,74 +30,112 @@ interface UseJournalsParams {
 	endDate?: string;
 }
 
-const normalizeJournal = (raw: Journal): Journal => ({
-	...raw,
-	contentObjective: raw.contentObjective ?? null,
-	contentAi: raw.contentAi ?? null,
-	mood: raw.mood ?? null,
-	energy: raw.energy ?? null,
-	dayBucketStart: raw.dayBucketStart ?? null,
-	tags: raw.tags ?? [],
-	relatedTodoIds: raw.relatedTodoIds ?? [],
-	relatedActivityIds: raw.relatedActivityIds ?? [],
+const normalizeTags = (
+	raw: Record<string, unknown>[],
+): { id: number; tagName: string }[] =>
+	raw
+		.filter((tag) => typeof tag === "object" && tag !== null)
+		.map((tag) => ({
+			id: (tag.id as number) ?? 0,
+			tagName: (tag.tagName as string) ?? "",
+		}));
+
+const normalizeJournal = (raw: Record<string, unknown>) => ({
+	id: raw.id as number,
+	uid: (raw.uid as string) ?? null,
+	name: (raw.name as string) ?? "",
+	userNotes: (raw.userNotes as string) ?? "",
+	date: raw.date as string,
+	contentFormat: (raw.contentFormat as string) ?? "markdown",
+	contentObjective: (raw.contentObjective as string) ?? null,
+	contentAi: (raw.contentAi as string) ?? null,
+	mood: (raw.mood as string) ?? null,
+	energy: (raw.energy as number) ?? null,
+	dayBucketStart: (raw.dayBucketStart as string) ?? null,
+	createdAt: raw.createdAt as string,
+	updatedAt: raw.updatedAt as string,
+	deletedAt: (raw.deletedAt as string) ?? null,
+	tags: normalizeTags(
+		((raw.tags as Record<string, unknown>[]) ?? []).filter(Boolean),
+	),
+	relatedTodoIds: (raw.relatedTodoIds as number[]) ?? [],
+	relatedActivityIds: (raw.relatedActivityIds as number[]) ?? [],
 });
 
+const normalizeAutoLinkResponse = (raw: Record<string, unknown>) => ({
+	relatedTodoIds: (raw.relatedTodoIds as number[]) ?? [],
+	relatedActivityIds: (raw.relatedActivityIds as number[]) ?? [],
+	todoCandidates: (raw.todoCandidates as Array<Record<string, unknown>>) ?? [],
+	activityCandidates:
+		(raw.activityCandidates as Array<Record<string, unknown>>) ?? [],
+});
+
+export type JournalView = ReturnType<typeof normalizeJournal>;
+export type JournalAutoLinkResult = ReturnType<typeof normalizeAutoLinkResponse>;
+
 export function useJournals(params?: UseJournalsParams) {
-	return useQuery({
-		queryKey: queryKeys.journals.list(params),
-		queryFn: async () =>
-			customFetcher<JournalListResponse>("/api/journals", {
-				params: {
-					limit: params?.limit ?? 50,
-					offset: params?.offset ?? 0,
-					start_date: params?.startDate,
-					end_date: params?.endDate,
-				},
-			}),
-		staleTime: 30 * 1000,
-		select: (data) => {
-			if (!data) {
-				return { total: 0, journals: [] };
-			}
-			return {
-				...data,
-				journals: (data.journals ?? []).map((journal) =>
-					normalizeJournal(journal),
-				),
-			};
+	const queryParams: ListJournalsApiJournalsGetParams = {
+		limit: params?.limit ?? 50,
+		offset: params?.offset ?? 0,
+		start_date: params?.startDate,
+		end_date: params?.endDate,
+	};
+
+	return useListJournalsApiJournalsGet(queryParams, {
+		query: {
+			queryKey: queryKeys.journals.list(params),
+			staleTime: 30 * 1000,
+			select: (data: unknown) => {
+				const response =
+					unwrapApiData<JournalListResponse>(data) ?? {
+						total: 0,
+						journals: [],
+					};
+				const journals = (response.journals ?? []).map((journal) =>
+					normalizeJournal(journal as unknown as Record<string, unknown>),
+				);
+				return {
+					total: response.total ?? 0,
+					journals,
+				};
+			},
 		},
 	});
 }
 
-const createJournal = async (input: JournalCreateInput) =>
-	customFetcher<Journal>("/api/journals", {
-		method: "POST",
-		data: input,
-	});
+const createJournal = async (input: JournalCreate) => {
+	const response = await createJournalApiJournalsPost(input);
+	const data = unwrapApiData<JournalResponse>(response);
+	return data ? normalizeJournal(data as unknown as Record<string, unknown>) : null;
+};
 
-const updateJournal = async (id: number, input: JournalUpdateInput) =>
-	customFetcher<Journal>(`/api/journals/${id}`, {
-		method: "PUT",
-		data: input,
-	});
+const updateJournal = async (id: number, input: JournalUpdate) => {
+	const response = await updateJournalApiJournalsJournalIdPut(id, input);
+	const data = unwrapApiData<JournalResponse>(response);
+	return data ? normalizeJournal(data as unknown as Record<string, unknown>) : null;
+};
 
-const autoLinkJournal = async (input: JournalAutoLinkInput) =>
-	customFetcher<JournalAutoLinkResponse>("/api/journals/auto-link", {
-		method: "POST",
-		data: input,
-	});
+const autoLinkJournal = async (input: JournalAutoLinkRequest) => {
+	const response = await autoLinkJournalApiJournalsAutoLinkPost(input);
+	const data = unwrapApiData<JournalAutoLinkResponse>(response);
+	return data
+		? normalizeAutoLinkResponse(data as Record<string, unknown>)
+		: normalizeAutoLinkResponse({});
+};
 
-const generateObjective = async (input: JournalGenerateInput) =>
-	customFetcher<JournalGenerateResponse>("/api/journals/generate-objective", {
-		method: "POST",
-		data: input,
-	});
+const generateObjective = async (input: JournalGenerateRequest) => {
+	const response = await generateObjectiveJournalApiJournalsGenerateObjectivePost(
+		input,
+	);
+	const data = unwrapApiData<JournalGenerateResponse>(response);
+	return data ?? { content: "" };
+};
 
-const generateAiView = async (input: JournalGenerateInput) =>
-	customFetcher<JournalGenerateResponse>("/api/journals/generate-ai", {
-		method: "POST",
-		data: input,
-	});
+const generateAiView = async (input: JournalGenerateRequest) => {
+	const response = await generateAiJournalApiJournalsGenerateAiPost(input);
+	const data = unwrapApiData<JournalGenerateResponse>(response);
+	return data ?? { content: "" };
+};
 
 export function useJournalMutations() {
 	const queryClient = useQueryClient();
@@ -101,7 +148,7 @@ export function useJournalMutations() {
 	});
 
 	const updateMutation = useMutation({
-		mutationFn: ({ id, input }: { id: number; input: JournalUpdateInput }) =>
+		mutationFn: ({ id, input }: { id: number; input: JournalUpdate }) =>
 			updateJournal(id, input),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: queryKeys.journals.all });
@@ -131,7 +178,7 @@ export function useJournalMutations() {
 
 	return {
 		createJournal: createMutation.mutateAsync,
-		updateJournal: (id: number, input: JournalUpdateInput) =>
+		updateJournal: (id: number, input: JournalUpdate) =>
 			updateMutation.mutateAsync({ id, input }),
 		autoLinkJournal: autoLinkMutation.mutateAsync,
 		generateObjective: objectiveMutation.mutateAsync,

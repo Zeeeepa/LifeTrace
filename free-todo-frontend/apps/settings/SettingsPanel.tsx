@@ -14,6 +14,7 @@ import {
 	AutoTodoDetectionSection,
 	DifyConfigSection,
 	DockDisplayModeSection,
+	JournalSettingsSection,
 	LlmConfigSection,
 	OnboardingSection,
 	PanelSwitchesSection,
@@ -137,6 +138,7 @@ export function SettingsPanel() {
 			case "automation":
 				return (
 					<>
+						<JournalSettingsSection />
 						<AutoTodoDetectionSection config={config} loading={loading} />
 						<AutomationTasksSection loading={loading} />
 					</>

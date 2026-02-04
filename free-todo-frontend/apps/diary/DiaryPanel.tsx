@@ -1,22 +1,30 @@
 "use client";
 
+import { BookOpen, CalendarDays, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiaryHeader } from "@/apps/diary/DiaryHeader";
-import { DiarySettings } from "@/apps/diary/DiarySettings";
 import { DiaryTabs, type JournalTab } from "@/apps/diary/DiaryTabs";
+import { JournalHistory } from "@/apps/diary/JournalHistory";
 import { resolveBucketRange } from "@/apps/diary/journal-utils";
 import type { JournalDraft } from "@/apps/diary/types";
+import {
+	PanelActionButton,
+	PanelHeader,
+} from "@/components/common/layout/PanelHeader";
 import { Button } from "@/components/ui/button";
-import { useJournalMutations, useJournals } from "@/lib/query";
+import type {
+	JournalAutoLinkRequest,
+	JournalCreate,
+	JournalGenerateRequest,
+} from "@/lib/generated/schemas";
+import {
+	type JournalView,
+	useJournalMutations,
+	useJournals,
+} from "@/lib/query";
 import { useJournalStore } from "@/lib/store/journal-store";
 import { useLocaleStore } from "@/lib/store/locale";
-import type {
-	JournalAutoLinkInput,
-	JournalCreateInput,
-	JournalGenerateInput,
-	JournalUpdateInput,
-} from "@/lib/types";
 
 const emptyDraft = (date: Date): JournalDraft => ({
 	id: null,
@@ -47,20 +55,11 @@ export function DiaryPanel() {
 	const {
 		refreshMode,
 		fixedTime,
-		workHoursStart,
 		workHoursEnd,
 		customTime,
 		autoLinkEnabled,
 		autoGenerateObjectiveEnabled,
 		autoGenerateAiEnabled,
-		setRefreshMode,
-		setFixedTime,
-		setWorkHoursStart,
-		setWorkHoursEnd,
-		setCustomTime,
-		setAutoLinkEnabled,
-		setAutoGenerateObjectiveEnabled,
-		setAutoGenerateAiEnabled,
 	} = useJournalStore();
 	const bucket = useMemo(
 		() =>
@@ -88,6 +87,26 @@ export function DiaryPanel() {
 		[journalResponse?.journals],
 	);
 	const {
+		data: historyResponse,
+		isLoading: isHistoryLoading,
+	} = useJournals({ limit: 30, offset: 0 });
+	const historyJournals = useMemo(() => {
+		const journals = historyResponse?.journals ?? [];
+		return [...journals].sort(
+			(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+		);
+	}, [historyResponse?.journals]);
+	const historyFormatter = useMemo(
+		() =>
+			new Intl.DateTimeFormat(locale, {
+				month: "short",
+				day: "numeric",
+				hour: "2-digit",
+				minute: "2-digit",
+			}),
+		[locale],
+	);
+	const {
 		createJournal,
 		updateJournal,
 		autoLinkJournal,
@@ -99,6 +118,28 @@ export function DiaryPanel() {
 		isGeneratingObjective,
 		isGeneratingAi,
 	} = useJournalMutations();
+	const syncDraftFromJournal = useCallback(
+		(journal: JournalView) => {
+			setDraft({
+				id: journal.id,
+				name: journal.name ?? "",
+				userNotes: journal.userNotes ?? "",
+				contentObjective: journal.contentObjective ?? "",
+				contentAi: journal.contentAi ?? "",
+				mood: journal.mood ?? "",
+				energy: journal.energy ?? null,
+				tags: (journal.tags ?? []).map((tag) => tag.tagName),
+				relatedTodoIds: journal.relatedTodoIds ?? [],
+				relatedActivityIds: journal.relatedActivityIds ?? [],
+				date: new Date(journal.date),
+			});
+			setSelectedDate(new Date(journal.date));
+			setTagInput((journal.tags ?? []).map((tag) => tag.tagName).join(", "));
+			setAutoLinkMessage(null);
+			setActiveTab("original");
+		},
+		[],
+	);
 	useEffect(() => {
 		if (isJournalLoading) return;
 		const syncKey = `${bucket.bucketStart.toISOString()}-${activeJournal?.id ?? "new"}`;
@@ -106,25 +147,7 @@ export function DiaryPanel() {
 		lastSyncKey.current = syncKey;
 
 		if (activeJournal) {
-			setDraft({
-				id: activeJournal.id,
-				name: activeJournal.name ?? "",
-				userNotes: activeJournal.userNotes ?? "",
-				contentObjective: activeJournal.contentObjective ?? "",
-				contentAi: activeJournal.contentAi ?? "",
-				mood: activeJournal.mood ?? "",
-				energy: activeJournal.energy ?? null,
-				tags: (activeJournal.tags ?? []).map((tag) => tag.tagName),
-				relatedTodoIds: activeJournal.relatedTodoIds ?? [],
-				relatedActivityIds: activeJournal.relatedActivityIds ?? [],
-				date: new Date(activeJournal.date),
-			});
-			setSelectedDate(new Date(activeJournal.date));
-			setTagInput(
-				(activeJournal.tags ?? []).map((tag) => tag.tagName).join(", "),
-			);
-			setAutoLinkMessage(null);
-			setActiveTab("original");
+			syncDraftFromJournal(activeJournal);
 			return;
 		}
 
@@ -132,7 +155,13 @@ export function DiaryPanel() {
 		setTagInput("");
 		setAutoLinkMessage(null);
 		setActiveTab("original");
-	}, [activeJournal, bucket.bucketStart, isJournalLoading, selectedDate]);
+	}, [
+		activeJournal,
+		bucket.bucketStart,
+		isJournalLoading,
+		selectedDate,
+		syncDraftFromJournal,
+	]);
 
 	const handleTagsCommit = (value: string) => {
 		const tags = parseTags(value);
@@ -143,58 +172,44 @@ export function DiaryPanel() {
 		setSelectedDate(value);
 		setDraft((prev) => ({ ...prev, date: value }));
 	};
-	const handleAddTodoId = (id: number) => {
-		setDraft((prev) => ({
-			...prev,
-			relatedTodoIds: Array.from(new Set([...prev.relatedTodoIds, id])),
-		}));
-	};
-	const handleRemoveTodoId = (id: number) => {
-		setDraft((prev) => ({
-			...prev,
-			relatedTodoIds: prev.relatedTodoIds.filter((item) => item !== id),
-		}));
-	};
-	const handleAddActivityId = (id: number) => {
-		setDraft((prev) => ({
-			...prev,
-			relatedActivityIds: Array.from(
-				new Set([...prev.relatedActivityIds, id]),
-			),
-		}));
-	};
-	const handleRemoveActivityId = (id: number) => {
-		setDraft((prev) => ({
-			...prev,
-			relatedActivityIds: prev.relatedActivityIds.filter((item) => item !== id),
-		}));
+	const handleHistorySelect = (journal: JournalView) => {
+		const journalDate = new Date(journal.date);
+		const nextBucket = resolveBucketRange(
+			journalDate,
+			refreshMode,
+			fixedTime,
+			workHoursEnd,
+			customTime,
+		);
+		lastSyncKey.current = `${nextBucket.bucketStart.toISOString()}-${journal.id}`;
+		syncDraftFromJournal(journal);
 	};
 
-	const buildSavePayload = (tags: string[]): JournalCreateInput => ({
+	const buildSavePayload = (tags: string[]): JournalCreate => ({
 		name: draft.name || undefined,
-		userNotes: draft.userNotes,
+		user_notes: draft.userNotes,
 		date: draft.date.toISOString(),
-		contentFormat: "markdown",
-		contentObjective: draft.contentObjective || null,
-		contentAi: draft.contentAi || null,
+		content_format: "markdown",
+		content_objective: draft.contentObjective || null,
+		content_ai: draft.contentAi || null,
 		mood: draft.mood || null,
 		energy: draft.energy,
-		dayBucketStart: bucket.bucketStart.toISOString(),
+		day_bucket_start: bucket.bucketStart.toISOString(),
 		tags,
-		relatedTodoIds: draft.relatedTodoIds,
-		relatedActivityIds: draft.relatedActivityIds,
+		related_todo_ids: draft.relatedTodoIds,
+		related_activity_ids: draft.relatedActivityIds,
 	});
 	const runAutoLink = async (
 		journalId: number,
 		snapshot?: { title: string; content: string; date: Date },
 	) => {
-		const payload: JournalAutoLinkInput = {
-			journalId,
+		const payload: JournalAutoLinkRequest = {
+			journal_id: journalId,
 			title: snapshot?.title ?? draft.name,
-			contentOriginal: snapshot?.content ?? draft.userNotes,
+			content_original: snapshot?.content ?? draft.userNotes,
 			date: (snapshot?.date ?? draft.date).toISOString(),
-			dayBucketStart: bucket.bucketStart.toISOString(),
-			maxItems: 3,
+			day_bucket_start: bucket.bucketStart.toISOString(),
+			max_items: 3,
 		};
 		const result = await autoLinkJournal(payload);
 		setDraft((prev) => ({
@@ -213,12 +228,12 @@ export function DiaryPanel() {
 		journalId: number,
 		snapshot?: { title: string; content: string; date: Date },
 	) => {
-		const payload: JournalGenerateInput = {
-			journalId,
+		const payload: JournalGenerateRequest = {
+			journal_id: journalId,
 			title: snapshot?.title ?? draft.name,
-			contentOriginal: snapshot?.content ?? draft.userNotes,
+			content_original: snapshot?.content ?? draft.userNotes,
 			date: (snapshot?.date ?? draft.date).toISOString(),
-			dayBucketStart: bucket.bucketStart.toISOString(),
+			day_bucket_start: bucket.bucketStart.toISOString(),
 			language: locale,
 		};
 		const result = await generateObjective(payload);
@@ -229,12 +244,12 @@ export function DiaryPanel() {
 		journalId: number,
 		snapshot?: { title: string; content: string; date: Date },
 	) => {
-		const payload: JournalGenerateInput = {
-			journalId,
+		const payload: JournalGenerateRequest = {
+			journal_id: journalId,
 			title: snapshot?.title ?? draft.name,
-			contentOriginal: snapshot?.content ?? draft.userNotes,
+			content_original: snapshot?.content ?? draft.userNotes,
 			date: (snapshot?.date ?? draft.date).toISOString(),
-			dayBucketStart: bucket.bucketStart.toISOString(),
+			day_bucket_start: bucket.bucketStart.toISOString(),
 			language: locale,
 		};
 		const result = await generateAiView(payload);
@@ -249,7 +264,7 @@ export function DiaryPanel() {
 		let saved = null;
 		try {
 			if (draft.id) {
-				const updatePayload: JournalUpdateInput = { ...payload };
+				const { uid: _uid, ...updatePayload } = payload;
 				saved = await updateJournal(draft.id, updatePayload);
 			} else {
 				saved = await createJournal(payload);
@@ -341,177 +356,158 @@ export function DiaryPanel() {
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
-			<div className="border-b border-border px-6 py-4">
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<div>
-						<div className="text-lg font-semibold">{t("panelTitle")}</div>
-						<div className="text-xs text-muted-foreground">
-							{t("panelSubtitle")}
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
+			<PanelHeader
+				icon={BookOpen}
+				title={t("panelTitle")}
+				actions={
+					<>
+						<PanelActionButton
+							variant="primary"
+							icon={Save}
 							onClick={handleSave}
 							disabled={isCreating || isUpdating}
-						>
-							{isCreating || isUpdating
-								? t("saving")
-								: t("save")}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => handleDateChange(new Date())}
-						>
-							{t("jumpToToday")}
-						</Button>
-					</div>
-				</div>
-				<div className="mt-4">
-					<DiaryHeader
-						draft={draft}
-						tagInput={tagInput}
-						onNameChange={(value) =>
-							setDraft((prev) => ({ ...prev, name: value }))
-						}
-						onDateChange={handleDateChange}
-						onMoodChange={(value) =>
-							setDraft((prev) => ({ ...prev, mood: value }))
-						}
-						onEnergyChange={(value) =>
-							setDraft((prev) => ({ ...prev, energy: value }))
-						}
-						onTagInputChange={setTagInput}
-						onTagsCommit={handleTagsCommit}
-						onAddTodoId={handleAddTodoId}
-						onRemoveTodoId={handleRemoveTodoId}
-						onAddActivityId={handleAddActivityId}
-						onRemoveActivityId={handleRemoveActivityId}
-					/>
-				</div>
-			</div>
-
-			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-6 py-4">
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<DiaryTabs activeTab={activeTab} onChange={setActiveTab} />
-					<div className="flex items-center gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={handleGenerateObjectiveClick}
-							disabled={!draft.id || isGeneratingObjective}
-						>
-							{isGeneratingObjective
-								? t("generatingObjective")
-								: t("generateObjective")}
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={handleGenerateAiClick}
-							disabled={!draft.id || isGeneratingAi}
-						>
-							{isGeneratingAi ? t("generatingAi") : t("generateAi")}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={async () => {
-								if (!draft.id || isAutoLinking) return;
-								try {
-									await runAutoLink(draft.id);
-								} catch (_error) {
-									setAutoLinkMessage(t("autoLinkFailed"));
-								}
-							}}
-							disabled={!draft.id || isAutoLinking}
-						>
-							{isAutoLinking ? t("autoLinking") : t("autoLink")}
-						</Button>
-					</div>
-				</div>
-
-				<div className="flex min-h-0 flex-1 flex-col gap-3">
-					{activeTab === "original" && (
-						<textarea
-							value={draft.userNotes}
-							onChange={(event) =>
-								setDraft((prev) => ({
-									...prev,
-									userNotes: event.target.value,
-								}))
-							}
-							placeholder={t("contentPlaceholder")}
-							className="min-h-[260px] flex-1 rounded-xl border border-border bg-background p-4 text-sm leading-relaxed shadow-sm"
+							aria-label={isCreating || isUpdating ? t("saving") : t("save")}
+							title={isCreating || isUpdating ? t("saving") : t("save")}
 						/>
-					)}
-					{activeTab === "objective" && (
-						<div className="flex min-h-0 flex-1 flex-col gap-2">
-							<textarea
-								value={draft.contentObjective}
-								readOnly
-								placeholder={t("objectivePlaceholder")}
-								className="min-h-[240px] flex-1 rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed"
-							/>
-							{draft.contentObjective && (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() =>
-										handleCopyToOriginal(draft.contentObjective)
-									}
-								>
-									{t("copyToOriginal")}
-								</Button>
-							)}
-						</div>
-					)}
-					{activeTab === "ai" && (
-						<div className="flex min-h-0 flex-1 flex-col gap-2">
-							<textarea
-								value={draft.contentAi}
-								readOnly
-								placeholder={t("aiPlaceholder")}
-								className="min-h-[240px] flex-1 rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed"
-							/>
-							{draft.contentAi && (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => handleCopyToOriginal(draft.contentAi)}
-								>
-									{t("copyToOriginal")}
-								</Button>
-							)}
-						</div>
-					)}
-					{autoLinkMessage && (
-						<div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-							{autoLinkMessage}
-						</div>
-					)}
-				</div>
+						<PanelActionButton
+							icon={CalendarDays}
+							onClick={() => handleDateChange(new Date())}
+							aria-label={t("jumpToToday")}
+							title={t("jumpToToday")}
+						/>
+					</>
+				}
+			/>
 
-				<DiarySettings
-					refreshMode={refreshMode}
-					fixedTime={fixedTime}
-					workHoursStart={workHoursStart}
-					workHoursEnd={workHoursEnd}
-					customTime={customTime}
-					autoLinkEnabled={autoLinkEnabled}
-					autoGenerateObjectiveEnabled={autoGenerateObjectiveEnabled}
-					autoGenerateAiEnabled={autoGenerateAiEnabled}
-					onRefreshModeChange={setRefreshMode}
-					onFixedTimeChange={setFixedTime}
-					onWorkHoursStartChange={setWorkHoursStart}
-					onWorkHoursEndChange={setWorkHoursEnd}
-					onCustomTimeChange={setCustomTime}
-					onAutoLinkChange={setAutoLinkEnabled}
-					onAutoGenerateObjectiveChange={setAutoGenerateObjectiveEnabled}
-					onAutoGenerateAiChange={setAutoGenerateAiEnabled}
+			<div className="flex min-h-0 flex-1 flex-col md:flex-row">
+				<JournalHistory
+					title={t("historyTitle")}
+					loadingLabel={t("historyLoading")}
+					emptyLabel={t("historyEmpty")}
+					untitledLabel={t("untitled")}
+					journals={historyJournals}
+					isLoading={isHistoryLoading}
+					activeId={draft.id}
+					onSelect={handleHistorySelect}
+					formatDate={(date) => historyFormatter.format(date)}
 				/>
+
+				<div className="flex min-h-0 flex-1 flex-col">
+					<div className="border-b border-border px-4 py-4">
+						<DiaryHeader
+							draft={draft}
+							tagInput={tagInput}
+							onNameChange={(value) =>
+								setDraft((prev) => ({ ...prev, name: value }))
+							}
+							onDateChange={handleDateChange}
+							onTagInputChange={setTagInput}
+							onTagsCommit={handleTagsCommit}
+						/>
+					</div>
+
+					<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 py-4">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<DiaryTabs activeTab={activeTab} onChange={setActiveTab} />
+							<div className="flex items-center gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleGenerateObjectiveClick}
+									disabled={!draft.id || isGeneratingObjective}
+								>
+									{isGeneratingObjective
+										? t("generatingObjective")
+										: t("generateObjective")}
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleGenerateAiClick}
+									disabled={!draft.id || isGeneratingAi}
+								>
+									{isGeneratingAi ? t("generatingAi") : t("generateAi")}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={async () => {
+										if (!draft.id || isAutoLinking) return;
+										try {
+											await runAutoLink(draft.id);
+										} catch (_error) {
+											setAutoLinkMessage(t("autoLinkFailed"));
+										}
+									}}
+									disabled={!draft.id || isAutoLinking}
+								>
+									{isAutoLinking ? t("autoLinking") : t("autoLink")}
+								</Button>
+							</div>
+						</div>
+
+						<div className="flex min-h-0 flex-1 flex-col gap-3">
+							{activeTab === "original" && (
+								<textarea
+									value={draft.userNotes}
+									onChange={(event) =>
+										setDraft((prev) => ({
+											...prev,
+											userNotes: event.target.value,
+										}))
+									}
+									placeholder={t("contentPlaceholder")}
+									className="min-h-[260px] flex-1 rounded-xl border border-border bg-background p-4 text-sm leading-relaxed shadow-sm"
+								/>
+							)}
+							{activeTab === "objective" && (
+								<div className="flex min-h-0 flex-1 flex-col gap-2">
+									<textarea
+										value={draft.contentObjective}
+										readOnly
+										placeholder={t("objectivePlaceholder")}
+										className="min-h-[240px] flex-1 rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed"
+									/>
+									{draft.contentObjective && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() =>
+												handleCopyToOriginal(draft.contentObjective)
+											}
+										>
+											{t("copyToOriginal")}
+										</Button>
+									)}
+								</div>
+							)}
+							{activeTab === "ai" && (
+								<div className="flex min-h-0 flex-1 flex-col gap-2">
+									<textarea
+										value={draft.contentAi}
+										readOnly
+										placeholder={t("aiPlaceholder")}
+										className="min-h-[240px] flex-1 rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed"
+									/>
+									{draft.contentAi && (
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => handleCopyToOriginal(draft.contentAi)}
+										>
+											{t("copyToOriginal")}
+										</Button>
+									)}
+								</div>
+							)}
+							{autoLinkMessage && (
+								<div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+									{autoLinkMessage}
+								</div>
+							)}
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	);
