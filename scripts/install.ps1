@@ -1,7 +1,7 @@
 param(
     [string]$Dir = $env:LIFETRACE_DIR,
     [string]$Repo = $env:LIFETRACE_REPO,
-    [Alias("r", "ref")]
+    [Alias("r")]
     [string]$Ref = $env:LIFETRACE_REF,
     [Alias("m", "mode")]
     [string]$Mode = $env:LIFETRACE_MODE,
