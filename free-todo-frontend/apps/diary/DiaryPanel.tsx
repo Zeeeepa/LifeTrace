@@ -1,13 +1,13 @@
 "use client";
 
-import { BookOpen, CalendarCheck, CalendarDays } from "lucide-react";
+import { BookOpen, CalendarDays } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DiaryEditor } from "@/apps/diary/DiaryEditor";
-import { DiaryHeader } from "@/apps/diary/DiaryHeader";
 import type { JournalTab } from "@/apps/diary/DiaryTabs";
 import {
 	formatDateInput,
+	getDayRange,
 	normalizeDateOnly,
 	parseDateInput,
 	parseJournalDate,
@@ -15,7 +15,6 @@ import {
 } from "@/apps/diary/journal-utils";
 import type { JournalDraft } from "@/apps/diary/types";
 import {
-	PanelActionButton,
 	PanelHeader,
 	usePanelActionButtonStyle,
 	usePanelIconStyle,
@@ -74,10 +73,19 @@ export function DiaryPanel() {
 		autoGenerateObjectiveEnabled,
 		autoGenerateAiEnabled,
 	} = useJournalStore();
+	const dayRange = useMemo(() => getDayRange(selectedDate), [selectedDate]);
 	const bucket = useMemo(
 		() =>
 			resolveBucketRange(
-				selectedDate,
+				new Date(
+					selectedDate.getFullYear(),
+					selectedDate.getMonth(),
+					selectedDate.getDate(),
+					12,
+					0,
+					0,
+					0,
+				),
 				refreshMode,
 				fixedTime,
 				workHoursEnd,
@@ -92,8 +100,8 @@ export function DiaryPanel() {
 	} = useJournals({
 		limit: 1,
 		offset: 0,
-		startDate: bucket.bucketStart.toISOString(),
-		endDate: bucket.bucketEnd.toISOString(),
+		startDate: dayRange.start.toISOString(),
+		endDate: dayRange.end.toISOString(),
 	});
 	const activeJournal = useMemo(
 		() => journalResponse?.journals?.[0] ?? null,
@@ -156,8 +164,15 @@ export function DiaryPanel() {
 		lastSyncKey.current = syncKey;
 
 		if (activeJournal) {
-			syncDraftFromJournal(activeJournal);
-			return;
+			const activeDate = parseJournalDate(activeJournal.date);
+			const activeTime = activeDate.getTime();
+			if (
+				activeTime >= dayRange.start.getTime() &&
+				activeTime <= dayRange.end.getTime()
+			) {
+				syncDraftFromJournal(activeJournal);
+				return;
+			}
 		}
 
 		setDraft(emptyDraft(selectedDate));
@@ -167,6 +182,7 @@ export function DiaryPanel() {
 	}, [
 		activeJournal,
 		bucket.bucketStart,
+		dayRange,
 		isJournalLoading,
 		selectedDate,
 		syncDraftFromJournal,
@@ -423,40 +439,33 @@ export function DiaryPanel() {
 								className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
 							/>
 						</div>
-						<PanelActionButton
-							icon={CalendarCheck}
-							onClick={() => handleDateChange(new Date())}
-							aria-label={t("jumpToToday")}
-							title={t("jumpToToday")}
-						/>
 					</>
 				}
 			/>
 
 			<div className="flex min-h-0 flex-1 flex-col">
-				<div className="border-b border-border px-4 py-4">
-					<DiaryHeader
-						draft={draft}
-						tagInput={tagInput}
-						onNameChange={(value) =>
-							setDraft((prev) => ({ ...prev, name: value }))
-						}
-						onTagInputChange={setTagInput}
-						onTagsCommit={handleTagsCommit}
-						onAutoSave={handleAutoSave}
-					/>
-				</div>
-
 				<DiaryEditor
 					draft={draft}
+					tagInput={tagInput}
 					activeTab={activeTab}
 					onTabChange={setActiveTab}
+					onTitleChange={(value) =>
+						setDraft((prev) => ({ ...prev, name: value }))
+					}
+					onTitleBlur={(value) =>
+						handleAutoSave({ draftOverride: { name: value } })
+					}
 					onUserNotesChange={(value) =>
 						setDraft((prev) => ({ ...prev, userNotes: value }))
 					}
 					onUserNotesBlur={(value) =>
 						handleAutoSave({ draftOverride: { userNotes: value } })
 					}
+					onTagInputChange={setTagInput}
+					onTagsCommit={(value) => {
+						handleTagsCommit(value);
+						handleAutoSave({ tagValue: value });
+					}}
 					onGenerateObjective={handleGenerateObjectiveClick}
 					onGenerateAi={handleGenerateAiClick}
 					onAutoLink={handleAutoLinkClick}

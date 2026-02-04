@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button";
 
 interface DiaryEditorProps {
 	draft: JournalDraft;
+	tagInput: string;
 	activeTab: JournalTab;
 	onTabChange: (tab: JournalTab) => void;
+	onTitleChange: (value: string) => void;
+	onTitleBlur: (value: string) => void;
 	onUserNotesChange: (value: string) => void;
 	onUserNotesBlur: (value: string) => void;
+	onTagInputChange: (value: string) => void;
+	onTagsCommit: (value: string) => void;
 	onGenerateObjective: () => void;
 	onGenerateAi: () => void;
 	onAutoLink: () => void;
@@ -24,10 +29,15 @@ interface DiaryEditorProps {
 
 export function DiaryEditor({
 	draft,
+	tagInput,
 	activeTab,
 	onTabChange,
+	onTitleChange,
+	onTitleBlur,
 	onUserNotesChange,
 	onUserNotesBlur,
+	onTagInputChange,
+	onTagsCommit,
 	onGenerateObjective,
 	onGenerateAi,
 	onAutoLink,
@@ -76,13 +86,22 @@ export function DiaryEditor({
 
 			<div className="flex min-h-0 flex-1 flex-col gap-3">
 				{activeTab === "original" && (
-					<textarea
-						value={draft.userNotes}
-						onChange={(event) => onUserNotesChange(event.target.value)}
-						onBlur={(event) => onUserNotesBlur(event.currentTarget.value)}
-						placeholder={t("contentPlaceholder")}
-						className="min-h-[260px] flex-1 rounded-xl border border-border bg-background p-4 text-sm leading-relaxed shadow-sm"
-					/>
+					<div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-background px-4 py-4 shadow-sm">
+						<input
+							value={draft.name}
+							onChange={(event) => onTitleChange(event.target.value)}
+							onBlur={(event) => onTitleBlur(event.currentTarget.value)}
+							placeholder={t("titlePlaceholder")}
+							className="text-2xl font-semibold leading-tight text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none md:text-3xl"
+						/>
+						<textarea
+							value={draft.userNotes}
+							onChange={(event) => onUserNotesChange(event.target.value)}
+							onBlur={(event) => onUserNotesBlur(event.currentTarget.value)}
+							placeholder={t("contentPlaceholder")}
+							className="mt-3 min-h-[240px] flex-1 resize-none bg-transparent text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus-visible:outline-none"
+						/>
+					</div>
 				)}
 				{activeTab === "objective" && (
 					<div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -127,6 +146,33 @@ export function DiaryEditor({
 						{autoLinkMessage}
 					</div>
 				)}
+				<div className="mt-auto flex flex-col gap-2">
+					<input
+						value={tagInput}
+						onChange={(event) => onTagInputChange(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === "Enter") {
+								event.preventDefault();
+								onTagsCommit(event.currentTarget.value);
+							}
+						}}
+						onBlur={(event) => onTagsCommit(event.target.value)}
+						placeholder={t("tagsPlaceholder")}
+						className="h-8 w-full max-w-xs rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground/70"
+					/>
+					{draft.tags.length > 0 && (
+						<div className="flex flex-wrap gap-2">
+							{draft.tags.map((tag) => (
+								<span
+									key={tag}
+									className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+								>
+									{tag}
+								</span>
+							))}
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);

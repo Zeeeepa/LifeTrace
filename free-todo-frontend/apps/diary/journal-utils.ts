@@ -20,6 +20,28 @@ export const parseJournalDate = (value: string) => {
 export const normalizeDateOnly = (value: Date) =>
 	new Date(value.getFullYear(), value.getMonth(), value.getDate());
 
+export const getDayRange = (value: Date) => {
+	const start = new Date(
+		value.getFullYear(),
+		value.getMonth(),
+		value.getDate(),
+		0,
+		0,
+		0,
+		0,
+	);
+	const end = new Date(
+		value.getFullYear(),
+		value.getMonth(),
+		value.getDate(),
+		23,
+		59,
+		59,
+		999,
+	);
+	return { start, end };
+};
+
 const parseTimeString = (value: string) => {
 	const [hours = "0", minutes = "0"] = value.split(":");
 	return {
