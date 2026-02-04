@@ -9,7 +9,6 @@ import {
 	formatDateInput,
 	getDayRange,
 	normalizeDateOnly,
-	parseDateInput,
 	parseJournalDate,
 	resolveBucketRange,
 } from "@/apps/diary/journal-utils";
@@ -19,6 +18,7 @@ import {
 	usePanelActionButtonStyle,
 	usePanelIconStyle,
 } from "@/components/common/layout/PanelHeader";
+import { DateOnlyPickerPopover } from "@/components/date-picker/DateOnlyPickerPopover";
 import type {
 	JournalAutoLinkRequest,
 	JournalCreate,
@@ -63,6 +63,8 @@ export function DiaryPanel() {
 	const [tagInput, setTagInput] = useState("");
 	const [activeTab, setActiveTab] = useState<JournalTab>("original");
 	const [autoLinkMessage, setAutoLinkMessage] = useState<string | null>(null);
+	const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+	const datePickerRef = useRef<HTMLButtonElement | null>(null);
 	const lastSyncKey = useRef<string | null>(null);
 	const {
 		refreshMode,
@@ -188,11 +190,6 @@ export function DiaryPanel() {
 		syncDraftFromJournal,
 	]);
 
-	const handleTagsCommit = (value: string) => {
-		const tags = parseTags(value);
-		setDraft((prev) => ({ ...prev, tags }));
-		setTagInput(tags.join(", "));
-	};
 	const handleDateChange = (value: Date) => {
 		const nextDate = normalizeDateOnly(value);
 		if (formatDateInput(nextDate) === formatDateInput(selectedDate)) return;
@@ -418,35 +415,34 @@ export function DiaryPanel() {
 				icon={BookOpen}
 				title={t("panelTitle")}
 				actions={
-					<>
-						<div className="relative">
-							<button
-								type="button"
-								className={cn(dateButtonStyle, "whitespace-nowrap")}
-								aria-label={tDatePicker("pickDate")}
-								title={tDatePicker("pickDate")}
-							>
-								<CalendarDays className={actionIconStyle} />
-								<span>{dateLabelFormatter.format(selectedDate)}</span>
-							</button>
-							<input
-								type="date"
-								value={formatDateInput(selectedDate)}
-								onChange={(event) =>
-									handleDateChange(parseDateInput(event.target.value))
-								}
-								aria-label={tDatePicker("pickDate")}
-								className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-							/>
-						</div>
-					</>
+					<div className="relative">
+						<button
+							type="button"
+							className={cn(dateButtonStyle, "whitespace-nowrap")}
+							aria-label={tDatePicker("pickDate")}
+							title={tDatePicker("pickDate")}
+							aria-expanded={isDatePickerOpen}
+							ref={datePickerRef}
+							onClick={() => setIsDatePickerOpen((prev) => !prev)}
+						>
+							<CalendarDays className={actionIconStyle} />
+							<span>{dateLabelFormatter.format(selectedDate)}</span>
+						</button>
+					</div>
 				}
 			/>
 
 			<div className="flex min-h-0 flex-1 flex-col">
+				{isDatePickerOpen && (
+					<DateOnlyPickerPopover
+						anchorRef={datePickerRef}
+						selectedDate={selectedDate}
+						onSelectDate={(value) => handleDateChange(value)}
+						onClose={() => setIsDatePickerOpen(false)}
+					/>
+				)}
 				<DiaryEditor
 					draft={draft}
-					tagInput={tagInput}
 					activeTab={activeTab}
 					onTabChange={setActiveTab}
 					onTitleChange={(value) =>
@@ -461,11 +457,6 @@ export function DiaryPanel() {
 					onUserNotesBlur={(value) =>
 						handleAutoSave({ draftOverride: { userNotes: value } })
 					}
-					onTagInputChange={setTagInput}
-					onTagsCommit={(value) => {
-						handleTagsCommit(value);
-						handleAutoSave({ tagValue: value });
-					}}
 					onGenerateObjective={handleGenerateObjectiveClick}
 					onGenerateAi={handleGenerateAiClick}
 					onAutoLink={handleAutoLinkClick}

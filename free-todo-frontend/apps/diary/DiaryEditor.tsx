@@ -7,15 +7,12 @@ import { Button } from "@/components/ui/button";
 
 interface DiaryEditorProps {
 	draft: JournalDraft;
-	tagInput: string;
 	activeTab: JournalTab;
 	onTabChange: (tab: JournalTab) => void;
 	onTitleChange: (value: string) => void;
 	onTitleBlur: (value: string) => void;
 	onUserNotesChange: (value: string) => void;
 	onUserNotesBlur: (value: string) => void;
-	onTagInputChange: (value: string) => void;
-	onTagsCommit: (value: string) => void;
 	onGenerateObjective: () => void;
 	onGenerateAi: () => void;
 	onAutoLink: () => void;
@@ -29,15 +26,12 @@ interface DiaryEditorProps {
 
 export function DiaryEditor({
 	draft,
-	tagInput,
 	activeTab,
 	onTabChange,
 	onTitleChange,
 	onTitleBlur,
 	onUserNotesChange,
 	onUserNotesBlur,
-	onTagInputChange,
-	onTagsCommit,
 	onGenerateObjective,
 	onGenerateAi,
 	onAutoLink,
@@ -146,33 +140,6 @@ export function DiaryEditor({
 						{autoLinkMessage}
 					</div>
 				)}
-				<div className="mt-auto flex flex-col gap-2">
-					<input
-						value={tagInput}
-						onChange={(event) => onTagInputChange(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								onTagsCommit(event.currentTarget.value);
-							}
-						}}
-						onBlur={(event) => onTagsCommit(event.target.value)}
-						placeholder={t("tagsPlaceholder")}
-						className="h-8 w-full max-w-xs rounded-md border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground/70"
-					/>
-					{draft.tags.length > 0 && (
-						<div className="flex flex-wrap gap-2">
-							{draft.tags.map((tag) => (
-								<span
-									key={tag}
-									className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
-								>
-									{tag}
-								</span>
-							))}
-						</div>
-					)}
-				</div>
 			</div>
 		</div>
 	);
