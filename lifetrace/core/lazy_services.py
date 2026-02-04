@@ -7,22 +7,24 @@
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from lifetrace.llm.rag_service import RAGService
-from lifetrace.llm.vector_service import create_vector_service
-
 if TYPE_CHECKING:
+    from lifetrace.llm.rag_service import RAGService
     from lifetrace.llm.vector_service import VectorService
 
 
 @lru_cache(maxsize=1)
 def get_vector_service() -> "VectorService":
     """延迟加载向量服务 - 首次访问时初始化"""
+    from lifetrace.llm.vector_service import create_vector_service  # noqa: PLC0415
+
     return create_vector_service()
 
 
 @lru_cache(maxsize=1)
 def get_rag_service() -> "RAGService":
     """延迟加载 RAG 服务 - 首次访问时初始化"""
+    from lifetrace.llm.rag_service import RAGService  # noqa: PLC0415
+
     return RAGService()
 
 

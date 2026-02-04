@@ -6,10 +6,7 @@ import subprocess  # nosec B404
 from functools import lru_cache
 
 from fastapi import APIRouter
-from openai import OpenAI
 
-from lifetrace.core.dependencies import get_ocr_processor, get_rag_service
-from lifetrace.storage import db_base
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 from lifetrace.util.time_utils import get_utc_now
@@ -59,6 +56,9 @@ def get_server_mode() -> str:
 @router.get("/health")
 async def health_check():
     """健康检查"""
+    from lifetrace.core.dependencies import get_ocr_processor  # noqa: PLC0415
+    from lifetrace.storage import db_base  # noqa: PLC0415
+
     ocr_processor = get_ocr_processor()
     return {
         "app": "lifetrace",  # 固定的应用标识，用于前端识别后端服务
@@ -77,6 +77,8 @@ async def llm_health_check():
     try:
         # 获取RAG服务（延迟加载）- 验证服务能正常初始化
         try:
+            from lifetrace.core.dependencies import get_rag_service  # noqa: PLC0415
+
             get_rag_service()
         except Exception as init_error:
             return {
@@ -93,6 +95,16 @@ async def llm_health_check():
             return {
                 "status": "unconfigured",
                 "message": "LLM配置不完整，请设置API Key和Base URL",
+                "timestamp": get_utc_now().isoformat(),
+            }
+
+        try:
+            from openai import OpenAI  # noqa: PLC0415
+        except Exception as exc:
+            logger.error(f"OpenAI 依赖未安装: {exc}")
+            return {
+                "status": "error",
+                "message": f"OpenAI 依赖未安装: {exc}",
                 "timestamp": get_utc_now().isoformat(),
             }
 

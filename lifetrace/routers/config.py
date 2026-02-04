@@ -6,7 +6,6 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from openai import OpenAI
 
 from lifetrace.services.config_service import ConfigService, is_llm_configured
 from lifetrace.util.logging_config import get_logger
@@ -46,6 +45,12 @@ def verify_llm_connection_on_startup():
     """
     if not is_llm_configured():
         logger.info("LLM 未配置，跳过启动时验证")
+        return
+
+    try:
+        from openai import OpenAI  # noqa: PLC0415
+    except Exception as exc:
+        logger.warning(f"OpenAI 依赖未安装，跳过启动时验证: {exc}")
         return
 
     try:
@@ -119,6 +124,11 @@ async def test_llm_config(config_data: dict[str, str]):
     """测试LLM配置是否可用（仅验证认证）"""
     model = ""
     try:
+        try:
+            from openai import OpenAI  # noqa: PLC0415
+        except Exception as exc:
+            return {"success": False, "error": f"OpenAI 依赖未安装: {exc}"}
+
         # 同时支持 camelCase 和 snake_case 格式（前端 fetcher 会自动转换为 snake_case）
         llm_key = _get_config_value(config_data, "llmApiKey", "llm_api_key")
         base_url = _get_config_value(config_data, "llmBaseUrl", "llm_base_url")

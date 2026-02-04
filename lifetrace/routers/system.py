@@ -10,7 +10,6 @@ from lifetrace.schemas.system import (
     ProcessInfo,
     SystemResourcesResponse,
 )
-from lifetrace.storage import stats_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path, get_screenshots_dir
 from lifetrace.util.time_utils import get_utc_now
@@ -124,6 +123,8 @@ def _get_storage_info() -> dict:
 @router.get("/statistics", response_model=StatisticsResponse)
 async def get_statistics():
     """获取系统统计信息"""
+    from lifetrace.storage import stats_mgr  # noqa: PLC0415
+
     stats = stats_mgr.get_statistics()
     return StatisticsResponse(**stats)
 
@@ -132,6 +133,8 @@ async def get_statistics():
 async def cleanup_old_data(days: int = Query(30, ge=1)):
     """清理旧数据"""
     try:
+        from lifetrace.storage import stats_mgr  # noqa: PLC0415
+
         stats_mgr.cleanup_old_data(days)
         return {"success": True, "message": f"清理了 {days} 天前的数据"}
     except Exception as e:

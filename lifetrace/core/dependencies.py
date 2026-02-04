@@ -33,13 +33,14 @@ from lifetrace.services.chat_service import ChatService
 from lifetrace.services.event_service import EventService
 from lifetrace.services.journal_service import JournalService
 from lifetrace.services.todo_service import TodoService
-from lifetrace.storage.database import db_base
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.util.settings import settings
 
 
 def get_db_base() -> DatabaseBase:
     """获取数据库基础实例（复用 storage 模块的单例）"""
+    from lifetrace.storage.database import db_base  # noqa: PLC0415
+
     return db_base
 
 
