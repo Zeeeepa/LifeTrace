@@ -18,15 +18,10 @@ import { HeaderIsland } from "@/components/notification/HeaderIsland";
 interface AppHeaderProps {
 	/** 是否有通知（可选） */
 	hasNotifications?: boolean;
-	/** 是否是 Electron 环境 */
-	isElectron?: boolean;
 }
 
-export function AppHeader({
-	hasNotifications = false,
-	isElectron = false,
-}: AppHeaderProps) {
-	const showNotification = hasNotifications && isElectron;
+export function AppHeader({ hasNotifications = false }: AppHeaderProps) {
+	const showNotification = hasNotifications;
 
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">

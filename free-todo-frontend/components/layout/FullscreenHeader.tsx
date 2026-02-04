@@ -14,10 +14,9 @@ import { HeaderIsland } from "@/components/notification/HeaderIsland";
 
 interface MaximizeHeaderProps {
 	hasNotifications: boolean;
-	isElectron: boolean;
 }
 
-export function MaximizeHeader({ hasNotifications, isElectron }: MaximizeHeaderProps) {
+export function MaximizeHeader({ hasNotifications }: MaximizeHeaderProps) {
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
 			{/* 左侧：Logo */}
@@ -45,8 +44,8 @@ export function MaximizeHeader({ hasNotifications, isElectron }: MaximizeHeaderP
 				</h1>
 			</div>
 
-			{/* 中间：通知区域 - 只在有通知时且是 Electron 环境时显示 */}
-			{hasNotifications && isElectron && (
+			{/* 中间：通知区域 */}
+			{hasNotifications && (
 				<div className="flex-1 flex items-center justify-center relative min-w-0 overflow-visible">
 					<HeaderIsland />
 				</div>

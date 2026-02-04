@@ -13,7 +13,6 @@ import { useConfig, useLlmStatus } from "@/lib/query";
 import { getNotificationPoller } from "@/lib/services/notification-poller";
 import { useNotificationStore } from "@/lib/store/notification-store";
 import { useUiStore } from "@/lib/store/ui-store";
-import { isElectronEnvironment } from "@/lib/utils/electron";
 
 export default function HomePageClient() {
 	// 全局自动录音：根据配置决定是否在应用启动时自动开始录音
@@ -51,7 +50,6 @@ export default function HomePageClient() {
 		}
 	}, []);
 
-	const isElectron = mounted ? isElectronEnvironment() : false;
 	const {
 		isPanelCOpen,
 		panelCWidth,
@@ -233,10 +231,7 @@ export default function HomePageClient() {
 						overflow: "hidden",
 					}}
 				>
-					<AppHeader
-						hasNotifications={notifications.length > 0}
-						isElectron={isElectron}
-					/>
+					<AppHeader hasNotifications={notifications.length > 0} />
 					<div
 						className="flex-1 min-h-0 overflow-hidden"
 						style={{

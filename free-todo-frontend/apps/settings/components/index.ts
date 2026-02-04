@@ -6,6 +6,7 @@ export { DifyConfigSection } from "./DifyConfigSection";
 export { DockDisplayModeSection } from "./DockDisplayModeSection";
 export { JournalSettingsSection } from "./JournalSettingsSection";
 export { LlmConfigSection } from "./LlmConfigSection";
+export { NotificationPermissionSection } from "./NotificationPermissionSection";
 export { OnboardingSection } from "./OnboardingSection";
 export { PanelSwitchesSection } from "./PanelSwitchesSection";
 export { RecorderConfigSection } from "./RecorderConfigSection";

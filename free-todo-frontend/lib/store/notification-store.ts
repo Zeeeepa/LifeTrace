@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isTauri, isWeb } from "@/lib/utils/platform";
 
 export interface Notification {
 	id: string;
@@ -48,21 +49,102 @@ function sortNotifications(notifications: Notification[]): Notification[] {
 	});
 }
 
+type TauriNotificationApi = {
+	isPermissionGranted?: () => Promise<boolean> | boolean;
+	requestPermission?: () => Promise<NotificationPermission> | NotificationPermission;
+	sendNotification?: (options: { title: string; body?: string }) => Promise<void> | void;
+};
+
+const getTauriNotificationApi = (): TauriNotificationApi | null => {
+	if (typeof window === "undefined") return null;
+	const tauri = (window as Window & { __TAURI__?: { notification?: TauriNotificationApi } })
+		.__TAURI__;
+	return tauri?.notification ?? null;
+};
+
+let webPermissionRequest: Promise<NotificationPermission> | null = null;
+
+const requestWebPermission = async (): Promise<NotificationPermission> => {
+	if (webPermissionRequest) return webPermissionRequest;
+	webPermissionRequest = Notification.requestPermission();
+	return webPermissionRequest;
+};
+
+const showWebNotification = async (notification: Notification): Promise<void> => {
+	if (typeof window === "undefined" || !("Notification" in window)) return;
+	let permission = Notification.permission;
+	if (permission === "default") {
+		try {
+			permission = await requestWebPermission();
+		} catch {
+			return;
+		}
+	}
+	if (permission !== "granted") return;
+	const title = notification.title || "通知";
+	try {
+		new Notification(title, {
+			body: notification.content,
+			tag: notification.id,
+		});
+	} catch {
+		// 静默处理错误，不影响应用运行
+	}
+};
+
+const showTauriNotification = async (notification: Notification): Promise<void> => {
+	const api = getTauriNotificationApi();
+	if (!api?.sendNotification) return;
+	let granted = true;
+	if (api.isPermissionGranted) {
+		try {
+			granted = await api.isPermissionGranted();
+		} catch {
+			granted = false;
+		}
+	}
+	if (!granted && api.requestPermission) {
+		try {
+			const permission = await api.requestPermission();
+			granted = permission === "granted";
+		} catch {
+			granted = false;
+		}
+	}
+	if (!granted) return;
+	try {
+		await api.sendNotification({
+			title: notification.title || "通知",
+			body: notification.content,
+		});
+	} catch {
+		// 静默处理错误，不影响应用运行
+	}
+};
+
 function notifySystem(notification: Notification): void {
-	if (typeof window === "undefined" || !window.electronAPI?.showNotification) {
+	if (typeof window === "undefined") return;
+	if (window.electronAPI?.showNotification) {
+		window.electronAPI
+			.showNotification({
+				id: notification.id,
+				title: notification.title,
+				content: notification.content,
+				timestamp: notification.timestamp,
+			})
+			.catch((error) => {
+				// 静默处理错误，不影响应用运行
+				console.warn("Failed to show system notification:", error);
+			});
 		return;
 	}
-	window.electronAPI
-		.showNotification({
-			id: notification.id,
-			title: notification.title,
-			content: notification.content,
-			timestamp: notification.timestamp,
-		})
-		.catch((error) => {
-			// 静默处理错误，不影响应用运行
-			console.warn("Failed to show system notification:", error);
-		});
+	if (isTauri()) {
+		void showTauriNotification(notification);
+		return;
+	}
+	if (isWeb()) {
+		void showWebNotification(notification);
+	}
 }
 
 export const useNotificationStore = create<NotificationStoreState>((set, get) => ({

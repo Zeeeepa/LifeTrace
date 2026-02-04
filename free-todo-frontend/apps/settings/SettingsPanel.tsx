@@ -16,6 +16,7 @@ import {
 	DockDisplayModeSection,
 	JournalSettingsSection,
 	LlmConfigSection,
+	NotificationPermissionSection,
 	OnboardingSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
@@ -133,6 +134,7 @@ export function SettingsPanel() {
 					<>
 						<DockDisplayModeSection loading={loading} />
 						<PanelSwitchesSection loading={loading} />
+						<NotificationPermissionSection loading={loading} />
 					</>
 				);
 			case "automation":
