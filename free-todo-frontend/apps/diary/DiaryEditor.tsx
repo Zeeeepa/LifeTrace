@@ -36,7 +36,7 @@ export function DiaryEditor({
 	onGenerateAi,
 	onAutoLink,
 	onCopyToOriginal,
-	autoLinkMessage,
+	// autoLinkMessage,
 	isGeneratingObjective,
 	isGeneratingAi,
 	isAutoLinking,
@@ -135,11 +135,11 @@ export function DiaryEditor({
 						)}
 					</div>
 				)}
-				{autoLinkMessage && (
+				{/* {autoLinkMessage && (
 					<div className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
 						{autoLinkMessage}
 					</div>
-				)}
+				)} */}
 			</div>
 		</div>
 	);
