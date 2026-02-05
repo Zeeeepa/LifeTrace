@@ -17,6 +17,8 @@ $ErrorActionPreference = "Stop"
 $frontendSet = $PSBoundParameters.ContainsKey("Frontend") -or [bool]$env:LIFETRACE_FRONTEND
 $variantSet = $PSBoundParameters.ContainsKey("Variant") -or [bool]$env:LIFETRACE_VARIANT
 $dirSet = $PSBoundParameters.ContainsKey("Dir") -or [bool]$env:LIFETRACE_DIR
+$modeSet = $PSBoundParameters.ContainsKey("Mode") -or [bool]$env:LIFETRACE_MODE
+$backendSet = $PSBoundParameters.ContainsKey("Backend") -or [bool]$env:LIFETRACE_BACKEND
 
 if (-not $Repo) {
     $Repo = "https://github.com/FreeU-group/FreeTodo.git"
@@ -40,15 +42,60 @@ if (-not $Run) {
     $Run = "1"
 }
 
+function Prompt-Choice {
+    param(
+        [string]$Label,
+        [string[]]$Choices,
+        [string]$Default
+    )
+    Write-Host $Label
+    for ($i = 0; $i -lt $Choices.Count; $i++) {
+        Write-Host "  $($i + 1)) $($Choices[$i])"
+    }
+    $input = Read-Host "Select [default: $Default]"
+    if ([string]::IsNullOrWhiteSpace($input)) {
+        return $Default
+    }
+    if ($input -match '^\d+$') {
+        $index = [int]$input - 1
+        if ($index -ge 0 -and $index -lt $Choices.Count) {
+            return $Choices[$index]
+        }
+    } else {
+        foreach ($choice in $Choices) {
+            if ($choice -eq $input) {
+                return $choice
+            }
+        }
+    }
+    Write-Host "Invalid choice. Using default: $Default"
+    return $Default
+}
+
 if (-not $dirSet) {
     $repoName = [IO.Path]::GetFileNameWithoutExtension($Repo)
     $Dir = $repoName
+}
+
+if (-not $variantSet) {
+    $Variant = Prompt-Choice "Select UI variant:" @("web", "island") "web"
+}
+if (-not $backendSet) {
+    $Backend = Prompt-Choice "Select backend runtime:" @("script", "pyinstaller") "script"
+}
+if (-not $modeSet) {
+    $Mode = Prompt-Choice "Select app mode:" @("tauri", "electron", "web") "tauri"
 }
 
 if ($Mode -eq "island") {
     $Mode = "tauri"
     $Variant = "island"
     $variantSet = $true
+}
+
+if ($Variant -eq "island" -and $Mode -eq "web") {
+    Write-Host "Variant 'island' is not supported in web mode. Switching mode to tauri."
+    $Mode = "tauri"
 }
 
 if ($Mode -eq "web" -and $Variant -ne "web") {
@@ -75,7 +122,11 @@ if ($validBackend -notcontains $Backend) {
     throw "Invalid backend runtime: $Backend"
 }
 
-if ($Mode -eq "web" -and -not $frontendSet) {
+if ($Backend -eq "pyinstaller" -and -not $frontendSet) {
+    $Frontend = "build"
+}
+
+if ($Mode -eq "web" -and -not $frontendSet -and $Backend -ne "pyinstaller") {
     $Frontend = "dev"
 }
 
@@ -103,6 +154,40 @@ function Add-MissingDep {
         })
 }
 
+function Refresh-Path {
+    $machinePath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $env:Path = "$machinePath;$userPath"
+}
+
+function Install-MissingDeps {
+    if ($missingDeps.Count -eq 0) {
+        return
+    }
+
+    $wingetDeps = $missingDeps | Where-Object { $_.WingetId }
+    if ($wingetDeps -and -not (Test-Command "winget")) {
+        Install-Winget | Out-Null
+    }
+    if ($wingetDeps -and (Test-Command "winget")) {
+        foreach ($dep in $wingetDeps) {
+            Write-Host "Installing $($dep.Name) with winget..."
+            winget install --id $($dep.WingetId) -e --accept-package-agreements --accept-source-agreements
+        }
+        Refresh-Path
+    }
+}
+
+function Filter-MissingDeps {
+    $remaining = New-Object System.Collections.Generic.List[object]
+    foreach ($dep in $missingDeps) {
+        if (-not (Test-Command $dep.Name)) {
+            $remaining.Add($dep)
+        }
+    }
+    $script:missingDeps = $remaining
+}
+
 function Show-MissingDeps {
     if ($missingDeps.Count -eq 0) {
         return
@@ -114,18 +199,13 @@ function Show-MissingDeps {
     }
 
     $wingetDeps = $missingDeps | Where-Object { $_.WingetId }
-    if ($wingetDeps) {
-        if (-not (Test-Command "winget")) {
-            Install-Winget | Out-Null
+    if ($wingetDeps -and (Test-Command "winget")) {
+        Write-Host "Install with winget:"
+        foreach ($dep in $wingetDeps) {
+            Write-Host "  winget install --id $($dep.WingetId) -e --accept-package-agreements --accept-source-agreements"
         }
-        if (Test-Command "winget") {
-            Write-Host "Install with winget:"
-            foreach ($dep in $wingetDeps) {
-                Write-Host "  winget install --id $($dep.WingetId) -e --accept-package-agreements --accept-source-agreements"
-            }
-        } else {
-            Write-Host "winget not found. Install App Installer from Microsoft Store or from https://aka.ms/getwinget"
-        }
+    } elseif ($wingetDeps) {
+        Write-Host "winget not found. Install App Installer from Microsoft Store or from https://aka.ms/getwinget"
     }
 
     throw "Missing required dependencies. Install them and retry."
@@ -178,16 +258,19 @@ if ($Mode -eq "tauri") {
     }
 }
 
-$shouldInstallPnpm = $false
-if (-not (Test-Command "pnpm")) {
-    if (Test-Command "corepack") {
-        $shouldInstallPnpm = $true
+Install-MissingDeps
+Filter-MissingDeps
+Show-MissingDeps
+
+if (-not $pythonCmd -or -not (Test-Command $pythonCmd)) {
+    if (Test-Command "python") {
+        $pythonCmd = "python"
+    } elseif (Test-Command "python3") {
+        $pythonCmd = "python3"
     } else {
-        Add-MissingDep "pnpm" "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry." "OpenJS.NodeJS.LTS"
+        throw "Python 3.12+ not found after installation. Reopen your terminal and retry."
     }
 }
-
-Show-MissingDeps
 
 if (-not (Test-Command "uv")) {
     Write-Host "Installing uv..."
@@ -195,28 +278,51 @@ if (-not (Test-Command "uv")) {
     $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 }
 
-if ($shouldInstallPnpm) {
-    corepack enable
-    corepack prepare pnpm@latest --activate
+if (-not (Test-Command "pnpm")) {
+    if (Test-Command "corepack") {
+        corepack enable
+        corepack prepare pnpm@latest --activate
+    } elseif (Test-Command "npm") {
+        npm install -g pnpm
+        Refresh-Path
+    }
+    if (-not (Test-Command "pnpm")) {
+        throw "pnpm not found after installation. Reopen your terminal and retry."
+    }
 }
 
+$repoReady = $false
 if (Test-Path $Dir) {
     if (-not (Test-Path (Join-Path $Dir ".git"))) {
         throw "Target path '$Dir' exists and is not a git repo. Set LIFETRACE_DIR to a new folder."
     }
+    Set-Location $Dir
+    $gitStatus = git status --porcelain
+    if ($gitStatus) {
+        throw "Repository has local changes. Commit or stash and retry."
+    }
+    git fetch --depth 1 "$Repo" "$Ref"
+    $headSha = git rev-parse HEAD
+    $remoteSha = git rev-parse FETCH_HEAD
+    if ($headSha -eq $remoteSha) {
+        $repoReady = $true
+    }
 } else {
     git clone --depth 1 --branch "$Ref" "$Repo" "$Dir"
+    Set-Location $Dir
 }
 
-Set-Location $Dir
-$gitStatus = git status --porcelain
-if ($gitStatus) {
-    throw "Repository has local changes. Commit or stash and retry."
+if (-not $repoReady) {
+    $gitStatus = git status --porcelain
+    if ($gitStatus) {
+        throw "Repository has local changes. Commit or stash and retry."
+    }
+    git fetch --depth 1 "$Repo" "$Ref"
+    git checkout -q -B "$Ref" FETCH_HEAD
+    uv sync
+} else {
+    Write-Host "Repository is up to date. Skipping install steps."
 }
-
-git fetch --depth 1 "$Repo" "$Ref"
-git checkout -q -B "$Ref" FETCH_HEAD
-uv sync
 
 if ($Run -ne "1") {
     Write-Host "Install complete."
@@ -233,7 +339,9 @@ if ($Mode -eq "web") {
 
     try {
         Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-        pnpm install
+        if (-not $repoReady) {
+            pnpm install
+        }
         if ($Frontend -eq "build") {
             pnpm build
             pnpm start
@@ -251,7 +359,9 @@ if ($Mode -eq "web") {
     }
 } elseif ($Mode -eq "tauri") {
     Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-    pnpm install
+    if (-not $repoReady) {
+        pnpm install
+    }
 
     if ($Frontend -eq "build") {
         pnpm "build:tauri:${Variant}:${Backend}:full"
@@ -290,7 +400,9 @@ if ($Mode -eq "web") {
     }
 } else {
     Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-    pnpm install
+    if (-not $repoReady) {
+        pnpm install
+    }
 
     if ($Frontend -eq "build") {
         pnpm "build:electron:${Variant}:${Backend}:full"
