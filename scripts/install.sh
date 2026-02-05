@@ -241,13 +241,14 @@ if [ "$BACKEND_RUNTIME" = "pyinstaller" ] && [ "$FRONTEND_SET" -eq 0 ]; then
   FRONTEND_ACTION="build"
 fi
 
-if [ "$MODE" = "web" ] && [ "$FRONTEND_SET" -eq 0 ] && [ "$BACKEND_RUNTIME" != "pyinstaller" ]; then
-  FRONTEND_ACTION="dev"
-fi
-
 if [ "$FRONTEND_ACTION" = "dev" ] && [ "$BACKEND_RUNTIME" = "pyinstaller" ]; then
   echo "backend=pyinstaller is only supported with frontend=build." >&2
   exit 1
+fi
+
+if [ "$MODE" = "tauri" ] && [ "$FRONTEND_ACTION" = "build" ] && [ "$VARIANT" = "island" ]; then
+  echo "Island packaging is not supported yet. Switching variant to web for build."
+  VARIANT="web"
 fi
 
 MISSING_DEPS=()
@@ -415,6 +416,123 @@ filter_missing_deps() {
   MISSING_HINTS=("${remaining_hints[@]}")
 }
 
+find_latest_path() {
+  local base="$1"
+  local pattern="$2"
+  local type="${3:-f}"
+  if [ ! -d "$base" ]; then
+    return 0
+  fi
+  if [ "$type" = "d" ]; then
+    find "$base" -type d -name "$pattern" -print0 2>/dev/null | xargs -0 ls -td 2>/dev/null | head -n1
+  else
+    find "$base" -type f -name "$pattern" -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -n1
+  fi
+}
+
+find_tauri_artifact() {
+  local frontend_dir="$1"
+  local variant="$2"
+  local runtime="$3"
+  local artifact_base="$frontend_dir/dist-artifacts/tauri/$variant/$runtime"
+  local bundle_dir="$frontend_dir/src-tauri/target/release/bundle"
+
+  if [ "$OS_TYPE" = "Darwin" ]; then
+    local app
+    app="$(find_latest_path "$artifact_base" "*.app" "d")"
+    if [ -n "$app" ]; then
+      echo "$app"
+      return 0
+    fi
+    app="$(find_latest_path "$bundle_dir/macos" "*.app" "d")"
+    if [ -n "$app" ]; then
+      echo "$app"
+      return 0
+    fi
+    find_latest_path "$bundle_dir/macos" "*.dmg" "f" || true
+    return 0
+  fi
+
+  if [ "$OS_TYPE" = "Linux" ]; then
+    local appimage
+    appimage="$(find_latest_path "$artifact_base" "*.AppImage" "f")"
+    if [ -n "$appimage" ]; then
+      echo "$appimage"
+      return 0
+    fi
+    appimage="$(find_latest_path "$bundle_dir" "*.AppImage" "f")"
+    if [ -n "$appimage" ]; then
+      echo "$appimage"
+      return 0
+    fi
+    local deb
+    deb="$(find_latest_path "$artifact_base" "*.deb" "f")"
+    if [ -n "$deb" ]; then
+      echo "$deb"
+      return 0
+    fi
+    find_latest_path "$bundle_dir" "*.deb" "f" || true
+    return 0
+  fi
+
+  find_latest_path "$artifact_base" "*.exe" "f" || true
+  find_latest_path "$bundle_dir" "*.exe" "f" || true
+  find_latest_path "$artifact_base" "*.msi" "f" || true
+  find_latest_path "$bundle_dir" "*.msi" "f" || true
+}
+
+find_electron_artifact() {
+  local frontend_dir="$1"
+  local variant="$2"
+  local runtime="$3"
+  local artifact_base="$frontend_dir/dist-artifacts/electron/$variant/$runtime"
+
+  if [ "$OS_TYPE" = "Darwin" ]; then
+    find_latest_path "$artifact_base" "*.dmg" "f" || true
+    return 0
+  fi
+
+  if [ "$OS_TYPE" = "Linux" ]; then
+    local appimage
+    appimage="$(find_latest_path "$artifact_base" "*.AppImage" "f")"
+    if [ -n "$appimage" ]; then
+      echo "$appimage"
+      return 0
+    fi
+    find_latest_path "$artifact_base" "*.deb" "f" || true
+    return 0
+  fi
+
+  find_latest_path "$artifact_base" "*.exe" "f" || true
+  find_latest_path "$artifact_base" "*.msi" "f" || true
+}
+
+run_artifact() {
+  local artifact="$1"
+  if [ -z "$artifact" ]; then
+    return 1
+  fi
+  echo "Launching built app: $artifact"
+  if [ "$OS_TYPE" = "Darwin" ]; then
+    open "$artifact"
+    return 0
+  fi
+  if [ "$OS_TYPE" = "Linux" ]; then
+    if [[ "$artifact" == *.AppImage ]]; then
+      chmod +x "$artifact"
+      "$artifact" &
+      return 0
+    fi
+    if command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "$artifact"
+      return 0
+    fi
+    "$artifact" &
+    return 0
+  fi
+  return 1
+}
+
 report_missing() {
   if [ "${#MISSING_DEPS[@]}" -eq 0 ]; then
     return 0
@@ -542,6 +660,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 REPO_READY=0
+DEPS_READY=0
 if [ -e "$TARGET_DIR" ] && [ ! -d "$TARGET_DIR/.git" ]; then
   echo "Target path '$TARGET_DIR' exists and is not a git repo." >&2
   echo "Set LIFETRACE_DIR to a new folder and retry." >&2
@@ -565,7 +684,11 @@ else
   cd "$TARGET_DIR"
 fi
 
-if [ "$REPO_READY" -eq 0 ]; then
+if [ -d ".venv" ] && [ -d "free-todo-frontend/node_modules" ]; then
+  DEPS_READY=1
+fi
+
+if [ "$REPO_READY" -eq 0 ] || [ "$DEPS_READY" -eq 0 ]; then
   if [ -n "$(git status --porcelain)" ]; then
     echo "Repository has local changes. Commit or stash and retry." >&2
     exit 1
@@ -573,6 +696,9 @@ if [ "$REPO_READY" -eq 0 ]; then
   git fetch --depth 1 "$REPO_URL" "$REF"
   git checkout -q -B "$REF" FETCH_HEAD
   uv sync
+  if [ -d ".venv" ] && [ -d "free-todo-frontend/node_modules" ]; then
+    DEPS_READY=1
+  fi
 else
   echo "Repository is up to date. Skipping install steps."
 fi
@@ -595,13 +721,17 @@ case "$MODE" in
     trap cleanup EXIT
 
     cd free-todo-frontend
-    if [ "$REPO_READY" -eq 0 ]; then
+    if [ ! -d "node_modules" ]; then
       pnpm install
     fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
-      echo "Building frontend..."
-      pnpm build
+      if [ "$REPO_READY" -eq 1 ] && [ "$DEPS_READY" -eq 1 ] && [ -d ".next" ]; then
+        echo "Next.js build is up to date. Skipping build step."
+      else
+        echo "Building frontend..."
+        pnpm build
+      fi
       echo "Starting frontend (production)..."
       pnpm start
     else
@@ -611,14 +741,22 @@ case "$MODE" in
     ;;
   tauri)
     cd free-todo-frontend
-    if [ "$REPO_READY" -eq 0 ]; then
+    if [ ! -d "node_modules" ]; then
       pnpm install
     fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
-      echo "Building Tauri app ($VARIANT, $BACKEND_RUNTIME)..."
-      pnpm "build:tauri:${VARIANT}:${BACKEND_RUNTIME}:full"
-      echo "Build complete."
+      artifact="$(find_tauri_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
+      if [ -z "$artifact" ] || [ "$REPO_READY" -eq 0 ] || [ "$DEPS_READY" -eq 0 ]; then
+        echo "Building Tauri app ($VARIANT, $BACKEND_RUNTIME)..."
+        pnpm "build:tauri:${VARIANT}:${BACKEND_RUNTIME}:full"
+        artifact="$(find_tauri_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
+      else
+        echo "Tauri build is up to date. Skipping build step."
+      fi
+      if ! run_artifact "$artifact"; then
+        echo "Build complete. Open the artifact under src-tauri/target/release/bundle/."
+      fi
     else
       echo "Starting backend..."
       uv run "$PYTHON_BIN" -m lifetrace.server &
@@ -642,14 +780,22 @@ case "$MODE" in
     ;;
   electron)
     cd free-todo-frontend
-    if [ "$REPO_READY" -eq 0 ]; then
+    if [ ! -d "node_modules" ]; then
       pnpm install
     fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
-      echo "Building Electron app ($VARIANT, $BACKEND_RUNTIME)..."
-      pnpm "build:electron:${VARIANT}:${BACKEND_RUNTIME}:full"
-      echo "Build complete."
+      artifact="$(find_electron_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
+      if [ -z "$artifact" ] || [ "$REPO_READY" -eq 0 ] || [ "$DEPS_READY" -eq 0 ]; then
+        echo "Building Electron app ($VARIANT, $BACKEND_RUNTIME)..."
+        pnpm "build:electron:${VARIANT}:${BACKEND_RUNTIME}:full"
+        artifact="$(find_electron_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
+      else
+        echo "Electron build is up to date. Skipping build step."
+      fi
+      if ! run_artifact "$artifact"; then
+        echo "Build complete. Open the artifact under dist-artifacts/electron/."
+      fi
     else
       if [ "$VARIANT" = "island" ]; then
         pnpm electron:dev:island

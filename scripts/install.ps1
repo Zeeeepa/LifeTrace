@@ -126,12 +126,13 @@ if ($Backend -eq "pyinstaller" -and -not $frontendSet) {
     $Frontend = "build"
 }
 
-if ($Mode -eq "web" -and -not $frontendSet -and $Backend -ne "pyinstaller") {
-    $Frontend = "dev"
-}
-
 if ($Frontend -eq "dev" -and $Backend -eq "pyinstaller") {
     throw "backend=pyinstaller is only supported with frontend=build."
+}
+
+if ($Mode -eq "tauri" -and $Frontend -eq "build" -and $Variant -eq "island") {
+    Write-Host "Island packaging is not supported yet. Switching variant to web for build."
+    $Variant = "web"
 }
 
 function Test-Command {
@@ -232,6 +233,65 @@ function Install-Winget {
     return (Test-Command "winget")
 }
 
+function Get-LatestFile {
+    param(
+        [string]$Path,
+        [string]$Filter
+    )
+    if (-not (Test-Path $Path)) {
+        return $null
+    }
+    $file = Get-ChildItem -Path $Path -Filter $Filter -File -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($file) {
+        return $file.FullName
+    }
+    return $null
+}
+
+function Find-TauriArtifact {
+    param(
+        [string]$FrontendDir,
+        [string]$Variant,
+        [string]$Backend
+    )
+    $artifactBase = Join-Path $FrontendDir "dist-artifacts\tauri\$Variant\$Backend"
+    $bundleDir = Join-Path $FrontendDir "src-tauri\target\release\bundle"
+    $artifact = Get-LatestFile $artifactBase "*.exe"
+    if (-not $artifact) {
+        $artifact = Get-LatestFile $bundleDir "*.exe"
+    }
+    if (-not $artifact) {
+        $artifact = Get-LatestFile $bundleDir "*.msi"
+    }
+    return $artifact
+}
+
+function Find-ElectronArtifact {
+    param(
+        [string]$FrontendDir,
+        [string]$Variant,
+        [string]$Backend
+    )
+    $artifactBase = Join-Path $FrontendDir "dist-artifacts\electron\$Variant\$Backend"
+    $artifact = Get-LatestFile $artifactBase "*.exe"
+    if (-not $artifact) {
+        $artifact = Get-LatestFile $artifactBase "*.msi"
+    }
+    return $artifact
+}
+
+function Start-BuiltApp {
+    param([string]$ArtifactPath)
+    if (-not $ArtifactPath) {
+        return $false
+    }
+    Write-Host "Launching built app: $ArtifactPath"
+    Start-Process -FilePath $ArtifactPath | Out-Null
+    return $true
+}
+
 $pythonCmd = $env:PYTHON_BIN
 if (-not $pythonCmd) {
     if (Test-Command "python") {
@@ -318,6 +378,7 @@ if (-not (Test-Command "pnpm")) {
 }
 
 $repoReady = $false
+$depsReady = $false
 if (Test-Path $Dir) {
     if (-not (Test-Path (Join-Path $Dir ".git"))) {
         throw "Target path '$Dir' exists and is not a git repo. Set LIFETRACE_DIR to a new folder."
@@ -338,7 +399,11 @@ if (Test-Path $Dir) {
     Set-Location $Dir
 }
 
-if (-not $repoReady) {
+$venvReady = Test-Path (Join-Path (Get-Location).Path ".venv")
+$frontendModulesReady = Test-Path (Join-Path (Get-Location).Path "free-todo-frontend\node_modules")
+$depsReady = $venvReady -and $frontendModulesReady
+
+if (-not $repoReady -or -not $depsReady) {
     $gitStatus = git status --porcelain
     if ($gitStatus) {
         throw "Repository has local changes. Commit or stash and retry."
@@ -346,6 +411,9 @@ if (-not $repoReady) {
     git fetch --depth 1 "$Repo" "$Ref"
     git checkout -q -B "$Ref" FETCH_HEAD
     uv sync
+    $venvReady = Test-Path (Join-Path (Get-Location).Path ".venv")
+    $frontendModulesReady = Test-Path (Join-Path (Get-Location).Path "free-todo-frontend\node_modules")
+    $depsReady = $venvReady -and $frontendModulesReady
 } else {
     Write-Host "Repository is up to date. Skipping install steps."
 }
@@ -365,11 +433,16 @@ if ($Mode -eq "web") {
 
     try {
         Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-        if (-not $repoReady) {
+        if (-not $frontendModulesReady) {
             pnpm install
         }
         if ($Frontend -eq "build") {
-            pnpm build
+            $nextDir = Join-Path (Get-Location).Path ".next"
+            if (-not ($repoReady -and $depsReady -and (Test-Path $nextDir))) {
+                pnpm build
+            } else {
+                Write-Host "Next.js build is up to date. Skipping build step."
+            }
             pnpm start
         } else {
             $env:WINDOW_MODE = $Variant
@@ -385,13 +458,21 @@ if ($Mode -eq "web") {
     }
 } elseif ($Mode -eq "tauri") {
     Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-    if (-not $repoReady) {
+    if (-not $frontendModulesReady) {
         pnpm install
     }
 
     if ($Frontend -eq "build") {
-        pnpm "build:tauri:${Variant}:${Backend}:full"
-        Write-Host "Build complete."
+        $artifact = Find-TauriArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
+        if (-not ($repoReady -and $depsReady -and $artifact)) {
+            pnpm "build:tauri:${Variant}:${Backend}:full"
+            $artifact = Find-TauriArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
+        } else {
+            Write-Host "Tauri build is up to date. Skipping build step."
+        }
+        if (-not (Start-BuiltApp $artifact)) {
+            Write-Host "Build complete. Open the artifact under src-tauri\\target\\release\\bundle."
+        }
     } else {
         $uvPath = (Get-Command uv).Source
         $backendJob = Start-Job -ScriptBlock {
@@ -426,13 +507,21 @@ if ($Mode -eq "web") {
     }
 } else {
     Set-Location (Join-Path (Get-Location).Path "free-todo-frontend")
-    if (-not $repoReady) {
+    if (-not $frontendModulesReady) {
         pnpm install
     }
 
     if ($Frontend -eq "build") {
-        pnpm "build:electron:${Variant}:${Backend}:full"
-        Write-Host "Build complete."
+        $artifact = Find-ElectronArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
+        if (-not ($repoReady -and $depsReady -and $artifact)) {
+            pnpm "build:electron:${Variant}:${Backend}:full"
+            $artifact = Find-ElectronArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
+        } else {
+            Write-Host "Electron build is up to date. Skipping build step."
+        }
+        if (-not (Start-BuiltApp $artifact)) {
+            Write-Host "Build complete. Open the artifact under dist-artifacts\\electron."
+        }
     } else {
         if ($Backend -eq "pyinstaller") {
             throw "backend=pyinstaller is only supported with frontend=build."
