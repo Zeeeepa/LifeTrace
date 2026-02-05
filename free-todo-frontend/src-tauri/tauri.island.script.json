@@ -70,7 +70,8 @@
       "../../lifetrace/services",
       "../../lifetrace/storage",
       "../../lifetrace/util",
-      "../../requirements-runtime.txt"
+      "../../requirements-runtime.txt",
+      "../.next/standalone"
     ],
     "windows": {
       "certificateThumbprint": null,

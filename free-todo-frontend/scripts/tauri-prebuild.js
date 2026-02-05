@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { execSync } = require("node:child_process");
 
 const distDir = path.join(__dirname, "..", "src-tauri", "dist");
 const indexPath = path.join(distDir, "index.html");
@@ -115,3 +116,39 @@ const html = `<!doctype html>
 
 fs.writeFileSync(indexPath, html, "utf8");
 console.log(`Wrote ${indexPath}`);
+
+function copyDir(src, dest) {
+	if (!fs.existsSync(src)) {
+		return;
+	}
+	fs.mkdirSync(dest, { recursive: true });
+	fs.cpSync(src, dest, { recursive: true, force: true });
+}
+
+const rootDir = path.join(__dirname, "..");
+const nextDir = path.join(rootDir, ".next");
+const standaloneDir = path.join(nextDir, "standalone");
+
+if (fs.existsSync(standaloneDir)) {
+	const staticSrc = path.join(nextDir, "static");
+	const staticDest = path.join(standaloneDir, ".next", "static");
+	const publicSrc = path.join(rootDir, "public");
+	const publicDest = path.join(standaloneDir, "public");
+
+	copyDir(staticSrc, staticDest);
+	copyDir(publicSrc, publicDest);
+
+	try {
+		execSync("node scripts/resolve-symlinks.js", { cwd: rootDir, stdio: "inherit" });
+	} catch (error) {
+		console.warn(`Failed to resolve symlinks: ${error.message}`);
+	}
+
+	try {
+		execSync("node scripts/copy-missing-deps.js", { cwd: rootDir, stdio: "inherit" });
+	} catch (error) {
+		console.warn(`Failed to copy missing deps: ${error.message}`);
+	}
+} else {
+	console.warn(`Standalone output not found at: ${standaloneDir}`);
+}
