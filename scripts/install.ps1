@@ -83,50 +83,95 @@ if ($Frontend -eq "dev" -and $Backend -eq "pyinstaller") {
     throw "backend=pyinstaller is only supported with frontend=build."
 }
 
-function Require-Command {
+function Test-Command {
+    param([string]$Name)
+    return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+$missingDeps = New-Object System.Collections.Generic.List[object]
+
+function Add-MissingDep {
     param(
         [string]$Name,
-        [string]$Hint = ""
+        [string]$Hint,
+        [string]$WingetId = ""
     )
-    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
-        if ($Hint) {
-            throw "Missing required command: $Name. $Hint"
-        }
-        throw "Missing required command: $Name."
+    $missingDeps.Add([pscustomobject]@{
+            Name     = $Name
+            Hint     = $Hint
+            WingetId = $WingetId
+        })
+}
+
+function Show-MissingDeps {
+    if ($missingDeps.Count -eq 0) {
+        return
     }
+
+    Write-Host "Missing required dependencies:" -ForegroundColor Red
+    foreach ($dep in $missingDeps) {
+        Write-Host "- $($dep.Name): $($dep.Hint)"
+    }
+
+    if (Test-Command "winget") {
+        $wingetDeps = $missingDeps | Where-Object { $_.WingetId }
+        if ($wingetDeps) {
+            Write-Host "Install with winget:"
+            foreach ($dep in $wingetDeps) {
+                Write-Host "  winget install --id $($dep.WingetId) -e --accept-package-agreements --accept-source-agreements"
+            }
+        }
+    }
+
+    throw "Missing required dependencies. Install them and retry."
 }
 
 $pythonCmd = $env:PYTHON_BIN
 if (-not $pythonCmd) {
-    if (Get-Command python -ErrorAction SilentlyContinue) {
+    if (Test-Command "python") {
         $pythonCmd = "python"
-    } elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
+    } elseif (Test-Command "python3") {
         $pythonCmd = "python3"
     } else {
-        throw "Python 3.12+ not found. Install Python and retry."
+        Add-MissingDep "python" "Python 3.12+ not found. Install Python and retry." "Python.Python.3.12"
+    }
+} elseif (-not (Test-Command $pythonCmd)) {
+    Add-MissingDep "python" "Python 3.12+ not found. Install Python and retry." "Python.Python.3.12"
+}
+
+if (-not (Test-Command "git")) {
+    Add-MissingDep "git" "Install Git and retry." "Git.Git"
+}
+if (-not (Test-Command "node")) {
+    Add-MissingDep "node" "Install Node.js 20+ and retry." "OpenJS.NodeJS.LTS"
+}
+
+if ($Mode -eq "tauri") {
+    if (-not (Test-Command "cargo")) {
+        Add-MissingDep "cargo" "Install Rust (rustup) and retry, or set LIFETRACE_MODE=web." "Rustlang.Rustup"
     }
 }
 
-Require-Command git "Install Git and retry."
-Require-Command node "Install Node.js 20+ and retry."
-
-if ($Mode -eq "tauri") {
-    Require-Command cargo "Install Rust (rustup) and retry."
+$shouldInstallPnpm = $false
+if (-not (Test-Command "pnpm")) {
+    if (Test-Command "corepack") {
+        $shouldInstallPnpm = $true
+    } else {
+        Add-MissingDep "pnpm" "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry." "OpenJS.NodeJS.LTS"
+    }
 }
 
-if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+Show-MissingDeps
+
+if (-not (Test-Command "uv")) {
     Write-Host "Installing uv..."
     irm https://astral.sh/uv/install.ps1 | iex
     $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
 }
 
-if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
-    if (Get-Command corepack -ErrorAction SilentlyContinue) {
-        corepack enable
-        corepack prepare pnpm@latest --activate
-    } else {
-        throw "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry."
-    }
+if ($shouldInstallPnpm) {
+    corepack enable
+    corepack prepare pnpm@latest --activate
 }
 
 if (Test-Path $Dir) {

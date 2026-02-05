@@ -187,17 +187,25 @@ if [ "$FRONTEND_ACTION" = "dev" ] && [ "$BACKEND_RUNTIME" = "pyinstaller" ]; the
   exit 1
 fi
 
-require_cmd() {
-  local name="$1"
-  local hint="${2:-}"
-  if ! command -v "$name" >/dev/null 2>&1; then
-    if [ -n "$hint" ]; then
-      echo "Missing required command: $name. $hint" >&2
-    else
-      echo "Missing required command: $name." >&2
-    fi
-    exit 1
+MISSING_DEPS=()
+MISSING_HINTS=()
+
+add_missing() {
+  MISSING_DEPS+=("$1")
+  MISSING_HINTS+=("$2")
+}
+
+report_missing() {
+  if [ "${#MISSING_DEPS[@]}" -eq 0 ]; then
+    return 0
   fi
+
+  echo "Missing required dependencies:" >&2
+  for i in "${!MISSING_DEPS[@]}"; do
+    echo "- ${MISSING_DEPS[$i]}: ${MISSING_HINTS[$i]}" >&2
+  done
+  echo "Install the missing dependencies and retry." >&2
+  exit 1
 }
 
 download() {
@@ -221,17 +229,41 @@ if [ -z "$PYTHON_BIN" ]; then
   elif command -v python3 >/dev/null 2>&1; then
     PYTHON_BIN="python3"
   else
-    echo "Python 3.12+ not found. Please install Python and retry." >&2
-    exit 1
+    add_missing "python" "Python 3.12+ not found. Install Python and retry."
+  fi
+elif ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  add_missing "python" "Python 3.12+ not found. Install Python and retry."
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  add_missing "git" "Install Git and retry."
+fi
+if ! command -v node >/dev/null 2>&1; then
+  add_missing "node" "Install Node.js 20+ and retry."
+fi
+
+if [ "$MODE" = "tauri" ]; then
+  if ! command -v cargo >/dev/null 2>&1; then
+    add_missing "cargo" "Install Rust (rustup) and retry, or set LIFETRACE_MODE=web."
   fi
 fi
 
-require_cmd git "Install Git and retry."
-require_cmd node "Install Node.js 20+ and retry."
-
-if [ "$MODE" = "tauri" ]; then
-  require_cmd cargo "Install Rust (rustup) and retry."
+NEED_PNPM_INSTALL=0
+if ! command -v pnpm >/dev/null 2>&1; then
+  if command -v corepack >/dev/null 2>&1; then
+    NEED_PNPM_INSTALL=1
+  else
+    add_missing "pnpm" "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry."
+  fi
 fi
+
+if ! command -v uv >/dev/null 2>&1; then
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    add_missing "curl/wget" "curl or wget is required to download uv."
+  fi
+fi
+
+report_missing
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "Installing uv..."
@@ -239,14 +271,9 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  if command -v corepack >/dev/null 2>&1; then
-    corepack enable
-    corepack prepare pnpm@latest --activate
-  else
-    echo "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry." >&2
-    exit 1
-  fi
+if [ "$NEED_PNPM_INSTALL" -eq 1 ]; then
+  corepack enable
+  corepack prepare pnpm@latest --activate
 fi
 
 if [ -e "$TARGET_DIR" ] && [ ! -d "$TARGET_DIR/.git" ]; then
