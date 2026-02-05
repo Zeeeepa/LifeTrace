@@ -5,12 +5,9 @@ Creates a one-folder bundle (recommended for large dependencies like PyTorch)
 """
 
 import os
+import shutil
+import sys
 from pathlib import Path
-
-# Get the lifetrace directory (where this spec file is located)
-# SPECPATH is set by PyInstaller to the absolute path of the spec file
-# We need to ensure we get the correct directory regardless of where PyInstaller is run from
-import os
 
 # Try to get the directory from SPECPATH (set by PyInstaller)
 try:
@@ -45,6 +42,33 @@ if not (lifetrace_dir / "config" / "default_config.yaml").exists():
         f"CWD: {os.getcwd()}\n"
         f"Please ensure you run PyInstaller from the lifetrace directory or specify the correct path."
     )
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+# Build options (override with env vars if needed)
+# LIFETRACE_INCLUDE_VECTOR=1 to include vector deps (chromadb/transformers/torch/etc.)
+include_vector = _env_flag("LIFETRACE_INCLUDE_VECTOR", False)
+optimize_level = _env_int("PYINSTALLER_OPTIMIZE", 1)
+enable_strip = _env_flag("PYINSTALLER_STRIP", sys.platform != "win32")
+enable_upx = _env_flag(
+    "PYINSTALLER_UPX",
+    bool(shutil.which("upx")) and sys.platform != "darwin",
+)
 
 # Data files to include
 # 注意：config 和 models 放在 app 根目录（与 _internal 同级别），而不是 _internal 内
@@ -161,20 +185,10 @@ hiddenimports = [
     "loguru._simple_sink",
     "loguru._string_parsers",
     "loguru._writer",
-    # Vector database and semantic search (可选 vector 组)
-    # 这些是 pyproject.toml 中 [dependency-groups] vector 的依赖
-    "torch",
-    "torchvision",
-    "torchaudio",
-    "transformers",  # sentence-transformers 依赖
-    "scipy",
-    "hdbscan",
-    "sentence_transformers",
-    "chromadb",
+    # Vector database and semantic search (可选 vector 组) - 按需添加
 ]
 
 # 平台特定的 hidden imports
-import sys
 if sys.platform == "darwin":
     # macOS specific (pyobjc-framework-Cocoa, pyobjc-framework-Quartz)
     hiddenimports.extend([
@@ -212,21 +226,28 @@ rapidocr_datas = collect_data_files("rapidocr_onnxruntime")
 datas.extend(rapidocr_datas)
 
 # Collect all chromadb submodules (including telemetry.product.posthog)
-# ChromaDB has many submodules that PyInstaller might miss
-chromadb_submodules = collect_submodules("chromadb")
-hiddenimports.extend(chromadb_submodules)
+# ChromaDB and sentence-transformers are optional; include only if enabled
+vector_modules = [
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "transformers",  # sentence-transformers 依赖
+    "scipy",
+    "hdbscan",
+    "sentence_transformers",
+    "chromadb",
+]
+if include_vector:
+    hiddenimports.extend(vector_modules)
+    chromadb_submodules = collect_submodules("chromadb")
+    hiddenimports.extend(chromadb_submodules)
+    chromadb_datas = collect_data_files("chromadb")
+    datas.extend(chromadb_datas)
 
-# Collect chromadb data files if any
-chromadb_datas = collect_data_files("chromadb")
-datas.extend(chromadb_datas)
-
-# Collect sentence_transformers submodules (may have many submodules)
-sentence_transformers_submodules = collect_submodules("sentence_transformers")
-hiddenimports.extend(sentence_transformers_submodules)
-
-# Collect sentence_transformers data files (model configs, etc.)
-sentence_transformers_datas = collect_data_files("sentence_transformers")
-datas.extend(sentence_transformers_datas)
+    sentence_transformers_submodules = collect_submodules("sentence_transformers")
+    hiddenimports.extend(sentence_transformers_submodules)
+    sentence_transformers_datas = collect_data_files("sentence_transformers")
+    datas.extend(sentence_transformers_datas)
 
 # Collect dynaconf submodules and data files (配置管理)
 dynaconf_submodules = collect_submodules("dynaconf")
@@ -264,6 +285,18 @@ hiddenimports.extend(numpy_submodules)
 numpy_core_submodules = collect_submodules("numpy._core")
 hiddenimports.extend(numpy_core_submodules)
 
+excludes = [
+    "matplotlib",
+    "tkinter",
+    "pytest",
+    # 注意：不要排除 unittest，因为 imagehash 等库可能依赖它
+    # "unittest",
+    "test",
+    "tests",
+]
+if not include_vector:
+    excludes.extend(vector_modules)
+
 a = Analysis(
     ["scripts/start_backend.py"],
     pathex=[lifetrace_parent_dir, str(lifetrace_dir)],  # Add both parent and lifetrace directory to Python path
@@ -273,17 +306,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        "matplotlib",
-        "tkinter",
-        "pytest",
-        # 注意：不要排除 unittest，因为 imagehash 等库可能依赖它
-        # "unittest",
-        "test",
-        "tests",
-    ],
+    excludes=excludes,
     noarchive=False,
-    optimize=0,
+    optimize=optimize_level,
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
@@ -296,8 +321,8 @@ exe = EXE(
     name="lifetrace",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=False,
-    upx=False,
+    strip=enable_strip,
+    upx=enable_upx,
     console=True,  # Keep console for debugging
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -311,8 +336,8 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=False,
-    upx=False,
+    strip=enable_strip,
+    upx=enable_upx,
     upx_exclude=[],
     name="lifetrace",
 )
