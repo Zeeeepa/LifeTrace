@@ -55,3 +55,20 @@ curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/i
 # Switch ref
 curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash -s -- --ref dev
 ```
+
+```powershell
+# Web dev
+$env:LIFETRACE_MODE="web"; $env:LIFETRACE_FRONTEND="dev"; iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+
+# Tauri dev (starts backend + frontend dev server, then tauri dev)
+$env:LIFETRACE_MODE="tauri"; $env:LIFETRACE_FRONTEND="dev"; iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+
+# Electron island dev
+$env:LIFETRACE_MODE="electron"; $env:LIFETRACE_VARIANT="island"; $env:LIFETRACE_FRONTEND="dev"; iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+
+# Tauri build with PyInstaller backend
+$env:LIFETRACE_MODE="tauri"; $env:LIFETRACE_FRONTEND="build"; $env:LIFETRACE_BACKEND="pyinstaller"; iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+
+# Switch ref
+$env:LIFETRACE_REF="dev"; iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+```
