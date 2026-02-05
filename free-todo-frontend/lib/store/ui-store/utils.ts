@@ -52,6 +52,11 @@ export const DEFAULT_PANEL_STATE = {
 		panelB: "chat" as PanelFeature,
 		panelC: "todoDetail" as PanelFeature,
 	},
+	panelPinMap: {
+		panelA: false,
+		panelB: false,
+		panelC: false,
+	},
 	autoClosedPanels: [] as PanelPosition[],
 	dockDisplayMode: "fixed" as DockDisplayMode,
 	// 是否显示 Agno 模式的工具选择器（默认开启）

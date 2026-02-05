@@ -6,6 +6,7 @@ import { clampWidth, DEFAULT_PANEL_STATE, validatePanelFeatureMap } from "./util
 
 type PersistedState = Partial<UiStoreState> & {
 	panelFeatureMap?: Record<PanelPosition, PanelFeature | null>;
+	panelPinMap?: Record<PanelPosition, boolean>;
 	customLayouts?: LayoutPreset[];
 };
 
@@ -30,6 +31,22 @@ export const createUiStoreStorage = () =>
 					if (state.panelFeatureMap) {
 						state.panelFeatureMap = validatePanelFeatureMap(state.panelFeatureMap);
 					}
+
+					// 校验 panelPinMap
+					const normalizedPinMap: Record<PanelPosition, boolean> = {
+						...DEFAULT_PANEL_STATE.panelPinMap,
+					};
+					if (state.panelPinMap && typeof state.panelPinMap === "object") {
+						for (const position of VALID_POSITIONS) {
+							const value = (state.panelPinMap as Record<string, unknown>)[
+								position
+							];
+							if (typeof value === "boolean") {
+								normalizedPinMap[position] = value;
+							}
+						}
+					}
+					state.panelPinMap = normalizedPinMap;
 
 					// 验证宽度值
 					if (

@@ -317,6 +317,14 @@
 		"audio": "Audio",
 		"unassigned": "Unassigned"
 	},
+	"panelMenu": {
+		"moreActions": "Panel actions",
+		"switchPanel": "Switch panel",
+		"closePanel": "Close panel",
+		"pinPanel": "Pin panel",
+		"unpinPanel": "Unpin panel",
+		"openInNewWindow": "Open in new window"
+	},
 	"todoExtraction": {
 		"extractButton": "Extract Todos",
 		"extracting": "Extracting todos...",

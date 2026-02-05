@@ -1,6 +1,7 @@
 "use client";
 
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+import { ChevronRight } from "lucide-react";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,48 @@ const DropdownMenuItem = React.forwardRef<
 ));
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
 
+const DropdownMenuSubTrigger = React.forwardRef<
+	React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
+	React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger>
+>(({ className, children, ...props }, ref) => (
+	<DropdownMenuPrimitive.SubTrigger
+		ref={ref}
+		className={cn(
+			"relative flex cursor-default select-none items-center rounded-sm px-2.5 py-2 text-sm outline-none transition-colors",
+			"focus:bg-accent focus:text-accent-foreground",
+			"data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+			"data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+			className,
+		)}
+		{...props}
+	>
+		{children}
+		<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+	</DropdownMenuPrimitive.SubTrigger>
+));
+DropdownMenuSubTrigger.displayName =
+	DropdownMenuPrimitive.SubTrigger.displayName;
+
+const DropdownMenuSubContent = React.forwardRef<
+	React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
+	React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
+>(({ className, sideOffset = 8, ...props }, ref) => (
+	<DropdownMenuPrimitive.SubContent
+		ref={ref}
+		sideOffset={sideOffset}
+		className={cn(
+			"z-[200] min-w-[8rem] rounded-md border border-border bg-popover p-1 shadow-md",
+			"data-[state=open]:animate-in data-[state=closed]:animate-out",
+			"data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+			"data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+			className,
+		)}
+		{...props}
+	/>
+));
+DropdownMenuSubContent.displayName =
+	DropdownMenuPrimitive.SubContent.displayName;
+
 const DropdownMenuSeparator = React.forwardRef<
 	React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
 	React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
@@ -71,5 +114,7 @@ export {
 	DropdownMenuRadioGroup,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSubTrigger,
+	DropdownMenuSubContent,
 	DropdownMenuSeparator,
 };

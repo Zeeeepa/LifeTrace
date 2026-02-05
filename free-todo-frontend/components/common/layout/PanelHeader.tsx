@@ -3,10 +3,35 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { LucideIcon } from "lucide-react";
+import {
+	Check,
+	ExternalLink,
+	LayoutGrid,
+	MoreHorizontal,
+	Pin,
+	PinOff,
+	X,
+} from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
-import type { PanelPosition } from "@/lib/config/panel-config";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	ALL_PANEL_FEATURES,
+	FEATURE_ICON_MAP,
+	type PanelPosition,
+} from "@/lib/config/panel-config";
 import type { DragData } from "@/lib/dnd";
+import { useUiStore } from "@/lib/store/ui-store";
 import { cn } from "@/lib/utils";
 
 /**
@@ -305,6 +330,114 @@ export function PanelPositionProvider({
 	);
 }
 
+function PanelHeaderMenu({ position }: { position: PanelPosition }) {
+	const t = useTranslations("panelMenu");
+	const tDock = useTranslations("bottomDock");
+	const menuButtonStyle = usePanelActionButtonStyle("default");
+	const menuIconStyle = usePanelIconStyle("action");
+	const {
+		panelFeatureMap,
+		panelPinMap,
+		disabledFeatures,
+		backendDisabledFeatures,
+		setPanelPinned,
+		setPanelFeature,
+		togglePanelA,
+		togglePanelB,
+		togglePanelC,
+	} = useUiStore();
+	const currentFeature = panelFeatureMap[position];
+	const isPinned = panelPinMap[position];
+
+	const switchableFeatures = useMemo(() => {
+		const disabledSet = new Set([
+			...disabledFeatures,
+			...backendDisabledFeatures,
+		]);
+		return ALL_PANEL_FEATURES.filter((feature) => !disabledSet.has(feature));
+	}, [disabledFeatures, backendDisabledFeatures]);
+
+	const handleClose = () => {
+		switch (position) {
+			case "panelA":
+				togglePanelA();
+				break;
+			case "panelB":
+				togglePanelB();
+				break;
+			case "panelC":
+				togglePanelC();
+				break;
+		}
+	};
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					className={menuButtonStyle}
+					onPointerDown={(event) => event.stopPropagation()}
+					aria-label={t("moreActions")}
+				>
+					<MoreHorizontal className={menuIconStyle} />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" sideOffset={8}>
+				<DropdownMenuSub>
+					<DropdownMenuSubTrigger
+						disabled={isPinned || switchableFeatures.length === 0}
+					>
+						<LayoutGrid className="mr-2 h-4 w-4 text-muted-foreground" />
+						{t("switchPanel")}
+					</DropdownMenuSubTrigger>
+					<DropdownMenuSubContent alignOffset={-6} sideOffset={10}>
+						{switchableFeatures.map((feature) => {
+							const Icon = FEATURE_ICON_MAP[feature];
+							const isActive = feature === currentFeature;
+							return (
+								<DropdownMenuItem
+									key={feature}
+									disabled={isPinned}
+									onSelect={() => {
+										setPanelFeature(position, feature);
+									}}
+								>
+									<Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+									<span>{tDock(feature)}</span>
+									{isActive && (
+										<Check className="ml-auto h-4 w-4 text-primary" />
+									)}
+								</DropdownMenuItem>
+							);
+						})}
+					</DropdownMenuSubContent>
+				</DropdownMenuSub>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={handleClose}>
+					<X className="mr-2 h-4 w-4 text-muted-foreground" />
+					{t("closePanel")}
+				</DropdownMenuItem>
+				<DropdownMenuItem
+					onSelect={() => setPanelPinned(position, !isPinned)}
+				>
+					{isPinned ? (
+						<PinOff className="mr-2 h-4 w-4 text-muted-foreground" />
+					) : (
+						<Pin className="mr-2 h-4 w-4 text-muted-foreground" />
+					)}
+					{isPinned ? t("unpinPanel") : t("pinPanel")}
+				</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem disabled>
+					<ExternalLink className="mr-2 h-4 w-4 text-muted-foreground" />
+					{t("openInNewWindow")}
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 /**
  * 统一的面板头部组件
  * 确保所有面板的 headerbar 高度一致
@@ -387,7 +520,12 @@ export function PanelHeader({
 					<Icon className={cn(headerIconStyle, iconClassName)} />
 					{title}
 				</h2>
-				{actions && <div className="flex items-center gap-2">{actions}</div>}
+				{(actions || position) && (
+					<div className="flex items-center gap-2">
+						{actions}
+						{position && <PanelHeaderMenu position={position} />}
+					</div>
+				)}
 			</div>
 		</div>
 	);

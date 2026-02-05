@@ -317,6 +317,14 @@
 		"audio": "音频",
 		"unassigned": "未分配"
 	},
+	"panelMenu": {
+		"moreActions": "面板操作",
+		"switchPanel": "切换面板",
+		"closePanel": "关闭面板",
+		"pinPanel": "固定面板",
+		"unpinPanel": "解锁面板",
+		"openInNewWindow": "在新窗口中打开"
+	},
 	"todoExtraction": {
 		"extractButton": "提取待办",
 		"extracting": "正在提取待办事项...",

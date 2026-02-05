@@ -22,6 +22,7 @@ export const useUiStore = create<UiStoreState>()(
 			panelCWidth: DEFAULT_PANEL_STATE.panelCWidth,
 			// 动态功能分配初始状态：默认分配
 			panelFeatureMap: DEFAULT_PANEL_STATE.panelFeatureMap,
+			panelPinMap: DEFAULT_PANEL_STATE.panelPinMap,
 			// 默认没有禁用的功能
 			disabledFeatures: DEFAULT_PANEL_STATE.disabledFeatures,
 			backendDisabledFeatures: DEFAULT_PANEL_STATE.backendDisabledFeatures,
@@ -117,13 +118,25 @@ export const useUiStore = create<UiStoreState>()(
 					) {
 						return state;
 					}
-					// 如果该功能已经在其他位置，先清除那个位置的分配
+					// 固定面板不允许替换
 					const currentMap = { ...state.panelFeatureMap };
+					const currentFeature = currentMap[position];
+					if (
+						state.panelPinMap[position] &&
+						currentFeature !== feature
+					) {
+						return state;
+					}
+
+					// 如果该功能已经在其他位置，先清除那个位置的分配
 					for (const [pos, assignedFeature] of Object.entries(currentMap) as [
 						PanelPosition,
 						PanelFeature | null,
 					][]) {
 						if (assignedFeature === feature && pos !== position) {
+							if (state.panelPinMap[pos]) {
+								return state;
+							}
 							currentMap[pos] = null;
 						}
 					}
@@ -190,6 +203,22 @@ export const useUiStore = create<UiStoreState>()(
 					!state.backendDisabledFeatures.includes(feature)
 				);
 			},
+
+			setPanelPinned: (position, pinned) =>
+				set((state) => ({
+					panelPinMap: {
+						...state.panelPinMap,
+						[position]: pinned,
+					},
+				})),
+
+			togglePanelPinned: (position) =>
+				set((state) => ({
+					panelPinMap: {
+						...state.panelPinMap,
+						[position]: !state.panelPinMap[position],
+					},
+				})),
 
 			// 兼容性方法：基于功能的访问
 			getIsFeatureOpen: (feature) => {
@@ -269,6 +298,9 @@ export const useUiStore = create<UiStoreState>()(
 				set((state) => {
 					// 如果两个位置相同，不需要交换
 					if (position1 === position2) return state;
+					if (state.panelPinMap[position1] || state.panelPinMap[position2]) {
+						return state;
+					}
 
 					const newMap = { ...state.panelFeatureMap };
 					// 交换两个位置的功能

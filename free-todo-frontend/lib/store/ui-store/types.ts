@@ -27,6 +27,8 @@ export interface UiStoreState {
 	// panelBWidth 是计算值，不需要单独存储
 	// 动态功能分配映射：每个位置当前显示的功能
 	panelFeatureMap: Record<PanelPosition, PanelFeature | null>;
+	// 面板是否固定（固定面板不会被替换）
+	panelPinMap: Record<PanelPosition, boolean>;
 	// 被禁用的功能列表
 	disabledFeatures: PanelFeature[];
 	// 后端能力不足导致的禁用功能列表
@@ -56,6 +58,9 @@ export interface UiStoreState {
 	setFeatureEnabled: (feature: PanelFeature, enabled: boolean) => void;
 	setBackendDisabledFeatures: (features: PanelFeature[]) => void;
 	isFeatureEnabled: (feature: PanelFeature) => boolean;
+	// 面板固定设置
+	setPanelPinned: (position: PanelPosition, pinned: boolean) => void;
+	togglePanelPinned: (position: PanelPosition) => void;
 	// 兼容性方法：为了保持向后兼容，保留基于功能的访问方法
 	// 这些方法内部会通过动态映射查找位置
 	getIsFeatureOpen: (feature: PanelFeature) => boolean;
