@@ -9,7 +9,7 @@
     "frontendDist": ".tauri-lint-dist"
   },
   "app": {
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "title": "FreeTodo",
