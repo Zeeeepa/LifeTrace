@@ -279,14 +279,40 @@ if (-not (Test-Command "uv")) {
 }
 
 if (-not (Test-Command "pnpm")) {
+    $pnpmInstalled = $false
     if (Test-Command "corepack") {
-        corepack enable
-        corepack prepare pnpm@latest --activate
-    } elseif (Test-Command "npm") {
-        npm install -g pnpm
-        Refresh-Path
+        try {
+            corepack enable
+            corepack prepare pnpm@latest --activate
+            $pnpmInstalled = Test-Command "pnpm"
+        } catch {
+            Write-Host "corepack activation failed. Falling back to pnpm install script."
+        }
     }
-    if (-not (Test-Command "pnpm")) {
+    if (-not $pnpmInstalled -and (Test-Command "npm")) {
+        try {
+            npm install -g pnpm
+            Refresh-Path
+            $pnpmInstalled = Test-Command "pnpm"
+        } catch {
+            Write-Host "npm global install failed. Falling back to pnpm install script."
+        }
+    }
+    if (-not $pnpmInstalled) {
+        Write-Host "Installing pnpm via install script..."
+        $env:PNPM_HOME = Join-Path $env:USERPROFILE ".local\share\pnpm"
+        if (-not (Test-Path $env:PNPM_HOME)) {
+            New-Item -ItemType Directory -Force -Path $env:PNPM_HOME | Out-Null
+        }
+        $env:Path = "$env:PNPM_HOME;$env:Path"
+        try {
+            irm https://get.pnpm.io/install.ps1 | iex
+        } catch {
+            throw "pnpm install script failed. Install pnpm manually and retry."
+        }
+        $pnpmInstalled = Test-Command "pnpm"
+    }
+    if (-not $pnpmInstalled) {
         throw "pnpm not found after installation. Reopen your terminal and retry."
     }
 }
