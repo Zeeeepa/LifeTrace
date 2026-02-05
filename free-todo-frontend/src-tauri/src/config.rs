@@ -5,10 +5,8 @@
 //! ## Window Modes
 //!
 //! The application supports two window modes (matching Electron):
-//! - **Web**: Standard window (1200x800, with decorations) - currently supported
-//! - **Island**: Transparent floating window - TODO: not yet implemented
-//!
-//! Tauri currently only builds the Web mode version.
+//! - **Web**: Standard window (1200x800, with decorations)
+//! - **Island**: Transparent floating window (separate build config)
 
 use std::env;
 
@@ -22,6 +20,14 @@ pub enum ServerMode {
 impl ServerMode {
     /// Get current server mode based on build configuration
     pub fn current() -> Self {
+        if let Ok(mode) = env::var("SERVER_MODE") {
+            if mode.eq_ignore_ascii_case("dev") {
+                return ServerMode::Dev;
+            }
+            if mode.eq_ignore_ascii_case("build") {
+                return ServerMode::Build;
+            }
+        }
         if cfg!(debug_assertions) {
             ServerMode::Dev
         } else {
@@ -37,10 +43,14 @@ pub mod ports {
     /// Dev mode ports
     pub const DEV_FRONTEND_PORT: u16 = 3001;
     pub const DEV_BACKEND_PORT: u16 = 8001;
+    pub const DEV_BACKEND_RANGE_START: u16 = 8002;
+    pub const DEV_BACKEND_RANGE_END: u16 = 8099;
 
     /// Build mode ports
     pub const BUILD_FRONTEND_PORT: u16 = 3100;
     pub const BUILD_BACKEND_PORT: u16 = 8100;
+    pub const BUILD_BACKEND_RANGE_START: u16 = 8101;
+    pub const BUILD_BACKEND_RANGE_END: u16 = 8199;
 
     /// Get frontend port for current mode
     pub fn frontend_port(mode: ServerMode) -> u16 {

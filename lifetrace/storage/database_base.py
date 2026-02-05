@@ -5,6 +5,7 @@
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -15,6 +16,13 @@ from lifetrace.util.path_utils import get_database_path
 from lifetrace.util.utils import ensure_dir
 
 logger = get_logger()
+
+try:
+    from alembic import command
+    from alembic.config import Config
+except Exception:
+    command = None
+    Config = None
 
 
 class DatabaseBase:
@@ -41,9 +49,6 @@ class DatabaseBase:
             # 创建会话工厂（兼容旧代码）
             self.SessionLocal = sessionmaker(bind=self.engine)
 
-            # 导入所有模型以确保 metadata 包含所有表
-            from lifetrace.storage import models  # noqa: F401
-
             # 创建表
             # 对于新数据库：创建所有表
             # 对于现有数据库：只创建缺失的表（SQLModel.metadata.create_all 会自动跳过已存在的表）
@@ -55,6 +60,9 @@ class DatabaseBase:
                 # checkfirst=True（默认值）会跳过已存在的表
                 SQLModel.metadata.create_all(bind=self.engine)
 
+            # 运行 Alembic 迁移，补齐已有数据库的新增列/索引
+            self._run_migrations()
+
             # 性能优化：添加关键索引
             self._create_performance_indexes()
 
@@ -62,9 +70,35 @@ class DatabaseBase:
             logger.error(f"数据库初始化失败: {e}")
             raise
 
+    def _run_migrations(self) -> None:
+        """运行 Alembic 迁移（如可用）"""
+        if command is None or Config is None:
+            logger.warning("Alembic 未就绪，跳过迁移")
+            return
+
+        alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
+        migrations_dir = alembic_ini.parent / "migrations"
+
+        if not alembic_ini.exists() or not migrations_dir.exists():
+            logger.warning("Alembic 配置缺失，跳过迁移")
+            return
+
+        config = Config(str(alembic_ini))
+        config.set_main_option("script_location", str(migrations_dir))
+        config.set_main_option("sqlalchemy.url", f"sqlite:///{get_database_path()}")
+
+        try:
+            command.upgrade(config, "head")
+            logger.info("数据库迁移检查完成")
+        except Exception as exc:
+            logger.error(f"数据库迁移失败: {exc}")
+            raise
+
     def _create_performance_indexes(self):
         """创建性能优化索引"""
         try:
+            if self.engine is None:
+                raise RuntimeError("Database engine is not initialized.")
             with self.engine.connect() as conn:
                 # 获取现有索引列表（只获取索引名称）
                 existing_indexes = [
@@ -137,6 +171,12 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                     ),
                     (
+                        "idx_todos_uid",
+                        "todos",
+                        ["uid"],
+                        "CREATE INDEX IF NOT EXISTS idx_todos_uid ON todos(uid)",
+                    ),
+                    (
                         "idx_todos_order",
                         "todos",
                         ["order"],
@@ -203,6 +243,12 @@ class DatabaseBase:
                         "CREATE INDEX IF NOT EXISTS idx_journals_deleted_at ON journals(deleted_at)",
                     ),
                     (
+                        "idx_journals_uid",
+                        "journals",
+                        ["uid"],
+                        "CREATE INDEX IF NOT EXISTS idx_journals_uid ON journals(uid)",
+                    ),
+                    (
                         "idx_journal_tag_relations_journal_id",
                         "journal_tag_relations",
                         ["journal_id"],
@@ -213,6 +259,30 @@ class DatabaseBase:
                         "journal_tag_relations",
                         ["tag_id"],
                         "CREATE INDEX IF NOT EXISTS idx_journal_tag_relations_tag_id ON journal_tag_relations(tag_id)",
+                    ),
+                    (
+                        "idx_journal_todo_relations_journal_id",
+                        "journal_todo_relations",
+                        ["journal_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_todo_relations_journal_id ON journal_todo_relations(journal_id)",
+                    ),
+                    (
+                        "idx_journal_todo_relations_todo_id",
+                        "journal_todo_relations",
+                        ["todo_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_todo_relations_todo_id ON journal_todo_relations(todo_id)",
+                    ),
+                    (
+                        "idx_journal_activity_relations_journal_id",
+                        "journal_activity_relations",
+                        ["journal_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_activity_relations_journal_id ON journal_activity_relations(journal_id)",
+                    ),
+                    (
+                        "idx_journal_activity_relations_activity_id",
+                        "journal_activity_relations",
+                        ["activity_id"],
+                        "CREATE INDEX IF NOT EXISTS idx_journal_activity_relations_activity_id ON journal_activity_relations(activity_id)",
                     ),
                     (
                         "idx_activities_start_time",
@@ -340,6 +410,8 @@ class DatabaseBase:
     @contextmanager
     def get_sqlalchemy_session(self):
         """获取 SQLAlchemy 会话上下文管理器（用于兼容旧代码）"""
+        if self.SessionLocal is None:
+            raise RuntimeError("Database session factory is not initialized.")
         session = self.SessionLocal()
         try:
             yield session
@@ -355,6 +427,8 @@ class DatabaseBase:
 # 数据库会话生成器（用于依赖注入）
 def get_db(db_base: DatabaseBase):
     """获取数据库会话的生成器函数"""
+    if db_base.SessionLocal is None:
+        raise RuntimeError("Database session factory is not initialized.")
     session = db_base.SessionLocal()
     try:
         yield session

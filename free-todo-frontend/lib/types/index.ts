@@ -17,18 +17,46 @@ export interface TodoAttachment {
 	filePath: string;
 	fileSize?: number;
 	mimeType?: string;
+	source?: "user" | "ai";
 }
 
 export interface Todo {
 	id: number;
 	name: string;
+	summary?: string;
 	description?: string;
 	userNotes?: string;
 	parentTodoId?: number | null;
+	itemType?: string;
+	location?: string;
+	categories?: string;
+	classification?: string;
 	deadline?: string;
 	startTime?: string;
+	endTime?: string;
+	dtstart?: string;
+	dtend?: string;
+	due?: string;
+	duration?: string;
+	timeZone?: string;
+	tzid?: string;
+	isAllDay?: boolean;
+	dtstamp?: string;
+	created?: string;
+	lastModified?: string;
+	sequence?: number;
+	rdate?: string;
+	exdate?: string;
+	recurrenceId?: string;
+	relatedToUid?: string;
+	relatedToReltype?: string;
+	icalStatus?: string;
+	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	status: TodoStatus;
 	priority: TodoPriority;
+	completedAt?: string;
+	percentComplete?: number;
 	order?: number;
 	tags?: string[];
 	attachments?: TodoAttachment[];
@@ -39,13 +67,40 @@ export interface Todo {
 
 export interface CreateTodoInput {
 	name: string;
+	summary?: string;
 	description?: string;
 	userNotes?: string;
 	parentTodoId?: number | null;
+	itemType?: string;
+	location?: string;
+	categories?: string;
+	classification?: string;
 	deadline?: string;
 	startTime?: string;
+	endTime?: string;
+	dtstart?: string;
+	dtend?: string;
+	due?: string;
+	duration?: string;
+	timeZone?: string;
+	tzid?: string;
+	isAllDay?: boolean;
+	dtstamp?: string;
+	created?: string;
+	lastModified?: string;
+	sequence?: number;
+	rdate?: string;
+	exdate?: string;
+	recurrenceId?: string;
+	relatedToUid?: string;
+	relatedToReltype?: string;
+	icalStatus?: string;
+	reminderOffsets?: number[] | null;
+	rrule?: string | null;
 	status?: TodoStatus;
 	priority?: TodoPriority;
+	completedAt?: string;
+	percentComplete?: number;
 	order?: number;
 	tags?: string[];
 	relatedActivities?: number[];
@@ -53,12 +108,39 @@ export interface CreateTodoInput {
 
 export interface UpdateTodoInput {
 	name?: string;
+	summary?: string;
 	description?: string;
 	userNotes?: string;
 	status?: TodoStatus;
 	priority?: TodoPriority;
-	deadline?: string;
-	startTime?: string;
+	itemType?: string;
+	location?: string;
+	categories?: string;
+	classification?: string;
+	deadline?: string | null;
+	startTime?: string | null;
+	endTime?: string | null;
+	dtstart?: string | null;
+	dtend?: string | null;
+	due?: string | null;
+	duration?: string | null;
+	timeZone?: string | null;
+	tzid?: string | null;
+	isAllDay?: boolean | null;
+	dtstamp?: string | null;
+	created?: string | null;
+	lastModified?: string | null;
+	sequence?: number | null;
+	rdate?: string | null;
+	exdate?: string | null;
+	recurrenceId?: string | null;
+	relatedToUid?: string | null;
+	relatedToReltype?: string | null;
+	icalStatus?: string | null;
+	reminderOffsets?: number[] | null;
+	rrule?: string | null;
+	completedAt?: string | null;
+	percentComplete?: number | null;
 	order?: number;
 	tags?: string[];
 	parentTodoId?: number | null;
@@ -137,4 +219,59 @@ export interface EventListResponse {
 
 export interface ActivityEventsResponse {
 	eventIds: number[];
+}
+
+// ============================================================================
+// Automation Task Types
+// ============================================================================
+
+export type AutomationScheduleType = "interval" | "cron" | "once";
+
+export interface AutomationSchedule {
+	type: AutomationScheduleType;
+	intervalSeconds?: number;
+	cron?: string;
+	runAt?: string;
+	timezone?: string;
+}
+
+export interface AutomationAction {
+	type: string;
+	payload: Record<string, unknown>;
+}
+
+export interface AutomationTask {
+	id: number;
+	name: string;
+	description?: string;
+	enabled: boolean;
+	schedule: AutomationSchedule;
+	action: AutomationAction;
+	lastRunAt?: string;
+	lastStatus?: string;
+	lastError?: string;
+	lastOutput?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface AutomationTaskListResponse {
+	total: number;
+	tasks: AutomationTask[];
+}
+
+export interface AutomationTaskCreateInput {
+	name: string;
+	description?: string;
+	enabled?: boolean;
+	schedule: AutomationSchedule;
+	action: AutomationAction;
+}
+
+export interface AutomationTaskUpdateInput {
+	name?: string;
+	description?: string;
+	enabled?: boolean;
+	schedule?: AutomationSchedule;
+	action?: AutomationAction;
 }

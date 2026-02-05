@@ -36,11 +36,11 @@ export type ChatMessage = {
 	toolCallSteps?: ToolCallStep[];
 };
 
-export type ChatMode = "ask" | "plan" | "edit" | "difyTest" | "agno";
+export type ChatMode = "agno";
 
 export type ParsedTodo = Pick<
 	CreateTodoInput,
-	"name" | "description" | "tags" | "deadline" | "order"
+	"name" | "description" | "tags" | "startTime" | "endTime" | "order"
 >;
 
 export type ParsedTodoTree = ParsedTodo & { subtasks?: ParsedTodoTree[] };

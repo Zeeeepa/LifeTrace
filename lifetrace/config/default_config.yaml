@@ -9,17 +9,48 @@
 # 服务器配置
 server:
   host: 127.0.0.1
-  port: 8002 # 默认端口 8001，保留 8000 给其他服务
+  port: 8001 # 默认端口 8001，保留 8000 给其他服务
   debug: false
+
+# 后端模块启用配置（轻量插件化）
+backend_modules:
+  enabled:
+    - health
+    - config
+    - system
+    - logs
+    - chat
+    - activity
+    - search
+    - screenshot
+    - event
+    - ocr
+    - vector
+    - rag
+    - scheduler
+    - cost_tracking
+    - time_allocation
+    - todo
+    - todo_extraction
+    - journal
+    - vision
+    - notification
+    - floating_capture
+    - audio
+    - proactive_ocr
 
 # 基础目录配置
 base_dir: data
 database_path: lifetrace.db
 screenshots_dir: screenshots/
+attachments_dir: attachments/
 
 # 日志配置
 logging:
   level: INFO
+  console_level: INFO
+  file_level: INFO
+  quiet_modules: [] # 示例: ["activity_service", "event_service"]
   log_path: logs/
 
 # 调度器配置
@@ -105,9 +136,8 @@ jobs:
     id: deadline_reminder # 任务ID
     name: DDL提醒 # 任务显示名称（中文）
     enabled: false # 是否启用 DDL 提醒任务（默认关闭，需用户手动开启）
-    interval: 30 # 检查间隔（秒），默认30秒检查一次
     params:
-      reminder_window_minutes: 5 # 提醒时间窗口（分钟），在 DDL 前多少分钟提醒
+      reminder_window_minutes: 5 # 兼容保留字段，不再作为待办默认提醒
   proactive_ocr:
     id: proactive_ocr # 任务ID
     name: 主动OCR # 任务显示名称（中文）
@@ -210,5 +240,8 @@ observability:
   phoenix:
     endpoint: http://localhost:6006 # Phoenix 服务端点（需先启动 phoenix serve）
     project_name: freetodo-agent # 项目名称（用于 Phoenix UI 中分组）
+    export_timeout_sec: 2.0 # 导出超时（秒），避免 Phoenix 不可用时阻塞
+    disable_after_failures: 1 # 连续失败达到阈值后自动禁用 Phoenix 导出
+    retry_cooldown_sec: 60 # 触发禁用后多久尝试恢复（秒，0 表示不自动重试）
   terminal:
     summary_only: true # Terminal 是否只输出一行摘要（推荐 true，保持日志精简）

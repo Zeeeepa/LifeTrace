@@ -3,6 +3,7 @@ APScheduler 调度器管理模块，用于管理 LifeTrace 的定时任务
 """
 
 import os
+from functools import lru_cache
 
 from apscheduler.events import (
     EVENT_JOB_ADDED,
@@ -116,10 +117,10 @@ class SchedulerManager:
         self,
         func,
         job_id: str,
-        name: str = None,
-        seconds: int = None,
-        minutes: int = None,
-        hours: int = None,
+        name: str | None = None,
+        seconds: int | None = None,
+        minutes: int | None = None,
+        hours: int | None = None,
         replace_existing: bool = True,
         **kwargs,
     ):
@@ -168,6 +169,36 @@ class SchedulerManager:
             return job
         except Exception as e:
             logger.error(f"添加任务失败: {e}")
+            return None
+
+    def add_date_job(
+        self,
+        func,
+        job_id: str,
+        run_date,
+        name: str | None = None,
+        replace_existing: bool = True,
+        **kwargs,
+    ):
+        """添加一次性任务（指定时间触发）"""
+        if not self.scheduler:
+            logger.error("调度器未初始化")
+            return None
+
+        try:
+            job = self.scheduler.add_job(
+                func,
+                trigger="date",
+                id=job_id,
+                name=name,
+                run_date=run_date,
+                replace_existing=replace_existing,
+                kwargs=kwargs,
+            )
+            logger.info(f"添加一次性任务: {job_id} ({name}), 触发时间: {job.next_run_time}")
+            return job
+        except Exception as e:
+            logger.error(f"添加一次性任务失败: {e}")
             return None
 
     def remove_job(self, job_id: str):
@@ -254,9 +285,9 @@ class SchedulerManager:
     def modify_job_interval(
         self,
         job_id: str,
-        seconds: int = None,
-        minutes: int = None,
-        hours: int = None,
+        seconds: int | None = None,
+        minutes: int | None = None,
+        hours: int | None = None,
     ):
         """修改任务的执行间隔
 
@@ -353,16 +384,13 @@ class SchedulerManager:
 
 
 # 全局调度器实例
-scheduler_manager: SchedulerManager | None = None
 
 
+@lru_cache(maxsize=1)
 def get_scheduler_manager() -> SchedulerManager:
     """获取全局调度器管理器实例
 
     Returns:
         SchedulerManager 实例
     """
-    global scheduler_manager
-    if scheduler_manager is None:
-        scheduler_manager = SchedulerManager()
-    return scheduler_manager
+    return SchedulerManager()

@@ -12,14 +12,60 @@
  *   pnpm dev:backend  - 同时启动后端和前端（需要后端可执行文件）
  */
 
-const { spawn } = require("node:child_process");
-const net = require("node:net");
+const { execSync, spawn } = require("node:child_process");
+const fs = require("node:fs");
 const http = require("node:http");
+const net = require("node:net");
+const path = require("node:path");
 
 // 默认端口配置（开发版使用不同的默认端口，避免与 Build 版冲突）
 const DEFAULT_FRONTEND_PORT = 3001;
-const DEFAULT_BACKEND_PORT = 8001;
+const _DEFAULT_BACKEND_PORT = 8001;
 const MAX_PORT_ATTEMPTS = 100;
+
+function normalizePath(value) {
+	const resolved = path.resolve(value);
+	return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function isSymlinkedNodeModules() {
+	const nodeModulesPath = path.join(process.cwd(), "node_modules");
+	try {
+		if (!fs.existsSync(nodeModulesPath)) {
+			return false;
+		}
+		const stat = fs.lstatSync(nodeModulesPath);
+		if (stat.isSymbolicLink()) {
+			return true;
+		}
+		const realPath = fs.realpathSync(nodeModulesPath);
+		return normalizePath(realPath) !== normalizePath(nodeModulesPath);
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * 获取当前 Git Commit
+ * @returns {string|null} - 完整 Commit Hash，获取失败则返回 null
+ */
+function getGitCommit() {
+	const envCommit = process.env.FREETODO_GIT_COMMIT || process.env.GIT_COMMIT;
+	if (envCommit) {
+		return envCommit;
+	}
+	try {
+		return execSync("git rev-parse HEAD", {
+			stdio: ["ignore", "pipe", "ignore"],
+		})
+			.toString()
+			.trim();
+	} catch {
+		return null;
+	}
+}
+
+const FRONTEND_GIT_COMMIT = getGitCommit();
 
 /**
  * 检查端口是否可用（同时检查 IPv4 和 IPv6）
@@ -86,11 +132,28 @@ async function isFreeTodoBackend(port) {
 						const json = JSON.parse(data);
 						// 验证是否是 FreeTodo/LifeTrace 后端
 						// 只检查固定的应用标识字段
-						if (json.app === "lifetrace") {
-							resolve(true);
-						} else {
+						if (json.app !== "lifetrace") {
 							resolve(false);
+							return;
 						}
+
+						const backendCommit =
+							typeof json.git_commit === "string" ? json.git_commit : null;
+						if (FRONTEND_GIT_COMMIT) {
+							if (!backendCommit || backendCommit === "unknown") {
+								resolve(false);
+								return;
+							}
+							if (backendCommit !== FRONTEND_GIT_COMMIT) {
+								console.log(
+									`Skip backend at ${port}: git commit mismatch (${backendCommit})`,
+								);
+								resolve(false);
+								return;
+							}
+						}
+
+						resolve(true);
 					} catch {
 						resolve(false);
 					}
@@ -144,35 +207,56 @@ async function main() {
 
 		// 2. Find running FreeTodo backend port (verify via /health endpoint)
 		console.log(`Searching for FreeTodo backend...`);
-		let backendPort = await findRunningBackendPort();
+		if (FRONTEND_GIT_COMMIT) {
+			console.log(`Frontend git commit: ${FRONTEND_GIT_COMMIT}`);
+		}
+		const backendPort = await findRunningBackendPort();
 		if (backendPort) {
 			console.log(`Detected FreeTodo backend running on port: ${backendPort}`);
 		} else {
-			// If backend is not running, assume default dev port
-			backendPort = DEFAULT_BACKEND_PORT;
-			console.log(`Warning: FreeTodo backend not detected (via /health endpoint)`);
-			console.log(`Assuming backend will run on: ${backendPort}`);
-			console.log(`Hint: Start backend first - python -m lifetrace.server`);
+			const hint = "Start backend first - python -m lifetrace.server";
+			const suffix = FRONTEND_GIT_COMMIT
+				? ` (git commit: ${FRONTEND_GIT_COMMIT})`
+				: "";
+			throw new Error(
+				`FreeTodo backend not detected via /health endpoint${suffix}. ${hint}`,
+			);
 		}
 
 		const backendUrl = `http://localhost:${backendPort}`;
 		console.log(`\nBackend API: ${backendUrl}`);
 		console.log(`Frontend URL: http://localhost:${frontendPort}\n`);
 
+		const disableTurbopack = isSymlinkedNodeModules();
+		if (disableTurbopack && !process.env.NEXT_DISABLE_TURBOPACK) {
+			console.log(
+				"Detected symlinked node_modules, disabling Turbopack for compatibility.",
+			);
+		}
+
+		const nextEnv = {
+			...process.env,
+			PORT: String(frontendPort),
+			NEXT_PUBLIC_API_URL: backendUrl,
+		};
+
+		if (disableTurbopack && !("NEXT_DISABLE_TURBOPACK" in nextEnv)) {
+			nextEnv.NEXT_DISABLE_TURBOPACK = "1";
+		}
+
 		// 3. 启动 Next.js 开发服务器
-		const nextProcess = spawn(
-			"pnpm",
-			["next", "dev", "--port", String(frontendPort)],
-			{
-				stdio: "inherit",
-				env: {
-					...process.env,
-					PORT: String(frontendPort),
-					NEXT_PUBLIC_API_URL: backendUrl,
-				},
-				shell: true,
+		const nextArgs = ["next", "dev", "--port", String(frontendPort)];
+		if (disableTurbopack) {
+			nextArgs.push("--webpack");
+		}
+
+		const nextProcess = spawn("pnpm", nextArgs, {
+			stdio: "inherit",
+			env: {
+				...nextEnv,
 			},
-		);
+			shell: true,
+		});
 
 		// 处理进程信号
 		process.on("SIGINT", () => {

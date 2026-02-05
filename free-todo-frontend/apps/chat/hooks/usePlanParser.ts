@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ParsedTodoTree } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 import type { CreateTodoInput } from "@/lib/types";
 
@@ -8,6 +9,12 @@ type TranslationFunction = (
 	key: string,
 	values?: Record<string, string | number | Date>,
 ) => string;
+
+interface ChatPromptsResponse {
+	success: boolean;
+	editSystemPrompt: string;
+	planSystemPrompt: string;
+}
 
 export const usePlanParser = (locale: string, t: TranslationFunction) => {
 	// 从 API 获取任务规划系统提示词
@@ -23,15 +30,12 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 				return;
 			}
 			try {
-				const response = (await getChatPromptsApiGetChatPromptsGet({
+				const response = await getChatPromptsApiGetChatPromptsGet({
 					locale,
-				})) as {
-					success: boolean;
-					editSystemPrompt: string;
-					planSystemPrompt: string;
-				};
-				if (!cancelled && response.success) {
-					setPlanSystemPrompt(response.planSystemPrompt);
+				});
+				const data = unwrapApiData<ChatPromptsResponse>(response);
+				if (!cancelled && data?.success) {
+					setPlanSystemPrompt(data.planSystemPrompt);
 				}
 			} catch (_error) {
 				// 后端不可用时静默降级，避免控制台报 500
@@ -101,10 +105,24 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 								.filter(Boolean)
 						: undefined;
 
-					const rawDeadline = (item as { deadline?: unknown }).deadline;
-					const deadline =
-						typeof rawDeadline === "string" && rawDeadline.trim()
-							? rawDeadline.trim()
+					const rawStartTime = (
+						item as {
+							start_time?: unknown;
+							startTime?: unknown;
+							deadline?: unknown;
+						}
+					).start_time ?? (item as { startTime?: unknown }).startTime ?? (item as { deadline?: unknown }).deadline;
+					const startTime =
+						typeof rawStartTime === "string" && rawStartTime.trim()
+							? rawStartTime.trim()
+							: undefined;
+
+					const rawEndTime = (
+						item as { end_time?: unknown; endTime?: unknown }
+					).end_time ?? (item as { endTime?: unknown }).endTime;
+					const endTime =
+						typeof rawEndTime === "string" && rawEndTime.trim()
+							? rawEndTime.trim()
 							: undefined;
 
 					const rawOrder = (item as { order?: unknown }).order;
@@ -124,7 +142,8 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 						name: rawName,
 						description,
 						tags,
-						deadline,
+						startTime,
+						endTime,
 						order,
 						subtasks,
 					};
@@ -172,7 +191,8 @@ export const usePlanParser = (locale: string, t: TranslationFunction) => {
 					name: node.name,
 					description: node.description,
 					tags: node.tags,
-					deadline: node.deadline,
+					startTime: node.startTime,
+					endTime: node.endTime,
 					order: node.order,
 					parentTodoId: parentId ?? null,
 				});

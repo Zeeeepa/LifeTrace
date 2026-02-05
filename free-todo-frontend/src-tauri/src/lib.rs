@@ -6,12 +6,15 @@
 //! ## Window Modes
 //!
 //! The application supports two window modes (matching Electron implementation):
-//! - **Web Mode**: Standard window with decorations (currently implemented)
-//! - **Island Mode**: Transparent floating window like Dynamic Island (TODO: not yet implemented)
-//!
-//! Currently only Web mode is supported. Island mode is still in development.
+//! - **Web Mode**: Standard window with decorations
+//! - **Island Mode**: Transparent floating window like Dynamic Island (separate build config)
 
 pub mod backend;
+mod backend_log;
+mod backend_paths;
+mod backend_proxy;
+mod backend_python;
+mod backend_support;
 pub mod config;
 pub mod nextjs;
 pub mod shortcut;

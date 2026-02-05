@@ -1,13 +1,29 @@
 """配置相关路由"""
 
+import asyncio
+import json
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from openai import OpenAI
 
 from lifetrace.services.config_service import ConfigService, is_llm_configured
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.settings import settings
+
+try:
+    from tavily import TavilyClient
+except ImportError:
+    TavilyClient = None
+
+try:
+    import websockets
+    from websockets.exceptions import ConnectionClosed, InvalidURI
+except ImportError:
+    websockets = None
+    ConnectionClosed = Exception
+    InvalidURI = Exception
 
 logger = get_logger()
 
@@ -19,7 +35,7 @@ config_service = ConfigService()
 
 # 追踪 LLM 连接是否已验证成功
 # 只有通过 API 测试成功后才设置为 True
-_llm_connection_verified = False
+_llm_connection_state: dict[str, bool] = {"verified": False}
 
 
 def verify_llm_connection_on_startup():
@@ -27,15 +43,17 @@ def verify_llm_connection_on_startup():
 
     如果配置存在且有效，尝试连接验证
     """
-    global _llm_connection_verified
-
     if not is_llm_configured():
         logger.info("LLM 未配置，跳过启动时验证")
         return
 
     try:
-        from lifetrace.util.settings import settings
+        from openai import OpenAI  # noqa: PLC0415
+    except Exception as exc:
+        logger.warning(f"OpenAI 依赖未安装，跳过启动时验证: {exc}")
+        return
 
+    try:
         api_key = settings.llm.api_key
         base_url = settings.llm.base_url
         model = settings.llm.model
@@ -48,27 +66,23 @@ def verify_llm_connection_on_startup():
             model=model, messages=[{"role": "user", "content": "test"}], max_tokens=5
         )
 
-        _llm_connection_verified = True
+        _llm_connection_state["verified"] = True
         logger.info("LLM 启动时连接验证成功")
     except Exception as e:
-        _llm_connection_verified = False
+        _llm_connection_state["verified"] = False
         logger.warning(f"LLM 启动时连接验证失败: {e}")
-
-
-# 应用启动时验证 LLM 连接
-verify_llm_connection_on_startup()
 
 
 def _validate_aliyun_api_key(llm_key: str) -> dict[str, Any] | None:
     """验证阿里云 API Key 格式"""
-    MIN_ALIYUN_KEY_LENGTH = 20
+    min_aliyun_key_length = 20
 
     if not llm_key.startswith("sk-"):
         return {
             "success": False,
             "error": "阿里云 API Key 格式错误，应该以 'sk-' 开头",
         }
-    if len(llm_key) < MIN_ALIYUN_KEY_LENGTH:
+    if len(llm_key) < min_aliyun_key_length:
         return {
             "success": False,
             "error": f"阿里云 API Key 长度异常（当前: {len(llm_key)} 字符），请检查是否完整",
@@ -108,7 +122,13 @@ def _get_config_value(config_data: dict[str, Any], camel_key: str, snake_key: st
 @router.post("/test-llm-config")
 async def test_llm_config(config_data: dict[str, str]):
     """测试LLM配置是否可用（仅验证认证）"""
+    model = ""
     try:
+        try:
+            from openai import OpenAI  # noqa: PLC0415
+        except Exception as exc:
+            return {"success": False, "error": f"OpenAI 依赖未安装: {exc}"}
+
         # 同时支持 camelCase 和 snake_case 格式（前端 fetcher 会自动转换为 snake_case）
         llm_key = _get_config_value(config_data, "llmApiKey", "llm_api_key")
         base_url = _get_config_value(config_data, "llmBaseUrl", "llm_base_url")
@@ -149,7 +169,8 @@ async def test_llm_config(config_data: dict[str, str]):
 async def test_tavily_config(config_data: dict[str, str]):
     """测试Tavily配置是否可用（仅验证认证）"""
     try:
-        from tavily import TavilyClient
+        if TavilyClient is None:
+            return {"success": False, "error": "Tavily 依赖未安装，请先安装 tavily"}
 
         # 同时支持 camelCase 和 snake_case 格式（前端 fetcher 会自动转换为 snake_case）
         tavily_key = _get_config_value(config_data, "tavilyApiKey", "tavily_api_key")
@@ -180,11 +201,10 @@ async def test_tavily_config(config_data: dict[str, str]):
             logger.error(f"Tavily配置测试失败: {error_msg} - Key前缀: {tavily_key[:10]}...")
             # 处理常见的错误
             if "401" in error_msg or "unauthorized" in error_msg.lower():
-                return {
-                    "success": False,
-                    "error": "API Key 无效，请检查：\n1. 是否从 Tavily 控制台正确复制了完整的 API Key\n2. API Key 是否已启用\n\n原始错误: "
-                    + error_msg,
-                }
+                error_msg = (
+                    "API Key 无效，请检查：\n1. 是否从 Tavily 控制台正确复制了完整的 API Key\n"
+                    "2. API Key 是否已启用\n\n原始错误: " + error_msg
+                )
             return {"success": False, "error": error_msg}
 
     except Exception as e:
@@ -269,9 +289,6 @@ def _build_asr_finish_task_message(task_id: str) -> dict[str, Any]:
 
 async def _handle_asr_websocket_response(ws, task_id: str) -> dict[str, Any]:
     """处理 ASR WebSocket 响应"""
-    import asyncio
-    import json
-
     try:
         response = await asyncio.wait_for(ws.recv(), timeout=3.0)
         data = json.loads(response)
@@ -302,10 +319,8 @@ async def _test_asr_websocket_connection(
     base_url: str, asr_key: str, run_task_message: dict[str, Any], task_id: str
 ) -> dict[str, Any]:
     """测试 ASR WebSocket 连接"""
-    import json
-
-    import websockets
-    from websockets.exceptions import ConnectionClosed, InvalidURI
+    if websockets is None:
+        return {"success": False, "error": "websockets 依赖未安装，请先安装 websockets"}
 
     headers = [("Authorization", f"Bearer {asr_key}")]
     try:
@@ -350,8 +365,6 @@ def _handle_asr_test_error(error_msg: str, model: str) -> dict[str, Any]:
 @router.post("/test-asr-config")
 async def test_asr_config(config_data: dict[str, Any]):
     """测试ASR配置是否可用（验证WebSocket连接和认证）"""
-    import uuid
-
     try:
         # 解析配置参数
         config = _parse_asr_config(config_data)
@@ -401,11 +414,10 @@ async def get_llm_status():
     Returns:
         dict: 包含 configured 字段，表示 LLM 是否已配置且连接验证成功
     """
-    global _llm_connection_verified
     try:
         # 只有配置存在且连接验证成功才返回 True
         has_config = is_llm_configured()
-        return {"configured": has_config and _llm_connection_verified}
+        return {"configured": has_config and _llm_connection_state["verified"]}
     except Exception as e:
         logger.error(f"检查 LLM 配置状态失败: {e}")
         return {"configured": False}
@@ -424,7 +436,7 @@ async def get_config_detailed():
         }
     except Exception as e:
         logger.error(f"获取配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取配置失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取配置失败: {e!s}") from e
 
 
 def _validate_config_fields(config_data: dict[str, str]) -> dict[str, Any] | None:
@@ -465,7 +477,6 @@ def _validate_config_fields(config_data: dict[str, str]) -> dict[str, Any] | Non
 @router.post("/save-and-init-llm")
 async def save_and_init_llm(config_data: dict[str, str]):
     """保存配置并重新初始化LLM服务"""
-    global _llm_connection_verified
     try:
         # 验证必需字段
         validation_error = _validate_config_fields(config_data)
@@ -476,7 +487,7 @@ async def save_and_init_llm(config_data: dict[str, str]):
         test_result = await test_llm_config(config_data)
         if not test_result["success"]:
             # 测试失败，标记连接未验证
-            _llm_connection_verified = False
+            _llm_connection_state["verified"] = False
             return test_result
 
         # 2. 保存配置到文件（save_config 内部已经会重载配置并智能判断是否需要重新初始化 LLM）
@@ -486,7 +497,7 @@ async def save_and_init_llm(config_data: dict[str, str]):
             return {"success": False, "error": "保存配置失败"}
 
         # 3. 测试成功，标记连接已验证
-        _llm_connection_verified = True
+        _llm_connection_state["verified"] = True
         logger.info("LLM 连接验证成功，配置已保存")
 
         return {"success": True, "message": "配置保存成功，正在跳转..."}
@@ -512,7 +523,7 @@ async def save_config(settings: dict[str, Any]):
 
     except Exception as e:
         logger.error(f"保存配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"保存配置失败: {e!s}") from e
 
 
 @router.get("/get-chat-prompts")
@@ -551,5 +562,5 @@ async def get_chat_prompts(locale: str = "zh"):
         logger.error(f"获取聊天 prompt 失败: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"获取聊天 prompt 失败: {str(e)}",
+            detail=f"获取聊天 prompt 失败: {e!s}",
         ) from e

@@ -2,49 +2,25 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime
-from typing import Any
+import contextlib
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from lifetrace.storage.database_base import DatabaseBase
-from lifetrace.storage.models import (
-    Attachment,
-    Tag,
-    Todo,
-    TodoAttachmentRelation,
-    TodoTagRelation,
-)
+from lifetrace.storage.models import Tag, Todo, TodoAttachmentRelation, TodoTagRelation
+from lifetrace.storage.sql_utils import col
+from lifetrace.storage.todo_manager_attachments import TodoAttachmentMixin
+from lifetrace.storage.todo_manager_ical import TodoIcalMixin
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
-_UNSET = object()
+if TYPE_CHECKING:
+    from lifetrace.storage.database_base import DatabaseBase
 
 
-def _safe_int_list(value: Any) -> list[int]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        out: list[int] = []
-        for item in value:
-            try:
-                out.append(int(item))
-            except Exception:
-                continue
-        return out
-    # 兼容数据库中存的 JSON 字符串
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-            return _safe_int_list(parsed)
-        except Exception:
-            return []
-    return []
-
-
-class TodoManager:
+class TodoManager(TodoAttachmentMixin, TodoIcalMixin):
     """Todo 管理类"""
 
     def __init__(self, db_base: DatabaseBase):
@@ -53,55 +29,12 @@ class TodoManager:
     # ========== 查询辅助 ==========
     def _get_todo_tags(self, session, todo_id: int) -> list[str]:
         rows = (
-            session.query(Tag.tag_name)
-            .join(TodoTagRelation, TodoTagRelation.tag_id == Tag.id)
-            .filter(TodoTagRelation.todo_id == todo_id)
+            session.query(col(Tag.tag_name))
+            .join(TodoTagRelation, col(TodoTagRelation.tag_id) == col(Tag.id))
+            .filter(col(TodoTagRelation.todo_id) == todo_id)
             .all()
         )
         return [r[0] for r in rows if r and r[0]]
-
-    def _get_todo_attachments(self, session, todo_id: int) -> list[dict[str, Any]]:
-        rows = (
-            session.query(Attachment)
-            .join(
-                TodoAttachmentRelation,
-                TodoAttachmentRelation.attachment_id == Attachment.id,
-            )
-            .filter(TodoAttachmentRelation.todo_id == todo_id)
-            .all()
-        )
-        return [
-            {
-                "id": a.id,
-                "file_name": a.file_name,
-                "file_path": a.file_path,
-                "file_size": a.file_size,
-                "mime_type": a.mime_type,
-            }
-            for a in rows
-        ]
-
-    def _todo_to_dict(self, session, todo: Todo) -> dict[str, Any]:
-        return {
-            "id": todo.id,
-            "name": todo.name,
-            "description": todo.description,
-            "user_notes": todo.user_notes,
-            "parent_todo_id": todo.parent_todo_id,
-            "deadline": todo.deadline,
-            "start_time": todo.start_time,
-            "status": todo.status,
-            "priority": todo.priority,
-            "order": getattr(todo, "order", 0),
-            "tags": self._get_todo_tags(session, todo.id),
-            "attachments": self._get_todo_attachments(session, todo.id),
-            "related_activities": _safe_int_list(todo.related_activities),
-            "source_type": getattr(todo, "source_type", None),
-            "source_key": getattr(todo, "source_key", None),
-            "source_date": getattr(todo, "source_date", None),
-            "created_at": todo.created_at,
-            "updated_at": todo.updated_at,
-        }
 
     def get_todo_context(self, todo_id: int) -> dict[str, Any] | None:
         """获取任务的所有相关上下文（父任务链、同级任务、子任务）"""
@@ -133,8 +66,8 @@ class TodoManager:
                     sibling_todos = (
                         session.query(Todo)
                         .filter(
-                            Todo.parent_todo_id == current_todo.parent_todo_id,
-                            Todo.id != todo_id,
+                            col(Todo.parent_todo_id) == current_todo.parent_todo_id,
+                            col(Todo.id) != todo_id,
                         )
                         .all()
                     )
@@ -144,7 +77,7 @@ class TodoManager:
                 def _get_children_recursive(parent_todo_id: int) -> list[dict[str, Any]]:
                     children: list[dict[str, Any]] = []
                     child_todos = (
-                        session.query(Todo).filter(Todo.parent_todo_id == parent_todo_id).all()
+                        session.query(Todo).filter(col(Todo.parent_todo_id) == parent_todo_id).all()
                     )
                     for child in child_todos:
                         child_dict = self._todo_to_dict(session, child)
@@ -166,47 +99,6 @@ class TodoManager:
             return None
 
     # ========== CRUD ==========
-    def create_todo(  # noqa: PLR0913
-        self,
-        *,
-        name: str,
-        description: str | None = None,
-        user_notes: str | None = None,
-        parent_todo_id: int | None = None,
-        deadline: datetime | None = None,
-        start_time: datetime | None = None,
-        status: str = "active",
-        priority: str = "none",
-        order: int = 0,
-        tags: list[str] | None = None,
-        related_activities: list[int] | None = None,
-    ) -> int | None:
-        try:
-            with self.db_base.get_session() as session:
-                todo = Todo(
-                    name=name,
-                    description=description,
-                    user_notes=user_notes,
-                    parent_todo_id=parent_todo_id,
-                    deadline=deadline,
-                    start_time=start_time,
-                    status=status,
-                    priority=priority,
-                    order=order,
-                    related_activities=json.dumps(_safe_int_list(related_activities)),
-                )
-                session.add(todo)
-                session.flush()
-
-                if tags is not None:
-                    self._set_todo_tags(session, todo.id, tags)
-
-                logger.info(f"创建 todo: {todo.id} - {name}")
-                return todo.id
-        except SQLAlchemyError as e:
-            logger.error(f"创建 todo 失败: {e}")
-            return None
-
     def get_todo(self, todo_id: int) -> dict[str, Any] | None:
         try:
             with self.db_base.get_session() as session:
@@ -216,6 +108,19 @@ class TodoManager:
                 return self._todo_to_dict(session, todo)
         except SQLAlchemyError as e:
             logger.error(f"获取 todo 失败: {e}")
+            return None
+
+    def get_todo_by_uid(self, uid: str) -> dict[str, Any] | None:
+        if not uid:
+            return None
+        try:
+            with self.db_base.get_session() as session:
+                todo = session.query(Todo).filter_by(uid=uid).first()
+                if not todo:
+                    return None
+                return self._todo_to_dict(session, todo)
+        except SQLAlchemyError as e:
+            logger.error(f"根据 uid 获取 todo 失败: {e}")
             return None
 
     def list_todos(
@@ -229,15 +134,13 @@ class TodoManager:
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
                 # 默认不返回软删除数据（如果未来使用 deleted_at）
-                try:
-                    q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    q = q.filter(col(Todo.deleted_at).is_(None))
 
                 if status:
-                    q = q.filter(Todo.status == status)
+                    q = q.filter(col(Todo.status) == status)
 
-                todos = q.order_by(Todo.created_at.desc()).offset(offset).limit(limit).all()
+                todos = q.order_by(col(Todo.created_at).desc()).offset(offset).limit(limit).all()
                 return [self._todo_to_dict(session, t) for t in todos]
         except SQLAlchemyError as e:
             logger.error(f"列出 todo 失败: {e}")
@@ -247,12 +150,10 @@ class TodoManager:
         try:
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
-                try:
-                    q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    q = q.filter(col(Todo.deleted_at).is_(None))
                 if status:
-                    q = q.filter(Todo.status == status)
+                    q = q.filter(col(Todo.status) == status)
                 return q.count()
         except SQLAlchemyError as e:
             logger.error(f"统计 todo 数量失败: {e}")
@@ -266,23 +167,25 @@ class TodoManager:
         try:
             with self.db_base.get_session() as session:
                 q = session.query(Todo)
-                try:
-                    q = q.filter(Todo.deleted_at.is_(None))
-                except Exception:
-                    # 兼容旧表结构没有 deleted_at 的情况
-                    pass
+                with contextlib.suppress(Exception):
+                    q = q.filter(col(Todo.deleted_at).is_(None))
 
-                q = q.filter(Todo.status == "active").order_by(Todo.created_at.desc()).limit(limit)
+                q = (
+                    q.filter(col(Todo.status) == "active")
+                    .order_by(col(Todo.created_at).desc())
+                    .limit(limit)
+                )
                 todos = q.all()
 
                 result: list[dict[str, Any]] = []
                 for t in todos:
+                    schedule = t.dtstart or t.start_time or t.due or t.deadline
                     result.append(
                         {
                             "id": t.id,
                             "name": t.name,
                             "description": t.description,
-                            "deadline": t.deadline.isoformat() if t.deadline else None,
+                            "start_time": schedule.isoformat() if schedule else None,
                         }
                     )
                 return result
@@ -290,105 +193,19 @@ class TodoManager:
             logger.error(f"获取用于提示词的活跃 todo 列表失败: {e}")
             return []
 
-    def _apply_todo_updates(  # noqa: PLR0913
-        self,
-        todo: Todo,
-        *,
-        name: str | Any = _UNSET,
-        description: str | Any = _UNSET,
-        user_notes: str | Any = _UNSET,
-        parent_todo_id: int | None | Any = _UNSET,
-        deadline: datetime | None | Any = _UNSET,
-        start_time: datetime | None | Any = _UNSET,
-        status: str | Any = _UNSET,
-        priority: str | Any = _UNSET,
-        order: int | Any = _UNSET,
-        related_activities: list[int] | Any = _UNSET,
-    ) -> None:
-        """应用待办字段更新"""
-        # 使用字典映射来减少复杂度
-        updates = {
-            "name": name,
-            "description": description,
-            "user_notes": user_notes,
-            "parent_todo_id": parent_todo_id,
-            "deadline": deadline,
-            "start_time": start_time,
-            "status": status,
-            "priority": priority,
-            "order": order,
-        }
-
-        for attr, value in updates.items():
-            if value is not _UNSET:
-                setattr(todo, attr, value)
-
-        # 特殊处理 related_activities（需要 JSON 序列化）
-        if related_activities is not _UNSET:
-            todo.related_activities = json.dumps(_safe_int_list(related_activities))
-
-    def update_todo(  # noqa: PLR0913, C901
-        self,
-        todo_id: int,
-        *,
-        name: str | Any = _UNSET,
-        description: str | Any = _UNSET,
-        user_notes: str | Any = _UNSET,
-        parent_todo_id: int | None | Any = _UNSET,
-        deadline: datetime | None | Any = _UNSET,
-        start_time: datetime | None | Any = _UNSET,
-        status: str | Any = _UNSET,
-        priority: str | Any = _UNSET,
-        order: int | Any = _UNSET,
-        tags: list[str] | Any = _UNSET,
-        related_activities: list[int] | Any = _UNSET,
-    ) -> bool:
-        try:
-            with self.db_base.get_session() as session:
-                todo = session.query(Todo).filter_by(id=todo_id).first()
-                if not todo:
-                    logger.warning(f"todo 不存在: {todo_id}")
-                    return False
-
-                self._apply_todo_updates(
-                    todo,
-                    name=name,
-                    description=description,
-                    user_notes=user_notes,
-                    parent_todo_id=parent_todo_id,
-                    deadline=deadline,
-                    start_time=start_time,
-                    status=status,
-                    priority=priority,
-                    order=order,
-                    related_activities=related_activities,
-                )
-
-                todo.updated_at = datetime.now()
-                session.flush()
-
-                if tags is not _UNSET:
-                    self._set_todo_tags(session, todo_id, tags or [])
-
-                logger.info(f"更新 todo: {todo_id}")
-                return True
-        except SQLAlchemyError as e:
-            logger.error(f"更新 todo 失败: {e}")
-            return False
-
     def _delete_todo_recursive(self, session, todo_id: int) -> None:
         """递归删除 todo 及其所有子任务"""
         # 查找所有子任务
-        child_todos = session.query(Todo).filter(Todo.parent_todo_id == todo_id).all()
+        child_todos = session.query(Todo).filter(col(Todo.parent_todo_id) == todo_id).all()
 
         # 递归删除所有子任务
         for child in child_todos:
             self._delete_todo_recursive(session, child.id)
 
         # 清理关联关系（不删除 Tag/Attachment 实体）
-        session.query(TodoTagRelation).filter(TodoTagRelation.todo_id == todo_id).delete()
+        session.query(TodoTagRelation).filter(col(TodoTagRelation.todo_id) == todo_id).delete()
         session.query(TodoAttachmentRelation).filter(
-            TodoAttachmentRelation.todo_id == todo_id
+            col(TodoAttachmentRelation.todo_id) == todo_id
         ).delete()
 
         # 删除 todo 本身
@@ -444,7 +261,7 @@ class TodoManager:
                     if "parent_todo_id" in item:
                         todo.parent_todo_id = item["parent_todo_id"]
 
-                    todo.updated_at = datetime.now()
+                    todo.updated_at = get_utc_now()
 
                 session.flush()
                 logger.info(f"批量重排序 {len(items)} 个待办")
@@ -455,7 +272,7 @@ class TodoManager:
 
     def _set_todo_tags(self, session, todo_id: int, tags: list[str]) -> None:
         # 清空旧关系
-        session.query(TodoTagRelation).filter(TodoTagRelation.todo_id == todo_id).delete()
+        session.query(TodoTagRelation).filter(col(TodoTagRelation.todo_id) == todo_id).delete()
 
         # 去重/清洗
         cleaned = []
@@ -476,5 +293,7 @@ class TodoManager:
                 session.add(tag)
                 session.flush()
 
+            if tag.id is None:
+                raise ValueError("Tag must have an id before creating relation.")
             rel = TodoTagRelation(todo_id=todo_id, tag_id=tag.id)
             session.add(rel)

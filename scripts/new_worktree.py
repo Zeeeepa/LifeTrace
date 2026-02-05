@@ -1,26 +1,78 @@
 #!/usr/bin/env python3
 import argparse
 import getpass
+import os
 import re
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
 
+def _get_git_path() -> str:
+    git_path = shutil.which("git")
+    if not git_path:
+        raise FileNotFoundError("git executable not found in PATH")
+    return git_path
+
+
 def run_git(root: Path, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(root), *args],
+    git_path = _get_git_path()
+    return subprocess.run(  # nosec B603
+        [git_path, "-C", str(root), *args],
         text=True,
         capture_output=True,
         check=check,
     )
 
 
+def run_link_deps(root: Path, worktree_path: Path, force: bool) -> int:
+    script_dir = root / "scripts"
+    if os.name == "nt":
+        script = script_dir / "link_worktree_deps.ps1"
+        if not script.exists():
+            print(f"Missing script: {script}", file=sys.stderr)
+            return 1
+        cmd = [
+            "powershell",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-Main",
+            str(root),
+            "-Worktree",
+            str(worktree_path),
+        ]
+        if force:
+            cmd.append("-Force")
+    else:
+        script = script_dir / "link_worktree_deps.sh"
+        if not script.exists():
+            print(f"Missing script: {script}", file=sys.stderr)
+            return 1
+        cmd = [
+            "bash",
+            str(script),
+            "--main",
+            str(root),
+            "--worktree",
+            str(worktree_path),
+        ]
+        if force:
+            cmd.append("--force")
+
+    result = subprocess.run(cmd, check=False)  # nosec B603
+    return result.returncode
+
+
 def get_repo_root() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
+    git_path = _get_git_path()
+    result = subprocess.run(  # nosec B603
+        [git_path, "rev-parse", "--show-toplevel"],
         text=True,
         capture_output=True,
+        check=False,
     )
     if result.returncode != 0:
         print(result.stderr.strip() or "Failed to locate git repo root.", file=sys.stderr)
@@ -65,9 +117,7 @@ def normalize_type(value: str) -> str:
     return value.lower()
 
 
-def unique_branch_and_path(
-    root: Path, base_branch: str, base_path: Path
-) -> tuple[str, Path]:
+def unique_branch_and_path(root: Path, base_branch: str, base_path: Path) -> tuple[str, Path]:
     suffix = 1
     while True:
         if suffix == 1:
@@ -94,6 +144,16 @@ def main() -> int:
     parser.add_argument(
         "--user",
         help="Git username. Defaults to git config user.name (or user.email).",
+    )
+    parser.add_argument(
+        "--link-deps",
+        action="store_true",
+        help="Link worktree deps (.venv, node_modules) from the main worktree.",
+    )
+    parser.add_argument(
+        "--force-link",
+        action="store_true",
+        help="Force replace existing linked deps when used with --link-deps.",
     )
     args = parser.parse_args()
 
@@ -122,6 +182,11 @@ def main() -> int:
 
     if result.returncode != 0:
         return result.returncode
+
+    if args.link_deps:
+        link_code = run_link_deps(root, worktree_path, force=args.force_link)
+        if link_code != 0:
+            return link_code
 
     print(f"Worktree ready: {worktree_path}")
     print(f"Branch: {branch}")

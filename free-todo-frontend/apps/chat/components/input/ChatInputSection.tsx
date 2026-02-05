@@ -1,17 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { InputBox } from "@/apps/chat/components/input/InputBox";
 import { LinkedTodos } from "@/apps/chat/components/input/LinkedTodos";
-import { ModeSwitcher } from "@/apps/chat/components/input/ModeSwitcher";
 import { ToolSelector } from "@/apps/chat/components/input/ToolSelector";
-import type { ChatMode } from "@/apps/chat/types";
-import { useUiStore } from "@/lib/store/ui-store";
 import type { Todo } from "@/lib/types";
 
 type ChatInputSectionProps = {
-	chatMode: ChatMode;
 	locale: string;
 	inputValue: string;
 	isStreaming: boolean;
@@ -19,7 +15,6 @@ type ChatInputSectionProps = {
 	effectiveTodos: Todo[];
 	hasSelection: boolean;
 	showTodosExpanded: boolean;
-	modeMenuOpen: boolean;
 	onInputChange: (value: string) => void;
 	onSend: () => void;
 	onStop?: () => void;
@@ -29,12 +24,9 @@ type ChatInputSectionProps = {
 	onToggleExpand: () => void;
 	onClearSelection: () => void;
 	onToggleTodo: (todoId: number) => void;
-	onToggleModeMenu: () => void;
-	onChangeMode: (mode: ChatMode) => void;
 };
 
 export function ChatInputSection({
-	chatMode,
 	locale,
 	inputValue,
 	isStreaming,
@@ -42,7 +34,6 @@ export function ChatInputSection({
 	effectiveTodos,
 	hasSelection,
 	showTodosExpanded,
-	modeMenuOpen,
 	onInputChange,
 	onSend,
 	onStop,
@@ -52,38 +43,10 @@ export function ChatInputSection({
 	onToggleExpand,
 	onClearSelection,
 	onToggleTodo,
-	onToggleModeMenu,
-	onChangeMode,
 }: ChatInputSectionProps) {
-	const tChat = useTranslations("chat");
 	const tPage = useTranslations("page");
 	const modeMenuRef = useRef<HTMLDivElement | null>(null);
-	// 从 ui-store 读取是否显示模式切换器
-	const showModeSwitcher = useUiStore((state) => state.showModeSwitcher);
-	// 从 ui-store 读取是否显示 Agno 工具选择器
-	const showAgnoToolSelector = useUiStore(
-		(state) => state.showAgnoToolSelector,
-	);
-
-	const inputPlaceholder =
-		chatMode === "plan"
-			? tChat("planModeInputPlaceholder")
-			: chatMode === "edit"
-				? tChat("editMode.inputPlaceholder")
-				: chatMode === "difyTest"
-					? tChat("difyTest.inputPlaceholder")
-					: tPage("chatInputPlaceholder");
-
-	useEffect(() => {
-		if (!modeMenuOpen) return;
-		const handleClickOutside = (event: MouseEvent) => {
-			const target = event.target as Node;
-			if (modeMenuRef.current?.contains(target)) return;
-			onToggleModeMenu();
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [modeMenuOpen, onToggleModeMenu]);
+	const inputPlaceholder = tPage("chatInputPlaceholder");
 
 	return (
 		<div className="bg-background p-4">
@@ -99,32 +62,11 @@ export function ChatInputSection({
 						onToggleTodo={onToggleTodo}
 					/>
 				}
-			modeSwitcher={
-				// 只要 showModeSwitcher 或工具选择器需要显示，就渲染容器
-				showModeSwitcher ||
-				(chatMode === "agno" && showAgnoToolSelector) ? (
+				modeSwitcher={
 					<div className="flex items-center gap-2" ref={modeMenuRef}>
-						{showModeSwitcher && (
-							<ModeSwitcher
-								chatMode={chatMode}
-								locale={locale}
-								modeMenuOpen={modeMenuOpen}
-								onToggleMenu={onToggleModeMenu}
-								onChangeMode={(mode) => {
-									onChangeMode(mode);
-									onToggleModeMenu();
-								}}
-								variant="inline"
-							/>
-						)}
-						{/* 在 Agno 模式下显示工具选择器（独立于模式切换器开关） */}
-						{chatMode === "agno" && showAgnoToolSelector && (
-							<ToolSelector disabled={isStreaming} />
-						)}
+						<ToolSelector disabled={isStreaming} />
 					</div>
-				) : null
-			}
-				modeMenuOpen={modeMenuOpen}
+				}
 				inputValue={inputValue}
 				placeholder={inputPlaceholder}
 				isStreaming={isStreaming}

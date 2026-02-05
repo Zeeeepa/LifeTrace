@@ -2,29 +2,23 @@ import { Loader2, MoreVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { ExtractionState } from "@/apps/chat/hooks/useMessageExtraction";
-import type { ChatMessage, ChatMode } from "@/apps/chat/types";
-import type { Todo, UpdateTodoInput } from "@/lib/types";
+import type { ChatMessage } from "@/apps/chat/types";
 import { cn } from "@/lib/utils";
-import { EditModeMessage } from "./EditModeMessage";
 import { MessageContent } from "./MessageContent";
 import { MessageTodoExtractionPanel } from "./MessageTodoExtractionPanel";
 import { ToolCallLoading } from "./ToolCallLoading";
 import { ToolCallSteps } from "./ToolCallSteps";
-import { extractToolCalls, removeToolCalls } from "./utils/messageContentUtils";
+import {
+	extractToolCalls,
+	removeToolCalls,
+	removeToolEvents,
+} from "./utils/messageContentUtils";
 
 type MessageItemProps = {
 	message: ChatMessage;
 	isLastMessage: boolean;
 	isStreaming: boolean;
 	typingText: string;
-	locale: string;
-	chatMode?: ChatMode;
-	effectiveTodos?: Todo[];
-	onUpdateTodo?: (params: {
-		id: number;
-		input: UpdateTodoInput;
-	}) => Promise<Todo>;
-	isUpdating?: boolean;
 	extractionState?: ExtractionState;
 	onRemoveExtractionState: () => void;
 	onMenuButtonClick: (event: React.MouseEvent, messageId: string) => void;
@@ -36,11 +30,6 @@ export function MessageItem({
 	isLastMessage,
 	isStreaming,
 	typingText,
-	locale,
-	chatMode,
-	effectiveTodos = [],
-	onUpdateTodo,
-	isUpdating = false,
 	extractionState,
 	onRemoveExtractionState,
 	onMenuButtonClick,
@@ -49,11 +38,14 @@ export function MessageItem({
 	const tContextMenu = useTranslations("contextMenu");
 	const [hovered, setHovered] = useState(false);
 
+	const sanitizedContent = message.content
+		? removeToolEvents(message.content)
+		: "";
 	// 检测工具调用标记（在消息渲染前）
-	const toolCalls = message.content ? extractToolCalls(message.content) : [];
+	const toolCalls = sanitizedContent ? extractToolCalls(sanitizedContent) : [];
 	// 移除工具调用标记后的内容
-	const contentWithoutToolCalls = message.content
-		? removeToolCalls(message.content)
+	const contentWithoutToolCalls = sanitizedContent
+		? removeToolCalls(sanitizedContent)
 		: "";
 
 	// 获取新的工具调用步骤（来自 toolCallSteps 属性）
@@ -118,14 +110,6 @@ export function MessageItem({
 		return null;
 	}
 
-	// Check if this is an edit mode assistant message (non-streaming)
-	const isEditModeAssistantMessage =
-		chatMode === "edit" &&
-		message.role === "assistant" &&
-		contentWithoutToolCalls.trim() &&
-		!isEmptyStreamingMessage &&
-		onUpdateTodo;
-
 	// 是否为 assistant 消息且不是空的 streaming 消息
 	// 使用 contentWithoutToolCalls 来判断，排除工具调用标记
 	const isAssistantMessageWithContent =
@@ -157,20 +141,6 @@ export function MessageItem({
 					<Loader2 className="h-4 w-4 animate-spin" />
 					{typingText}
 				</div>
-			) : isEditModeAssistantMessage ? (
-				/* Edit mode: render with append-to-todo functionality */
-				<div className="w-full max-w-[90%]">
-					{/* <div className="mb-1 text-[11px] uppercase tracking-wide opacity-70 text-foreground">
-						{t("assistant")}
-					</div> */}
-					<EditModeMessage
-						content={message.content}
-						effectiveTodos={effectiveTodos}
-						locale={locale}
-						onUpdateTodo={onUpdateTodo}
-						isUpdating={isUpdating}
-					/>
-				</div>
 			) : (
 				<div className="max-w-[80%]">
 					{/* 工具调用步骤（显示在消息内容之前） */}
@@ -183,7 +153,7 @@ export function MessageItem({
 						className={cn(
 							"relative rounded-2xl px-4 py-3 text-sm shadow-sm",
 							message.role === "assistant"
-								? "bg-muted text-foreground"
+								? "bg-muted/30 text-foreground"
 								: "bg-primary/10 dark:bg-primary/20 text-foreground",
 						)}
 						onMouseEnter={() => {

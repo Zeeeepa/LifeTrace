@@ -163,7 +163,7 @@ class WebSearchService:
         except Exception as e:
             # 其他错误
             logger.error(f"联网搜索处理失败: {e}", exc_info=True)
-            yield f"联网搜索处理时出现错误: {str(e)}"
+            yield f"联网搜索处理时出现错误: {e!s}"
 
     def _format_fallback_response(self, query: str, tavily_result: dict) -> str:
         """

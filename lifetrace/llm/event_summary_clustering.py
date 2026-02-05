@@ -16,6 +16,13 @@ from .event_summary_config import (
 
 logger = get_logger()
 
+try:
+    import hdbscan
+    import numpy as np
+except ImportError:
+    hdbscan = None
+    np = None
+
 
 def check_clustering_prerequisites(ocr_texts: list[str], vector_service) -> tuple[bool, str]:
     """检查聚类前置条件
@@ -114,9 +121,9 @@ def cluster_ocr_texts_with_hdbscan(ocr_texts: list[str], vector_service) -> list
         return ocr_texts
 
     try:
-        import hdbscan
-        import numpy as np
-
+        if hdbscan is None or np is None:
+            logger.warning("HDBSCAN 或 numpy 未安装，回退到简单聚合")
+            return ocr_texts
         embeddings, valid_texts = vectorize_texts(ocr_texts, vector_service)
 
         if len(embeddings) < MIN_TEXT_COUNT_FOR_CLUSTERING:
@@ -137,7 +144,7 @@ def cluster_ocr_texts_with_hdbscan(ocr_texts: list[str], vector_service) -> list
                 min_samples=1,
                 metric="precomputed",
             )
-            cluster_labels = clusterer.fit_predict(distance_matrix)
+            cluster_labels = clusterer.fit_predict(distance_matrix).tolist()
         else:
             logger.warning("scipy不可用，使用欧氏距离替代余弦距离")
             clusterer = hdbscan.HDBSCAN(
@@ -145,7 +152,7 @@ def cluster_ocr_texts_with_hdbscan(ocr_texts: list[str], vector_service) -> list
                 min_samples=1,
                 metric="euclidean",
             )
-            cluster_labels = clusterer.fit_predict(embeddings_array)
+            cluster_labels = clusterer.fit_predict(embeddings_array).tolist()
 
         representative_texts = select_representative_texts(cluster_labels, valid_texts)
         return representative_texts or valid_texts

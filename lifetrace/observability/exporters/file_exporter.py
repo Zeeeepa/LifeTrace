@@ -10,21 +10,25 @@
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import json
 import os
 import threading
 from collections import defaultdict
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
+
+    from opentelemetry.sdk.trace import ReadableSpan
 
 logger = get_logger()
 
@@ -32,9 +36,8 @@ logger = get_logger()
 def _get_current_session_id() -> str | None:
     """获取当前 session_id（从 ContextVar 读取）"""
     try:
-        from lifetrace.llm.agno_agent import current_session_id
-
-        return current_session_id.get()
+        agno_module = importlib.import_module("lifetrace.llm.agno_agent")
+        return agno_module.current_session_id.get()
     except Exception:
         return None
 
@@ -46,10 +49,17 @@ OPENINFERENCE_OUTPUT_VALUE = "output.value"
 OPENINFERENCE_LLM_MODEL_NAME = "llm.model_name"
 OPENINFERENCE_LLM_INPUT_MESSAGES = "llm.input_messages"
 OPENINFERENCE_LLM_OUTPUT_MESSAGES = "llm.output_messages"
-OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT = "llm.token_count.prompt"
-OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION = "llm.token_count.completion"
+OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT = "llm.token_count.prompt"  # nosec B105
+OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION = "llm.token_count.completion"  # nosec B105
 OPENINFERENCE_TOOL_NAME = "tool.name"
 OPENINFERENCE_TOOL_PARAMETERS = "tool.parameters"
+
+
+def _coerce_int(value: Any) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 class LocalFileExporter(SpanExporter):
@@ -92,8 +102,6 @@ class LocalFileExporter(SpanExporter):
 
     def _get_traces_path(self) -> Path:
         """获取 traces 目录路径"""
-        from lifetrace.util.path_utils import get_user_data_dir
-
         traces_path = get_user_data_dir() / self.traces_dir
         traces_path.mkdir(parents=True, exist_ok=True)
         return traces_path
@@ -167,10 +175,7 @@ class LocalFileExporter(SpanExporter):
 
         # 尝试解析参数
         try:
-            if isinstance(tool_params, str):
-                args = json.loads(tool_params)
-            else:
-                args = tool_params
+            args = json.loads(tool_params) if isinstance(tool_params, str) else tool_params
         except (json.JSONDecodeError, TypeError):
             args = {"raw": str(tool_params)}
 
@@ -199,8 +204,8 @@ class LocalFileExporter(SpanExporter):
             return None
 
         model = attrs.get(OPENINFERENCE_LLM_MODEL_NAME, "unknown")
-        input_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT, 0)
-        output_tokens = attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION, 0)
+        input_tokens = _coerce_int(attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_PROMPT, 0))
+        output_tokens = _coerce_int(attrs.get(OPENINFERENCE_LLM_TOKEN_COUNT_COMPLETION, 0))
 
         # 计算持续时间
         duration_ms = 0
@@ -209,8 +214,8 @@ class LocalFileExporter(SpanExporter):
 
         return {
             "model": str(model),
-            "input_tokens": int(input_tokens) if input_tokens else 0,
-            "output_tokens": int(output_tokens) if output_tokens else 0,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "duration_ms": round(duration_ms, 2),
         }
 
@@ -394,12 +399,10 @@ class LocalFileExporter(SpanExporter):
 
             if len(json_files) > self.max_files:
                 for old_file in json_files[self.max_files :]:
-                    try:
+                    with contextlib.suppress(OSError):
                         old_file.unlink()
-                    except OSError:
-                        pass
-        except Exception:
-            pass  # 清理失败不影响主流程
+        except Exception as e:
+            logger.debug(f"清理旧文件失败: {e}")
 
     def _print_summary(
         self,
@@ -426,8 +429,6 @@ class LocalFileExporter(SpanExporter):
         # 获取相对路径用于显示
         if filepath:
             try:
-                from lifetrace.util.path_utils import get_user_data_dir
-
                 rel_path = os.path.relpath(filepath, get_user_data_dir())
             except Exception:
                 rel_path = filepath
@@ -533,4 +534,5 @@ class LocalFileExporter(SpanExporter):
             是否成功
         """
         # 对于文件导出器，export 已经是同步的，不需要特殊处理
+        _ = timeout_millis
         return True

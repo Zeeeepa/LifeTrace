@@ -7,9 +7,8 @@ Create Date: 2026-01-23 00:00:00.000000
 为 ocr_results 表添加 text_hash 列和索引，并为已有数据回填哈希值。
 """
 
-from collections.abc import Sequence
-
 import hashlib
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
@@ -51,10 +50,11 @@ def upgrade() -> None:
 
     for row in rows:
         normalized = _normalize_text(row["text_content"])
-        if not normalized:
-            text_hash = None
-        else:
-            text_hash = hashlib.md5(normalized.encode("utf-8")).hexdigest()
+        text_hash = (
+            None
+            if not normalized
+            else hashlib.md5(normalized.encode("utf-8"), usedforsecurity=False).hexdigest()
+        )
 
         connection.execute(
             sa.text("UPDATE ocr_results SET text_hash = :text_hash WHERE id = :id"),

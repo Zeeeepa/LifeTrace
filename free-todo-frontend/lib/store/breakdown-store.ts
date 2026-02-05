@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ParsedTodoTree } from "@/apps/chat/types";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import {
 	createTodoApiTodosPost,
 	updateTodoApiTodosTodoIdPut,
@@ -165,8 +166,8 @@ export const useBreakdownStore = create<BreakdownStoreState>()((set, get) => ({
 						order: node.order,
 						parent_todo_id: parentId,
 					});
-					// apiTodo.id is already a number after fetcher conversion
-					const createdId = (apiTodo as { id: number }).id;
+					const created = unwrapApiData<{ id: number }>(apiTodo);
+					const createdId = created?.id;
 
 					// 如果有嵌套子任务，递归创建
 					if (createdId && node.subtasks && node.subtasks.length > 0) {

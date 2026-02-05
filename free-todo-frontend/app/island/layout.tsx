@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/common/theme/ThemeProvider";
+import { CapabilitiesSync } from "@/components/common/ui/CapabilitiesSync";
 import { QueryProvider } from "@/lib/query/provider";
 import "@/app/globals.css";
 import "./island.css";
@@ -29,6 +30,7 @@ export default async function IslandLayout({
       <QueryProvider>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ThemeProvider>
+            <CapabilitiesSync />
             {children}
           </ThemeProvider>
         </NextIntlClientProvider>

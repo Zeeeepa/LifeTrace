@@ -64,6 +64,24 @@ FreeTodo 采用**前后端分离**架构：
 - Node.js 20+
 - pnpm 包管理器
 
+### 一键安装并启动
+
+> 需要安装 Python 3.12+、Node.js 20+、Git；Tauri/Electron 构建还需要 Rust。
+
+**macOS/Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+```
+
+完整选项、环境变量和示例请见：[.github/INSTALL_CN.md](.github/INSTALL_CN.md)
+
 ### 安装依赖
 
 本项目使用 [uv](https://github.com/astral-sh/uv) 进行快速可靠的依赖管理。
@@ -86,14 +104,6 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 > 或者，您也可以直接打开一个新的终端窗口，`uv` 将自动可用。
 
 **安装依赖并同步环境:**
-
-```bash
-# macOS prerequisites
-brew install portaudio
-
-# Linux prerequisites
-sudo apt install portaudio19-dev
-```
 
 ```bash
 # 从 pyproject.toml 和 uv.lock 同步依赖
@@ -223,6 +233,22 @@ Free Todo 的面板开关栏里有一些正在开发中的面板，这些面板�
 
 ## 开发指南
 
+### Git Hooks（Pre-commit）
+
+本仓库使用共享的 `.githooks/` 目录。每个 clone/worktree 只需执行一次：
+
+```bash
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
+
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
+
+> **注意**：不要在此仓库里运行 `pre-commit install`。仓库使用 `core.hooksPath`，因此 `pre-commit install` 会拒绝执行。
+
+更多细节请见： [.github/PRE_COMMIT_GUIDE_CN.md](.github/PRE_COMMIT_GUIDE_CN.md)
+
 ### 项目结构
 
 ```
@@ -232,6 +258,7 @@ Free Todo 的面板开关栏里有一些正在开发中的面板，这些面板�
 │   ├── FRONTEND_GUIDELINES.md  # 前端开发规范
 │   ├── CONTRIBUTING.md         # 贡献指南
 │   └── ...                     # 其他 GitHub 仓库文件
+├── .githooks/                  # 仓库内 Git hooks（pre-commit、post-checkout）
 ├── lifetrace/                  # 后端模块 (FastAPI)
 │   ├── server.py               # Web API 服务入口
 │   ├── config/                 # 配置文件

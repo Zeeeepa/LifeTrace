@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import { getChatPromptsApiGetChatPromptsGet } from "@/lib/generated/config/config";
 
 /**
@@ -26,13 +27,13 @@ export const useChatPrompts = (locale: string) => {
 		async function loadPrompts() {
 			setIsLoading(true);
 			try {
-				const response =
-					(await getChatPromptsApiGetChatPromptsGet({
-						locale,
-					})) as ChatPromptsResponse;
+				const response = await getChatPromptsApiGetChatPromptsGet({
+					locale,
+				});
+				const data = unwrapApiData<ChatPromptsResponse>(response);
 
-				if (!cancelled && response.success) {
-					setEditSystemPrompt(response.editSystemPrompt);
+				if (!cancelled && data?.success) {
+					setEditSystemPrompt(data.editSystemPrompt);
 				}
 			} catch (error) {
 				console.error("Failed to load chat prompts:", error);

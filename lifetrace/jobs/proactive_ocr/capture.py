@@ -6,10 +6,15 @@
 2. MSS屏幕捕获 - 基于屏幕坐标，窗口被遮挡时会有问题（跨平台）
 """
 
+import contextlib
+import importlib
 import platform
+import shutil
+import subprocess  # nosec B404
 import sys
 import time
 import uuid
+from typing import Any, cast
 
 import numpy as np
 
@@ -35,16 +40,25 @@ if sys.platform == "win32":
         import win32con
         import win32gui
         import win32process
-        import win32ui
+
+        win32ui = importlib.import_module("win32ui")
 
         WIN32_AVAILABLE = True
     except ImportError:
+        c_void_p = None
+        windll = None
+        win32con = None
         win32gui = None
+        win32process = None
         win32ui = None
         WIN32_AVAILABLE = False
         logger.warning("pywin32 not available, PrintWindow capture disabled")
 else:
+    c_void_p = None
+    windll = None
+    win32con = None
     win32gui = None
+    win32process = None
     win32ui = None
     WIN32_AVAILABLE = False
 
@@ -61,24 +75,24 @@ BGRA_CHANNELS = 4
 # 设置DPI感知，解决高DPI缩放问题（仅Windows）
 def set_dpi_awareness():
     """设置进程DPI感知模式"""
-    if not WIN32_AVAILABLE:
+    if not WIN32_AVAILABLE or windll is None or c_void_p is None:
         return
 
-    try:
-        # Windows 10 1607+ 使用 SetProcessDpiAwarenessContext
-        # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+    # Windows 10 1607+ 使用 SetProcessDpiAwarenessContext
+    # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
+    with contextlib.suppress(Exception):
         windll.user32.SetProcessDpiAwarenessContext(c_void_p(-4))
-    except Exception:
-        try:
-            # Windows 8.1+ 使用 SetProcessDpiAwareness
-            # PROCESS_PER_MONITOR_DPI_AWARE = 2
-            windll.shcore.SetProcessDpiAwareness(2)
-        except Exception:
-            try:
-                # Windows Vista+ 使用 SetProcessDPIAware
-                windll.user32.SetProcessDPIAware()
-            except Exception:
-                pass
+        return
+
+    # Windows 8.1+ 使用 SetProcessDpiAwareness
+    # PROCESS_PER_MONITOR_DPI_AWARE = 2
+    with contextlib.suppress(Exception):
+        windll.shcore.SetProcessDpiAwareness(2)
+        return
+
+    # Windows Vista+ 使用 SetProcessDPIAware
+    with contextlib.suppress(Exception):
+        windll.user32.SetProcessDPIAware()
 
 
 # 在模块加载时设置DPI感知（仅Windows）
@@ -112,19 +126,21 @@ class WindowCapture:
 
     def get_all_windows(self) -> list[WindowMeta]:
         """获取所有可见窗口（仅Windows）"""
-        if not WIN32_AVAILABLE:
+        if not WIN32_AVAILABLE or win32gui is None or win32process is None:
             logger.warning("get_all_windows: Windows-only feature, returning empty list")
             return []
 
+        win32gui_local = cast("Any", win32gui)
+        win32process_local = cast("Any", win32process)
         windows = []
 
         def enum_callback(hwnd, results):
-            if win32gui.IsWindowVisible(hwnd):
-                title = win32gui.GetWindowText(hwnd)
+            if win32gui_local.IsWindowVisible(hwnd):
+                title = win32gui_local.GetWindowText(hwnd)
                 if title:  # 只获取有标题的窗口
                     try:
-                        rect = win32gui.GetWindowRect(hwnd)
-                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        rect = win32gui_local.GetWindowRect(hwnd)
+                        _, pid = win32process_local.GetWindowThreadProcessId(hwnd)
 
                         # 获取进程名
                         process_name = ""
@@ -136,7 +152,7 @@ class WindowCapture:
                                 pass
 
                         # 检查是否最小化
-                        is_minimized = win32gui.IsIconic(hwnd)
+                        is_minimized = bool(win32gui_local.IsIconic(hwnd))
 
                         window_meta = WindowMeta(
                             hwnd=hwnd,
@@ -157,7 +173,7 @@ class WindowCapture:
                         logger.debug(f"Failed to get window info for hwnd {hwnd}: {e}")
             return True
 
-        win32gui.EnumWindows(enum_callback, windows)
+        win32gui_local.EnumWindows(enum_callback, windows)
         return windows
 
     def get_foreground_window(self) -> WindowMeta | None:
@@ -174,17 +190,19 @@ class WindowCapture:
 
     def _get_windows_foreground_window(self) -> WindowMeta | None:
         """获取Windows前台窗口"""
-        if not WIN32_AVAILABLE:
+        if not WIN32_AVAILABLE or win32gui is None or win32process is None:
             return None
 
         try:
-            hwnd = win32gui.GetForegroundWindow()
+            win32gui_local = cast("Any", win32gui)
+            win32process_local = cast("Any", win32process)
+            hwnd = win32gui_local.GetForegroundWindow()
             if not hwnd:
                 return None
 
-            title = win32gui.GetWindowText(hwnd)
-            rect = win32gui.GetWindowRect(hwnd)
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            title = win32gui_local.GetWindowText(hwnd)
+            rect = win32gui_local.GetWindowRect(hwnd)
+            _, pid = win32process_local.GetWindowThreadProcessId(hwnd)
 
             # 获取进程名
             process_name = ""
@@ -207,7 +225,7 @@ class WindowCapture:
                     height=rect[3] - rect[1],
                 ),
                 is_visible=True,
-                is_minimized=win32gui.IsIconic(hwnd),
+                is_minimized=bool(win32gui_local.IsIconic(hwnd)),
             )
         except Exception as e:
             logger.error(f"Failed to get Windows foreground window: {e}")
@@ -230,13 +248,11 @@ class WindowCapture:
             # 获取进程ID
             pid = 0
             if psutil:
-                try:
+                with contextlib.suppress(Exception):
                     for proc in psutil.process_iter(["pid", "name"]):
                         if proc.info["name"] == app_name or proc.info["name"] == f"{app_name}.app":
                             pid = proc.info["pid"]
                             break
-                except Exception:
-                    pass
 
             # macOS没有hwnd，使用pid作为标识
             return WindowMeta(
@@ -263,8 +279,6 @@ class WindowCapture:
     def _get_linux_foreground_window(self) -> WindowMeta | None:  # noqa: C901
         """获取Linux前台窗口"""
         try:
-            import subprocess
-
             # 获取活跃窗口信息
             app_name, window_title = get_active_window_info()
             if not app_name:
@@ -273,11 +287,15 @@ class WindowCapture:
             # 获取窗口位置和大小
             try:
                 # 使用xdotool获取活跃窗口
-                result = subprocess.run(
-                    ["xdotool", "getactivewindow", "getwindowgeometry"],
+                xdotool_path = shutil.which("xdotool")
+                if not xdotool_path:
+                    raise FileNotFoundError("xdotool not found")
+                result = subprocess.run(  # nosec B603
+                    [xdotool_path, "getactivewindow", "getwindowgeometry"],
                     capture_output=True,
                     text=True,
                     timeout=2,
+                    check=False,
                 )
                 if result.returncode == 0:
                     # 解析窗口几何信息
@@ -295,24 +313,23 @@ class WindowCapture:
                             geometry["height"] = height
 
                     # 获取窗口ID
-                    wid_result = subprocess.run(
-                        ["xdotool", "getactivewindow"],
+                    wid_result = subprocess.run(  # nosec B603
+                        [xdotool_path, "getactivewindow"],
                         capture_output=True,
                         text=True,
                         timeout=2,
+                        check=False,
                     )
                     window_id = int(wid_result.stdout.strip()) if wid_result.returncode == 0 else 0
 
                     # 获取进程ID
                     pid = 0
                     if psutil:
-                        try:
+                        with contextlib.suppress(Exception):
                             for proc in psutil.process_iter(["pid", "name"]):
                                 if proc.info["name"].lower() == app_name.lower():
                                     pid = proc.info["pid"]
                                     break
-                        except Exception:
-                            pass
 
                     return WindowMeta(
                         hwnd=window_id,
@@ -364,14 +381,22 @@ class WindowCapture:
         """
         使用PrintWindow API捕获完整窗口（可捕获被遮挡的窗口，仅Windows）
         """
-        if not WIN32_AVAILABLE:
+        if (
+            not WIN32_AVAILABLE
+            or win32gui is None
+            or win32ui is None
+            or win32con is None
+            or windll is None
+        ):
             return self._capture_with_mss(window)
 
         try:
+            win32gui_local = cast("Any", win32gui)
+            win32ui_local = cast("Any", win32ui)
             hwnd = window.hwnd
 
             # 获取完整窗口大小（包含标题栏和边框）
-            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+            left, top, right, bottom = win32gui_local.GetWindowRect(hwnd)
             width = right - left
             height = bottom - top
 
@@ -380,12 +405,12 @@ class WindowCapture:
                 return self._capture_with_mss(window)
 
             # 创建设备上下文 - 使用GetWindowDC获取整个窗口的DC
-            hwnd_dc = win32gui.GetWindowDC(hwnd)
-            mfc_dc = win32ui.CreateDCFromHandle(hwnd_dc)
+            hwnd_dc = win32gui_local.GetWindowDC(hwnd)
+            mfc_dc = win32ui_local.CreateDCFromHandle(hwnd_dc)
             save_dc = mfc_dc.CreateCompatibleDC()
 
             # 创建位图
-            bitmap = win32ui.CreateBitmap()
+            bitmap = win32ui_local.CreateBitmap()
             bitmap.CreateCompatibleBitmap(mfc_dc, width, height)
             save_dc.SelectObject(bitmap)
 
@@ -410,10 +435,10 @@ class WindowCapture:
             img_array = img_array[:, :, ::-1]  # BGR to RGB
 
             # 清理资源
-            win32gui.DeleteObject(bitmap.GetHandle())
+            win32gui_local.DeleteObject(bitmap.GetHandle())
             save_dc.DeleteDC()
             mfc_dc.DeleteDC()
-            win32gui.ReleaseDC(hwnd, hwnd_dc)
+            win32gui_local.ReleaseDC(hwnd, hwnd_dc)
 
             frame = ImageFrame(
                 data=img_array,
@@ -514,12 +539,13 @@ class WindowCapture:
 
 
 # 单例实例
-_capture_instance: WindowCapture | None = None
+_capture_state: dict[str, WindowCapture | None] = {"instance": None}
 
 
 def get_capture(fps: float = 1.0) -> WindowCapture:
     """获取捕获器单例"""
-    global _capture_instance
-    if _capture_instance is None:
-        _capture_instance = WindowCapture(fps=fps)
-    return _capture_instance
+    instance = _capture_state["instance"]
+    if instance is None:
+        instance = WindowCapture(fps=fps)
+        _capture_state["instance"] = instance
+    return instance

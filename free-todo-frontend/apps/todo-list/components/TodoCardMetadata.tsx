@@ -1,6 +1,6 @@
 import { Calendar, Paperclip, Tag } from "lucide-react";
 import type { Todo } from "@/lib/types";
-import { formatDate } from "../utils/todoCardUtils";
+import { formatScheduleLabel } from "../utils/todoCardUtils";
 
 interface TodoCardMetadataProps {
 	todo: Todo;
@@ -8,7 +8,8 @@ interface TodoCardMetadataProps {
 
 export function TodoCardMetadata({ todo }: TodoCardMetadataProps) {
 	const hasMetadata =
-		todo.deadline ||
+		todo.startTime ||
+		todo.endTime ||
 		(todo.attachments && todo.attachments.length > 0) ||
 		(todo.tags && todo.tags.length > 0);
 
@@ -16,12 +17,14 @@ export function TodoCardMetadata({ todo }: TodoCardMetadataProps) {
 		return null;
 	}
 
+	const scheduleLabel = formatScheduleLabel(todo.startTime, todo.endTime);
+
 	return (
 		<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-			{todo.deadline && (
+			{scheduleLabel && (
 				<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
 					<Calendar className="h-3 w-3" />
-					<span>{formatDate(todo.deadline)}</span>
+					<span>{scheduleLabel}</span>
 				</div>
 			)}
 

@@ -1,28 +1,44 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { LayoutGrid, LifeBuoy, Settings, Sparkles, Wrench, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { CollapsibleSection } from "@/components/common/layout/CollapsibleSection";
+import { useEffect, useRef, useState } from "react";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useConfig } from "@/lib/query";
 import { useUiStore } from "@/lib/store/ui-store";
+import { cn } from "@/lib/utils";
 import {
 	AudioAsrConfigSection,
 	AudioConfigSection,
+	AutomationTasksSection,
 	AutoTodoDetectionSection,
-	DifyConfigSection,
+	// DifyConfigSection,
 	DockDisplayModeSection,
+	JournalSettingsSection,
 	LlmConfigSection,
-	ModeSwitcherSection,
+	NotificationPermissionSection,
 	OnboardingSection,
 	PanelSwitchesSection,
 	RecorderConfigSection,
 	SchedulerSection,
+	type SettingsCategory,
+	type SettingsCategoryId,
+	SettingsCategoryPanel,
+	SettingsSearchAction,
+	SettingsSearchProvider,
 	SettingsSection,
 	TavilyConfigSection,
 	VersionInfoSection,
 } from "./components";
+import { useSettingsSearchMatchStats } from "./hooks/useSettingsSearchMatchStats";
+
+const SETTINGS_CATEGORY_IDS: SettingsCategoryId[] = [
+	"ai",
+	"workspace",
+	"automation",
+	"developer",
+	"help",
+];
 
 /**
  * 设置面板组件
@@ -39,91 +55,235 @@ export function SettingsPanel() {
 	const isFeatureEnabled = useUiStore((state) => state.isFeatureEnabled);
 	const isAudioPanelEnabled = isFeatureEnabled("audio");
 
-	// 状态管理
-	const [showDeveloperOptions, setShowDeveloperOptions] = useState(false);
+	const categories: SettingsCategory[] = [
+		{
+			id: "ai",
+			label: tSettings("categoryAiTitle"),
+			description: tSettings("categoryAiDescription"),
+			icon: Sparkles,
+		},
+		{
+			id: "workspace",
+			label: tSettings("categoryWorkspaceTitle"),
+			description: tSettings("categoryWorkspaceDescription"),
+			icon: LayoutGrid,
+		},
+		{
+			id: "automation",
+			label: tSettings("categoryAutomationTitle"),
+			description: tSettings("categoryAutomationDescription"),
+			icon: Zap,
+		},
+		{
+			id: "developer",
+			label: tSettings("categoryDeveloperTitle"),
+			description: tSettings("categoryDeveloperDescription"),
+			icon: Wrench,
+		},
+		{
+			id: "help",
+			label: tSettings("categoryHelpTitle"),
+			description: tSettings("categoryHelpDescription"),
+			icon: LifeBuoy,
+		},
+	];
+
+	const [activeCategory, setActiveCategory] =
+		useState<SettingsCategoryId>("workspace");
+	const contentRef = useRef<HTMLDivElement | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const isSearchActive = searchQuery.trim().length > 0;
 
 	const loading = configLoading;
+	const activeCategoryMeta = categories.find(
+		(category) => category.id === activeCategory,
+	);
+
+	const { handleCategoryMatchChange, showNoResults } =
+		useSettingsSearchMatchStats({
+			categoriesCount: categories.length,
+			isSearchActive,
+		});
+
+	useEffect(() => {
+		const handleSetCategory = (
+			event: CustomEvent<{ category?: SettingsCategoryId }>,
+		) => {
+			const nextCategory = event.detail?.category;
+			if (nextCategory && SETTINGS_CATEGORY_IDS.includes(nextCategory)) {
+				setActiveCategory(nextCategory);
+			}
+		};
+
+		window.addEventListener(
+			"settings:set-category",
+			handleSetCategory as EventListener,
+		);
+		return () => {
+			window.removeEventListener(
+				"settings:set-category",
+				handleSetCategory as EventListener,
+			);
+		};
+	}, []);
+
+	const renderCategoryContent = (categoryId: SettingsCategoryId) => {
+		switch (categoryId) {
+			case "workspace":
+				return (
+					<>
+						<DockDisplayModeSection loading={loading} />
+						<PanelSwitchesSection loading={loading} />
+						<NotificationPermissionSection loading={loading} />
+					</>
+				);
+			case "automation":
+				return (
+					<>
+						<JournalSettingsSection />
+						<AutoTodoDetectionSection config={config} loading={loading} />
+						<AutomationTasksSection loading={loading} />
+					</>
+				);
+			case "ai":
+				return (
+					<>
+						<LlmConfigSection config={config} loading={loading} />
+						<TavilyConfigSection config={config} loading={loading} />
+					</>
+				);
+			case "developer":
+				return (
+					<>
+						{/* <DifyConfigSection config={config} loading={loading} /> */}
+						<SchedulerSection loading={loading} />
+						<RecorderConfigSection config={config} loading={loading} />
+						{isAudioPanelEnabled && (
+							<>
+								<AudioConfigSection config={config} loading={loading} />
+								<AudioAsrConfigSection config={config} loading={loading} />
+							</>
+						)}
+					</>
+				);
+			case "help":
+				return (
+					<>
+						<OnboardingSection loading={loading} />
+						<SettingsSection
+							title={tSettings("aboutTitle")}
+							description={tSettings("aboutDescription")}
+						>
+							<VersionInfoSection />
+						</SettingsSection>
+					</>
+				);
+			default:
+				return null;
+		}
+	};
+
+	useEffect(() => {
+		if (!activeCategory) return;
+		contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+	}, [activeCategory]);
+
+	useEffect(() => {
+		if (isSearchActive) {
+			contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+		}
+	}, [isSearchActive]);
 
 	return (
 		<div className="relative flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
-			<PanelHeader icon={Settings} title={tPage("settingsLabel")} />
+			<PanelHeader
+				icon={Settings}
+				title={tPage("settingsLabel")}
+				actions={
+					<SettingsSearchAction
+						value={searchQuery}
+						onChange={setSearchQuery}
+					/>
+				}
+			/>
 
 			{/* 设置内容区域 */}
-			<div
-				data-tour="settings-content"
-				className="flex-1 overflow-y-auto px-4 py-6 space-y-6"
-			>
-				{/* LLM 配置 */}
-				<LlmConfigSection config={config} loading={loading} />
-
-				{/* Tavily 配置 */}
-				<TavilyConfigSection config={config} loading={loading} />
-
-				{/* 自动待办检测设置 */}
-				<AutoTodoDetectionSection config={config} loading={loading} />
-
-				{/* Dock 显示模式设置 */}
-				<DockDisplayModeSection loading={loading} />
-
-				{/* 面板开关 */}
-				<PanelSwitchesSection loading={loading} />
-
-				{/* 用户引导设置 */}
-				<OnboardingSection loading={loading} />
-
-				{/* 开发者选项（整栏可折叠） */}
-				<CollapsibleSection
-					title={tSettings("developerSectionTitle")}
-					show={showDeveloperOptions}
-					onToggle={() => setShowDeveloperOptions((prevShow) => !prevShow)}
-					className="mt-4"
-					contentClassName="mt-3"
+			<SettingsSearchProvider query={searchQuery}>
+				<div
+					data-tour="settings-content"
+					ref={contentRef}
+					className="flex-1 overflow-y-auto"
 				>
-					<SettingsSection
-						title={tSettings("developerSectionTitle")}
-						description={tSettings("developerSectionDescription")}
-					>
-						{/* 定时任务管理 */}
-						<div className="mt-4">
-							<SchedulerSection loading={loading} />
-						</div>
+					{!isSearchActive && (
+						<div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-4 py-4 backdrop-blur">
+							<div
+								role="tablist"
+								aria-label={tPage("settingsLabel")}
+								className="flex flex-wrap items-center gap-2 pb-1"
+							>
+								{categories.map((category) => {
+									const isActive = category.id === activeCategory;
+									const Icon = category.icon;
 
-						{/* Dify 配置 */}
-						<div className="mt-4">
-							<DifyConfigSection config={config} loading={loading} />
+									return (
+										<button
+											key={category.id}
+											type="button"
+											role="tab"
+											id={`settings-category-tab-${category.id}`}
+											aria-selected={isActive}
+											aria-controls={`settings-category-panel-${category.id}`}
+											onClick={() => setActiveCategory(category.id)}
+											className={cn(
+												"flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition",
+												"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+												isActive
+													? "border-primary bg-primary text-primary-foreground shadow-sm"
+													: "border-transparent bg-muted/40 text-foreground hover:bg-muted/70",
+											)}
+										>
+											<Icon className="h-4 w-4" />
+											<span>{category.label}</span>
+										</button>
+									);
+								})}
+							</div>
+							{activeCategoryMeta?.description && (
+								<p className="mt-2 text-xs text-muted-foreground">
+									{activeCategoryMeta.description}
+								</p>
+							)}
 						</div>
+					)}
 
-						{/* 屏幕录制设置（黑名单等） */}
-						<div className="mt-4">
-							<RecorderConfigSection config={config} loading={loading} />
-						</div>
-
-						{/* 模式切换器设置 */}
-						<div className="mt-4">
-							<ModeSwitcherSection loading={loading} />
-						</div>
-
-						{/* 音频设置（仅在音频面板启用时显示） */}
-						{isAudioPanelEnabled && (
-							<>
-								{/* 音频录制配置 */}
-								<div className="mt-4">
-									<AudioConfigSection config={config} loading={loading} />
+					<div className="space-y-6 px-4 py-6">
+						{showNoResults && (
+							<div className="flex min-h-50 items-center justify-center">
+								<div className="text-center">
+									<p className="text-sm font-medium text-foreground">
+										{tSettings("searchNoResultsTitle")}
+									</p>
+									<p className="mt-1 text-xs text-muted-foreground">
+										{tSettings("searchNoResultsHint")}
+									</p>
 								</div>
-
-								{/* 音频识别（ASR）配置 */}
-								<div className="mt-4">
-									<AudioAsrConfigSection config={config} loading={loading} />
-								</div>
-							</>
+							</div>
 						)}
 
-						{/* 版本信息 */}
-						<VersionInfoSection />
-					</SettingsSection>
-				</CollapsibleSection>
-			</div>
+						{categories.map((category) => (
+							<SettingsCategoryPanel
+								key={category.id}
+								category={category}
+								isSearchActive={isSearchActive}
+								activeCategory={activeCategory}
+								renderCategoryContent={renderCategoryContent}
+								onMatchChange={handleCategoryMatchChange}
+							/>
+						))}
+					</div>
+				</div>
+			</SettingsSearchProvider>
 		</div>
 	);
 }

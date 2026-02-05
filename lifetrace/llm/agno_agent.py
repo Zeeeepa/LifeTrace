@@ -12,12 +12,11 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
-from collections.abc import Generator
 from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from agno.agent import Agent, RunEvent
+from agno.agent import Agent, Message, RunEvent
 from agno.models.openai.like import OpenAILike
 
 from lifetrace.llm.agno_tools import FreeTodoToolkit
@@ -27,6 +26,8 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from agno.tools import Toolkit
 
 # 全局 ContextVar 用于跨 span 传递 session_id
@@ -76,7 +77,6 @@ def _ensure_tool_dependency(tool_name: str, package_name: str) -> bool:
 
 def _register_external_tools():
     """注册可用的外部工具（延迟导入以避免启动时的依赖问题）"""
-    global EXTERNAL_TOOLS_REGISTRY  # noqa: PLW0603
     if EXTERNAL_TOOLS_REGISTRY:
         return
 
@@ -337,8 +337,6 @@ class AgnoAgentService:
         if not conversation_history:
             return message
 
-        from agno.agent import Message
-
         messages = []
         for msg in conversation_history:
             role = msg.get("role", "user")
@@ -472,7 +470,7 @@ class AgnoAgentService:
 
         except Exception as e:
             logger.error(f"Agno Agent 流式生成失败: {e}")
-            yield f"Agno Agent 处理失败: {str(e)}"
+            yield f"Agno Agent 处理失败: {e!s}"
         finally:
             # 清理 ContextVar
             current_session_id.set(None)

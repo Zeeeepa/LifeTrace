@@ -84,7 +84,11 @@ export class WindowManager {
 	 * 创建主窗口
 	 * @param serverUrl 前端服务器 URL
 	 */
-	create(serverUrl: string): void {
+	create(
+		serverUrl: string,
+		options?: { waitForServer?: boolean; showLoading?: boolean },
+	): void {
+		const { waitForServer = true, showLoading = false } = options ?? {};
 		const preloadPath = this.getPreloadPath();
 
 		// 保存原始位置和尺寸（用于从全屏模式恢复）
@@ -231,6 +235,11 @@ export class WindowManager {
 			logger.info("Window became responsive again");
 		});
 
+		if (showLoading && this.mainWindow) {
+			const loadingHtml = this.getLoadingPageHtml();
+			const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(loadingHtml)}`;
+			this.mainWindow.loadURL(dataUrl);
+		}
 
 		// 确保服务器已经启动后再加载 URL
 		const loadWindow = async () => {
@@ -252,10 +261,52 @@ export class WindowManager {
 			}
 		};
 
-		// 延迟一点加载，确保窗口完全创建
-		setTimeout(() => {
-			loadWindow();
-		}, 100);
+		if (waitForServer) {
+			// 延迟一点加载，确保窗口完全创建
+			setTimeout(() => {
+				loadWindow();
+			}, 100);
+		}
+	}
+
+	/**
+	 * 主动加载指定 URL（用于延迟加载）
+	 */
+	load(serverUrl: string): void {
+		if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+			this.mainWindow.loadURL(serverUrl);
+		}
+	}
+
+	/**
+	 * 内置加载界面
+	 */
+	private getLoadingPageHtml(): string {
+		return `
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FreeTodo 加载中</title>
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #0f1115; color: #e5e7eb; font-family: "Segoe UI", Arial, sans-serif; }
+      .wrap { display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; gap: 14px; }
+      .logo { font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 14px; color: #9ca3af; }
+      .spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid #2b303b; border-top-color: #3b82f6; animation: spin 1s linear infinite; }
+      .hint { font-size: 13px; color: #9ca3af; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="spinner"></div>
+      <div class="logo">FreeTodo</div>
+      <div class="hint">正在启动服务...</div>
+    </div>
+  </body>
+</html>
+`;
 	}
 
 

@@ -45,7 +45,7 @@ def create_web_search_streaming_response(
                     content=total_content,
                 )
                 logger.info("[stream][web_search] 消息已保存到数据库")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             logger.error(f"[stream][web_search] 生成失败: {e}")
             yield "联网搜索处理失败，请检查后端配置。"
 

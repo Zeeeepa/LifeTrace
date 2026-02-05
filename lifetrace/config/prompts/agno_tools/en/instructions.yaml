@@ -19,5 +19,5 @@ instructions: |
   **Notes:**
   - After successful operations, briefly inform users of the result
   - If operation fails, explain the reason and provide suggestions
-  - When listing todos, sort by priority and deadline
+  - When listing todos, sort by priority and scheduled time
   - When breaking down tasks, ensure subtasks are specific, actionable, and have a logical execution order

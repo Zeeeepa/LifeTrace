@@ -7,6 +7,6 @@
  */
 
 /**
- * 待办描述
+ * 待办描述（可选）
  */
 export type ExtractedTodoDescription = string | null;

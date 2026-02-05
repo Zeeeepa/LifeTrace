@@ -5,6 +5,7 @@ CRUD operations for todo items.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -26,10 +27,13 @@ class TodoTools:
     def _msg(self, key: str, **kwargs) -> str:
         return get_message(self.lang, key, **kwargs)
 
-    def create_todo(
+    def create_todo(  # noqa: PLR0913
         self,
         name: str,
         description: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        time_zone: str | None = None,
         deadline: str | None = None,
         priority: str | None = None,
         tags: str | None = None,
@@ -39,7 +43,10 @@ class TodoTools:
         Args:
             name: Todo name/title (required)
             description: Detailed description (optional)
-            deadline: Deadline in ISO format like '2024-01-20T14:00:00' (optional)
+            start_time: Start time in ISO format like '2024-01-20T14:00:00' (optional)
+            end_time: End time in ISO format like '2024-01-20T16:00:00' (optional)
+            time_zone: IANA time zone like 'Asia/Shanghai' (optional)
+            deadline: Legacy alias of start_time in ISO format (optional)
             priority: Priority level - 'high', 'medium', 'low', or 'none' (optional, default: 'none')
             tags: Comma-separated tags like 'work,urgent' (optional)
 
@@ -47,13 +54,18 @@ class TodoTools:
             Success or failure message
         """
         try:
-            # Parse deadline
-            parsed_deadline = None
-            if deadline:
-                try:
-                    parsed_deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
-                except ValueError:
-                    pass
+            parsed_start_time = None
+            if start_time:
+                with contextlib.suppress(ValueError):
+                    parsed_start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            elif deadline:
+                with contextlib.suppress(ValueError):
+                    parsed_start_time = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+
+            parsed_end_time = None
+            if end_time:
+                with contextlib.suppress(ValueError):
+                    parsed_end_time = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
 
             # Parse tags
             tag_list = None
@@ -68,7 +80,9 @@ class TodoTools:
             todo_id = self.todo_repo.create(
                 name=name,
                 description=description,
-                deadline=parsed_deadline,
+                start_time=parsed_start_time,
+                end_time=parsed_end_time,
+                time_zone=time_zone,
                 priority=normalized_priority,
                 tags=tag_list,
             )
@@ -106,11 +120,14 @@ class TodoTools:
             logger.error(f"Failed to complete todo: {e}")
             return self._msg("complete_failed", error=str(e))
 
-    def update_todo(
+    def update_todo(  # noqa: PLR0913, C901
         self,
         todo_id: int,
         name: str | None = None,
         description: str | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        time_zone: str | None = None,
         deadline: str | None = None,
         priority: str | None = None,
     ) -> str:
@@ -120,7 +137,10 @@ class TodoTools:
             todo_id: The ID of the todo to update
             name: New name (optional)
             description: New description (optional)
-            deadline: New deadline in ISO format (optional)
+            start_time: New start time in ISO format (optional)
+            end_time: New end time in ISO format (optional)
+            time_zone: IANA time zone like 'Asia/Shanghai' (optional)
+            deadline: Legacy alias of start_time (optional)
             priority: New priority - 'high', 'medium', 'low', or 'none' (optional)
 
         Returns:
@@ -136,13 +156,23 @@ class TodoTools:
                 update_kwargs["name"] = name
             if description is not None:
                 update_kwargs["description"] = description
-            if deadline is not None:
-                try:
-                    update_kwargs["deadline"] = datetime.fromisoformat(
+            if start_time is not None:
+                with contextlib.suppress(ValueError):
+                    update_kwargs["start_time"] = datetime.fromisoformat(
+                        start_time.replace("Z", "+00:00")
+                    )
+            elif deadline is not None:
+                with contextlib.suppress(ValueError):
+                    update_kwargs["start_time"] = datetime.fromisoformat(
                         deadline.replace("Z", "+00:00")
                     )
-                except ValueError:
-                    pass
+            if end_time is not None:
+                with contextlib.suppress(ValueError):
+                    update_kwargs["end_time"] = datetime.fromisoformat(
+                        end_time.replace("Z", "+00:00")
+                    )
+            if time_zone is not None:
+                update_kwargs["time_zone"] = time_zone
             if priority is not None and priority in ("high", "medium", "low", "none"):
                 update_kwargs["priority"] = priority
 
@@ -184,11 +214,28 @@ class TodoTools:
                     priority=todo.get("priority", "none"),
                     name=todo["name"],
                 )
-                if todo.get("deadline"):
-                    deadline_str = todo["deadline"]
-                    if isinstance(deadline_str, datetime):
-                        deadline_str = deadline_str.strftime("%Y-%m-%d %H:%M")
-                    item += self._msg("list_item_with_deadline", deadline=deadline_str)
+                start_time = (
+                    todo.get("dtstart")
+                    or todo.get("due")
+                    or todo.get("start_time")
+                    or todo.get("deadline")
+                )
+                end_time = todo.get("dtend") or todo.get("end_time")
+                if start_time:
+                    if isinstance(start_time, datetime):
+                        start_label = start_time.strftime("%Y-%m-%d %H:%M")
+                    else:
+                        start_label = str(start_time)
+                    end_label = None
+                    if end_time:
+                        if isinstance(end_time, datetime):
+                            end_label = end_time.strftime("%Y-%m-%d %H:%M")
+                        else:
+                            end_label = str(end_time)
+                    time_label = start_label
+                    if end_label:
+                        time_label = f"{start_label} ~ {end_label}"
+                    item += self._msg("list_item_with_time", time=time_label)
                 result += item + "\n"
 
             return result.strip()

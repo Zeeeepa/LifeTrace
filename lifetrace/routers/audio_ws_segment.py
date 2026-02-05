@@ -6,14 +6,29 @@ Split from `audio_ws.py` to reduce file size and complexity.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+import importlib
+from typing import TYPE_CHECKING
 
 from starlette.websockets import WebSocketState
+
+from lifetrace.util.time_utils import get_utc_now
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 # 常量（从 audio_ws 复制以避免循环导入）
 SILENCE_CHECK_INTERVAL_SECONDS = 60
 SILENCE_DETECTION_THRESHOLD_SECONDS = 600
 SEGMENT_DURATION_MINUTES = 30
+
+_segment_tasks: set[asyncio.Task] = set()
+
+
+def _track_task(coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    _segment_tasks.add(task)
+    task.add_done_callback(_segment_tasks.discard)
+    return task
 
 
 class _SegmentMonitorContext:
@@ -82,7 +97,9 @@ async def _persist_segment_async(
 ) -> None:
     """异步保存分段（不阻塞主流程）"""
     # 延迟导入以避免循环导入
-    from lifetrace.routers.audio_ws import _persist_recording, _save_transcription_if_any
+    audio_ws_module = importlib.import_module("lifetrace.routers.audio_ws")
+    _persist_recording = audio_ws_module._persist_recording
+    _save_transcription_if_any = audio_ws_module._save_transcription_if_any
 
     try:
         recording_id, _duration = _persist_recording(
@@ -148,7 +165,7 @@ async def _save_current_segment(*, params: dict) -> None:
     await _notify_segment_saved(ctx)
 
     # 异步保存当前段（不阻塞）
-    asyncio.create_task(
+    _track_task(
         _persist_segment_async(
             logger=ctx.logger,
             audio_service=ctx.audio_service,
@@ -196,8 +213,8 @@ async def _check_silence_segment(
 
     # 检查最近一段音频是否为静音
     # 延迟导入以避免循环导入
-    from lifetrace.routers.audio_ws import _detect_silence
-
+    audio_ws_module = importlib.import_module("lifetrace.routers.audio_ws")
+    _detect_silence = audio_ws_module._detect_silence
     recent_chunks = ctx.audio_chunks[-10:]  # 检查最近10个chunk
     recent_audio = b"".join(recent_chunks)
     is_silent = _detect_silence(recent_audio)
@@ -231,6 +248,7 @@ async def _check_manual_segment(
     ctx: _SegmentMonitorContext, now: datetime, segment_start_time: datetime
 ) -> bool:
     """检查外部分段请求，返回是否已分段"""
+    _ = now
     if ctx.should_segment_ref[0]:
         ctx.logger.info("收到分段请求，保存当前段并开始新段")
         await _save_current_segment(
@@ -253,6 +271,7 @@ async def _check_manual_segment(
 
 async def _segment_monitor_task(*, params: dict, is_24x7: bool) -> None:
     """监控分段条件：30分钟时间分段 + 静音检测"""
+    _ = is_24x7
     logger = params["logger"]
     recording_started_at = params["recording_started_at"]
 
@@ -267,7 +286,7 @@ async def _segment_monitor_task(*, params: dict, is_24x7: bool) -> None:
             if not ctx.is_connected_ref[0]:
                 break
 
-            now = datetime.now()
+            now = get_utc_now()
 
             # 检查30分钟时间分段
             if await _check_time_segment(ctx, now, segment_start_time):

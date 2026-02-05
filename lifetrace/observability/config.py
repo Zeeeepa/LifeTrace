@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.settings import settings
 
 
@@ -25,6 +26,9 @@ class PhoenixConfig:
 
     endpoint: str = "http://localhost:6006"
     project_name: str = "freetodo-agent"
+    export_timeout_sec: float = 2.0
+    disable_after_failures: int = 1
+    retry_cooldown_sec: float = 60.0
 
 
 @dataclass
@@ -70,6 +74,9 @@ def get_observability_config() -> ObservabilityConfig:
     phoenix_config = PhoenixConfig(
         endpoint=phoenix_settings.get("endpoint", "http://localhost:6006"),
         project_name=phoenix_settings.get("project_name", "freetodo-agent"),
+        export_timeout_sec=phoenix_settings.get("export_timeout_sec", 2.0),
+        disable_after_failures=phoenix_settings.get("disable_after_failures", 1),
+        retry_cooldown_sec=phoenix_settings.get("retry_cooldown_sec", 60.0),
     )
 
     # 解析 terminal 配置
@@ -93,8 +100,6 @@ def get_traces_directory() -> Path:
     Returns:
         Path: traces 目录路径
     """
-    from lifetrace.util.path_utils import get_user_data_dir
-
     config = get_observability_config()
     data_dir = get_user_data_dir()
     traces_dir = data_dir / config.local.traces_dir

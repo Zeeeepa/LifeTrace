@@ -2,11 +2,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { flushSync } from "react-dom";
-import type { usePlanParser } from "@/apps/chat/hooks/usePlanParser";
 import type { SessionCacheReturn } from "@/apps/chat/hooks/useSessionCache";
 import type { StreamControllerReturn } from "@/apps/chat/hooks/useStreamController";
 import type { ToolCallTrackerReturn } from "@/apps/chat/hooks/useToolCallTracker";
-import type { ChatMessage, ChatMode } from "@/apps/chat/types";
+import type { ChatMessage } from "@/apps/chat/types";
 import { createId } from "@/apps/chat/utils/id";
 import {
 	buildPayloadMessage,
@@ -14,7 +13,6 @@ import {
 } from "@/apps/chat/utils/messageBuilder";
 import {
 	handleEmptyResponse,
-	handlePlanModeResponse,
 	handleStreamError,
 } from "@/apps/chat/utils/responseHandlers";
 import {
@@ -25,7 +23,7 @@ import type { ToolCallEvent } from "@/lib/api";
 import { sendChatMessageStream } from "@/lib/api";
 import { queryKeys } from "@/lib/query/keys";
 import { useChatStore } from "@/lib/store/chat-store";
-import type { CreateTodoInput, Todo } from "@/lib/types";
+import type { Todo } from "@/lib/types";
 
 /**
  * useSendMessage 参数
@@ -33,12 +31,6 @@ import type { CreateTodoInput, Todo } from "@/lib/types";
 export interface UseSendMessageParams {
 	/** 语言设置 */
 	locale: string;
-	/** 聊天模式 */
-	chatMode: ChatMode;
-	/** Plan 系统提示词 */
-	planSystemPrompt: string;
-	/** Edit 系统提示词 */
-	editSystemPrompt: string;
 	/** 是否有选中的待办 */
 	hasSelection: boolean;
 	/** 选中的待办列表 */
@@ -55,11 +47,6 @@ export interface UseSendMessageParams {
 	streamController: StreamControllerReturn;
 	/** 工具调用跟踪器 hook */
 	toolCallTracker: ToolCallTrackerReturn;
-	/** Plan 解析器方法 */
-	parsePlanTodos: ReturnType<typeof usePlanParser>["parsePlanTodos"];
-	buildTodoPayloads: ReturnType<typeof usePlanParser>["buildTodoPayloads"];
-	/** 创建待办方法 */
-	createTodo: (todo: CreateTodoInput) => Promise<Todo | null>;
 	/** Query Client */
 	queryClient: QueryClient;
 	/** 翻译函数 */
@@ -90,9 +77,6 @@ export interface SendMessageReturn {
  */
 export const useSendMessage = ({
 	locale,
-	chatMode,
-	planSystemPrompt,
-	editSystemPrompt,
 	hasSelection,
 	effectiveTodos,
 	todos,
@@ -101,9 +85,6 @@ export const useSendMessage = ({
 	sessionCache,
 	streamController,
 	toolCallTracker,
-	parsePlanTodos,
-	buildTodoPayloads,
-	createTodo,
 	queryClient,
 	t,
 	tCommon,
@@ -127,16 +108,6 @@ export const useSendMessage = ({
 			const { requestId, abortController } = streamController.createRequest();
 			const currentConversationId = useChatStore.getState().conversationId;
 
-			// 检查 prompt 是否已加载
-			if (chatMode === "plan" && !planSystemPrompt) {
-				setError(t("promptNotLoaded") || "提示词正在加载中，请稍候...");
-				return;
-			}
-			if (chatMode === "edit" && !editSystemPrompt) {
-				setError(t("promptNotLoaded") || "提示词正在加载中，请稍候...");
-				return;
-			}
-
 			if (clearInput) {
 				setInputValue("");
 			}
@@ -154,12 +125,9 @@ export const useSendMessage = ({
 			// 使用工具函数构建 payload
 			const { payloadMessage, systemPromptForBackend, contextForBackend } =
 				buildPayloadMessage({
-					chatMode,
 					trimmedText,
 					userLabel,
 					todoContext,
-					planSystemPrompt,
-					editSystemPrompt,
 				});
 
 			// 创建消息
@@ -225,11 +193,7 @@ export const useSendMessage = ({
 			};
 
 			try {
-				const modeForBackend = getModeForBackend(chatMode);
-
-				// 调试日志
-				console.log("[useSendMessage] chatMode:", chatMode);
-				console.log("[useSendMessage] modeForBackend:", modeForBackend);
+				const modeForBackend = getModeForBackend();
 
 				await sendChatMessageStream(
 					{
@@ -240,10 +204,8 @@ export const useSendMessage = ({
 						conversationId: currentConversationId || undefined,
 						useRag: false,
 						mode: modeForBackend,
-						selectedTools:
-							chatMode === "agno" ? selectedAgnoTools : undefined,
-						externalTools:
-							chatMode === "agno" ? selectedExternalTools : undefined,
+						selectedTools: selectedAgnoTools,
+						externalTools: selectedExternalTools,
 					},
 					// onChunk 回调
 					(chunk) => {
@@ -309,18 +271,6 @@ export const useSendMessage = ({
 				// 处理响应完成后的逻辑
 				if (!assistantContent) {
 					handleEmptyResponse(assistantMessageId, t, setMessages);
-				} else if (chatMode === "plan") {
-					// Plan 模式特殊处理：解析并创建待办
-					await handlePlanModeResponse(
-						assistantContent,
-						assistantMessageId,
-						parsePlanTodos,
-						buildTodoPayloads,
-						createTodo,
-						t,
-						setMessages,
-						setError,
-					);
 				}
 			} catch (err) {
 				handleStreamError(
@@ -364,15 +314,9 @@ export const useSendMessage = ({
 			}
 		},
 		[
-			buildTodoPayloads,
-			chatMode,
-			createTodo,
-			editSystemPrompt,
 			effectiveTodos,
 			hasSelection,
 			locale,
-			parsePlanTodos,
-			planSystemPrompt,
 			queryClient,
 			selectedAgnoTools,
 			selectedExternalTools,

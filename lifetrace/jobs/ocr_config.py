@@ -8,8 +8,8 @@ import sys
 
 import yaml
 
+from lifetrace.util.base_paths import get_app_root, get_config_dir, get_models_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_app_root, get_config_dir, get_models_dir
 from lifetrace.util.settings import settings
 
 logger = get_logger()
@@ -61,14 +61,17 @@ def get_ocr_config() -> dict:
     }
 
 
-def create_rapidocr_instance():  # noqa: C901, PLR0912
+def create_rapidocr_instance():
     """创建并初始化RapidOCR实例
 
     Returns:
         RapidOCR实例
     """
-    from rapidocr_onnxruntime import RapidOCR
+    rapidocr_cls = _get_rapidocr_cls()
+    if rapidocr_cls is None:
+        raise ImportError("RapidOCR 未安装，请运行: pip install rapidocr-onnxruntime")
 
+    setup_rapidocr_config()
     config_path = get_rapidocr_config_path()
 
     # 在 PyInstaller 打包环境中，清除可能干扰的环境变量
@@ -78,7 +81,7 @@ def create_rapidocr_instance():  # noqa: C901, PLR0912
     # 配置文件不存在时使用默认配置
     if not os.path.exists(config_path):
         logger.warning(f"配置文件不存在: {config_path}，使用默认配置")
-        return _create_default_rapidocr(RapidOCR)
+        return _create_default_rapidocr(rapidocr_cls)
 
     logger.info(f"使用RapidOCR配置文件: {config_path}")
 
@@ -88,13 +91,22 @@ def create_rapidocr_instance():  # noqa: C901, PLR0912
 
         if "Models" not in config_data:
             logger.info("未找到外部模型配置，使用默认方式")
-            return _create_default_rapidocr_with_cleanup(RapidOCR)
+            return _create_default_rapidocr_with_cleanup(rapidocr_cls)
 
-        return _create_rapidocr_with_external_models(RapidOCR, config_data)
+        return _create_rapidocr_with_external_models(rapidocr_cls, config_data)
 
     except Exception as e:
         logger.error(f"读取配置文件失败: {e}，使用默认配置")
-        return _create_default_rapidocr_with_cleanup(RapidOCR)
+        return _create_default_rapidocr_with_cleanup(rapidocr_cls)
+
+
+def _get_rapidocr_cls():
+    """延迟加载 RapidOCR 类，避免在启动时导入重依赖。"""
+    try:
+        from rapidocr_onnxruntime import RapidOCR  # noqa: PLC0415
+    except ImportError:
+        return None
+    return RapidOCR
 
 
 def _create_default_rapidocr(rapidocr_cls):

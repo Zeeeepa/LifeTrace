@@ -10,16 +10,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Event
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
 
 def get_app_usage_stats(
     db_base: DatabaseBase,
-    days: int = None,
-    start_date: datetime = None,
-    end_date: datetime = None,
+    days: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
 ) -> dict[str, Any]:
     """基于 Event 表获取应用使用统计数据
 
@@ -44,7 +46,7 @@ def get_app_usage_stats(
                 dt_start = start_date
                 dt_end = end_date + timedelta(days=1) - timedelta(seconds=1)
             else:
-                dt_end = datetime.now()
+                dt_end = get_utc_now()
                 use_days = days if days else 7
                 dt_start = dt_end - timedelta(days=use_days)
 
@@ -52,9 +54,9 @@ def get_app_usage_stats(
             events = (
                 session.query(Event)
                 .filter(
-                    Event.start_time >= dt_start,
-                    Event.start_time <= dt_end,
-                    Event.end_time.isnot(None),
+                    col(Event.start_time) >= dt_start,
+                    col(Event.start_time) <= dt_end,
+                    col(Event.end_time).isnot(None),
                 )
                 .all()
             )

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta, timezone
 
 
@@ -33,8 +34,6 @@ def to_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         # naive datetime 假设为本地时间，转换为 UTC
         # 使用 local timezone 转换
-        import time
-
         local_tz = timezone(
             timedelta(seconds=-time.timezone if time.daylight == 0 else -time.altzone)
         )
@@ -85,8 +84,6 @@ def to_local(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        import time
-
         offset = -time.timezone if time.daylight == 0 else -time.altzone
         local_tz = timezone(timedelta(seconds=offset))
         return dt.replace(tzinfo=local_tz)

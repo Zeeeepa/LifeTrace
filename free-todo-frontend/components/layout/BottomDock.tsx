@@ -167,7 +167,7 @@ function DockItemButton({
 				isDraggingItem && "opacity-50",
 				isOverItem && !isDraggingItem && "ring-2 ring-primary/50 ring-offset-2",
 				item.isActive
-					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
+					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
 					: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
 			)}
 			aria-label={item.label}
@@ -177,22 +177,22 @@ function DockItemButton({
 				className={cn(
 					"h-5 w-5",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			/>
 			<span
 				className={cn(
-					"text-sm font-medium",
+					"text-sm font-semibold",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			>
 				{item.label}
 			</span>
 			{item.isActive && (
-				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
+				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))]" />
 			)}
 		</button>
 	);
@@ -216,6 +216,7 @@ export function BottomDock({
 		dockDisplayMode,
 		panelFeatureMap, // ✅ 直接订阅 panelFeatureMap，确保交换位置后能触发重新渲染
 		disabledFeatures, // ✅ 也需要订阅 disabledFeatures，确保禁用功能被正确处理
+		backendDisabledFeatures,
 		getFeatureByPosition, // ✅ 用于根据位置获取功能（用于引导流程）
 	} = useUiStore();
 	const { locale: _ } = useLocaleStore();
@@ -309,7 +310,13 @@ export function BottomDock({
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	// 在 SSR 时使用默认值，避免 hydration 错误
-	const DOCK_ITEMS: DockItem[] = useMemo(() => visiblePositionsResolved.map((position) => {
+	const DOCK_ITEMS: DockItem[] = useMemo(() => {
+		const disabledSet = new Set([
+			...disabledFeatures,
+			...backendDisabledFeatures,
+		]);
+
+		return visiblePositionsResolved.map((position) => {
 		// 在 SSR 时使用默认功能分配，客户端挂载后使用实际值
 		const defaultFeatureMap: Record<PanelPosition, PanelFeature> = {
 			panelA: "todos",
@@ -319,7 +326,7 @@ export function BottomDock({
 		// ✅ 修复：直接使用 panelFeatureMap，而不是 getFeatureByPosition，确保交换位置后能触发重新计算
 		// 同时检查功能是否被禁用
 		const rawFeature = mounted ? (panelFeatureMap[position] || null) : defaultFeatureMap[position];
-		const feature = rawFeature && disabledFeatures.includes(rawFeature) ? null : rawFeature;
+		const feature = rawFeature && disabledSet.has(rawFeature) ? null : rawFeature;
 
 		// 获取位置对应的状态和 toggle 方法（无论是否分配功能都需要）
 		let isActive: boolean;
@@ -362,7 +369,8 @@ export function BottomDock({
 			onClick,
 			group: "views",
 		};
-	}), [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
+		});
+	}, [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, backendDisabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
 
 	// 测量 dock 实际高度
 	useEffect(() => {
@@ -500,10 +508,10 @@ export function BottomDock({
 			data-tour="bottom-dock"
 			className={cn(
 				"flex items-center gap-2",
-				"bg-[oklch(var(--card))]/80 dark:bg-background",
+				"bg-[oklch(var(--card))] dark:bg-[oklch(var(--card))]/60",
 				"backdrop-blur-md",
 				"border border-[oklch(var(--border))]",
-				"shadow-lg",
+				"shadow-lg dark:shadow-[0_12px_32px_-18px_oklch(var(--overlay))]",
 				"px-2 py-1.5",
 				"rounded-xl",
 			)}

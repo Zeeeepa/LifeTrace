@@ -2,12 +2,14 @@
 LLM 查询解析和摘要生成模块
 """
 
+import contextlib
 import json
 from datetime import datetime
 from typing import Any
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.time_utils import get_utc_now
 from lifetrace.util.token_usage_logger import log_token_usage
 
 logger = get_logger()
@@ -24,7 +26,7 @@ def parse_query_with_llm(client, model: str, user_query: str) -> dict[str, Any]:
     Returns:
         解析后的查询条件字典
     """
-    current_time = datetime.now()
+    current_time = get_utc_now().astimezone()
     current_date_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
 
     system_prompt = get_prompt("llm_client", "query_parsing")
@@ -92,6 +94,20 @@ def rule_based_parse(user_query: str) -> dict[str, Any]:
 
     if has_search_intent:
         function_words = ["聊天", "浏览", "编辑", "查看", "打开", "使用", "运行"]
+        blocked_words = {
+            "搜索",
+            "查找",
+            "包含",
+            "关于",
+            "找到",
+            "今天",
+            "昨天",
+            "的",
+            "在",
+            "上",
+            "中",
+            "里",
+        }
         words = user_query.split()
         for word in words:
             if (
@@ -99,27 +115,14 @@ def rule_based_parse(user_query: str) -> dict[str, Any]:
                 and word not in function_words
                 and word not in time_keywords
                 and word not in app_keywords
+                and word not in blocked_words
             ):
-                if word not in [
-                    "搜索",
-                    "查找",
-                    "包含",
-                    "关于",
-                    "找到",
-                    "今天",
-                    "昨天",
-                    "的",
-                    "在",
-                    "上",
-                    "中",
-                    "里",
-                ]:
-                    keywords.append(word)
+                keywords.append(word)
 
     start_date = None
     end_date = None
     if "今天" in user_query:
-        now = datetime.now()
+        now = get_utc_now().astimezone()
         start_date = now.strftime("%Y-%m-%d 00:00:00")
         end_date = now.strftime("%Y-%m-%d 23:59:59")
 
@@ -146,30 +149,28 @@ def rule_based_parse(user_query: str) -> dict[str, Any]:
 
 def build_context_text(context_data: list[dict[str, Any]]) -> str:
     """构建上下文文本用于摘要生成"""
-    MAX_OCR_TEXT_LENGTH = 200
-    MAX_DISPLAYED_RECORDS = 10
+    max_ocr_text_length = 200
+    max_displayed_records = 10
 
     if not context_data:
         return "没有找到相关的历史记录数据。"
 
     context_parts = [f"找到 {len(context_data)} 条相关记录:"]
 
-    for i, record in enumerate(context_data[:MAX_DISPLAYED_RECORDS]):
+    for i, record in enumerate(context_data[:max_displayed_records]):
         timestamp = record.get("timestamp", "未知时间")
         if timestamp and timestamp != "未知时间":
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                 timestamp = dt.strftime("%Y-%m-%d %H:%M")
-            except:  # noqa: E722
-                pass
 
         app_name = record.get("app_name", "未知应用")
         ocr_text = record.get("ocr_text", "无文本内容")
         window_title = record.get("window_title", "")
         screenshot_id = record.get("screenshot_id") or record.get("id")
 
-        if len(ocr_text) > MAX_OCR_TEXT_LENGTH:
-            ocr_text = ocr_text[:MAX_OCR_TEXT_LENGTH] + "..."
+        if len(ocr_text) > max_ocr_text_length:
+            ocr_text = ocr_text[:max_ocr_text_length] + "..."
 
         record_text = f"{i + 1}. [{app_name}] {timestamp}"
         if window_title:
@@ -180,8 +181,8 @@ def build_context_text(context_data: list[dict[str, Any]]) -> str:
 
         context_parts.append(record_text)
 
-    if len(context_data) > MAX_DISPLAYED_RECORDS:
-        context_parts.append(f"... 还有 {len(context_data) - MAX_DISPLAYED_RECORDS} 条记录")
+    if len(context_data) > max_displayed_records:
+        context_parts.append(f"... 还有 {len(context_data) - max_displayed_records} 条记录")
 
     return "\n\n".join(context_parts)
 
@@ -254,9 +255,10 @@ def generate_summary_with_llm(
 
 def fallback_summary(query: str, context_data: list[dict[str, Any]]) -> str:
     """在LLM不可用或失败时的总结备选方案"""
+    total_records = len(context_data)
     summary_parts = [
-        "以下是根据历史数据的简要总结：",
-        "- 共检索到相关记录若干条",
+        f"以下是根据历史数据的简要总结（查询: {query}）：",
+        f"- 共检索到相关记录 {total_records} 条",
         "- 涉及多个应用和时间点",
         "- 建议进一步细化查询条件以获得更精确的结果",
     ]

@@ -140,7 +140,13 @@ fn get_tray_icon(_app: &App) -> Result<Image<'static>, Box<dyn std::error::Error
     // Decode PNG to get RGBA data
     let decoder = png::Decoder::new(std::io::Cursor::new(icon_bytes));
     let mut reader = decoder.read_info()?;
-    let mut buf = vec![0; reader.output_buffer_size()];
+    let buf_size = reader.output_buffer_size().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "PNG output buffer size overflow",
+        )
+    })?;
+    let mut buf = vec![0; buf_size];
     let info = reader.next_frame(&mut buf)?;
 
     // Convert to RGBA if necessary

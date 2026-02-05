@@ -3,13 +3,16 @@ Proactive OCR Service
 主动检测并处理 WeChat/Feishu 窗口的 OCR 服务
 """
 
+import hashlib
 import sys
 import threading
 import time
+from functools import lru_cache
 from typing import Any
 
 from PIL import Image
 
+from lifetrace.llm.todo_extraction_service import todo_extraction_service
 from lifetrace.storage import ocr_mgr, screenshot_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_screenshots_dir
@@ -116,7 +119,7 @@ class ProactiveOCRService:
             return None
 
         # 检查是否为目标应用
-        app_type, reason = self.router.identify_app(window)
+        app_type, _reason = self.router.identify_app(window)
         if app_type == AppType.UNKNOWN:
             return None
 
@@ -133,12 +136,10 @@ class ProactiveOCRService:
         logger.debug(f"ProactiveOCR: Window size: {window.rect.width}x{window.rect.height}")
 
         # 捕获窗口截图
-        import time as _time
-
         timings = {}
-        t0 = _time.perf_counter()
+        t0 = time.perf_counter()
         frame = self.capture.capture_window(window)
-        timings["capture"] = (_time.perf_counter() - t0) * 1000
+        timings["capture"] = (time.perf_counter() - t0) * 1000
 
         if frame is None:
             logger.error("ProactiveOCR: Capture window failed")
@@ -155,9 +156,9 @@ class ProactiveOCRService:
         theme = None
 
         if self.use_roi:
-            t0 = _time.perf_counter()
+            t0 = time.perf_counter()
             roi_result = self.roi_extractor.extract_with_details(frame.data, app_type)
-            timings["roi"] = (_time.perf_counter() - t0) * 1000
+            timings["roi"] = (time.perf_counter() - t0) * 1000
 
             if roi_result:
                 image_to_ocr = roi_result.image
@@ -170,9 +171,9 @@ class ProactiveOCRService:
 
         # 执行 OCR 识别
         logger.debug("ProactiveOCR: Starting OCR recognition...")
-        t0 = _time.perf_counter()
+        t0 = time.perf_counter()
         ocr_result = self.ocr_engine.ocr(image_to_ocr)
-        timings["ocr_total"] = (_time.perf_counter() - t0) * 1000
+        timings["ocr_total"] = (time.perf_counter() - t0) * 1000
 
         logger.info(
             f"ProactiveOCR: OCR completed in {timings['ocr_total']:.0f}ms "
@@ -241,10 +242,8 @@ class ProactiveOCRService:
             img.save(file_path)
 
             # 计算文件哈希
-            import hashlib
-
             with open(file_path, "rb") as f:
-                file_hash = hashlib.md5(f.read()).hexdigest()
+                file_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
             # 添加截图记录
             screenshot_id = screenshot_mgr.add_screenshot(
@@ -292,8 +291,6 @@ class ProactiveOCRService:
                         10,
                     )
                     if auto_extract and len((text_content or "").strip()) >= min_text_length:
-                        from lifetrace.llm.todo_extraction_service import todo_extraction_service
-
                         logger.info(
                             "ProactiveOCR: auto_extract_todos 开启，开始基于 OCR 文本提取待办"
                         )
@@ -330,7 +327,7 @@ class ProactiveOCRService:
                                     f"todos_count={todos_count}, "
                                     f"created_count={created_count}"
                                 )
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     logger.error(f"ProactiveOCR: 自动待办提取失败（已忽略）: {e}", exc_info=True)
 
                 return screenshot_id
@@ -353,12 +350,9 @@ class ProactiveOCRService:
 
 
 # 单例实例
-_service_instance: ProactiveOCRService | None = None
 
 
+@lru_cache(maxsize=1)
 def get_proactive_ocr_service() -> ProactiveOCRService:
     """获取 Proactive OCR 服务单例"""
-    global _service_instance
-    if _service_instance is None:
-        _service_instance = ProactiveOCRService()
-    return _service_instance
+    return ProactiveOCRService()

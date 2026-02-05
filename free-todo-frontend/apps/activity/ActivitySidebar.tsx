@@ -1,15 +1,12 @@
-import { Plus } from "lucide-react";
 import { ActivityCard } from "@/apps/activity/ActivityCard";
 import type { ActivityGroup } from "@/apps/activity/utils/timeUtils";
 import { formatTimeRange } from "@/apps/activity/utils/timeUtils";
 import type { Activity } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface ActivitySidebarProps {
 	groups: ActivityGroup[];
 	selectedId?: number | null;
 	onSelect?: (activity: Activity) => void;
-	onCreate?: () => void;
 	loading?: boolean;
 }
 
@@ -17,7 +14,6 @@ export function ActivitySidebar({
 	groups,
 	selectedId,
 	onSelect,
-	onCreate,
 	loading = false,
 }: ActivitySidebarProps) {
 	const allActivities = groups.flatMap((group) => group.items);
@@ -69,17 +65,6 @@ export function ActivitySidebar({
 				)}
 			</div>
 
-			<button
-				type="button"
-				onClick={onCreate}
-				className={cn(
-					"absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full",
-					"bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition hover:bg-primary/90",
-				)}
-				aria-label="Create activity"
-			>
-				<Plus className="h-4 w-4" />
-			</button>
 		</aside>
 	);
 }

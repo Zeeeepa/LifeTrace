@@ -5,15 +5,22 @@ Split from `lifetrace.routers.audio` to keep router files small and readable.
 
 from __future__ import annotations
 
+import array
 import asyncio
+import importlib
 import json
 import struct
-from collections.abc import Callable
+import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
+
+from lifetrace.util.time_utils import get_utc_now
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # ---- constants (avoid magic numbers) ----
 SAMPLE_RATE = 16000
@@ -35,13 +42,18 @@ SILENCE_DETECTION_THRESHOLD_SECONDS = 600  # 10分钟静音检测阈值
 SILENCE_CHECK_INTERVAL_SECONDS = 60  # 每60秒检查一次静音
 
 
+def _track_task(task_set: set[asyncio.Task], coro) -> asyncio.Task:
+    task = asyncio.create_task(coro)
+    task_set.add(task)
+    task.add_done_callback(task_set.discard)
+    return task
+
+
 def _to_local(dt: datetime | None) -> datetime | None:
     """Convert datetime to local timezone (timezone-aware)."""
     if dt is None:
         return None
     if dt.tzinfo is None:
-        import time
-
         offset = -time.timezone if time.daylight == 0 else -time.altzone
         local_tz = timezone(timedelta(seconds=offset))
         return dt.replace(tzinfo=local_tz)
@@ -89,6 +101,7 @@ def _create_result_callback(
     logger,
     transcription_text_ref: list[str],
     is_connected_ref: list[bool],
+    task_set: set[asyncio.Task],
 ) -> Callable[[str, bool], None]:
     """Create ASR result callback.
 
@@ -128,14 +141,16 @@ def _create_result_callback(
                 and websocket.application_state == WebSocketState.CONNECTED
                 and websocket.client_state == WebSocketState.CONNECTED
             ):
-                asyncio.create_task(_send_result(text, is_final))
+                _track_task(task_set, _send_result(text, is_final))
         except Exception as e:
             logger.warning(f"Failed to schedule sending TranscriptionResultChanged: {e}")
 
     return on_result
 
 
-def _create_error_callback(*, websocket: WebSocket, logger, is_connected_ref: list[bool]):
+def _create_error_callback(
+    *, websocket: WebSocket, logger, is_connected_ref: list[bool], task_set: set[asyncio.Task]
+):
     async def _send_error(error: Exception) -> None:
         try:
             if (
@@ -158,7 +173,7 @@ def _create_error_callback(*, websocket: WebSocket, logger, is_connected_ref: li
                     websocket.application_state == WebSocketState.CONNECTED
                     and websocket.client_state == WebSocketState.CONNECTED
                 ):
-                    asyncio.create_task(_send_error(error))
+                    _track_task(task_set, _send_error(error))
             except Exception as e:
                 logger.warning(f"Failed to schedule sending TaskFailed: {e}")
 
@@ -171,6 +186,7 @@ def _create_realtime_nlp_handler(  # noqa: C901
     logger,
     audio_service,
     is_connected_ref: list[bool],
+    task_set: set[asyncio.Task],
     throttle_seconds: float = 8.0,
 ):
     """Realtime optimize/extract during recording (only on final sentences)."""
@@ -253,12 +269,12 @@ def _create_realtime_nlp_handler(  # noqa: C901
             elapsed = now - self._last_emit
             if elapsed >= throttle_seconds:
                 self._last_emit = now
-                asyncio.create_task(self._run_once())
+                _track_task(task_set, self._run_once())
                 return
 
             if self._pending is None:
                 delay = max(0.0, throttle_seconds - elapsed)
-                self._pending = asyncio.create_task(self._debounced_run(delay))
+                self._pending = _track_task(task_set, self._debounced_run(delay))
 
         def cancel(self) -> None:
             if self._pending and not self._pending.done():
@@ -291,11 +307,10 @@ def _handle_websocket_text_message(
         else:
             logger.info("Received stop signal from client")
         return True
-    if msg_type == "segment":
+    if msg_type == "segment" and should_segment_ref:
         # 客户端请求分段（用于手动分段或同步）
-        if should_segment_ref:
-            should_segment_ref[0] = True
-            logger.info("Received segment request from client")
+        should_segment_ref[0] = True
+        logger.info("Received segment request from client")
     return False
 
 
@@ -347,8 +362,6 @@ def _parse_init_message(logger, init_message: dict[str, Any]) -> bool:
 
 def _apply_agc_to_pcm(logger, pcm_bytes: bytes) -> bytes:
     try:
-        import array
-
         samples = array.array("h")
         samples.frombytes(pcm_bytes)
         if not samples:
@@ -398,8 +411,6 @@ def _detect_silence(
         True if silent, False otherwise
     """
     try:
-        import array
-
         samples = array.array("h")
         samples.frombytes(pcm_bytes)
         if not samples:
@@ -424,7 +435,7 @@ def _persist_recording(
         return None, None
 
     pcm_bytes = b"".join(audio_chunks)
-    duration = (datetime.now() - recording_started_at).total_seconds()
+    duration = (get_utc_now() - recording_started_at).total_seconds()
 
     pcm_bytes = _apply_agc_to_pcm(logger, pcm_bytes)
     wav_bytes = _pcm16le_to_wav(pcm_bytes)
@@ -463,20 +474,15 @@ async def _save_transcription_if_any(
 # 导入分段相关功能（延迟导入以避免循环依赖）
 def _get_segment_functions():
     """延迟导入分段函数以避免循环依赖"""
-    from lifetrace.routers.audio_ws_segment import (
-        _save_current_segment,
-        _segment_monitor_task,
-    )
-
-    return _save_current_segment, _segment_monitor_task
+    segment_module = importlib.import_module("lifetrace.routers.audio_ws_segment")
+    return segment_module._save_current_segment, segment_module._segment_monitor_task
 
 
 # 导入 WebSocket 处理函数（延迟导入以避免循环依赖）
 def _get_transcribe_handler():
     """延迟导入 WebSocket 处理函数以避免循环依赖"""
-    from lifetrace.routers.audio_ws_handler import _handle_transcribe_ws
-
-    return _handle_transcribe_ws
+    handler_module = importlib.import_module("lifetrace.routers.audio_ws_handler")
+    return handler_module._handle_transcribe_ws
 
 
 def register_audio_ws_routes(*, router: APIRouter, logger, asr_client, audio_service) -> None:

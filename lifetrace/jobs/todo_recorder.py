@@ -8,13 +8,15 @@ Todo 专用屏幕录制器 - 仅录制白名单应用，用于自动待办检测
 """
 
 import hashlib
+import importlib
 import os
 import threading
-from datetime import datetime
-from functools import wraps
+from concurrent.futures import Future, ThreadPoolExecutor
+from functools import lru_cache, wraps
 
 import imagehash
 import mss
+from mss import tools as mss_tools
 from PIL import Image
 
 from lifetrace.llm.auto_todo_detection_service import get_whitelist_apps
@@ -22,6 +24,7 @@ from lifetrace.storage import screenshot_mgr
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_screenshots_dir
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 from lifetrace.util.utils import (
     ensure_dir,
     get_active_window_info,
@@ -38,7 +41,6 @@ UNKNOWN_WINDOW = "未知窗口"
 
 def with_timeout(timeout_seconds: float = 5.0, operation_name: str = "操作"):
     """超时装饰器 - 使用线程池实现超时控制"""
-    from concurrent.futures import Future, ThreadPoolExecutor
 
     def decorator(func):
         @wraps(func)
@@ -165,7 +167,7 @@ class TodoScreenRecorder:
 
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="保存截图文件")
         def _do_save():
-            mss.tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
+            mss_tools.to_png(screenshot.rgb, screenshot.size, output=file_path)
             return True
 
         try:
@@ -196,7 +198,7 @@ class TodoScreenRecorder:
         @with_timeout(timeout_seconds=self.file_io_timeout, operation_name="计算文件哈希")
         def _do_calculate_hash():
             with open(file_path, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()
+                return hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
         try:
             result = _do_calculate_hash()
@@ -248,12 +250,13 @@ class TodoScreenRecorder:
             screenshot_id: 截图ID
             app_name: 应用名称
         """
+        _ = app_name
 
         def _detect_todos():
             try:
-                from lifetrace.llm.auto_todo_detection_service import AutoTodoDetectionService
-
-                service = AutoTodoDetectionService()
+                auto_module = importlib.import_module("lifetrace.llm.auto_todo_detection_service")
+                auto_todo_detection_service_class = auto_module.AutoTodoDetectionService
+                service = auto_todo_detection_service_class()
                 result = service.detect_and_create_todos_from_screenshot(screenshot_id)
                 logger.info(
                     f"[Todo录制器] 截图 {screenshot_id} 待办检测完成，"
@@ -309,7 +312,7 @@ class TodoScreenRecorder:
 
             monitor = sct.monitors[active_screen_id]
             screenshot = sct.grab(monitor)
-            timestamp = datetime.now()
+            timestamp = get_utc_now()
             filename = f"todo_{get_screenshot_filename(active_screen_id, timestamp)}"
             file_path = os.path.join(self.screenshots_dir, filename)
 
@@ -401,19 +404,16 @@ class TodoScreenRecorder:
 
 
 # 全局录制器实例（用于调度器任务）
-_global_todo_recorder_instance: TodoScreenRecorder | None = None
 
 
+@lru_cache(maxsize=1)
 def get_todo_recorder_instance() -> TodoScreenRecorder:
     """获取全局 Todo 录制器实例
 
     Returns:
         TodoScreenRecorder 实例
     """
-    global _global_todo_recorder_instance
-    if _global_todo_recorder_instance is None:
-        _global_todo_recorder_instance = TodoScreenRecorder()
-    return _global_todo_recorder_instance
+    return TodoScreenRecorder()
 
 
 def execute_todo_capture_task() -> int:

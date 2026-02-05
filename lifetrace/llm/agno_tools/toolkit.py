@@ -5,6 +5,8 @@ Main toolkit class that combines all tool mixins.
 
 from __future__ import annotations
 
+import importlib
+
 from agno.tools import Toolkit
 
 from lifetrace.llm.agno_tools.base import AgnoToolsMessageLoader
@@ -58,11 +60,13 @@ class FreeTodoToolkit(
         AgnoToolsMessageLoader(lang)
 
         # Lazy import to avoid circular dependencies
-        from lifetrace.repositories.sql_todo_repository import SqlTodoRepository
-        from lifetrace.storage.database import db_base
+        repo_module = importlib.import_module("lifetrace.repositories.sql_todo_repository")
+        db_module = importlib.import_module("lifetrace.storage.database")
+        sql_todo_repository_class = repo_module.SqlTodoRepository
+        db_base = db_module.db_base
 
         self.db_base = db_base
-        self.todo_repo = SqlTodoRepository(db_base)
+        self.todo_repo = sql_todo_repository_class(db_base)
 
         # All available tools
         all_tools = {

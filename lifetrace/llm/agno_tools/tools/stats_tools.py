@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from lifetrace.llm.agno_tools.base import get_message
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 if TYPE_CHECKING:
     from lifetrace.repositories.sql_todo_repository import SqlTodoRepository
@@ -22,6 +23,16 @@ def _parse_datetime(value: str | datetime) -> datetime:
     if isinstance(value, str):
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     return value
+
+
+def _get_schedule_time(todo: dict) -> datetime | None:
+    """Return schedule time from todo with legacy fallback."""
+    schedule = (
+        todo.get("due") or todo.get("dtstart") or todo.get("deadline") or todo.get("start_time")
+    )
+    if not schedule:
+        return None
+    return _parse_datetime(schedule)
 
 
 def _get_start_date(date_range: str, now: datetime) -> datetime | None:
@@ -48,10 +59,10 @@ def _count_overdue(todos: list, now: datetime) -> int:
     """Count overdue active todos."""
     count = 0
     for t in todos:
-        if t.get("status") != "active" or not t.get("deadline"):
+        if t.get("status") != "active":
             continue
-        deadline = _parse_datetime(t["deadline"])
-        if deadline < now:
+        schedule = _get_schedule_time(t)
+        if schedule and schedule < now:
             count += 1
     return count
 
@@ -86,7 +97,7 @@ class StatsTools:
         """
         try:
             all_todos = self.todo_repo.list_todos(limit=1000, offset=0, status=None)
-            now = datetime.now()
+            now = get_utc_now()
 
             start_date = _get_start_date(date_range, now)
             filtered_todos = _filter_by_date(all_todos, start_date)
@@ -123,17 +134,16 @@ class StatsTools:
             Formatted list of overdue todos
         """
         try:
-            now = datetime.now()
+            now = get_utc_now()
             todos = self.todo_repo.list_todos(limit=200, offset=0, status="active")
 
             overdue = []
             for todo in todos:
-                deadline = todo.get("deadline")
-                if not deadline:
+                schedule = _get_schedule_time(todo)
+                if not schedule:
                     continue
-                deadline = _parse_datetime(deadline)
-                if deadline < now:
-                    days_overdue = (now - deadline).days
+                if schedule < now:
+                    days_overdue = (now - schedule).days
                     overdue.append({"id": todo["id"], "name": todo["name"], "days": days_overdue})
 
             if not overdue:

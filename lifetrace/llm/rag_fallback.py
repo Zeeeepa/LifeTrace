@@ -3,6 +3,7 @@ RAG 回退响应模块
 包含备用响应生成逻辑
 """
 
+import contextlib
 from datetime import datetime
 from typing import Any
 
@@ -42,9 +43,10 @@ def summarize_retrieved_data(retrieved_data: list[dict[str, Any]]) -> dict[str, 
 def fallback_response(
     user_query: str,
     retrieved_data: list[dict[str, Any]],
-    stats: dict[str, Any] = None,
+    stats: dict[str, Any] | None = None,
 ) -> str:
     """备用响应生成（当LLM不可用时）"""
+    _ = stats
     if not retrieved_data:
         return f"抱歉，没有找到与查询 '{user_query}' 相关的历史记录。"
 
@@ -59,7 +61,7 @@ def fallback_response(
             response_parts.append(f"  • {app}: {count} 条记录")
 
     if app_summary["time_range"]:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             earliest = datetime.fromisoformat(
                 app_summary["time_range"]["earliest"].replace("Z", "+00:00")
             )
@@ -69,8 +71,6 @@ def fallback_response(
             response_parts.append(
                 f"\n⏰ 时间范围: {earliest.strftime('%Y-%m-%d %H:%M')} 至 {latest.strftime('%Y-%m-%d %H:%M')}"
             )
-        except:  # noqa: E722
-            pass
 
     if retrieved_data:
         response_parts.append("\n📝 最新记录示例：")

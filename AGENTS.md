@@ -36,6 +36,9 @@ Packaging:
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commits:
   - Example: `feat(frontend): add calendar drag and drop`.
+- In worktrees, prefer small, frequent commits. After each small feature change and
+  after relevant checks pass, commit immediately. Only if all pending changes committed, notify the user
+  (or other agents) that the commit is done.
 - PRs should include: a clear description, linked issues (e.g., `Closes #123`),
   testing notes, and screenshots for UI changes. Use the `.github` PR template when available.
 
@@ -53,6 +56,24 @@ Packaging:
   - `short-task` is a short summary (max 3 words).
 - If a task name is provided, create a worktree first, then make changes in that worktree.
 - Helper script (cross-platform): `python scripts/new_worktree.py "<task-name>"`
+- Keep task branches in sync with the current mainline branch. Do not assume the
+  mainline is named `main` or `master`, and do not assume the default remote is
+  `origin`. Prefer syncing to a user-specified local mainline branch (e.g., `dev`,
+  `dev-liji`, `dev-xxx`). If a mainline branch is not specified, ask the user
+  which local branch to track. Only fall back to remote detection when needed,
+  and detect the remote name first (e.g., `origin`, `upstream`).
+
+## Worktree Dependency Sharing (Recommended)
+- Install dependencies only once in the main worktree.
+- Reuse them in other worktrees via linking scripts:
+  - Windows (PowerShell): `powershell -ExecutionPolicy Bypass -File scripts/link_worktree_deps.ps1 -Main "<main-root>" -Worktree "<worktree-root>"`
+  - macOS/Linux (bash): `scripts/link_worktree_deps.sh --main "<main-root>" --worktree "<worktree-root>"`
+- Optional: add `--force` to overwrite existing links.
+
+## Integration When Main Is Dirty
+- Keep coding in task worktrees; do not commit on a dirty main worktree.
+- Create a clean integration worktree and cherry-pick task commits into it.
+- Run checks from the integration worktree (using shared dependencies), then merge.
 
 ## Security & Configuration Tips
 - Do not commit `lifetrace/config/config.yaml` or `lifetrace/data/`.

@@ -3,10 +3,10 @@
 import { Calendar, Flag, Tag as TagIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import type { Todo, TodoPriority, TodoStatus } from "@/lib/types";
+import type { Todo, TodoPriority, TodoStatus, UpdateTodoInput } from "@/lib/types";
 import { cn, getPriorityLabel, getStatusLabel } from "@/lib/utils";
 import {
-	formatDeadline,
+	formatScheduleSummary,
 	getPriorityClassNames,
 	getStatusClassNames,
 	priorityOptions,
@@ -18,22 +18,22 @@ interface MetaSectionProps {
 	todo: Todo;
 	onStatusChange: (status: TodoStatus) => void;
 	onPriorityChange: (priority: TodoPriority) => void;
-	onDeadlineChange: (deadline?: string) => void;
 	onTagsChange: (tags: string[]) => void;
+	onScheduleChange: (input: UpdateTodoInput) => void;
 }
 
 export function MetaSection({
 	todo,
 	onStatusChange,
 	onPriorityChange,
-	onDeadlineChange,
 	onTagsChange,
+	onScheduleChange,
 }: MetaSectionProps) {
 	const tCommon = useTranslations("common");
 	const tTodoDetail = useTranslations("todoDetail");
 	const statusMenuRef = useRef<HTMLDivElement | null>(null);
 	const priorityMenuRef = useRef<HTMLDivElement | null>(null);
-	const deadlineContainerRef = useRef<HTMLDivElement | null>(null);
+	const scheduleButtonRef = useRef<HTMLButtonElement | null>(null);
 
 	const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 	const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
@@ -93,6 +93,14 @@ export function MetaSection({
 		setTagsInput("");
 		setIsEditingTags(false);
 	};
+
+	const scheduleSummary =
+		formatScheduleSummary({
+			startTime: todo.startTime,
+			endTime: todo.endTime,
+			timeZone: todo.timeZone,
+			isAllDay: todo.isAllDay,
+		}) || tTodoDetail("addDeadline");
 
 	return (
 		<div className="mb-6 text-sm text-muted-foreground">
@@ -203,23 +211,28 @@ export function MetaSection({
 					)}
 				</div>
 
-				<div className="relative flex items-center" ref={deadlineContainerRef}>
+				<div className="relative flex items-center">
 					<button
+						ref={scheduleButtonRef}
 						type="button"
 						onClick={() => setIsDatePickerOpen((prev) => !prev)}
 						className="flex items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs transition-colors hover:border-border hover:bg-muted/40"
+						aria-expanded={isDatePickerOpen}
+						aria-haspopup="dialog"
 					>
 						<Calendar className="h-3 w-3" />
-						<span className="truncate">
-							{todo.deadline
-								? formatDeadline(todo.deadline)
-								: tTodoDetail("addDeadline")}
-						</span>
+						<span className="truncate">{scheduleSummary}</span>
 					</button>
 					{isDatePickerOpen && (
 						<DatePickerPopover
-							value={todo.deadline}
-							onChange={onDeadlineChange}
+							anchorRef={scheduleButtonRef}
+							startTime={todo.startTime}
+							endTime={todo.endTime}
+							timeZone={todo.timeZone}
+							isAllDay={todo.isAllDay}
+							reminderOffsets={todo.reminderOffsets}
+							rrule={todo.rrule}
+							onSave={(input) => onScheduleChange(input)}
 							onClose={() => setIsDatePickerOpen(false)}
 						/>
 					)}
@@ -240,6 +253,7 @@ export function MetaSection({
 							: tTodoDetail("addTags")}
 					</span>
 				</button>
+
 			</div>
 
 			{isEditingTags && (

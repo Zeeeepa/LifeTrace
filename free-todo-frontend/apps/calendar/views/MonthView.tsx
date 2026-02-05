@@ -2,6 +2,7 @@
  * 月视图组件
  */
 
+import type React from "react";
 import type { Todo } from "@/lib/types";
 import { DayColumn } from "../components/DayColumn";
 import type { CalendarTodo } from "../types";
@@ -13,12 +14,18 @@ export function MonthView({
 	onSelectDay,
 	onSelectTodo,
 	todayText,
+	renderQuickCreate,
 }: {
 	currentDate: Date;
 	groupedByDay: Map<string, CalendarTodo[]>;
-	onSelectDay: (date: Date) => void;
+	onSelectDay: (
+		date: Date,
+		anchorEl?: HTMLDivElement | null,
+		inCurrentMonth?: boolean,
+	) => void;
 	onSelectTodo: (todo: Todo) => void;
 	todayText: string;
+	renderQuickCreate?: (date: Date) => React.ReactNode;
 }) {
 	const monthDays = buildMonthDays(currentDate);
 
@@ -33,6 +40,7 @@ export function MonthView({
 					onSelectTodo={onSelectTodo}
 					todos={groupedByDay.get(toDateKey(day.date)) || []}
 					todayText={todayText}
+					renderQuickCreate={renderQuickCreate}
 				/>
 			))}
 		</div>

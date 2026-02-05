@@ -1,15 +1,18 @@
 """系统资源相关路由"""
 
-from datetime import datetime
-
 import psutil
 from fastapi import APIRouter, HTTPException, Query
 
+from lifetrace.core.module_registry import get_capabilities_report
 from lifetrace.schemas.stats import StatisticsResponse
-from lifetrace.schemas.system import ProcessInfo, SystemResourcesResponse
-from lifetrace.storage import stats_mgr
+from lifetrace.schemas.system import (
+    CapabilitiesResponse,
+    ProcessInfo,
+    SystemResourcesResponse,
+)
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.path_utils import get_database_path, get_screenshots_dir
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -120,6 +123,8 @@ def _get_storage_info() -> dict:
 @router.get("/statistics", response_model=StatisticsResponse)
 async def get_statistics():
     """获取系统统计信息"""
+    from lifetrace.storage import stats_mgr  # noqa: PLC0415
+
     stats = stats_mgr.get_statistics()
     return StatisticsResponse(**stats)
 
@@ -128,6 +133,8 @@ async def get_statistics():
 async def cleanup_old_data(days: int = Query(30, ge=1)):
     """清理旧数据"""
     try:
+        from lifetrace.storage import stats_mgr  # noqa: PLC0415
+
         stats_mgr.cleanup_old_data(days)
         return {"success": True, "message": f"清理了 {days} 天前的数据"}
     except Exception as e:
@@ -168,9 +175,15 @@ async def get_system_resources():
                 "process_count": len(lifetrace_processes),
                 "total_storage_mb": storage_info["total_mb"],
             },
-            timestamp=datetime.now(),
+            timestamp=get_utc_now(),
         )
 
     except Exception as e:
         logger.error(f"获取系统资源信息失败: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/capabilities", response_model=CapabilitiesResponse)
+async def get_capabilities():
+    """获取后端模块能力状态"""
+    return get_capabilities_report()

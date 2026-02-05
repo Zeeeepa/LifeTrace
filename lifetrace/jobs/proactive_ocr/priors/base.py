@@ -108,7 +108,7 @@ class AppPrior(ABC):
         Returns:
             左边界 x 坐标
         """
-        h, w = image.shape[:2]
+        h, _ = image.shape[:2]
         target = np.array(bg_color, dtype=np.float32)
 
         # 过滤有效采样高度

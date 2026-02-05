@@ -1,38 +1,23 @@
-from contextlib import asynccontextmanager
+import argparse
+import asyncio
+import socket
+from contextlib import asynccontextmanager, suppress
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from lifetrace.jobs.job_manager import get_job_manager
-from lifetrace.routers import (
-    activity,
-    audio,
-    chat,
-    cost_tracking,
-    event,
-    floating_capture,
-    health,
-    journal,
-    logs,
-    notification,
-    ocr,
-    proactive_ocr,
-    rag,
-    scheduler,
-    screenshot,
-    search,
-    system,
-    time_allocation,
-    todo,
-    todo_extraction,
-    vector,
-    vision,
+from lifetrace.core.module_registry import (
+    MODULES,
+    get_enabled_module_ids,
+    get_module_states,
+    log_module_summary,
+    register_modules,
 )
-from lifetrace.routers import config as config_router
+from lifetrace.jobs.job_manager import get_job_manager
 from lifetrace.services.config_service import is_llm_configured
+from lifetrace.util.base_paths import get_user_logs_dir
 from lifetrace.util.logging_config import get_logger, setup_logging
-from lifetrace.util.path_utils import get_user_logs_dir
 from lifetrace.util.settings import settings
 
 # 使用处理后的日志路径配置
@@ -42,38 +27,51 @@ setup_logging(logging_config)
 
 logger = get_logger()
 
-# 全局管理器实例
-job_manager = None
+PRIORITY_MODULES = ("health", "config", "system", "todo")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global job_manager
-
     # 启动逻辑
     logger.info("Web服务器启动")
 
     # 初始化任务管理器
-    job_manager = get_job_manager()
+    manager = get_job_manager()
+    app.state.job_manager = manager
+    background_tasks = []
+    app.state.background_tasks = background_tasks
 
-    # 启动所有后台任务
-    job_manager.start_all()
+    # 延迟启动后台任务，避免阻塞启动流程
+    background_tasks.append(asyncio.create_task(_start_job_manager_async(app)))
+
+    # 延迟加载非优先模块
+    background_tasks.append(asyncio.create_task(_register_deferred_modules(app)))
+
+    # 延迟验证 LLM 连接
+    background_tasks.append(asyncio.create_task(_verify_llm_connection_async()))
 
     yield
 
     # 关闭逻辑
     logger.error("Web服务器关闭，正在停止后台服务")
 
+    # 停止后台任务
+    for task in getattr(app.state, "background_tasks", []):
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
     # 停止所有后台任务
-    if job_manager:
-        job_manager.stop_all()
+    manager = getattr(app.state, "job_manager", None)
+    if manager:
+        manager.stop_all()
 
 
 app = FastAPI(
-    title="LifeTrace API",
-    description="智能生活记录系统 API",
-    version="0.1.0",
+    title="FreeTodo API",
+    description="FreeTodo API (part of FreeU Project)",
+    version="0.1.2",
     lifespan=lifespan,
 )
 
@@ -114,30 +112,64 @@ config_status = "已配置" if llm_configured else "未配置，需要引导配�
 logger.info(f"LLM配置状态: {config_status}")
 
 
-# 注册所有路由
-app.include_router(health.router)
-app.include_router(config_router.router)
-app.include_router(chat.router)
-app.include_router(activity.router)
-app.include_router(search.router)
-app.include_router(screenshot.router)
-app.include_router(event.router)
-app.include_router(ocr.router)
-app.include_router(vector.router)
-app.include_router(system.router)
-app.include_router(logs.router)
-app.include_router(todo.router)
-app.include_router(journal.router)
-app.include_router(rag.router)
-app.include_router(scheduler.router)
-app.include_router(cost_tracking.router)
-app.include_router(time_allocation.router)
-app.include_router(todo_extraction.router)
-app.include_router(vision.router)
-app.include_router(notification.router)
-app.include_router(floating_capture.router)
-app.include_router(audio.router)
-app.include_router(proactive_ocr.router)
+def _order_modules(module_ids: list[str]) -> list[str]:
+    module_id_set = set(module_ids)
+    return [module.id for module in MODULES if module.id in module_id_set]
+
+
+def _register_priority_modules(app: FastAPI) -> None:
+    states = get_module_states()
+    log_module_summary(states)
+    enabled_ids = get_enabled_module_ids(states)
+
+    priority_ids = _order_modules([mid for mid in enabled_ids if mid in PRIORITY_MODULES])
+    deferred_ids = _order_modules([mid for mid in enabled_ids if mid not in PRIORITY_MODULES])
+
+    registered = register_modules(app, priority_ids, states=states)
+    app.state.registered_modules = set(registered)
+    app.state.deferred_modules = [
+        mid for mid in deferred_ids if mid not in app.state.registered_modules
+    ]
+
+    logger.info(f"快速启动：优先加载模块: {', '.join(priority_ids) or 'none'}")
+    if app.state.deferred_modules:
+        logger.info(f"延迟加载模块: {', '.join(app.state.deferred_modules)}")
+
+
+async def _register_deferred_modules(app: FastAPI) -> None:
+    deferred_modules = getattr(app.state, "deferred_modules", [])
+    if not deferred_modules:
+        return
+
+    logger.info(f"开始延迟加载 {len(deferred_modules)} 个模块")
+    for module_id in deferred_modules:
+        registered = register_modules(app, [module_id])
+        if registered:
+            app.state.registered_modules.update(registered)
+        await asyncio.sleep(0)
+    logger.info("延迟模块加载完成")
+
+
+async def _start_job_manager_async(app: FastAPI) -> None:
+    manager = getattr(app.state, "job_manager", None)
+    if not manager:
+        return
+    await asyncio.to_thread(manager.start_all)
+
+
+async def _verify_llm_connection_async() -> None:
+    try:
+        from lifetrace.routers.config import (  # noqa: PLC0415
+            verify_llm_connection_on_startup,
+        )
+    except Exception as exc:
+        logger.debug(f"LLM 验证初始化跳过: {exc}")
+        return
+    await asyncio.to_thread(verify_llm_connection_on_startup)
+
+
+# 注册按配置启用的路由
+_register_priority_modules(app)
 
 
 def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
@@ -158,8 +190,6 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> 
     Raises:
         RuntimeError: 如果在指定范围内找不到可用端口
     """
-    import socket
-
     for offset in range(max_attempts):
         port = start_port + offset
         try:
@@ -176,8 +206,6 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> 
 
 def parse_args():
     """解析命令行参数"""
-    import argparse
-
     parser = argparse.ArgumentParser(description="LifeTrace 后端服务器")
     parser.add_argument(
         "--port",

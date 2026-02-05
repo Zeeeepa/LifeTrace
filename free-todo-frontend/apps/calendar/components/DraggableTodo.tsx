@@ -11,6 +11,7 @@ import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { CalendarTodo } from "../types";
 import { getStatusStyle } from "../types";
+import { formatTimeLabel } from "../utils";
 
 export function DraggableTodo({
 	calendarTodo,
@@ -65,23 +66,36 @@ export function DraggableTodo({
 				ref={setNodeRef}
 				{...attributes}
 				{...listeners}
-				onClick={() => onSelect(calendarTodo.todo)}
+				onClick={(event) => {
+					event.stopPropagation();
+					onSelect(calendarTodo.todo);
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
 						e.preventDefault();
+						e.stopPropagation();
 						onSelect(calendarTodo.todo);
 					}
 				}}
 				role="button"
 				tabIndex={0}
 				className={cn(
-					"group relative rounded px-1.5 py-1 text-xs transition-all truncate",
+					"group relative rounded-md px-2 py-1 text-xs transition-all duration-200 ease-out",
+					"cursor-grab active:cursor-grabbing",
+					"hover:-translate-y-[1px] hover:ring-1 hover:ring-primary/20 hover:shadow-[0_8px_18px_-12px_oklch(var(--primary)/0.45)]",
+					"active:translate-y-0 active:scale-[0.98]",
+					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
 					getStatusStyle(calendarTodo.todo.status),
 				)}
 			>
-				<p className="truncate text-[12px] font-medium leading-tight">
-					{calendarTodo.todo.name}
-				</p>
+				<div className="flex items-center justify-between gap-2">
+					<p className="truncate text-[12px] font-medium leading-tight transition-colors group-hover:text-foreground">
+						{calendarTodo.todo.name}
+					</p>
+					<span className="shrink-0 text-[10px] text-muted-foreground">
+						{formatTimeLabel(calendarTodo.startTime, "--:--")}
+					</span>
+				</div>
 			</div>
 		</TodoContextMenu>
 	);

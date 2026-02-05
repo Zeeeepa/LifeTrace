@@ -7,6 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import Activity, ActivityEventRelation, Event
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -50,6 +51,8 @@ class ActivityManager:
                 )
                 session.add(activity)
                 session.flush()
+                if activity.id is None:
+                    raise ValueError("Activity must have an id before linking events.")
 
                 # 创建关联关系
                 for event_id in event_ids:
@@ -79,7 +82,7 @@ class ActivityManager:
             with self.db_base.get_session() as session:
                 activity = (
                     session.query(Activity)
-                    .filter(Activity.id == activity_id, Activity.deleted_at.is_(None))
+                    .filter(col(Activity.id) == activity_id, col(Activity.deleted_at).is_(None))
                     .first()
                 )
                 if not activity:
@@ -119,13 +122,13 @@ class ActivityManager:
         """
         try:
             with self.db_base.get_session() as session:
-                q = session.query(Activity).filter(Activity.deleted_at.is_(None))
+                q = session.query(Activity).filter(col(Activity.deleted_at).is_(None))
                 if start_date:
-                    q = q.filter(Activity.start_time >= start_date)
+                    q = q.filter(col(Activity.start_time) >= start_date)
                 if end_date:
-                    q = q.filter(Activity.start_time <= end_date)
+                    q = q.filter(col(Activity.start_time) <= end_date)
 
-                q = q.order_by(Activity.start_time.desc()).offset(offset).limit(limit)
+                q = q.order_by(col(Activity.start_time).desc()).offset(offset).limit(limit)
                 activities = q.all()
 
                 results: list[dict[str, Any]] = []
@@ -155,11 +158,11 @@ class ActivityManager:
         """统计活动总数"""
         try:
             with self.db_base.get_session() as session:
-                q = session.query(Activity).filter(Activity.deleted_at.is_(None))
+                q = session.query(Activity).filter(col(Activity.deleted_at).is_(None))
                 if start_date:
-                    q = q.filter(Activity.start_time >= start_date)
+                    q = q.filter(col(Activity.start_time) >= start_date)
                 if end_date:
-                    q = q.filter(Activity.start_time <= end_date)
+                    q = q.filter(col(Activity.start_time) <= end_date)
                 return q.count()
         except SQLAlchemyError as e:
             logger.error(f"统计活动数量失败: {e}")
@@ -179,8 +182,8 @@ class ActivityManager:
                 relations = (
                     session.query(ActivityEventRelation)
                     .filter(
-                        ActivityEventRelation.activity_id == activity_id,
-                        ActivityEventRelation.deleted_at.is_(None),
+                        col(ActivityEventRelation.activity_id) == activity_id,
+                        col(ActivityEventRelation.deleted_at).is_(None),
                     )
                     .all()
                 )
@@ -204,13 +207,13 @@ class ActivityManager:
                 events = (
                     session.query(Event)
                     .filter(
-                        Event.end_time.isnot(None),
-                        Event.ai_title.isnot(None),
-                        Event.ai_summary.isnot(None),
-                        Event.start_time >= query_start_time,
-                        Event.deleted_at.is_(None),
+                        col(Event.end_time).isnot(None),
+                        col(Event.ai_title).isnot(None),
+                        col(Event.ai_summary).isnot(None),
+                        col(Event.start_time) >= query_start_time,
+                        col(Event.deleted_at).is_(None),
                     )
-                    .order_by(Event.start_time.asc())
+                    .order_by(col(Event.start_time).asc())
                     .all()
                 )
 
@@ -221,8 +224,8 @@ class ActivityManager:
                     relation = (
                         session.query(ActivityEventRelation)
                         .filter(
-                            ActivityEventRelation.event_id == event.id,
-                            ActivityEventRelation.deleted_at.is_(None),
+                            col(ActivityEventRelation.event_id) == event.id,
+                            col(ActivityEventRelation.deleted_at).is_(None),
                         )
                         .first()
                     )
@@ -262,9 +265,9 @@ class ActivityManager:
                 activity = (
                     session.query(Activity)
                     .filter(
-                        Activity.start_time == window_start,
-                        Activity.end_time == window_end,
-                        Activity.deleted_at.is_(None),
+                        col(Activity.start_time) == window_start,
+                        col(Activity.end_time) == window_end,
+                        col(Activity.deleted_at).is_(None),
                     )
                     .first()
                 )
@@ -287,8 +290,8 @@ class ActivityManager:
                 relation = (
                     session.query(ActivityEventRelation)
                     .filter(
-                        ActivityEventRelation.event_id == event.id,
-                        ActivityEventRelation.deleted_at.is_(None),
+                        col(ActivityEventRelation.event_id) == event.id,
+                        col(ActivityEventRelation.deleted_at).is_(None),
                     )
                     .first()
                 )
@@ -311,8 +314,8 @@ class ActivityManager:
                 relation = (
                     session.query(ActivityEventRelation)
                     .filter(
-                        ActivityEventRelation.event_id == event_id,
-                        ActivityEventRelation.deleted_at.is_(None),
+                        col(ActivityEventRelation.event_id) == event_id,
+                        col(ActivityEventRelation.deleted_at).is_(None),
                     )
                     .first()
                 )
@@ -342,9 +345,11 @@ class ActivityManager:
                 activities = (
                     session.query(Activity)
                     .filter(
-                        Activity.start_time < event.end_time + timedelta(seconds=tolerance_seconds),
-                        Activity.end_time > event.start_time - timedelta(seconds=tolerance_seconds),
-                        Activity.deleted_at.is_(None),
+                        col(Activity.start_time)
+                        < event.end_time + timedelta(seconds=tolerance_seconds),
+                        col(Activity.end_time)
+                        > event.start_time - timedelta(seconds=tolerance_seconds),
+                        col(Activity.deleted_at).is_(None),
                     )
                     .all()
                 )

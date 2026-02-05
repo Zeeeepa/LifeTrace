@@ -72,9 +72,10 @@ export const buildDetailedTodoInfo = (
 		lines.push(`${indent}${notesLabel}: ${todo.userNotes}`);
 	}
 
-	if (todo.deadline) {
+	const scheduleTime = todo.startTime ?? todo.endTime;
+	if (scheduleTime) {
 		const ddlLabel = t("todoContext.deadline");
-		lines.push(`${indent}${ddlLabel}: ${todo.deadline}`);
+		lines.push(`${indent}${ddlLabel}: ${scheduleTime}`);
 	}
 
 	const priorityLabel = t("todoContext.priority");
@@ -108,11 +109,12 @@ export const buildDetailedTodoInfo = (
 // 构建简洁的待办行（用于列表展示）
 export const buildTodoLine = (todo: Todo, t: TranslationFunction) => {
 	const parts: string[] = [todo.name];
+	const scheduleTime = todo.startTime ?? todo.endTime;
 	if (todo.description) {
 		parts.push(todo.description);
 	}
-	if (todo.deadline) {
-		parts.push(t("todoContext.due", { deadline: todo.deadline }));
+	if (scheduleTime) {
+		parts.push(t("todoContext.due", { deadline: scheduleTime }));
 	}
 	if (todo.tags?.length) {
 		parts.push(t("todoContext.tagsLabel", { tags: todo.tags.join(", ") }));

@@ -9,23 +9,19 @@
 
 import Image from "next/image";
 import { LayoutSelector } from "@/components/common/layout/LayoutSelector";
+import { ThemeStyleSelect } from "@/components/common/theme/ThemeStyleSelect";
 import { ThemeToggle } from "@/components/common/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/common/ui/LanguageToggle";
 import { SettingsToggle } from "@/components/common/ui/SettingsToggle";
 import { HeaderIsland } from "@/components/notification/HeaderIsland";
 
 interface AppHeaderProps {
-	/** 当前通知（可选） */
-	currentNotification?: { id: string; title: string; content: string; timestamp: string; source?: string } | null;
-	/** 是否是 Electron 环境 */
-	isElectron?: boolean;
+	/** 是否有通知（可选） */
+	hasNotifications?: boolean;
 }
 
-export function AppHeader({
-	currentNotification = null,
-	isElectron = false,
-}: AppHeaderProps) {
-	const showNotification = currentNotification && isElectron;
+export function AppHeader({ hasNotifications = false }: AppHeaderProps) {
+	const showNotification = hasNotifications;
 
 	return (
 		<header className="relative flex h-15 shrink-0 items-center bg-primary-foreground dark:bg-accent px-4 text-foreground overflow-visible">
@@ -65,7 +61,8 @@ export function AppHeader({
 
 			{/* 右侧：工具按钮 */}
 			<div className="flex items-center gap-2 min-w-0 shrink-0">
-				<LayoutSelector showChevron={false} />
+				<LayoutSelector />
+				<ThemeStyleSelect />
 				<ThemeToggle />
 				<LanguageToggle />
 				<SettingsToggle />

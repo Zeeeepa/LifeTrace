@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export type ColorTheme = "blue" | "neutral";
+export type ColorTheme =
+	| "catppuccin"
+	| "blue"
+	| "neutral";
 
 interface ColorThemeState {
 	colorTheme: ColorTheme;
@@ -9,7 +12,17 @@ interface ColorThemeState {
 }
 
 const isValidColorTheme = (value: string | null): value is ColorTheme => {
-	return value === "blue" || value === "neutral";
+	return (
+		value === "catppuccin" ||
+		value === "blue" ||
+		value === "neutral"
+	);
+};
+
+const normalizeColorTheme = (value: string | null): ColorTheme => {
+	if (value === "amber-coast") return "catppuccin";
+	if (isValidColorTheme(value)) return value;
+	return "catppuccin";
 };
 
 const colorThemeStorage = {
@@ -17,7 +30,7 @@ const colorThemeStorage = {
 		if (typeof window === "undefined") return null;
 
 		const saved = localStorage.getItem("color-theme");
-		const colorTheme: ColorTheme = isValidColorTheme(saved) ? saved : "blue";
+		const colorTheme = normalizeColorTheme(saved);
 
 		return JSON.stringify({ state: { colorTheme } });
 	},
@@ -26,10 +39,9 @@ const colorThemeStorage = {
 
 		try {
 			const data = JSON.parse(value);
-			const rawTheme = data.state?.colorTheme ?? data.colorTheme ?? "blue";
-			const colorTheme: ColorTheme = isValidColorTheme(rawTheme)
-				? rawTheme
-				: "blue";
+			const rawTheme =
+				data.state?.colorTheme ?? data.colorTheme ?? "catppuccin";
+			const colorTheme = normalizeColorTheme(rawTheme);
 			localStorage.setItem("color-theme", colorTheme);
 		} catch (e) {
 			console.error("Error saving color theme:", e);
@@ -44,7 +56,7 @@ const colorThemeStorage = {
 export const useColorThemeStore = create<ColorThemeState>()(
 	persist(
 		(set) => ({
-			colorTheme: "blue",
+			colorTheme: "catppuccin",
 			setColorTheme: (colorTheme) => set({ colorTheme }),
 		}),
 		{

@@ -4,12 +4,16 @@
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import timedelta
+from functools import lru_cache
 
 from lifetrace.storage import get_session, screenshot_mgr
+from lifetrace.storage.models import Screenshot
+from lifetrace.storage.sql_utils import col
+from lifetrace.util.base_paths import get_user_data_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_data_dir
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -90,12 +94,10 @@ class CleanDataService:
 
             # 获取最旧的截图列表（排除已删除文件的记录）
             with get_session() as session:
-                from lifetrace.storage.models import Screenshot
-
                 old_screenshots = (
                     session.query(Screenshot)
-                    .filter(Screenshot.file_deleted.is_not(True))
-                    .order_by(Screenshot.created_at.asc())
+                    .filter(col(Screenshot.file_deleted).is_not(True))
+                    .order_by(col(Screenshot.created_at).asc())
                     .limit(to_delete_count)
                     .all()
                 )
@@ -124,17 +126,15 @@ class CleanDataService:
 
         try:
             # 计算截止日期
-            cutoff_date = datetime.now() - timedelta(days=self.max_days)
+            cutoff_date = get_utc_now() - timedelta(days=self.max_days)
             logger.info(f"开始清理 {cutoff_date.strftime('%Y-%m-%d')} 之前的截图数据")
 
             # 获取需要清理的截图（排除已删除文件的记录）
             with get_session() as session:
-                from lifetrace.storage.models import Screenshot
-
                 old_screenshots = (
                     session.query(Screenshot)
-                    .filter(Screenshot.created_at < cutoff_date)
-                    .filter(Screenshot.file_deleted.is_not(True))
+                    .filter(col(Screenshot.created_at) < cutoff_date)
+                    .filter(col(Screenshot.file_deleted).is_not(True))
                     .all()
                 )
 
@@ -207,15 +207,12 @@ class CleanDataService:
 
 
 # 全局单例
-_clean_data_instance: CleanDataService | None = None
 
 
+@lru_cache(maxsize=1)
 def get_clean_data_instance() -> CleanDataService:
     """获取数据清理服务单例"""
-    global _clean_data_instance
-    if _clean_data_instance is None:
-        _clean_data_instance = CleanDataService()
-    return _clean_data_instance
+    return CleanDataService()
 
 
 def execute_clean_data_task():

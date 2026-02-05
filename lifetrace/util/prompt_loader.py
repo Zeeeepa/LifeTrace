@@ -5,6 +5,7 @@
 
 import yaml
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -23,9 +24,8 @@ class PromptLoader:
         return cls._instance
 
     def __init__(self):
-        """初始化提示词加载器"""
-        if self._prompts is None:
-            self._load_prompts()
+        """初始化提示词加载器（延迟加载配置）"""
+        pass
 
     def _load_prompts(self):
         """从 prompts/ 目录或 prompt.yaml 文件加载提示词
@@ -33,9 +33,6 @@ class PromptLoader:
         优先从 prompts/ 目录加载所有 yaml 文件，如果目录不存在则回退到单个 prompt.yaml 文件。
         """
         try:
-            # 获取配置文件路径
-            from lifetrace.util.path_utils import get_config_dir
-
             config_dir = get_config_dir()
             prompts_dir = config_dir / "prompts"
             self._prompts = {}
@@ -85,6 +82,11 @@ class PromptLoader:
             格式化后的提示词字符串
         """
         try:
+            if self._prompts is None:
+                self._load_prompts()
+            if self._prompts is None:
+                self._prompts = {}
+
             # 获取提示词模板
             prompt_template = self._prompts.get(category, {}).get(key, "")
 

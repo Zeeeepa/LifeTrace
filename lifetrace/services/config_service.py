@@ -1,13 +1,17 @@
 """配置服务层 - 处理配置的保存、比对和重载逻辑"""
 
 import os
+import shutil
+from collections.abc import Callable
 from typing import Any
 
 import yaml
 
+from lifetrace.jobs.scheduler import get_scheduler_manager
 from lifetrace.llm.llm_client import LLMClient
+from lifetrace.services.asr_client import ASRClient
+from lifetrace.util.base_paths import get_config_dir, get_user_config_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_config_dir
 from lifetrace.util.settings import reload_settings, settings
 
 logger = get_logger()
@@ -415,14 +419,10 @@ class ConfigService:
         Args:
             new_settings: 配置字典（键可以是 snake_case 或点分隔格式）
         """
-        job_config_keys = [
-            key for key in new_settings.keys() if key in JOB_ENABLED_CONFIG_TO_JOB_ID
-        ]
+        job_config_keys = [key for key in new_settings if key in JOB_ENABLED_CONFIG_TO_JOB_ID]
 
         if not job_config_keys:
             return
-
-        from lifetrace.jobs.scheduler import get_scheduler_manager
 
         try:
             scheduler_manager = get_scheduler_manager()
@@ -449,7 +449,7 @@ class ConfigService:
         self,
         new_settings: dict[str, Any],
         old_llm_config: dict[str, Any],
-        is_llm_configured_callback: callable = None,
+        is_llm_configured_callback: Callable[[], None] | None = None,
     ) -> None:
         """如果 LLM 配置发生变化，重新初始化 LLM 客户端
 
@@ -459,7 +459,7 @@ class ConfigService:
             is_llm_configured_callback: 更新 LLM 配置状态的回调函数
         """
         # 检测是否有 LLM 相关配置项在请求中
-        has_llm_keys = any(key in LLM_RELATED_BACKEND_KEYS for key in new_settings.keys())
+        has_llm_keys = any(key in LLM_RELATED_BACKEND_KEYS for key in new_settings)
 
         if not has_llm_keys:
             return
@@ -523,7 +523,7 @@ class ConfigService:
             old_asr_config: 旧的 ASR 配置
         """
         # 检测是否有 ASR 相关配置项在请求中
-        has_asr_keys = any(key in ASR_RELATED_BACKEND_KEYS for key in new_settings.keys())
+        has_asr_keys = any(key in ASR_RELATED_BACKEND_KEYS for key in new_settings)
 
         if not has_asr_keys:
             return
@@ -547,8 +547,6 @@ class ConfigService:
 
             try:
                 # 重新初始化 ASR 客户端单例
-                from lifetrace.services.asr_client import ASRClient
-
                 asr_client = ASRClient()
                 asr_client.reinitialize()
                 logger.info(
@@ -565,7 +563,7 @@ class ConfigService:
     def save_config(
         self,
         new_settings: dict[str, Any],
-        is_llm_configured_callback: callable = None,
+        is_llm_configured_callback: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
         """保存配置（主入口方法）
 
@@ -622,10 +620,6 @@ class ConfigService:
 
     def _init_config_file(self) -> None:
         """从默认配置初始化配置文件"""
-        import shutil
-
-        from lifetrace.util.path_utils import get_config_dir
-
         default_config_path = get_config_dir() / "default_config.yaml"
 
         if not default_config_path.exists():

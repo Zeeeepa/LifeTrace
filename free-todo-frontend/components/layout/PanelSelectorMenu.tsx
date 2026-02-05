@@ -119,12 +119,13 @@ export function PanelSelectorMenu({
 						transition={{ duration: 0.15 }}
 						className={cn(
 							"fixed z-[101]",
-							"bg-white dark:bg-zinc-900",
-							"border border-zinc-200 dark:border-zinc-800",
+							"bg-[oklch(var(--card))]/95",
+							"border border-[oklch(var(--border))]",
 							"rounded-lg",
 							"shadow-lg",
 							"py-1",
 							"min-w-[110px]",
+							"backdrop-blur-sm",
 						)}
 						style={{
 							// 仅设置其中一个：我们现在通过 bottom 来对齐
@@ -160,13 +161,14 @@ export function PanelSelectorMenu({
 										"w-full flex items-center gap-2",
 										"px-3 py-2",
 										"text-sm font-medium",
-										"text-black dark:text-white",
-										"hover:bg-zinc-100 dark:hover:bg-zinc-800",
+										"text-[oklch(var(--foreground))]",
+										"hover:bg-[oklch(var(--muted))] dark:hover:bg-[oklch(var(--primary-weak-hover))]",
+										"hover:text-[oklch(var(--foreground))]",
 										"transition-colors",
 										"first:rounded-t-lg last:rounded-b-lg",
 									)}
 								>
-									<Icon className="h-4 w-4 shrink-0" />
+									<Icon className="h-4 w-4 shrink-0 text-[oklch(var(--primary))]" />
 									<span>{t(labelKey)}</span>
 								</button>
 							);

@@ -111,6 +111,7 @@ export function PanelContainer({
 				// 当不可见时，不需要占用空间
 				flexGrow: isVisible ? 1 : 0,
 				flexShrink: isVisible ? 1 : 0,
+				...(isVisible ? {} : { margin: 0 }),
 				willChange: isDragging
 					? "flex-basis"
 					: "flex-basis, transform, opacity",

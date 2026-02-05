@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* Tailwind v4 自定义 dark 模式变体 - 基于 .dark 类 */
@@ -9,7 +10,8 @@
  */
 @theme {
 	/* 全局无衬线字体，使用 next/font 注入的 CSS 变量 */
-	--font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-sans: "Plus Jakarta Sans", "Segoe UI", -apple-system,
+		BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 
 	--color-background: oklch(var(--background));
 	--color-foreground: oklch(var(--foreground));
@@ -58,6 +60,49 @@
 
 @layer base {
 	:root,
+	:root[data-color-theme="catppuccin"] {
+		--radius: 0.625rem;
+		--background: 0.9577 0.0058 264.532;
+		--foreground: 0.4352 0.0432 279.504;
+		--card: 0.9577 0.0058 264.532;
+		--card-foreground: 0.4352 0.0432 279.504;
+		--popover: 0.9577 0.0058 264.532;
+		--popover-foreground: 0.4352 0.0432 279.504;
+		--primary: 0.5545 0.2503 296.969;
+		--primary-foreground: 0.9577 0.0058 264.532;
+		--primary-weak: 0.5545 0.2503 296.969 / 0.08;
+		--primary-weak-hover: 0.5545 0.2503 296.969 / 0.18;
+		--primary-border: 0.5545 0.2503 296.969;
+		--secondary: 0.8575 0.0145 268.666;
+		--secondary-foreground: 0.4352 0.0432 279.504;
+		--muted: 0.8575 0.0145 268.666;
+		--muted-foreground: 0.4923 0.0383 278.997;
+		--accent: 0.8575 0.0145 268.666;
+		--accent-foreground: 0.4352 0.0432 279.504;
+		--destructive: 0.5505 0.2155 19.735;
+		--border: 0.8083 0.0174 271.198;
+		--input: 0.8083 0.0174 271.198;
+		--ring: 0.4352 0.0432 279.504;
+		--chart-1: 0.7571 0.0941 3.250;
+		--chart-2: 0.8088 0.0536 203.148;
+		--chart-3: 0.7886 0.0908 262.510;
+		--chart-4: 0.8542 0.0650 75.981;
+		--chart-5: 0.8215 0.0746 141.799;
+		--sidebar: 0.9482 0.0075 261.511;
+		--sidebar-foreground: 0.4352 0.0432 279.504;
+		--sidebar-primary: 0.5545 0.2503 296.969;
+		--sidebar-primary-foreground: 0.9577 0.0058 264.532;
+		--sidebar-accent: 0.9577 0.0058 264.532;
+		--sidebar-accent-foreground: 0.4352 0.0432 279.504;
+		--sidebar-border: 0.8083 0.0174 271.198;
+		--sidebar-ring: 0.8083 0.0174 271.198;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+
+
+
+
 	:root[data-color-theme="blue"] {
 		--radius: 1rem;
 		/* 说明：
@@ -101,45 +146,6 @@
 		--overlay: 0 0 0 / 0.72;
 	}
 
-	.dark,
-	.dark[data-color-theme="blue"] {
-		--background: 0.2667 0.011 254.03;
-		--foreground: 0.985 0 0;
-		--card: 0.21 0.006 285.885;
-		--card-foreground: 0.985 0 0;
-		--popover: 0.21 0.006 285.885;
-		--popover-foreground: 0.985 0 0;
-		--primary: 0.788 0.243 264.376;
-		--primary-foreground: 0.97 0.014 254.604;
-		--primary-weak: 0.788 0.243 264.376 / 0.1;
-		--primary-weak-hover: 0.788 0.243 264.376 / 0.28;
-		--primary-border: 0.788 0.243 264.376;
-		--secondary: 0.274 0.006 286.033;
-		--secondary-foreground: 0.985 0 0;
-		--muted: 0.274 0.006 286.033;
-		--muted-foreground: 0.705 0.015 286.067;
-		--accent: 0.3408 0.0054 271.26;
-		--accent-foreground: 0.985 0 0;
-		--destructive: 0.704 0.191 22.216;
-		--border: 1 0 0 / 10%;
-		--input: 1 0 0 / 15%;
-		--ring: 0.556 0 0;
-		--chart-1: 0.809 0.105 251.813;
-		--chart-2: 0.623 0.214 259.815;
-		--chart-3: 0.546 0.245 262.881;
-		--chart-4: 0.688 0.243 264.376;
-		--chart-5: 0.424 0.199 265.638;
-		--sidebar: 0.21 0.006 285.885;
-		--sidebar-foreground: 0.985 0 0;
-		--sidebar-primary: 0.623 0.214 259.815;
-		--sidebar-primary-foreground: 0.97 0.014 254.604;
-		--sidebar-accent: 0.274 0.006 286.033;
-		--sidebar-accent-foreground: 0.985 0 0;
-		--sidebar-border: 1 0 0 / 10%;
-		--sidebar-ring: 0.439 0 0;
-		--overlay: 0 0 0 / 0.72;
-	}
-
 	:root[data-color-theme="neutral"] {
 		--radius: 0.65rem;
 		--background: 1 0 0;
@@ -176,6 +182,90 @@
 		--sidebar-accent-foreground: 0.205 0 0;
 		--sidebar-border: 0.922 0 0;
 		--sidebar-ring: 0.708 0 0;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+
+
+
+	.dark,
+	.dark[data-color-theme="catppuccin"] {
+		--background: 0.2429 0.0304 283.911;
+		--foreground: 0.8787 0.0426 272.277;
+		--card: 0.324 0.0319 281.978;
+		--card-foreground: 0.8787 0.0426 272.277;
+		--popover: 0.324 0.0319 281.978;
+		--popover-foreground: 0.8787 0.0426 272.277;
+		--primary: 0.7871 0.1187 304.769;
+		--primary-foreground: 0.2429 0.0304 283.911;
+		--primary-weak: 0.7871 0.1187 304.769 / 0.16;
+		--primary-weak-hover: 0.7871 0.1187 304.769 / 0.3;
+		--primary-border: 0.7871 0.1187 304.769;
+		--secondary: 0.4037 0.032 280.152;
+		--secondary-foreground: 0.8787 0.0426 272.277;
+		--muted: 0.4765 0.034 278.643;
+		--muted-foreground: 0.8168 0.0403 272.862;
+		--accent: 0.4037 0.032 280.152;
+		--accent-foreground: 0.8787 0.0426 272.277;
+		--destructive: 0.704 0.191 22.216;
+		--border: 0.4037 0.032 280.152;
+		--input: 0.4037 0.032 280.152;
+		--ring: 0.7871 0.1187 304.769;
+		--chart-1: 0.7871 0.1187 304.769;
+		--chart-2: 0.7664 0.1113 259.885;
+		--chart-3: 0.8577 0.1092 142.715;
+		--chart-4: 0.8237 0.1015 52.629;
+		--chart-5: 0.9193 0.0704 86.528;
+		--sidebar: 0.2155 0.0254 284.065;
+		--sidebar-foreground: 0.8787 0.0426 272.277;
+		--sidebar-primary: 0.7871 0.1187 304.769;
+		--sidebar-primary-foreground: 0.2429 0.0304 283.911;
+		--sidebar-accent: 0.324 0.0319 281.978;
+		--sidebar-accent-foreground: 0.8787 0.0426 272.277;
+		--sidebar-border: 0.4037 0.032 280.152;
+		--sidebar-ring: 0.7871 0.1187 304.769;
+		--overlay: 0 0 0 / 0.72;
+	}
+
+
+
+
+
+	.dark[data-color-theme="blue"] {
+		--background: 0.2667 0.011 254.03;
+		--foreground: 0.985 0 0;
+		--card: 0.21 0.006 285.885;
+		--card-foreground: 0.985 0 0;
+		--popover: 0.21 0.006 285.885;
+		--popover-foreground: 0.985 0 0;
+		--primary: 0.788 0.243 264.376;
+		--primary-foreground: 0.97 0.014 254.604;
+		--primary-weak: 0.788 0.243 264.376 / 0.1;
+		--primary-weak-hover: 0.788 0.243 264.376 / 0.28;
+		--primary-border: 0.788 0.243 264.376;
+		--secondary: 0.274 0.006 286.033;
+		--secondary-foreground: 0.985 0 0;
+		--muted: 0.274 0.006 286.033;
+		--muted-foreground: 0.705 0.015 286.067;
+		--accent: 0.3408 0.0054 271.26;
+		--accent-foreground: 0.985 0 0;
+		--destructive: 0.704 0.191 22.216;
+		--border: 1 0 0 / 10%;
+		--input: 1 0 0 / 15%;
+		--ring: 0.556 0 0;
+		--chart-1: 0.809 0.105 251.813;
+		--chart-2: 0.623 0.214 259.815;
+		--chart-3: 0.546 0.245 262.881;
+		--chart-4: 0.688 0.243 264.376;
+		--chart-5: 0.424 0.199 265.638;
+		--sidebar: 0.21 0.006 285.885;
+		--sidebar-foreground: 0.985 0 0;
+		--sidebar-primary: 0.623 0.214 259.815;
+		--sidebar-primary-foreground: 0.97 0.014 254.604;
+		--sidebar-accent: 0.274 0.006 286.033;
+		--sidebar-accent-foreground: 0.985 0 0;
+		--sidebar-border: 1 0 0 / 10%;
+		--sidebar-ring: 0.439 0 0;
 		--overlay: 0 0 0 / 0.72;
 	}
 
@@ -217,6 +307,8 @@
 		--overlay: 0 0 0 / 0.72;
 	}
 
+
+
 	* {
 		border-color: oklch(var(--border));
 		/* 滚动条轨道和滑块的基础样式 */
@@ -227,6 +319,12 @@
 	body {
 		background-color: oklch(var(--background));
 		color: oklch(var(--foreground));
+		font-family: var(--font-sans);
+		font-weight: 500;
+	}
+
+	:root[data-color-theme="catppuccin"] body {
+		font-weight: 600;
 	}
 
 	/* Webkit 浏览器 (Chrome, Safari, Edge) 滚动条样式 */

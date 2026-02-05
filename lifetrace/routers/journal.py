@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from lifetrace.core.dependencies import get_journal_service
 from lifetrace.schemas.journal import (
+    JournalAutoLinkRequest,
+    JournalAutoLinkResponse,
     JournalCreate,
+    JournalGenerateRequest,
+    JournalGenerateResponse,
     JournalListResponse,
     JournalResponse,
     JournalUpdate,
@@ -31,7 +35,7 @@ async def create_journal(
         raise
     except Exception as e:
         logger.error(f"创建日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"创建日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"创建日记失败: {e!s}") from e
 
 
 @router.get("/api/journals", response_model=JournalListResponse)
@@ -47,7 +51,7 @@ async def list_journals(
         return service.list_journals(limit, offset, start_date, end_date)
     except Exception as e:
         logger.error(f"获取日记列表失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取日记列表失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取日记列表失败: {e!s}") from e
 
 
 @router.get("/api/journals/{journal_id}", response_model=JournalResponse)
@@ -62,7 +66,7 @@ async def get_journal(
         raise
     except Exception as e:
         logger.error(f"获取日记详情失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取日记详情失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取日记详情失败: {e!s}") from e
 
 
 @router.put("/api/journals/{journal_id}", response_model=JournalResponse)
@@ -73,12 +77,14 @@ async def update_journal(
 ):
     """更新日记"""
     try:
+        if journal is None:
+            raise HTTPException(status_code=400, detail="缺少日记更新内容")
         return service.update_journal(journal_id, journal)
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"更新日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"更新日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"更新日记失败: {e!s}") from e
 
 
 @router.delete("/api/journals/{journal_id}", status_code=204)
@@ -94,4 +100,49 @@ async def delete_journal(
         raise
     except Exception as e:
         logger.error(f"删除日记失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"删除日记失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"删除日记失败: {e!s}") from e
+
+
+@router.post("/api/journals/auto-link", response_model=JournalAutoLinkResponse)
+async def auto_link_journal(
+    payload: JournalAutoLinkRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """自动关联 Todo/活动"""
+    try:
+        return service.auto_link(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"自动关联失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"自动关联失败: {e!s}") from e
+
+
+@router.post("/api/journals/generate-objective", response_model=JournalGenerateResponse)
+async def generate_objective_journal(
+    payload: JournalGenerateRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """生成客观记录"""
+    try:
+        return service.generate_objective(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成客观记录失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成客观记录失败: {e!s}") from e
+
+
+@router.post("/api/journals/generate-ai", response_model=JournalGenerateResponse)
+async def generate_ai_journal(
+    payload: JournalGenerateRequest,
+    service: JournalService = Depends(get_journal_service),
+):
+    """生成 AI 视角记录"""
+    try:
+        return service.generate_ai_view(payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"生成 AI 视角失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"生成 AI 视角失败: {e!s}") from e

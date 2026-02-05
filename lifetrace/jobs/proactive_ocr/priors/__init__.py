@@ -2,4 +2,4 @@
 
 from .registry import get_prior, list_priors, register_prior
 
-__all__ = ["get_prior", "register_prior", "list_priors"]
+__all__ = ["get_prior", "list_priors", "register_prior"]

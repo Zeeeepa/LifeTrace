@@ -64,6 +64,24 @@ FreeTodo adopts a **frontend-backend separation** architecture:
 - Node.js 20+
 - pnpm package manager
 
+### One-Click Install & Start
+
+> Requires Python 3.12+, Node.js 20+, and Git. Tauri/Electron build also requires Rust.
+
+**macOS/Linux**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/FreeU-group/FreeTodo/main/scripts/install.ps1 | iex
+```
+
+For full options, environment variables, and examples, see: [.github/INSTALL.md](.github/INSTALL.md)
+
 ### Install Dependencies
 
 This project uses [uv](https://github.com/astral-sh/uv) for fast and reliable dependency management.
@@ -86,15 +104,6 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 > Alternatively, you can simply open a new terminal window and `uv` will be available automatically.
 
 **Install dependencies and sync environment:**
-
-```bash
-# macOS prerequisites
-brew install portaudio
-
-# Linux prerequisites
-sudo apt install portaudio19-dev
-```
-
 
 ```bash
 # Sync dependencies from pyproject.toml and uv.lock
@@ -226,6 +235,22 @@ Free Todo's panel switch bar contains some panels that are currently under devel
 
 ## Development Guide
 
+### Git Hooks (Pre-commit)
+
+This repo uses a shared `.githooks/` directory. Run the setup script once per clone/worktree:
+
+```bash
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
+
+> **Note**: Do not run `pre-commit install` here. The repo uses `core.hooksPath` and `pre-commit install` will refuse when it is set.
+
+For details, see: [.github/PRE_COMMIT_GUIDE.md](.github/PRE_COMMIT_GUIDE.md)
+
 ### Project Structure
 
 ```
@@ -235,6 +260,7 @@ Free Todo's panel switch bar contains some panels that are currently under devel
 │   ├── FRONTEND_GUIDELINES.md  # Frontend development guidelines
 │   ├── CONTRIBUTING.md         # Contributing guidelines
 │   └── ...                     # Other GitHub repository files
+├── .githooks/                  # Repo-local git hooks (pre-commit, post-checkout)
 ├── lifetrace/                  # Backend modules (FastAPI)
 │   ├── server.py               # Web API service entry point
 │   ├── config/                 # Configuration files

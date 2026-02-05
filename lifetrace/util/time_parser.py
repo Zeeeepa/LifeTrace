@@ -57,7 +57,7 @@ def _parse_12h_time(time_str: str) -> tuple[int, int] | None:
     return None
 
 
-def parse_time_string(time_str: str) -> tuple[int, str] | None:
+def parse_time_string(time_str: str) -> tuple[int, int] | None:
     """
     解析时间字符串，提取小时和分钟
 

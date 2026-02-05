@@ -26,6 +26,12 @@ function scrollSettingsPanelToTop(): Promise<void> {
 	});
 }
 
+function selectSettingsCategory(category: string): void {
+	window.dispatchEvent(
+		new CustomEvent("settings:set-category", { detail: { category } }),
+	);
+}
+
 /**
  * Hook for managing the onboarding tour
  * Provides methods to start, skip, and check tour status
@@ -42,8 +48,8 @@ export function useOnboardingTour() {
 	 * Create and start the driver tour
 	 */
 	const createAndStartTour = useCallback(() => {
-		// 初始保持 dock 自动隐藏模式
-		setDockDisplayMode("auto-hide");
+		// 引导期间保持 dock 固定显示
+		setDockDisplayMode("fixed");
 
 		const driverObj = driver({
 			showProgress: true,
@@ -72,8 +78,8 @@ export function useOnboardingTour() {
 			onDestroyed: () => {
 				completeTour();
 				setCurrentStep(null);
-				// 引导结束后恢复自动隐藏模式并隐藏触发区域
-				setDockDisplayMode("auto-hide");
+				// 引导结束后保持 dock 固定显示并隐藏触发区域
+				setDockDisplayMode("fixed");
 				window.dispatchEvent(new Event("onboarding:hide-dock-trigger-zone"));
 			},
 
@@ -91,6 +97,7 @@ export function useOnboardingTour() {
 						openSettings();
 						// 滚动到顶部
 						setTimeout(() => {
+							selectSettingsCategory("ai");
 							scrollSettingsPanelToTop();
 						}, 200);
 					},
@@ -106,34 +113,14 @@ export function useOnboardingTour() {
 					},
 					onHighlightStarted: () => {
 						// 确保元素可见
+						selectSettingsCategory("ai");
 						const element = document.getElementById("llm-api-key");
 						if (element) {
 							element.scrollIntoView({ behavior: "smooth", block: "center" });
 						}
 					},
 				},
-				// Step 3: 引导用户下移鼠标（高亮触发区域）
-				{
-					element: '[data-tour="dock-trigger-zone"]',
-					popover: {
-						title: t("dockTriggerTitle"),
-						description: t("dockTriggerDescription"),
-						side: "top" as const,
-						align: "center" as const,
-					},
-					onHighlightStarted: () => {
-						// 显示触发区域高亮
-						window.dispatchEvent(new Event("onboarding:show-dock-trigger-zone"));
-						// 确保 dock 处于自动隐藏模式
-						setDockDisplayMode("auto-hide");
-						// 让 overlay 允许点击穿透，这样用户可以点击 BottomDock
-						const overlay = document.querySelector(".driver-overlay");
-						if (overlay) {
-							(overlay as HTMLElement).style.pointerEvents = "none";
-						}
-					},
-				},
-				// Step 4: Bottom Dock 功能介绍
+				// Step 3: Bottom Dock 功能介绍
 				{
 					element: '[data-tour="bottom-dock"]',
 					popover: {
@@ -143,8 +130,6 @@ export function useOnboardingTour() {
 						align: "center" as const,
 					},
 					onHighlightStarted: () => {
-						// 隐藏触发区域
-						window.dispatchEvent(new Event("onboarding:hide-dock-trigger-zone"));
 						// 固定显示 dock
 						setDockDisplayMode("fixed");
 						// 恢复 overlay 的点击阻止功能
@@ -154,7 +139,7 @@ export function useOnboardingTour() {
 						}
 					},
 				},
-				// Step 5: 右键点击引导（高亮 Panel B 的 dock item）
+				// Step 4: 右键点击引导（高亮 Panel B 的 dock item）
 				{
 					element: '[data-tour="dock-item-panelB"]',
 					popover: {
@@ -228,7 +213,7 @@ export function useOnboardingTour() {
 						}
 					},
 				},
-				// Step 6: 右键菜单高亮（同时高亮 Panel B 和菜单）
+				// Step 5: 右键菜单高亮（同时高亮 Panel B 和菜单）
 				{
 					element: '[data-tour="panel-selector-menu"]',
 					popover: {
@@ -299,7 +284,7 @@ export function useOnboardingTour() {
 						}
 					},
 				},
-				// Step 7: Completion modal
+				// Step 6: Completion modal
 				{
 					popover: {
 						title: t("completeTitle"),

@@ -1,12 +1,11 @@
 """视觉多模态相关路由"""
 
-from datetime import datetime
-
 from fastapi import APIRouter, HTTPException
 
 from lifetrace.core.dependencies import get_rag_service
 from lifetrace.schemas.vision import VisionChatRequest, VisionChatResponse
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -69,7 +68,7 @@ async def vision_chat(request: VisionChatRequest):
         # 构建响应
         response = VisionChatResponse(
             response=result["response"],
-            timestamp=datetime.now(),
+            timestamp=get_utc_now(),
             usage_info=result.get("usage_info"),
             model=result.get("model"),
             screenshot_count=result["screenshot_count"],
@@ -91,5 +90,5 @@ async def vision_chat(request: VisionChatRequest):
         logger.error(f"视觉多模态分析失败: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"处理视觉多模态请求时发生错误: {str(e)}",
+            detail=f"处理视觉多模态请求时发生错误: {e!s}",
         ) from e

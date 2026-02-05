@@ -3,6 +3,8 @@ ROI (Region of Interest) 提取模块
 使用应用先验配置裁切感兴趣的区域
 """
 
+from functools import lru_cache
+
 import numpy as np
 
 from .models import AppType, BBox
@@ -64,12 +66,9 @@ class ROIExtractor:
 
 
 # 单例实例
-_roi_extractor: ROIExtractor | None = None
 
 
+@lru_cache(maxsize=1)
 def get_roi_extractor() -> ROIExtractor:
     """获取 ROI 提取器单例"""
-    global _roi_extractor
-    if _roi_extractor is None:
-        _roi_extractor = ROIExtractor()
-    return _roi_extractor
+    return ROIExtractor()

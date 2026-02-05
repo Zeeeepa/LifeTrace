@@ -113,6 +113,11 @@ class ITodoRepository(ABC):
         pass
 
     @abstractmethod
+    def get_by_uid(self, uid: str) -> dict[str, Any] | None:
+        """根据UID获取单个todo"""
+        pass
+
+    @abstractmethod
     def list_todos(self, limit: int, offset: int, status: str | None) -> list[dict[str, Any]]:
         """获取todo列表"""
         pass
@@ -142,6 +147,31 @@ class ITodoRepository(ABC):
         """批量重排序"""
         pass
 
+    @abstractmethod
+    def add_attachment(
+        self,
+        *,
+        todo_id: int,
+        file_name: str,
+        file_path: str,
+        file_size: int | None,
+        mime_type: str | None,
+        file_hash: str | None,
+        source: str = "user",
+    ) -> dict[str, Any] | None:
+        """新增附件并绑定到 todo"""
+        pass
+
+    @abstractmethod
+    def remove_attachment(self, *, todo_id: int, attachment_id: int) -> bool:
+        """解绑附件"""
+        pass
+
+    @abstractmethod
+    def get_attachment(self, attachment_id: int) -> dict[str, Any] | None:
+        """获取附件信息"""
+        pass
+
 
 class IJournalRepository(ABC):
     """Journal 仓库接口"""
@@ -168,12 +198,12 @@ class IJournalRepository(ABC):
         pass
 
     @abstractmethod
-    def create(self, **kwargs) -> int | None:
+    def create(self, payload: Any) -> int | None:
         """创建日记，返回ID"""
         pass
 
     @abstractmethod
-    def update(self, journal_id: int, **kwargs) -> bool:
+    def update(self, journal_id: int, payload: Any) -> bool:
         """更新日记"""
         pass
 

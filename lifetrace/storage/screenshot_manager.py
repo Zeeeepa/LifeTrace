@@ -8,8 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from lifetrace.storage.database_base import DatabaseBase
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -26,7 +28,7 @@ class ScreenshotManager:
         file_hash: str,
         width: int,
         height: int,
-        metadata: dict = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int | None:
         """添加截图记录
 
@@ -146,7 +148,7 @@ class ScreenshotManager:
                 screenshot = session.query(Screenshot).filter_by(id=screenshot_id).first()
                 if screenshot:
                     screenshot.is_processed = True
-                    screenshot.processed_at = datetime.now()
+                    screenshot.processed_at = get_utc_now()
                     logger.debug(f"更新截图处理状态: {screenshot_id}")
                 else:
                     logger.warning(f"未找到截图记录: {screenshot_id}")
@@ -167,7 +169,7 @@ class ScreenshotManager:
                 query = session.query(Screenshot)
                 if exclude_deleted:
                     # 排除 file_deleted=True 的记录（包括 None 和 False）
-                    query = query.filter(Screenshot.file_deleted.is_not(True))
+                    query = query.filter(col(Screenshot.file_deleted).is_not(True))
                 count = query.count()
                 return count
         except SQLAlchemyError as e:
@@ -176,10 +178,10 @@ class ScreenshotManager:
 
     def search_screenshots(
         self,
-        query: str = None,
-        start_date: datetime = None,
-        end_date: datetime = None,
-        app_name: str = None,
+        query: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        app_name: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
@@ -187,26 +189,26 @@ class ScreenshotManager:
         try:
             with self.db_base.get_session() as session:
                 # 基础查询
-                query_obj = session.query(Screenshot, OCRResult.text_content).outerjoin(
-                    OCRResult, Screenshot.id == OCRResult.screenshot_id
+                query_obj = session.query(Screenshot, col(OCRResult.text_content)).outerjoin(
+                    OCRResult, col(Screenshot.id) == col(OCRResult.screenshot_id)
                 )
 
                 # 添加条件
                 if start_date:
-                    query_obj = query_obj.filter(Screenshot.created_at >= start_date)
+                    query_obj = query_obj.filter(col(Screenshot.created_at) >= start_date)
 
                 if end_date:
-                    query_obj = query_obj.filter(Screenshot.created_at <= end_date)
+                    query_obj = query_obj.filter(col(Screenshot.created_at) <= end_date)
 
                 if app_name:
-                    query_obj = query_obj.filter(Screenshot.app_name.like(f"%{app_name}%"))
+                    query_obj = query_obj.filter(col(Screenshot.app_name).like(f"%{app_name}%"))
 
                 if query:
-                    query_obj = query_obj.filter(OCRResult.text_content.like(f"%{query}%"))
+                    query_obj = query_obj.filter(col(OCRResult.text_content).like(f"%{query}%"))
 
                 # 应用分页：先排序，再应用offset和limit
                 results = (
-                    query_obj.order_by(Screenshot.created_at.desc())
+                    query_obj.order_by(col(Screenshot.created_at).desc())
                     .offset(offset)
                     .limit(limit)
                     .all()
@@ -248,8 +250,8 @@ class ScreenshotManager:
             with self.db_base.get_session() as session:
                 screenshots = (
                     session.query(Screenshot)
-                    .filter(Screenshot.event_id.is_(None))
-                    .order_by(Screenshot.created_at.asc())
+                    .filter(col(Screenshot.event_id).is_(None))
+                    .order_by(col(Screenshot.created_at).asc())
                     .limit(limit)
                     .all()
                 )
