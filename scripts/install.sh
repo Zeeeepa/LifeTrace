@@ -477,6 +477,14 @@ if ! command -v uv >/dev/null 2>&1; then
   fi
 fi
 
+if ! command -v pnpm >/dev/null 2>&1; then
+  if ! command -v corepack >/dev/null 2>&1 && ! command -v npm >/dev/null 2>&1; then
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+      add_missing "curl/wget" "curl or wget is required to install pnpm."
+    fi
+  fi
+fi
+
 install_missing_deps
 filter_missing_deps
 report_missing
@@ -499,13 +507,35 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 if ! command -v pnpm >/dev/null 2>&1; then
-  if command -v corepack >/dev/null 2>&1; then
-    corepack enable
-    corepack prepare pnpm@latest --activate
-  elif command -v npm >/dev/null 2>&1; then
-    npm install -g pnpm
-  fi
-  if ! command -v pnpm >/dev/null 2>&1; then
+  install_pnpm() {
+    if command -v corepack >/dev/null 2>&1; then
+      if corepack enable >/dev/null 2>&1 && corepack prepare pnpm@latest --activate >/dev/null 2>&1; then
+        command -v pnpm >/dev/null 2>&1 && return 0
+      fi
+      echo "corepack activation failed. Falling back to pnpm install script." >&2
+    fi
+    if command -v npm >/dev/null 2>&1; then
+      if npm install -g pnpm >/dev/null 2>&1; then
+        command -v pnpm >/dev/null 2>&1 && return 0
+      fi
+      echo "npm global install failed. Falling back to pnpm install script." >&2
+    fi
+    if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
+      echo "Installing pnpm via install script..."
+      export PNPM_HOME="${PNPM_HOME:-$HOME/.local/share/pnpm}"
+      mkdir -p "$PNPM_HOME"
+      export PATH="$PNPM_HOME:$PATH"
+      if command -v curl >/dev/null 2>&1; then
+        curl -fsSL https://get.pnpm.io/install.sh | sh -s --
+      else
+        wget -qO- https://get.pnpm.io/install.sh | sh -s --
+      fi
+      command -v pnpm >/dev/null 2>&1 && return 0
+    fi
+    return 1
+  }
+
+  if ! install_pnpm; then
     echo "pnpm not found after installation. Reopen your terminal and retry." >&2
     exit 1
   fi
