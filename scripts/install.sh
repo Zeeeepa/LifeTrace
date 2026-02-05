@@ -150,10 +150,14 @@ prompt_choice() {
   local default="$2"
   shift 2
   local choices=("$@")
-  echo "$label"
+  if [ ! -t 0 ]; then
+    echo "$default"
+    return 0
+  fi
+  echo "$label" >&2
   local i=1
   for choice in "${choices[@]}"; do
-    echo "  $i) $choice"
+    echo "  $i) $choice" >&2
     i=$((i + 1))
   done
   read -r -p "Select [default: $default]: " input
