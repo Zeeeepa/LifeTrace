@@ -323,7 +323,8 @@
 		"closePanel": "Close panel",
 		"pinPanel": "Pin panel",
 		"unpinPanel": "Unpin panel",
-		"openInNewWindow": "Open in new window"
+		"openInNewWindow": "Open in new window",
+		"pinnedBadge": "Pinned"
 	},
 	"todoExtraction": {
 		"extractButton": "Extract Todos",
@@ -934,7 +935,12 @@
 		"downloadLabel": "Download",
 		"uploadFailed": "Upload failed",
 		"removeAttachmentFailed": "Failed to remove attachment",
-		"uploadSizeLimit": "Single file exceeds 50MB"
+		"uploadSizeLimit": "Single file exceeds 50MB",
+		"deleteConfirmTitle": "Delete this todo?",
+		"deleteConfirmDescription": "This action cannot be undone.",
+		"deleteConfirmWithChildren": "This will delete this todo and {count} child todos.",
+		"deleteConfirmCancel": "Cancel",
+		"deleteConfirmDelete": "Delete"
 	},
 	"automationTasks": {
 		"title": "Automation tasks",

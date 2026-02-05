@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { removeTodoAttachment, uploadTodoAttachments } from "@/lib/attachments";
 import { useTodoMutations, useTodos } from "@/lib/query";
 import { queryKeys } from "@/lib/query/keys";
@@ -19,6 +20,18 @@ import { DetailHeader } from "./components/DetailHeader";
 import { DetailTitle } from "./components/DetailTitle";
 import { MetaSection } from "./components/MetaSection";
 import { NotesEditor } from "./components/NotesEditor";
+
+const collectChildIds = (parentId: number, allTodos: Todo[]): number[] => {
+	const childIds: number[] = [];
+	const children = allTodos.filter(
+		(t: Todo) => t.parentTodoId === parentId,
+	);
+	for (const child of children) {
+		childIds.push(child.id);
+		childIds.push(...collectChildIds(child.id, allTodos));
+	}
+	return childIds;
+};
 
 export function TodoDetail() {
 	const t = useTranslations("todoDetail");
@@ -43,6 +56,7 @@ export function TodoDetail() {
 	);
 	const [selectedAttachment, setSelectedAttachment] =
 		useState<TodoAttachment | null>(null);
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	// 本地状态管理 userNotes，用于即时输入响应
 	const [localUserNotes, setLocalUserNotes] = useState<string>("");
@@ -78,12 +92,25 @@ export function TodoDetail() {
 		[todo?.id, todos],
 	);
 
+	const childIds = useMemo(
+		() => (todo?.id ? collectChildIds(todo.id, todos) : []),
+		[todo?.id, todos],
+	);
+
 	useEffect(() => {
 		if (todo?.id == null) {
 			setSelectedAttachment(null);
 			return;
 		}
 		setSelectedAttachment(null);
+	}, [todo?.id]);
+
+	useEffect(() => {
+		if (todo?.id == null) {
+			setShowDeleteConfirm(false);
+			return;
+		}
+		setShowDeleteConfirm(false);
 	}, [todo?.id]);
 
 	// 清理防抖定时器
@@ -179,23 +206,7 @@ export function TodoDetail() {
 
 	const handleDelete = async () => {
 		try {
-			// 递归查找所有子任务 ID
-			const findAllChildIds = (
-				parentId: number,
-				allTodos: Todo[],
-			): number[] => {
-				const childIds: number[] = [];
-				const children = allTodos.filter(
-					(t: Todo) => t.parentTodoId === parentId,
-				);
-				for (const child of children) {
-					childIds.push(child.id);
-					childIds.push(...findAllChildIds(child.id, allTodos));
-				}
-				return childIds;
-			};
-
-			const allIdsToDelete = [todo.id, ...findAllChildIds(todo.id, todos)];
+			const allIdsToDelete = [todo.id, ...childIds];
 
 			await deleteTodo(todo.id);
 			onTodoDeleted(allIdsToDelete);
@@ -247,6 +258,23 @@ export function TodoDetail() {
 		}
 	};
 
+	const handleDeleteRequest = () => {
+		setShowDeleteConfirm(true);
+	};
+
+	const handleDeleteConfirm = async () => {
+		setShowDeleteConfirm(false);
+		await handleDelete();
+	};
+
+	if (!todo) {
+		return (
+			<div className="flex h-full items-center justify-center text-sm text-muted-foreground bg-background">
+				{t("selectTodoPrompt")}
+			</div>
+		);
+	}
+
 	const detailPosition = getPositionByFeature("todoDetail", panelFeatureMap);
 	const leftNeighbor =
 		detailPosition === "panelC"
@@ -270,10 +298,45 @@ export function TodoDetail() {
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			<DetailHeader
 				onToggleComplete={handleToggleComplete}
-				onDelete={handleDelete}
+				onDelete={handleDeleteRequest}
 				activeView={activeView}
 				onViewChange={setActiveView}
 			/>
+
+			{showDeleteConfirm && (
+				<div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div className="min-w-[200px]">
+							<p className="text-sm font-semibold text-foreground">
+								{t("deleteConfirmTitle")}
+							</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{childIds.length > 0
+									? t("deleteConfirmWithChildren", {
+											count: childIds.length,
+										})
+									: t("deleteConfirmDescription")}
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setShowDeleteConfirm(false)}
+							>
+								{t("deleteConfirmCancel")}
+							</Button>
+							<Button
+								variant="destructive"
+								size="sm"
+								onClick={handleDeleteConfirm}
+							>
+								{t("deleteConfirmDelete")}
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			<div className="flex-1 overflow-y-auto px-4 py-6">
 				{activeView === "detail" ? (

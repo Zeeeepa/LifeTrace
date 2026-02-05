@@ -323,7 +323,8 @@
 		"closePanel": "关闭面板",
 		"pinPanel": "固定面板",
 		"unpinPanel": "解锁面板",
-		"openInNewWindow": "在新窗口中打开"
+		"openInNewWindow": "在新窗口中打开",
+		"pinnedBadge": "已固定"
 	},
 	"todoExtraction": {
 		"extractButton": "提取待办",
@@ -934,7 +935,12 @@
 		"downloadLabel": "下载",
 		"uploadFailed": "上传失败",
 		"removeAttachmentFailed": "移除附件失败",
-		"uploadSizeLimit": "单文件不能超过 50MB"
+		"uploadSizeLimit": "单文件不能超过 50MB",
+		"deleteConfirmTitle": "确认删除此待办？",
+		"deleteConfirmDescription": "该操作无法撤销。",
+		"deleteConfirmWithChildren": "将同时删除此待办及其 {count} 个子待办。",
+		"deleteConfirmCancel": "取消",
+		"deleteConfirmDelete": "删除"
 	},
 	"automationTasks": {
 		"title": "自定义定时任务",

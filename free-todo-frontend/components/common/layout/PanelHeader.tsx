@@ -469,6 +469,9 @@ export function PanelHeader({
 	const position = usePanelPosition();
 	const isDraggable = !disableDrag && position !== null;
 	const headerIconStyle = usePanelIconStyle("header");
+	const tPanelMenu = useTranslations("panelMenu");
+	const panelPinMap = useUiStore((state) => state.panelPinMap);
+	const isPinned = position ? panelPinMap[position] : false;
 
 	// 构建拖拽数据
 	const dragData: DragData | undefined = useMemo(
@@ -519,6 +522,12 @@ export function PanelHeader({
 				<h2 className="flex items-center gap-2 text-base font-medium text-foreground">
 					<Icon className={cn(headerIconStyle, iconClassName)} />
 					{title}
+					{isPinned && (
+						<span className="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-50/80 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+							<Pin className="h-3 w-3" />
+							{tPanelMenu("pinnedBadge")}
+						</span>
+					)}
 				</h2>
 				{(actions || position) && (
 					<div className="flex items-center gap-2">
