@@ -258,6 +258,11 @@ function Find-TauriArtifact {
     )
     $artifactBase = Join-Path $FrontendDir "dist-artifacts\tauri\$Variant\$Backend"
     $bundleDir = Join-Path $FrontendDir "src-tauri\target\release\bundle"
+    $binaryDir = Join-Path $FrontendDir "src-tauri\target\release"
+    $artifact = Get-LatestFile $binaryDir "*.exe"
+    if ($artifact) {
+        return $artifact
+    }
     $artifact = Get-LatestFile $artifactBase "*.exe"
     if (-not $artifact) {
         $artifact = Get-LatestFile $bundleDir "*.exe"
@@ -514,7 +519,7 @@ if ($Mode -eq "web") {
     if ($Frontend -eq "build") {
         $artifact = Find-ElectronArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
         if (-not ($repoReady -and $depsReady -and $artifact)) {
-            pnpm "build:electron:${Variant}:${Backend}:full"
+            pnpm "build:electron:${Variant}:${Backend}:full:dir"
             $artifact = Find-ElectronArtifact -FrontendDir (Get-Location).Path -Variant $Variant -Backend $Backend
         } else {
             Write-Host "Electron build is up to date. Skipping build step."

@@ -488,11 +488,23 @@ find_electron_artifact() {
   local artifact_base="$frontend_dir/dist-artifacts/electron/$variant/$runtime"
 
   if [ "$OS_TYPE" = "Darwin" ]; then
+    local app
+    app="$(find_latest_path "$artifact_base" "*.app" "d")"
+    if [ -n "$app" ]; then
+      echo "$app"
+      return 0
+    fi
     find_latest_path "$artifact_base" "*.dmg" "f" || true
     return 0
   fi
 
   if [ "$OS_TYPE" = "Linux" ]; then
+    local unpacked
+    unpacked="$(find_latest_path "$artifact_base" "linux-unpacked" "d")"
+    if [ -n "$unpacked" ]; then
+      find "$unpacked" -maxdepth 1 -type f -perm -111 ! -name "chrome-sandbox" ! -name "chrome_crashpad_handler" 2>/dev/null | head -n1
+      return 0
+    fi
     local appimage
     appimage="$(find_latest_path "$artifact_base" "*.AppImage" "f")"
     if [ -n "$appimage" ]; then
@@ -788,7 +800,7 @@ case "$MODE" in
       artifact="$(find_electron_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
       if [ -z "$artifact" ] || [ "$REPO_READY" -eq 0 ] || [ "$DEPS_READY" -eq 0 ]; then
         echo "Building Electron app ($VARIANT, $BACKEND_RUNTIME)..."
-        pnpm "build:electron:${VARIANT}:${BACKEND_RUNTIME}:full"
+        pnpm "build:electron:${VARIANT}:${BACKEND_RUNTIME}:full:dir"
         artifact="$(find_electron_artifact "$(pwd)" "$VARIANT" "$BACKEND_RUNTIME")"
       else
         echo "Electron build is up to date. Skipping build step."
