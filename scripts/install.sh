@@ -24,6 +24,14 @@ VARIANT_SET=0
 if [ -n "${LIFETRACE_VARIANT:-}" ]; then
   VARIANT_SET=1
 fi
+MODE_SET=0
+if [ -n "${LIFETRACE_MODE:-}" ]; then
+  MODE_SET=1
+fi
+BACKEND_SET=0
+if [ -n "${LIFETRACE_BACKEND:-}" ]; then
+  BACKEND_SET=1
+fi
 
 usage() {
   cat <<'EOF'
@@ -65,6 +73,7 @@ while [ $# -gt 0 ]; do
         exit 1
       fi
       MODE="$2"
+      MODE_SET=1
       shift 2
       ;;
     --variant)
@@ -91,6 +100,7 @@ while [ $# -gt 0 ]; do
         exit 1
       fi
       BACKEND_RUNTIME="$2"
+      BACKEND_SET=1
       shift 2
       ;;
     --repo)
@@ -135,10 +145,59 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+prompt_choice() {
+  local label="$1"
+  local default="$2"
+  shift 2
+  local choices=("$@")
+  echo "$label"
+  local i=1
+  for choice in "${choices[@]}"; do
+    echo "  $i) $choice"
+    i=$((i + 1))
+  done
+  read -r -p "Select [default: $default]: " input
+  if [ -z "${input}" ]; then
+    echo "$default"
+    return 0
+  fi
+  if [[ "$input" =~ ^[0-9]+$ ]]; then
+    local index=$((input - 1))
+    if [ "$index" -ge 0 ] && [ "$index" -lt "${#choices[@]}" ]; then
+      echo "${choices[$index]}"
+      return 0
+    fi
+  else
+    for choice in "${choices[@]}"; do
+      if [ "$choice" = "$input" ]; then
+        echo "$choice"
+        return 0
+      fi
+    done
+  fi
+  echo "Invalid choice. Using default: $default" >&2
+  echo "$default"
+}
+
+if [ "$VARIANT_SET" -eq 0 ]; then
+  VARIANT="$(prompt_choice "Select UI variant:" "web" "web" "island")"
+fi
+if [ "$BACKEND_SET" -eq 0 ]; then
+  BACKEND_RUNTIME="$(prompt_choice "Select backend runtime:" "script" "script" "pyinstaller")"
+fi
+if [ "$MODE_SET" -eq 0 ]; then
+  MODE="$(prompt_choice "Select app mode:" "tauri" "tauri" "electron" "web")"
+fi
+
 if [ "$MODE" = "island" ]; then
   MODE="tauri"
   VARIANT="island"
   VARIANT_SET=1
+fi
+
+if [ "$VARIANT" = "island" ] && [ "$MODE" = "web" ]; then
+  echo "Variant 'island' is not supported in web mode. Switching mode to tauri."
+  MODE="tauri"
 fi
 
 if [ "$MODE" = "web" ] && [ "$VARIANT" != "web" ]; then
@@ -178,7 +237,11 @@ case "$BACKEND_RUNTIME" in
     ;;
 esac
 
-if [ "$MODE" = "web" ] && [ "$FRONTEND_SET" -eq 0 ]; then
+if [ "$BACKEND_RUNTIME" = "pyinstaller" ] && [ "$FRONTEND_SET" -eq 0 ]; then
+  FRONTEND_ACTION="build"
+fi
+
+if [ "$MODE" = "web" ] && [ "$FRONTEND_SET" -eq 0 ] && [ "$BACKEND_RUNTIME" != "pyinstaller" ]; then
   FRONTEND_ACTION="dev"
 fi
 
@@ -193,6 +256,163 @@ MISSING_HINTS=()
 add_missing() {
   MISSING_DEPS+=("$1")
   MISSING_HINTS+=("$2")
+}
+
+OS_TYPE="$(uname -s)"
+
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+ensure_brew() {
+  if command -v brew >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is required to install Homebrew." >&2
+    return 1
+  fi
+  echo "Installing Homebrew..."
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+}
+
+install_packages() {
+  if [ "$#" -eq 0 ]; then
+    return 0
+  fi
+  if [ "$OS_TYPE" = "Darwin" ]; then
+    ensure_brew || return 1
+    brew install "$@"
+    return $?
+  fi
+  if [ "$OS_TYPE" = "Linux" ]; then
+    if command -v apt-get >/dev/null 2>&1; then
+      as_root apt-get update
+      as_root apt-get install -y "$@"
+      return $?
+    fi
+    if command -v dnf >/dev/null 2>&1; then
+      as_root dnf install -y "$@"
+      return $?
+    fi
+    if command -v yum >/dev/null 2>&1; then
+      as_root yum install -y "$@"
+      return $?
+    fi
+    if command -v pacman >/dev/null 2>&1; then
+      as_root pacman -Sy --noconfirm "$@"
+      return $?
+    fi
+  fi
+  echo "No supported package manager found to install: $*" >&2
+  return 1
+}
+
+install_rustup() {
+  if command -v cargo >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "Installing Rust (rustup)..."
+  if command -v curl >/dev/null 2>&1; then
+    curl -sSf https://sh.rustup.rs | sh -s -- -y
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- https://sh.rustup.rs | sh -s -- -y
+  else
+    return 1
+  fi
+  export PATH="$HOME/.cargo/bin:$PATH"
+}
+
+install_missing_deps() {
+  if [ "${#MISSING_DEPS[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  local packages=()
+  local need_rustup=0
+  local dep
+  for dep in "${MISSING_DEPS[@]}"; do
+    case "$dep" in
+      python)
+        if [ "$OS_TYPE" = "Darwin" ]; then
+          packages+=("python@3.12")
+        elif [ "$OS_TYPE" = "Linux" ]; then
+          if command -v pacman >/dev/null 2>&1; then
+            packages+=("python" "python-pip")
+          else
+            packages+=("python3" "python3-pip" "python3-venv")
+          fi
+        fi
+        ;;
+      git)
+        packages+=("git")
+        ;;
+      node)
+        if [ "$OS_TYPE" = "Darwin" ]; then
+          packages+=("node")
+        elif [ "$OS_TYPE" = "Linux" ]; then
+          if command -v pacman >/dev/null 2>&1; then
+            packages+=("nodejs" "npm")
+          else
+            packages+=("nodejs" "npm")
+          fi
+        fi
+        ;;
+      cargo)
+        need_rustup=1
+        ;;
+      curl/wget)
+        if [ "$OS_TYPE" = "Darwin" ]; then
+          packages+=("curl" "wget")
+        elif [ "$OS_TYPE" = "Linux" ]; then
+          packages+=("curl" "wget")
+        fi
+        ;;
+    esac
+  done
+
+  if [ "${#packages[@]}" -gt 0 ]; then
+    install_packages "${packages[@]}" || return 1
+  fi
+  if [ "$need_rustup" -eq 1 ]; then
+    install_rustup || return 1
+  fi
+}
+
+filter_missing_deps() {
+  local remaining_deps=()
+  local remaining_hints=()
+  local dep
+  local hint
+  for i in "${!MISSING_DEPS[@]}"; do
+    dep="${MISSING_DEPS[$i]}"
+    hint="${MISSING_HINTS[$i]}"
+    if [ "$dep" = "python" ]; then
+      if command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1; then
+        continue
+      fi
+    fi
+    if [ "$dep" = "curl/wget" ]; then
+      if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
+        continue
+      fi
+    fi
+    if ! command -v "$dep" >/dev/null 2>&1; then
+      remaining_deps+=("$dep")
+      remaining_hints+=("$hint")
+    fi
+  done
+  MISSING_DEPS=("${remaining_deps[@]}")
+  MISSING_HINTS=("${remaining_hints[@]}")
 }
 
 report_missing() {
@@ -245,15 +465,9 @@ fi
 if [ "$MODE" = "tauri" ]; then
   if ! command -v cargo >/dev/null 2>&1; then
     add_missing "cargo" "Install Rust (rustup) and retry, or set LIFETRACE_MODE=web."
-  fi
-fi
-
-NEED_PNPM_INSTALL=0
-if ! command -v pnpm >/dev/null 2>&1; then
-  if command -v corepack >/dev/null 2>&1; then
-    NEED_PNPM_INSTALL=1
-  else
-    add_missing "pnpm" "pnpm not found and corepack is unavailable. Install Node.js 20+ and retry."
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+      add_missing "curl/wget" "curl or wget is required to install Rust."
+    fi
   fi
 fi
 
@@ -263,7 +477,20 @@ if ! command -v uv >/dev/null 2>&1; then
   fi
 fi
 
+install_missing_deps
+filter_missing_deps
 report_missing
+
+if [ -z "$PYTHON_BIN" ] || ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  elif command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  else
+    echo "Python 3.12+ not found after installation. Reopen your terminal and retry." >&2
+    exit 1
+  fi
+fi
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "Installing uv..."
@@ -271,29 +498,54 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-if [ "$NEED_PNPM_INSTALL" -eq 1 ]; then
-  corepack enable
-  corepack prepare pnpm@latest --activate
+if ! command -v pnpm >/dev/null 2>&1; then
+  if command -v corepack >/dev/null 2>&1; then
+    corepack enable
+    corepack prepare pnpm@latest --activate
+  elif command -v npm >/dev/null 2>&1; then
+    npm install -g pnpm
+  fi
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "pnpm not found after installation. Reopen your terminal and retry." >&2
+    exit 1
+  fi
 fi
 
+REPO_READY=0
 if [ -e "$TARGET_DIR" ] && [ ! -d "$TARGET_DIR/.git" ]; then
   echo "Target path '$TARGET_DIR' exists and is not a git repo." >&2
   echo "Set LIFETRACE_DIR to a new folder and retry." >&2
   exit 1
 fi
 
-if [ ! -d "$TARGET_DIR/.git" ]; then
+if [ -d "$TARGET_DIR/.git" ]; then
+  cd "$TARGET_DIR"
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Repository has local changes. Commit or stash and retry." >&2
+    exit 1
+  fi
+  git fetch --depth 1 "$REPO_URL" "$REF"
+  HEAD_SHA="$(git rev-parse HEAD)"
+  REMOTE_SHA="$(git rev-parse FETCH_HEAD)"
+  if [ "$HEAD_SHA" = "$REMOTE_SHA" ]; then
+    REPO_READY=1
+  fi
+else
   git clone --depth 1 --branch "$REF" "$REPO_URL" "$TARGET_DIR"
+  cd "$TARGET_DIR"
 fi
 
-cd "$TARGET_DIR"
-if [ -n "$(git status --porcelain)" ]; then
-  echo "Repository has local changes. Commit or stash and retry." >&2
-  exit 1
+if [ "$REPO_READY" -eq 0 ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Repository has local changes. Commit or stash and retry." >&2
+    exit 1
+  fi
+  git fetch --depth 1 "$REPO_URL" "$REF"
+  git checkout -q -B "$REF" FETCH_HEAD
+  uv sync
+else
+  echo "Repository is up to date. Skipping install steps."
 fi
-git fetch --depth 1 "$REPO_URL" "$REF"
-git checkout -q -B "$REF" FETCH_HEAD
-uv sync
 
 if [ "$RUN_AFTER_INSTALL" != "1" ]; then
   echo "Install complete."
@@ -313,7 +565,9 @@ case "$MODE" in
     trap cleanup EXIT
 
     cd free-todo-frontend
-    pnpm install
+    if [ "$REPO_READY" -eq 0 ]; then
+      pnpm install
+    fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
       echo "Building frontend..."
@@ -327,7 +581,9 @@ case "$MODE" in
     ;;
   tauri)
     cd free-todo-frontend
-    pnpm install
+    if [ "$REPO_READY" -eq 0 ]; then
+      pnpm install
+    fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
       echo "Building Tauri app ($VARIANT, $BACKEND_RUNTIME)..."
@@ -356,7 +612,9 @@ case "$MODE" in
     ;;
   electron)
     cd free-todo-frontend
-    pnpm install
+    if [ "$REPO_READY" -eq 0 ]; then
+      pnpm install
+    fi
 
     if [ "$FRONTEND_ACTION" = "build" ]; then
       echo "Building Electron app ($VARIANT, $BACKEND_RUNTIME)..."
