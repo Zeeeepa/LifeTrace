@@ -113,17 +113,43 @@ function Show-MissingDeps {
         Write-Host "- $($dep.Name): $($dep.Hint)"
     }
 
-    if (Test-Command "winget") {
-        $wingetDeps = $missingDeps | Where-Object { $_.WingetId }
-        if ($wingetDeps) {
+    $wingetDeps = $missingDeps | Where-Object { $_.WingetId }
+    if ($wingetDeps) {
+        if (-not (Test-Command "winget")) {
+            Install-Winget | Out-Null
+        }
+        if (Test-Command "winget") {
             Write-Host "Install with winget:"
             foreach ($dep in $wingetDeps) {
                 Write-Host "  winget install --id $($dep.WingetId) -e --accept-package-agreements --accept-source-agreements"
             }
+        } else {
+            Write-Host "winget not found. Install App Installer from Microsoft Store or from https://aka.ms/getwinget"
         }
     }
 
     throw "Missing required dependencies. Install them and retry."
+}
+
+function Install-Winget {
+    if (Test-Command "winget") {
+        return $true
+    }
+    if (-not (Test-Command "Add-AppxPackage")) {
+        return $false
+    }
+    $wingetInstallerUrl = "https://aka.ms/getwinget"
+    $installerPath = Join-Path $env:TEMP "winget.msixbundle"
+    try {
+        Write-Host "winget not found. Attempting to install App Installer..."
+        Invoke-WebRequest -Uri $wingetInstallerUrl -OutFile $installerPath
+        Add-AppxPackage -Path $installerPath
+        Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "Automatic winget install failed."
+        return $false
+    }
+    return (Test-Command "winget")
 }
 
 $pythonCmd = $env:PYTHON_BIN
