@@ -5,35 +5,32 @@
  * 使用全局 DndContext，支持从其他面板拖拽 Todo 到日期
  */
 
-import {
-	Calendar,
-	ChevronLeft,
-	ChevronRight,
-	Plus,
-	RotateCcw,
-} from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { PanelHeader } from "@/components/common/layout/PanelHeader";
 import { useCreateTodo, useTodos } from "@/lib/query";
+import { normalizeReminderOffsets } from "@/lib/reminders";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { QuickCreateBar } from "./components/QuickCreateBar";
+import { QuickCreatePopover } from "./components/QuickCreatePopover";
+import { useMonthScroll } from "./hooks/useMonthScroll";
 import type { CalendarTodo, CalendarView } from "./types";
 import {
 	addDays,
+	addMonths,
 	DEFAULT_NEW_TIME,
 	endOfDay,
 	getWeekOfYear,
-	parseDeadline,
+	parseScheduleTime,
 	startOfDay,
 	startOfMonth,
 	startOfWeek,
 	toDateKey,
 } from "./utils";
 import { DayView } from "./views/DayView";
-import { MonthView } from "./views/MonthView";
+import { MonthScroller } from "./views/MonthScroller";
 import { WeekView } from "./views/WeekView";
 
 export function CalendarPanel() {
@@ -53,6 +50,17 @@ export function CalendarPanel() {
 	const [quickTargetDate, setQuickTargetDate] = useState<Date | null>(null);
 	const [quickTitle, setQuickTitle] = useState("");
 	const [quickTime, setQuickTime] = useState(DEFAULT_NEW_TIME);
+	const [quickReminderOffsets, setQuickReminderOffsets] = useState<number[]>(
+		normalizeReminderOffsets(undefined),
+	);
+	const [quickAnchorRect, setQuickAnchorRect] = useState<DOMRect | null>(null);
+	const {
+		monthItems,
+		monthScrollRef,
+		handleLoadMoreMonths,
+		requestMonthScroll,
+		shouldIgnoreActiveMonthChange,
+	} = useMonthScroll({ currentDate, view });
 
 	const VIEW_OPTIONS: { id: CalendarView; label: string }[] = [
 		{ id: "month", label: t("monthView") },
@@ -72,6 +80,13 @@ export function CalendarPanel() {
 
 	const range = useMemo(() => {
 		if (view === "month") {
+			if (monthItems.length > 0) {
+				const first = monthItems[0];
+				const last = monthItems[monthItems.length - 1];
+				const start = startOfWeek(startOfMonth(first));
+				const end = endOfDay(addDays(startOfWeek(startOfMonth(last)), 41));
+				return { start, end };
+			}
 			const start = startOfWeek(startOfMonth(currentDate));
 			const end = endOfDay(addDays(start, 41));
 			return { start, end };
@@ -84,34 +99,47 @@ export function CalendarPanel() {
 		const start = startOfDay(currentDate);
 		const end = endOfDay(currentDate);
 		return { start, end };
-	}, [currentDate, view]);
+	}, [currentDate, monthItems, view]);
 
-	const todosWithDeadline: CalendarTodo[] = useMemo(() => {
-		return todos
-			.map((todo: Todo) => {
-				const parsed = parseDeadline(todo.deadline);
-				if (!parsed) return null;
-				return {
+	const todosWithSchedule: CalendarTodo[] = useMemo(() => {
+		const items: CalendarTodo[] = [];
+		for (const todo of todos) {
+			const startRaw = todo.startTime ?? todo.endTime;
+			const startTime = parseScheduleTime(startRaw);
+			if (!startTime) continue;
+			const endTime = parseScheduleTime(todo.endTime ?? undefined);
+			const startDay = startOfDay(startTime);
+			const endDay = startOfDay(endTime ?? startTime);
+			for (
+				let day = startDay;
+				day.getTime() <= endDay.getTime();
+				day = addDays(day, 1)
+			) {
+				const dayValue = new Date(day);
+				items.push({
 					todo,
-					deadline: parsed,
-					dateKey: toDateKey(parsed),
-				};
-			})
-			.filter((item): item is CalendarTodo => item !== null)
-			.sort(
-				(a: CalendarTodo, b: CalendarTodo) =>
-					a.deadline.getTime() - b.deadline.getTime(),
-			);
+					startTime,
+					endTime,
+					dateKey: toDateKey(dayValue),
+					day: dayValue,
+					isAllDay: todo.isAllDay ?? false,
+				});
+			}
+		}
+		return items.sort(
+			(a: CalendarTodo, b: CalendarTodo) =>
+				a.startTime.getTime() - b.startTime.getTime(),
+		);
 	}, [todos]);
 
 	const todosInRange = useMemo(
 		() =>
-			todosWithDeadline.filter(
+			todosWithSchedule.filter(
 				(item) =>
-					item.deadline.getTime() >= range.start.getTime() &&
-					item.deadline.getTime() <= range.end.getTime(),
+					item.day.getTime() >= range.start.getTime() &&
+					item.day.getTime() <= range.end.getTime(),
 			),
-		[range.end, range.start, todosWithDeadline],
+		[range.end, range.start, todosWithSchedule],
 	);
 
 	const groupedByDay = useMemo(() => {
@@ -129,44 +157,134 @@ export function CalendarPanel() {
 
 	const handleNavigate = (direction: "prev" | "next" | "today") => {
 		if (direction === "today") {
-			setCurrentDate(startOfDay(new Date()));
+			const today = startOfDay(new Date());
+			if (view === "month") {
+				const target = startOfMonth(today);
+				requestMonthScroll(target);
+				setCurrentDate(target);
+			} else {
+				setCurrentDate(today);
+			}
 			return;
 		}
 
-		const delta = view === "month" ? 30 : view === "week" ? 7 : 1;
+		if (view === "month") {
+			const nextMonth =
+				direction === "prev"
+					? addMonths(startOfMonth(currentDate), -1)
+					: addMonths(startOfMonth(currentDate), 1);
+			requestMonthScroll(nextMonth);
+			setCurrentDate(nextMonth);
+			return;
+		}
+
+		const delta = view === "week" ? 7 : 1;
 		const offset = direction === "prev" ? -delta : delta;
 		setCurrentDate((prev) => startOfDay(addDays(prev, offset)));
 	};
 
-	const handleSelectDay = (date: Date) => {
-		setCurrentDate(startOfDay(date));
-		setQuickTargetDate(startOfDay(date));
+	const handleSelectDay = (
+		date: Date,
+		anchorEl?: HTMLDivElement | null,
+		inCurrentMonth?: boolean,
+	) => {
+		const target = startOfDay(date);
+		setQuickTargetDate(target);
+		setQuickAnchorRect(anchorEl?.getBoundingClientRect() ?? null);
+		if (view === "month" && inCurrentMonth === false) {
+			return;
+		}
+		setCurrentDate(target);
 	};
 
 	const handleQuickCreate = async () => {
 		if (!quickTargetDate || !quickTitle.trim()) return;
 		const [hh, mm] = quickTime.split(":").map((n) => Number.parseInt(n, 10));
-		const deadline = startOfDay(quickTargetDate);
-		deadline.setHours(hh || 0, mm || 0, 0, 0);
+		const startTime = startOfDay(quickTargetDate);
+		startTime.setHours(hh || 0, mm || 0, 0, 0);
 		try {
 			await createTodoMutation.mutateAsync({
 				name: quickTitle.trim(),
-				deadline: deadline.toISOString(),
+				startTime: startTime.toISOString(),
+				reminderOffsets: quickReminderOffsets,
 				status: "active",
 			});
 			setQuickTitle("");
 			setQuickTargetDate(null);
+			setQuickAnchorRect(null);
+			setQuickReminderOffsets(normalizeReminderOffsets(undefined));
 		} catch (err) {
 			console.error("Failed to create todo:", err);
 		}
 	};
+
+	const renderQuickCreate = (date: Date, _className: string) => {
+		if (!quickTargetDate) return null;
+		if (toDateKey(date) !== toDateKey(quickTargetDate)) return null;
+		const top = quickAnchorRect ? quickAnchorRect.top + 28 : 120;
+		const left = quickAnchorRect ? quickAnchorRect.left + 4 : 16;
+		const closePopover = () => {
+			setQuickTargetDate(null);
+			setQuickTitle("");
+			setQuickAnchorRect(null);
+			setQuickReminderOffsets(normalizeReminderOffsets(undefined));
+		};
+
+		return createPortal(
+			<>
+				<div
+					className="fixed inset-0 z-40"
+					aria-hidden
+					onPointerDown={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						closePopover();
+					}}
+				/>
+				<div
+					className="fixed z-[9999] w-72 max-w-[90vw] pointer-events-auto"
+					style={{ top, left }}
+					data-quick-create
+				>
+					<QuickCreatePopover
+						targetDate={quickTargetDate}
+						value={quickTitle}
+						time={quickTime}
+						reminderOffsets={quickReminderOffsets}
+						onChange={setQuickTitle}
+						onTimeChange={setQuickTime}
+						onReminderChange={setQuickReminderOffsets}
+						onConfirm={handleQuickCreate}
+						onCancel={closePopover}
+					/>
+				</div>
+			</>,
+			document.body,
+		);
+	};
+
+	const handleActiveMonthChange = useCallback(
+		(month: Date) => {
+			if (view !== "month") return;
+			const currentMonth = startOfMonth(currentDate);
+			if (shouldIgnoreActiveMonthChange(month)) return;
+			if (
+				currentMonth.getFullYear() === month.getFullYear() &&
+				currentMonth.getMonth() === month.getMonth()
+			) {
+				return;
+			}
+			setCurrentDate(month);
+		},
+		[currentDate, shouldIgnoreActiveMonthChange, view],
+	);
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			{/* 顶部标题栏 */}
 			<PanelHeader icon={Calendar} title={t("title")} />
 			{/* 顶部工具栏 */}
-			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
 				<span className="text-sm font-medium text-foreground">
 					{view === "month" &&
 						t("yearMonth", {
@@ -228,23 +346,29 @@ export function CalendarPanel() {
 							{option.label}
 						</button>
 					))}
-					<button
+					{/* <button
 						type="button"
-						onClick={() => setQuickTargetDate(startOfDay(currentDate))}
+						onClick={() => {
+							setQuickTargetDate(startOfDay(currentDate));
+							setQuickAnchorRect(null);
+						}}
 						className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
 					>
 						<Plus className="h-4 w-4" />
 						{t("create")}
-					</button>
+					</button> */}
 				</div>
 			</div>
 
 			{/* 视图主体 */}
-			<div className="flex-1 overflow-y-auto bg-background p-3">
-				{view !== "day" && (
-					<div className="grid grid-cols-7">
-						{WEEKDAY_LABELS.map((label) => (
-							<span
+			<div
+				ref={monthScrollRef}
+				className="flex-1 overflow-y-auto bg-background p-3"
+			>
+					{view === "month" && (
+						<div className="grid grid-cols-7">
+							{WEEKDAY_LABELS.map((label) => (
+								<span
 								key={label}
 								className="py-2 text-center text-xs font-medium text-muted-foreground"
 							>
@@ -256,42 +380,42 @@ export function CalendarPanel() {
 				)}
 				<div>
 					{view === "month" && (
-						<MonthView
-							currentDate={currentDate}
+						<MonthScroller
+							months={
+								monthItems.length > 0
+									? monthItems
+									: [startOfMonth(currentDate)]
+							}
+							activeMonth={startOfMonth(currentDate)}
 							groupedByDay={groupedByDay}
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
+							renderQuickCreate={(date) =>
+								renderQuickCreate(date, "absolute left-1 top-7 z-20 w-72 max-w-[90vw]")
+							}
+							onLoadMore={handleLoadMoreMonths}
+							onActiveMonthChange={handleActiveMonthChange}
+							scrollRef={monthScrollRef}
 						/>
 					)}
 					{view === "week" && (
 						<WeekView
 							currentDate={currentDate}
-							groupedByDay={groupedByDay}
+							todos={todos}
 							onSelectDay={handleSelectDay}
 							onSelectTodo={(todo) => setSelectedTodoId(todo.id)}
 							todayText={t("today")}
 						/>
 					)}
 					{view === "day" && (
-						<DayView currentDate={currentDate} todos={todosInRange} />
+						<DayView
+							currentDate={currentDate}
+							todos={todos}
+						/>
 					)}
 				</div>
 			</div>
-
-			{/* 快捷创建 */}
-			<QuickCreateBar
-				targetDate={quickTargetDate}
-				value={quickTitle}
-				time={quickTime}
-				onChange={setQuickTitle}
-				onTimeChange={setQuickTime}
-				onConfirm={handleQuickCreate}
-				onCancel={() => {
-					setQuickTargetDate(null);
-					setQuickTitle("");
-				}}
-			/>
 		</div>
 	);
 }

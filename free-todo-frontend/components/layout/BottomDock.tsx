@@ -27,10 +27,19 @@ const DOCK_ANIMATION_CONFIG = {
 // Dock 高度相关常量（单位: px）
 const DOCK_TRIGGER_ZONE = 80; // 触发展开的底部区域高度（鼠标进入此区域时展开）
 const HIDE_DELAY_MS = 1000; // 鼠标离开触发区域后收起的延迟时间
-const DOCK_BOTTOM_OFFSET = 12; // bottom-3 = 12px
+const DOCK_BOTTOM_OFFSET = 12; // 收起时，向下隐藏的偏移量
+const PANEL_VISIBLE_OFFSET = 8; // Panel 模式展开时，向上抬高的偏移量，让 dock 离底边更高一点
 
 interface BottomDockProps {
 	className?: string;
+	/** 是否在 Panel 模式下（用于调整鼠标位置检测和动画） */
+	isInPanelMode?: boolean;
+	/** Panel 容器的 ref（用于计算相对于 Panel 的鼠标位置） */
+	panelContainerRef?: React.RefObject<HTMLElement | null>;
+	/** 当前显示的 panel 个数（1, 2, 或 3），用于决定显示哪些 dock items */
+	visiblePanelCount?: number;
+	/** 指定需要显示的 panel 槽位（优先级高于 visiblePanelCount） */
+	visiblePositions?: PanelPosition[];
 }
 
 interface DockItem {
@@ -53,6 +62,7 @@ const FEATURE_LABEL_MAP: Partial<Record<PanelFeature, string>> = {
 	costTracking: "costTracking",
 	achievements: "achievements",
 	debugShots: "debugShots",
+	audio: "audio",
 };
 
 // 功能到翻译键的映射配置，缺失项回退到 todos
@@ -157,7 +167,7 @@ function DockItemButton({
 				isDraggingItem && "opacity-50",
 				isOverItem && !isDraggingItem && "ring-2 ring-primary/50 ring-offset-2",
 				item.isActive
-					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
+					? "bg-[oklch(var(--primary-weak))] dark:bg-[oklch(var(--primary-weak-hover))] text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))] shadow-[0_0_0_1px_oklch(var(--primary))] hover:bg-[oklch(var(--primary-weak-hover))] dark:hover:bg-[oklch(var(--primary-weak))]"
 					: "text-[oklch(var(--foreground))] hover:bg-[oklch(var(--muted))] hover:text-[oklch(var(--foreground))]",
 			)}
 			aria-label={item.label}
@@ -167,28 +177,34 @@ function DockItemButton({
 				className={cn(
 					"h-5 w-5",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			/>
 			<span
 				className={cn(
-					"text-sm font-medium",
+					"text-sm font-semibold",
 					item.isActive
-						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--primary-foreground))]"
+						? "text-[oklch(var(--primary))] dark:text-[oklch(var(--foreground))]"
 						: "text-[oklch(var(--foreground))]",
 				)}
 			>
 				{item.label}
 			</span>
 			{item.isActive && (
-				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))] dark:bg-[oklch(var(--primary-foreground))]" />
+				<span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-0.5 bg-[oklch(var(--primary))]" />
 			)}
 		</button>
 	);
 }
 
-export function BottomDock({ className }: BottomDockProps) {
+export function BottomDock({
+	className,
+	isInPanelMode = false,
+	panelContainerRef,
+	visiblePanelCount,
+	visiblePositions,
+}: BottomDockProps) {
 	const {
 		isPanelAOpen,
 		isPanelBOpen,
@@ -196,9 +212,12 @@ export function BottomDock({ className }: BottomDockProps) {
 		togglePanelA,
 		togglePanelB,
 		togglePanelC,
-		getFeatureByPosition,
 		setPanelFeature,
 		dockDisplayMode,
+		panelFeatureMap, // ✅ 直接订阅 panelFeatureMap，确保交换位置后能触发重新渲染
+		disabledFeatures, // ✅ 也需要订阅 disabledFeatures，确保禁用功能被正确处理
+		backendDisabledFeatures,
+		getFeatureByPosition, // ✅ 用于根据位置获取功能（用于引导流程）
 	} = useUiStore();
 	const { locale: _ } = useLocaleStore();
 	const t = useTranslations("bottomDock");
@@ -224,85 +243,19 @@ export function BottomDock({ className }: BottomDockProps) {
 		setMounted(true);
 	}, []);
 
-	// 测量 dock 实际高度
-	useEffect(() => {
-		if (dockRef.current) {
-			const height = dockRef.current.offsetHeight;
-			if (height > 0) {
-				setDockHeight(height);
-			}
-		}
-	}, []);
+	// 根据当前显示的 panel 个数决定显示哪些 dock items
+	// 如果 visiblePositions 指定，则按指定显示；否则使用 visiblePanelCount（兼容完整页面模式）
+	const visiblePositionsResolved: PanelPosition[] = useMemo(() => {
+		if (visiblePositions && visiblePositions.length > 0) return visiblePositions;
 
-	// 全局鼠标位置监听 - 当鼠标接近屏幕底部时展开 dock（仅在自动隐藏模式下生效）
-	useEffect(() => {
-		if (!mounted) return;
-
-		// 固定模式：始终展开，不需要监听鼠标事件
-		if (dockDisplayMode === "fixed") {
-			setIsExpanded(true);
-			// 清除可能存在的隐藏定时器
-			if (hideTimeoutRef.current) {
-				clearTimeout(hideTimeoutRef.current);
-				hideTimeoutRef.current = null;
-			}
-			return;
-		}
-
-		const handleMouseMove = (e: MouseEvent) => {
-			// 如果右键菜单打开，保持 dock 展开，不执行隐藏逻辑
-			if (menuState.isOpen) {
-				// 清除可能存在的隐藏定时器
-				if (hideTimeoutRef.current) {
-					clearTimeout(hideTimeoutRef.current);
-					hideTimeoutRef.current = null;
-				}
-				setIsExpanded(true);
-				return;
-			}
-
-			const windowHeight = window.innerHeight;
-			const mouseY = e.clientY;
-			const distanceFromBottom = windowHeight - mouseY;
-
-			// 鼠标在底部触发区域内
-			if (distanceFromBottom <= DOCK_TRIGGER_ZONE) {
-				// 清除可能存在的隐藏定时器
-				if (hideTimeoutRef.current) {
-					clearTimeout(hideTimeoutRef.current);
-					hideTimeoutRef.current = null;
-				}
-				setIsExpanded(true);
-			} else {
-				// 鼠标离开触发区域，启动延迟收起
-				if (!hideTimeoutRef.current) {
-					hideTimeoutRef.current = setTimeout(() => {
-						setIsExpanded(false);
-						hideTimeoutRef.current = null;
-					}, HIDE_DELAY_MS);
-				}
-			}
-		};
-
-		window.addEventListener("mousemove", handleMouseMove);
-
-		return () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			if (hideTimeoutRef.current) {
-				clearTimeout(hideTimeoutRef.current);
-			}
-		};
-	}, [mounted, menuState.isOpen, dockDisplayMode]);
-
-	// 计算收起时的 translateY 值
-	// 收起时，dock 完全隐藏到屏幕底部外
-	const hiddenTranslateY = dockHeight + DOCK_BOTTOM_OFFSET;
-
-	const itemRefs = useRef<Record<PanelPosition, HTMLButtonElement | null>>({
-		panelA: null,
-		panelB: null,
-		panelC: null,
-	});
+		// Panel 模式 & 完整页面模式都按 visiblePanelCount 显示 1/2/3 个，保证与面板数量同步
+		const count = visiblePanelCount ?? 3;
+		return count === 1
+			? ["panelA"]
+			: count === 2
+				? ["panelA", "panelB"]
+				: ["panelA", "panelB", "panelC"]; // 默认或 3 个
+	}, [visiblePanelCount, visiblePositions]);
 
 	// 监听外部事件以程序化打开右键菜单（用于引导流程）
 	useEffect(() => {
@@ -357,18 +310,23 @@ export function BottomDock({ className }: BottomDockProps) {
 
 	// 基于配置生成 dock items，每个位置槽位对应一个 item
 	// 在 SSR 时使用默认值，避免 hydration 错误
-	const DOCK_ITEMS: DockItem[] = (
-		["panelA", "panelB", "panelC"] as PanelPosition[]
-	).map((position) => {
+	const DOCK_ITEMS: DockItem[] = useMemo(() => {
+		const disabledSet = new Set([
+			...disabledFeatures,
+			...backendDisabledFeatures,
+		]);
+
+		return visiblePositionsResolved.map((position) => {
 		// 在 SSR 时使用默认功能分配，客户端挂载后使用实际值
 		const defaultFeatureMap: Record<PanelPosition, PanelFeature> = {
 			panelA: "todos",
 			panelB: "todoDetail",
 			panelC: "chat",
 		};
-		const feature = mounted
-			? getFeatureByPosition(position)
-			: defaultFeatureMap[position];
+		// ✅ 修复：直接使用 panelFeatureMap，而不是 getFeatureByPosition，确保交换位置后能触发重新计算
+		// 同时检查功能是否被禁用
+		const rawFeature = mounted ? (panelFeatureMap[position] || null) : defaultFeatureMap[position];
+		const feature = rawFeature && disabledSet.has(rawFeature) ? null : rawFeature;
 
 		// 获取位置对应的状态和 toggle 方法（无论是否分配功能都需要）
 		let isActive: boolean;
@@ -411,6 +369,99 @@ export function BottomDock({ className }: BottomDockProps) {
 			onClick,
 			group: "views",
 		};
+		});
+	}, [visiblePositionsResolved, mounted, panelFeatureMap, disabledFeatures, backendDisabledFeatures, isPanelAOpen, isPanelBOpen, isPanelCOpen, togglePanelA, togglePanelB, togglePanelC, t]); // ✅ 修复：依赖 panelFeatureMap 和 disabledFeatures，确保交换位置后能触发重新计算
+
+	// 测量 dock 实际高度
+	useEffect(() => {
+		if (dockRef.current) {
+			const height = dockRef.current.offsetHeight;
+			if (height > 0) {
+				setDockHeight(height);
+			}
+		}
+	}, []);
+
+	// 全局鼠标位置监听 - 当鼠标接近屏幕底部时展开 dock（仅在自动隐藏模式下生效）
+	useEffect(() => {
+		if (!mounted) return;
+
+		// 固定模式：始终展开，不需要监听鼠标事件
+		if (dockDisplayMode === "fixed") {
+			setIsExpanded(true);
+			// 清除可能存在的隐藏定时器
+			if (hideTimeoutRef.current) {
+				clearTimeout(hideTimeoutRef.current);
+				hideTimeoutRef.current = null;
+			}
+			return;
+		}
+
+		const handleMouseMove = (e: MouseEvent) => {
+			// 如果右键菜单打开，保持 dock 展开，不执行隐藏逻辑
+			if (menuState.isOpen) {
+				// 清除可能存在的隐藏定时器
+				if (hideTimeoutRef.current) {
+					clearTimeout(hideTimeoutRef.current);
+					hideTimeoutRef.current = null;
+				}
+				setIsExpanded(true);
+				return;
+			}
+
+			let distanceFromBottom: number;
+
+			if (isInPanelMode && panelContainerRef?.current) {
+				// Panel 模式：使用 Panel 容器的底边，确保在面板底部附近就能触发展开
+				const rect = panelContainerRef.current.getBoundingClientRect();
+				const mouseY = e.clientY;
+				distanceFromBottom = rect.bottom - mouseY;
+			} else {
+				// 全屏 / 浏览器模式：使用窗口高度
+				const windowHeight = window.innerHeight;
+				const mouseY = e.clientY;
+				distanceFromBottom = windowHeight - mouseY;
+			}
+
+			// 鼠标在底部触发区域内
+			if (distanceFromBottom <= DOCK_TRIGGER_ZONE) {
+				// 清除可能存在的隐藏定时器
+				if (hideTimeoutRef.current) {
+					clearTimeout(hideTimeoutRef.current);
+					hideTimeoutRef.current = null;
+				}
+				setIsExpanded(true);
+			} else {
+				// 鼠标离开触发区域，启动延迟收起
+				if (!hideTimeoutRef.current) {
+					hideTimeoutRef.current = setTimeout(() => {
+						setIsExpanded(false);
+						hideTimeoutRef.current = null;
+					}, HIDE_DELAY_MS);
+				}
+			}
+		};
+
+		window.addEventListener("mousemove", handleMouseMove);
+
+		return () => {
+			window.removeEventListener("mousemove", handleMouseMove);
+			if (hideTimeoutRef.current) {
+				clearTimeout(hideTimeoutRef.current);
+			}
+		};
+	}, [mounted, menuState.isOpen, dockDisplayMode, isInPanelMode, panelContainerRef]);
+
+	// 计算收起时的 translateY 值
+	// 收起时，dock 完全隐藏到屏幕底部外
+	const hiddenTranslateY = dockHeight + DOCK_BOTTOM_OFFSET;
+	// 展开时的 translateY：Panel 模式下稍微往上抬一点，避免贴边/遮挡
+	const visibleTranslateY = isInPanelMode ? -PANEL_VISIBLE_OFFSET : 0;
+
+	const itemRefs = useRef<Record<PanelPosition, HTMLButtonElement | null>>({
+		panelA: null,
+		panelB: null,
+		panelC: null,
 	});
 
 	// 按组分组，用于添加分隔符
@@ -432,14 +483,24 @@ export function BottomDock({ className }: BottomDockProps) {
 	return (
 		<motion.div
 			className={cn(
-				"pointer-events-auto fixed bottom-1 left-1/2 z-50",
+				isInPanelMode
+					? "pointer-events-auto relative z-1000000"
+					: "pointer-events-auto fixed bottom-1 left-1/2 z-1000000",
 				className,
 			)}
 			initial={false}
-			animate={{
-				x: "-50%",
-				y: isExpanded ? 0 : hiddenTranslateY,
-			}}
+			animate={isInPanelMode
+				? {
+					x: 0,
+					// Panel 模式：展开时略微抬高，隐藏时继续向下滑出容器
+					y: isExpanded ? visibleTranslateY : hiddenTranslateY,
+				}
+				: {
+					// 全屏 / 浏览器模式：行为保持不变
+					x: "-50%",
+					y: isExpanded ? 0 : hiddenTranslateY,
+				}
+			}
 			transition={DOCK_ANIMATION_CONFIG.spring}
 		>
 		<div
@@ -447,10 +508,10 @@ export function BottomDock({ className }: BottomDockProps) {
 			data-tour="bottom-dock"
 			className={cn(
 				"flex items-center gap-2",
-				"bg-[oklch(var(--card))]/80 dark:bg-background",
+				"bg-[oklch(var(--card))] dark:bg-[oklch(var(--card))]/60",
 				"backdrop-blur-md",
 				"border border-[oklch(var(--border))]",
-				"shadow-lg",
+				"shadow-lg dark:shadow-[0_12px_32px_-18px_oklch(var(--overlay))]",
 				"px-2 py-1.5",
 				"rounded-xl",
 			)}
@@ -499,6 +560,25 @@ export function BottomDock({ className }: BottomDockProps) {
 					onSelect={(feature) => {
 						if (menuState.position) {
 							setPanelFeature(menuState.position, feature);
+							// ✅ 如果 Panel 当前未激活，则自动激活它
+							const pos = menuState.position;
+							const isPanelActive =
+								pos === "panelA" ? isPanelAOpen :
+								pos === "panelB" ? isPanelBOpen :
+								isPanelCOpen;
+							if (!isPanelActive) {
+								const toggleFn =
+									pos === "panelA" ? togglePanelA :
+									pos === "panelB" ? togglePanelB :
+									togglePanelC;
+								toggleFn();
+							}
+							// ✅ 修复：选择功能后立即关闭菜单，重置状态
+							setMenuState({
+								isOpen: false,
+								position: null,
+								anchorElement: null,
+							});
 						}
 					}}
 					anchorElement={menuState.anchorElement}

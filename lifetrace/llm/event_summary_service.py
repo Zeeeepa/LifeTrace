@@ -8,11 +8,14 @@ import threading
 from datetime import datetime
 from typing import Any
 
+from lifetrace.core.dependencies import get_vector_service
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.storage import event_mgr, get_session
 from lifetrace.storage.models import Event
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.token_usage_logger import log_token_usage
 
 from .event_summary_clustering import cluster_ocr_texts_with_hdbscan
 from .event_summary_config import (
@@ -47,8 +50,6 @@ class EventSummaryService:
             return self.vector_service
 
         try:
-            from lifetrace.core.dependencies import get_vector_service
-
             vector_svc = get_vector_service()
             if vector_svc is not None:
                 logger.info(
@@ -190,7 +191,7 @@ class EventSummaryService:
         """获取事件信息"""
         try:
             with get_session() as session:
-                event = session.query(Event).filter(Event.id == event_id).first()
+                event = session.query(Event).filter(col(Event.id) == event_id).first()
                 if not event:
                     return None
 
@@ -280,7 +281,8 @@ class EventSummaryService:
                 ocr_text=combined_text,
             )
 
-            response = self.llm_client.client.chat.completions.create(
+            client = self.llm_client._get_client()
+            response = client.chat.completions.create(
                 model=self.llm_client.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -291,8 +293,6 @@ class EventSummaryService:
             )
 
             if hasattr(response, "usage") and response.usage:
-                from lifetrace.util.token_usage_logger import log_token_usage
-
                 log_token_usage(
                     model=self.llm_client.model,
                     input_tokens=response.usage.prompt_tokens,
@@ -302,7 +302,7 @@ class EventSummaryService:
                     feature_type="event_summary",
                 )
 
-            content = response.choices[0].message.content.strip()
+            content = (response.choices[0].message.content or "").strip()
             if content:
                 extracted_content, original_content = self._extract_json_from_response(content)
                 if extracted_content:

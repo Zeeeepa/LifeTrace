@@ -13,6 +13,7 @@ from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
 from lifetrace.util.settings import settings
 from lifetrace.util.time_parser import calculate_scheduled_time
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -83,7 +84,7 @@ class AutoTodoDetectionService:
                 logger.warning(f"截图 {screenshot_id} 不存在")
                 return {"created_count": 0, "todos": []}
 
-            app_name = screenshot.get("app_name")
+            app_name = screenshot.get("app_name") or ""
             window_title = screenshot.get("window_title", "")
 
             # 检查是否为白名单应用
@@ -147,6 +148,8 @@ class AutoTodoDetectionService:
         Returns:
             检测结果字典，包含new_todos列表
         """
+        _ = app_name
+        _ = window_title
         if not self.llm_client.is_available():
             logger.warning("LLM客户端不可用，无法检测待办")
             return {"new_todos": []}
@@ -263,7 +266,7 @@ class AutoTodoDetectionService:
             return None
 
         try:
-            reference_time = datetime.now()
+            reference_time = get_utc_now()
             return calculate_scheduled_time(time_info, reference_time)
         except Exception as e:
             logger.warning(f"计算scheduled_time失败: {e}")
@@ -299,7 +302,7 @@ class AutoTodoDetectionService:
             name=title,
             description=description,
             user_notes=user_notes,
-            deadline=scheduled_time,
+            start_time=scheduled_time,
             status="draft",  # 关键：创建为draft状态
             priority="none",
             tags=["自动提取"],

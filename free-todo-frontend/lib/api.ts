@@ -12,14 +12,88 @@ function getStreamApiBaseUrl(): string {
 // ============================================================================
 
 export interface SendChatParams {
-	message: string;
+	message: string; // 发送给 LLM 的完整消息（包含 system prompt + context + user input）
+	userInput?: string; // 用户真正输入的内容（用于保存到历史记录）
+	context?: string; // 待办上下文（可选）
+	systemPrompt?: string; // 系统提示词（可选）
 	conversationId?: string;
 	useRag?: boolean;
 	mode?: string;
+	selectedTools?: string[];
+	externalTools?: string[];
+}
+
+/**
+ * 工具调用事件类型（从后端流式响应中解析）
+ */
+export type ToolCallEventType =
+	| "tool_call_start"
+	| "tool_call_end"
+	| "run_started"
+	| "run_completed";
+
+/**
+ * 工具调用事件数据
+ */
+export interface ToolCallEvent {
+	type: ToolCallEventType;
+	tool_name?: string;
+	tool_args?: Record<string, unknown>;
+	result_preview?: string;
+}
+
+// 工具调用事件标记（与后端保持一致）
+const TOOL_EVENT_PREFIX = "\n[TOOL_EVENT:";
+const TOOL_EVENT_SUFFIX = "]\n";
+
+/**
+ * 解析流式响应中的工具调用事件
+ * 返回 [解析出的事件列表, 剩余的纯内容]
+ */
+function parseToolEvents(chunk: string): [ToolCallEvent[], string] {
+	const events: ToolCallEvent[] = [];
+	let content = chunk;
+
+	// 循环查找并解析所有工具调用事件
+	let startIdx = content.indexOf(TOOL_EVENT_PREFIX);
+	while (startIdx !== -1) {
+		const endIdx = content.indexOf(TOOL_EVENT_SUFFIX, startIdx);
+		if (endIdx === -1) {
+			// 事件标记不完整，等待更多数据
+			break;
+		}
+
+		// 提取 JSON 部分
+		const jsonStart = startIdx + TOOL_EVENT_PREFIX.length;
+		const jsonStr = content.substring(jsonStart, endIdx);
+
+		try {
+			const event = JSON.parse(jsonStr) as ToolCallEvent;
+			events.push(event);
+		} catch (e) {
+			console.error("[parseToolEvents] Failed to parse event:", jsonStr, e);
+		}
+
+		// 移除已解析的事件标记
+		content =
+			content.substring(0, startIdx) +
+			content.substring(endIdx + TOOL_EVENT_SUFFIX.length);
+
+		// 继续查找下一个事件
+		startIdx = content.indexOf(TOOL_EVENT_PREFIX);
+	}
+
+	return [events, content];
 }
 
 /**
  * 发送聊天消息并以流式方式接收回复
+ * @param params - 聊天参数
+ * @param onChunk - 内容块回调
+ * @param onSessionId - 会话 ID 回调
+ * @param signal - 取消信号
+ * @param locale - 语言设置
+ * @param onToolEvent - 工具调用事件回调（可选）
  */
 export async function sendChatMessageStream(
 	params: SendChatParams,
@@ -27,6 +101,7 @@ export async function sendChatMessageStream(
 	onSessionId?: (sessionId: string) => void,
 	signal?: AbortSignal,
 	locale?: string,
+	onToolEvent?: (event: ToolCallEvent) => void,
 ): Promise<void> {
 	// 流式请求直接调用后端 API，绕过 Next.js 代理
 	const baseUrl = getStreamApiBaseUrl();
@@ -36,21 +111,30 @@ export async function sendChatMessageStream(
 	console.log("[sendChatMessageStream] baseUrl:", baseUrl);
 	console.log("[sendChatMessageStream] apiUrl:", apiUrl);
 	console.log("[sendChatMessageStream] params:", params);
+	console.log("[sendChatMessageStream] selectedTools:", params.selectedTools);
 
 	let response: Response;
 	try {
+		const requestBody = {
+			message: params.message,
+			user_input: params.userInput,
+			context: params.context,
+			system_prompt: params.systemPrompt,
+			conversation_id: params.conversationId,
+			use_rag: params.useRag,
+			mode: params.mode,
+			selected_tools: params.selectedTools,
+			external_tools: params.externalTools,
+		};
+		console.log("[sendChatMessageStream] Request body:", requestBody);
+
 		response = await fetch(apiUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"Accept-Language": locale || "en",
 			},
-			body: JSON.stringify({
-				message: params.message,
-				conversation_id: params.conversationId,
-				use_rag: params.useRag,
-				mode: params.mode,
-			}),
+			body: JSON.stringify(requestBody),
 			signal,
 		});
 	} catch (error) {
@@ -84,6 +168,9 @@ export async function sendChatMessageStream(
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
 
+	// 用于处理跨 chunk 的不完整事件标记
+	let pendingChunk = "";
+
 	try {
 		while (true) {
 			// 检查是否已取消
@@ -96,11 +183,44 @@ export async function sendChatMessageStream(
 			if (done) break;
 
 			if (value) {
-				const chunk = decoder.decode(value, { stream: true });
-				if (chunk) {
-					onChunk(chunk);
+				const rawChunk = decoder.decode(value, { stream: true });
+				if (rawChunk) {
+					// 将待处理的部分与新数据合并
+					const fullChunk = pendingChunk + rawChunk;
+
+					// 解析工具调用事件
+					const [events, content] = parseToolEvents(fullChunk);
+
+					// 触发工具调用事件回调
+					if (onToolEvent) {
+						for (const event of events) {
+							onToolEvent(event);
+						}
+					}
+
+					// 检查是否有不完整的事件标记
+					const incompleteEventIdx = content.indexOf(TOOL_EVENT_PREFIX);
+					if (incompleteEventIdx !== -1) {
+						// 有不完整的事件标记，保存到下次处理
+						pendingChunk = content.substring(incompleteEventIdx);
+						const completeContent = content.substring(0, incompleteEventIdx);
+						if (completeContent) {
+							onChunk(completeContent);
+						}
+					} else {
+						// 没有不完整的事件标记
+						pendingChunk = "";
+						if (content) {
+							onChunk(content);
+						}
+					}
 				}
 			}
+		}
+
+		// 处理最后剩余的内容
+		if (pendingChunk) {
+			onChunk(pendingChunk);
 		}
 	} catch (error) {
 		// 如果是取消操作，不抛出错误
@@ -260,6 +380,7 @@ export type ChatHistoryItem = {
 	role: "user" | "assistant";
 	content: string;
 	timestamp?: string;
+	extraData?: string;
 };
 
 export type ChatHistoryResponse = {
@@ -268,91 +389,6 @@ export type ChatHistoryResponse = {
 };
 
 // ============================================================================
-// 重新导出 Orval 生成的 API 函数（仅保留实际使用的）
+// 注：通知相关的 API（fetchNotification、deleteNotification）已被 Orval 生成的 API 替换
+// 请直接使用 @/lib/generated/notifications/notifications 中的函数
 // ============================================================================
-
-// 仅保留 notification-poller.ts 中使用的 getTodos
-// 其他组件应直接使用 TanStack Query hooks 或生成的 API 函数
-export { listTodosApiTodosGet as getTodos } from "@/lib/generated/todos/todos";
-
-// 通知轮询 - 如果 Orval 生成中没有，提供手动实现
-export interface NotificationResponse {
-	id?: string;
-	title: string;
-	content: string;
-	timestamp?: string;
-}
-
-export async function fetchNotification(
-	url: string,
-): Promise<NotificationResponse | null> {
-	const baseUrl = getStreamApiBaseUrl();
-
-	try {
-		const response = await fetch(`${baseUrl}${url}`, {
-			method: "GET",
-			headers: {
-				"Content-Type": "application/json",
-			},
-		});
-
-		if (!response.ok) {
-			if (response.status === 404) {
-				return null;
-			}
-			throw new Error(`Request failed with status ${response.status}`);
-		}
-
-		const text = await response.text();
-		if (!text || text.trim() === "") {
-			return null;
-		}
-
-		const data = JSON.parse(text) as NotificationResponse;
-		if (!data.title && !data.content) {
-			return null;
-		}
-
-		return data;
-	} catch (error) {
-		console.warn(`Failed to fetch notification from ${url}:`, error);
-		return null;
-	}
-}
-
-/**
- * 删除通知
- * @param notificationId 通知ID
- * @returns 删除是否成功
- */
-export async function deleteNotification(
-	notificationId: string,
-): Promise<boolean> {
-	const baseUrl = getStreamApiBaseUrl();
-
-	try {
-		const response = await fetch(
-			`${baseUrl}/api/notifications/${notificationId}`,
-			{
-				method: "DELETE",
-				headers: {
-					"Content-Type": "application/json",
-				},
-			},
-		);
-
-		if (!response.ok) {
-			if (response.status === 404) {
-				// 通知不存在，视为成功（幂等性）
-				return true;
-			}
-			throw new Error(`Request failed with status ${response.status}`);
-		}
-
-		const data = await response.json();
-		return data.success === true;
-	} catch (error) {
-		console.error("Failed to delete notification:", error);
-		throw error;
-	}
-}

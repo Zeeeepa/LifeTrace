@@ -3,8 +3,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
+from lifetrace.util.base_paths import get_user_logs_dir
 from lifetrace.util.logging_config import get_logger
-from lifetrace.util.path_utils import get_user_logs_dir
 
 logger = get_logger()
 

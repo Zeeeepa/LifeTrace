@@ -2,6 +2,12 @@
 
 import json
 import re
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.llm.llm_client import LLMClient
 from lifetrace.routers.chat.base import router
@@ -15,7 +21,9 @@ from lifetrace.util.prompt_loader import get_prompt
 
 logger = get_logger()
 
-llm_client = LLMClient()
+
+def _get_llm_client() -> LLMClient:
+    return LLMClient()
 
 
 @router.post("/extract-todos-from-messages", response_model=MessageTodoExtractionResponse)
@@ -35,6 +43,7 @@ async def extract_todos_from_messages(
         HTTPException: 当提取失败时
     """
     try:
+        llm_client = _get_llm_client()
         if not llm_client.is_available():
             return MessageTodoExtractionResponse(
                 todos=[],
@@ -67,9 +76,10 @@ async def extract_todos_from_messages(
             {"role": "user", "content": user_prompt},
         ]
 
-        response = llm_client.client.chat.completions.create(
+        client = llm_client._get_client()
+        response = client.chat.completions.create(
             model=llm_client.model,
-            messages=messages,
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             temperature=0.3,
         )
 
@@ -84,7 +94,7 @@ async def extract_todos_from_messages(
         logger.error(f"从消息中提取待办失败: {e}", exc_info=True)
         return MessageTodoExtractionResponse(
             todos=[],
-            error_message=f"提取待办失败: {str(e)}",
+            error_message=f"提取待办失败: {e!s}",
         )
 
 

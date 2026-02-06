@@ -32,8 +32,9 @@ export function Questionnaire({
 		null,
 	);
 
-	const allAnswered = useMemo(() => {
-		return questions.every((q) => {
+	// 计算已回答的问题数量（用于显示进度，但不影响提交）
+	const answeredCount = useMemo(() => {
+		return questions.filter((q) => {
 			const answer = answers[q.id];
 			const customAnswer = customAnswers[q.id];
 			// 有标准答案或自定义答案都算已回答
@@ -41,7 +42,7 @@ export function Questionnaire({
 				(answer && answer.length > 0) ||
 				(customAnswer && customAnswer.trim().length > 0)
 			);
-		});
+		}).length;
 	}, [questions, answers, customAnswers]);
 
 	const SKIP_OPTION = "不知道/不重要";
@@ -357,14 +358,21 @@ export function Questionnaire({
 					</div>
 				))}
 
-				<div className="flex justify-end pt-4">
+				<div className="flex items-center justify-between pt-4">
+					{/* 显示回答进度（可选） */}
+					<span className="text-sm text-muted-foreground">
+						{t("answeredProgress", {
+							answered: answeredCount,
+							total: questions.length,
+						})}
+					</span>
 					<button
 						type="button"
 						onClick={onSubmit}
-						disabled={!allAnswered || isSubmitting}
+						disabled={isSubmitting}
 						className={cn(
 							"flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors",
-							!allAnswered || isSubmitting
+							isSubmitting
 								? "cursor-not-allowed opacity-50"
 								: "hover:bg-primary/90",
 						)}

@@ -1,6 +1,6 @@
 """时间分配相关路由"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -139,8 +139,8 @@ async def get_time_allocation(
     """获取时间分配数据（支持日期区间或天数）"""
     try:
         if start_date and end_date:
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=UTC)
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=UTC)
             stats_data = event_mgr.get_app_usage_stats(start_date=start_dt, end_date=end_dt)
         else:
             use_days = days if days else 7
@@ -156,4 +156,4 @@ async def get_time_allocation(
 
     except Exception as e:
         logger.error(f"获取时间分配数据失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取时间分配数据失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取时间分配数据失败: {e!s}") from e

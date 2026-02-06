@@ -162,6 +162,15 @@ Prompt templates are stored in `config/prompt.yaml`:
 - Support variable interpolation
 - Organized by functional modules
 
+### Agno Agent
+
+`llm/agno_agent.py` provides AI-powered todo management via [Agno framework](https://docs.agno.com/):
+- FreeTodoToolkit with 14 tools (CRUD, breakdown, time parsing, etc.)
+- Internationalization support (zh/en)
+- Mixin-based architecture for extensibility
+
+See `.cursor/commands/agno_agent.md` for detailed development guide.
+
 ---
 
 ## ⏰ Background Tasks

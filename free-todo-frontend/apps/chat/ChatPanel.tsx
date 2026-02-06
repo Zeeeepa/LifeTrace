@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BreakdownStageRenderer } from "@/apps/chat/components/breakdown/BreakdownStageRenderer";
 import { ChatInputSection } from "@/apps/chat/components/input/ChatInputSection";
 import { PromptSuggestions } from "@/apps/chat/components/input/PromptSuggestions";
@@ -10,39 +10,21 @@ import { HistoryDrawer } from "@/apps/chat/components/layout/HistoryDrawer";
 import { MessageList } from "@/apps/chat/components/message/MessageList";
 import { useBreakdownQuestionnaire } from "@/apps/chat/hooks/useBreakdownQuestionnaire";
 import { useChatController } from "@/apps/chat/hooks/useChatController";
-import { usePromptHandlers } from "@/apps/chat/hooks/usePromptHandlers";
-import { useCreateTodo, useUpdateTodo } from "@/lib/query";
+import { useChatStore } from "@/lib/store/chat-store";
 import { useLocaleStore } from "@/lib/store/locale";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { CreateTodoInput, Todo } from "@/lib/types";
 
 export function ChatPanel() {
 	const { locale } = useLocaleStore();
 	const tChat = useTranslations("chat");
 	const tPage = useTranslations("page");
 
-	// 从 TanStack Query 获取创建 todo 的 mutation
-	const createTodoMutation = useCreateTodo();
-
-	// 从 TanStack Query 获取更新 todo 的 mutation（用于 Edit 模式）
-	const updateTodoMutation = useUpdateTodo();
-
-	// 包装 createTodo 函数以匹配 useChatController 期望的签名
-	const createTodoWithResult = useCallback(
-		async (input: CreateTodoInput): Promise<Todo | null> => {
-			try {
-				return await createTodoMutation.mutateAsync(input);
-			} catch (error) {
-				console.error("Failed to create todo:", error);
-				return null;
-			}
-		},
-		[createTodoMutation],
-	);
-
 	// 从 Zustand 获取 UI 状态
 	const { selectedTodoIds, clearTodoSelection, toggleTodoSelection } =
 		useTodoStore();
+
+	// 获取 pendingPrompt（其他组件触发的待发送消息）
+	const { pendingPrompt, pendingNewChat, setPendingPrompt } = useChatStore();
 
 	// 使用 Breakdown Questionnaire hook
 	const breakdownQuestionnaire = useBreakdownQuestionnaire();
@@ -51,32 +33,32 @@ export function ChatPanel() {
 	const chatController = useChatController({
 		locale,
 		selectedTodoIds,
-		createTodo: createTodoWithResult,
 	});
 
-	// 使用 Prompt Handlers hook
-	const { handleSelectPrompt } = usePromptHandlers({
-		chatMode: chatController.chatMode,
-		isStreaming: chatController.isStreaming,
-		planSystemPrompt: chatController.planSystemPrompt,
-		editSystemPrompt: chatController.editSystemPrompt,
-		hasSelection: chatController.hasSelection,
-		effectiveTodos: chatController.effectiveTodos,
-		todos: chatController.todos,
-		conversationId: chatController.conversationId,
-		setConversationId: chatController.setConversationId,
-		setMessages: chatController.setMessages,
-		setIsStreaming: chatController.setIsStreaming,
-		setError: chatController.setError,
-		parsePlanTodos: chatController.parsePlanTodos,
-		buildTodoPayloads: chatController.buildTodoPayloads,
-		createTodoWithResult,
-		// 共享 AbortController ref，使停止按钮能够取消通过建议按钮发起的请求
-		abortControllerRef: chatController.abortControllerRef,
-		locale,
-	});
+	// 处理预设 Prompt 选择：直接发送消息（复用 sendMessage 逻辑）
+	const handleSelectPrompt = useCallback(
+		(prompt: string) => {
+			void chatController.sendMessage(prompt);
+		},
+		[chatController],
+	);
 
-	const [modeMenuOpen, setModeMenuOpen] = useState(false);
+	// 监听 pendingPrompt 变化，自动发送消息（由其他组件触发，如 TodoCard 的"获取建议"按钮）
+	useEffect(() => {
+		if (pendingPrompt) {
+			// 如果需要新开会话，先清空当前会话（keepStreaming=true 让旧的流式输出继续在后台运行）
+			if (pendingNewChat) {
+				chatController.handleNewChat(true);
+			}
+			// 使用 setTimeout 确保新会话状态已更新后再发送消息
+			setTimeout(() => {
+				void chatController.sendMessage(pendingPrompt);
+			}, 0);
+			// 清空 pendingPrompt，避免重复发送
+			setPendingPrompt(null);
+		}
+	}, [pendingPrompt, pendingNewChat, chatController, setPendingPrompt]);
+
 	const [showTodosExpanded, setShowTodosExpanded] = useState(false);
 
 	const typingText = useMemo(() => tChat("aiThinking"), [tChat]);
@@ -148,11 +130,7 @@ export function ChatPanel() {
 					messages={chatController.messages}
 					isStreaming={chatController.isStreaming}
 					typingText={typingText}
-					locale={locale}
-					chatMode={chatController.chatMode}
 					effectiveTodos={chatController.effectiveTodos}
-					onUpdateTodo={updateTodoMutation.mutateAsync}
-					isUpdating={updateTodoMutation.isPending}
 				/>
 			)}
 
@@ -164,7 +142,6 @@ export function ChatPanel() {
 				)}
 
 			<ChatInputSection
-				chatMode={chatController.chatMode}
 				locale={locale}
 				inputValue={chatController.inputValue}
 				isStreaming={chatController.isStreaming}
@@ -172,7 +149,6 @@ export function ChatPanel() {
 				effectiveTodos={chatController.effectiveTodos}
 				hasSelection={chatController.hasSelection}
 				showTodosExpanded={showTodosExpanded}
-				modeMenuOpen={modeMenuOpen}
 				onInputChange={chatController.setInputValue}
 				onSend={chatController.handleSend}
 				onStop={chatController.handleStop}
@@ -182,8 +158,6 @@ export function ChatPanel() {
 				onToggleExpand={() => setShowTodosExpanded((prev) => !prev)}
 				onClearSelection={clearTodoSelection}
 				onToggleTodo={toggleTodoSelection}
-				onToggleModeMenu={() => setModeMenuOpen((prev) => !prev)}
-				onChangeMode={chatController.setChatMode}
 			/>
 		</div>
 	);

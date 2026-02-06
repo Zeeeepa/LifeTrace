@@ -3,9 +3,15 @@ LLM客户端模块
 提供与OpenAI兼容API的交互
 """
 
-from typing import Any
+import contextlib
+from typing import TYPE_CHECKING, Any, cast
 
 from openai import OpenAI
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletionMessageParam
+else:
+    ChatCompletionMessageParam = Any
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
@@ -68,6 +74,8 @@ class LLMClient:
             logger.warning("使用硬编码默认值初始化LLM客户端")
 
         try:
+            if OpenAI is None:
+                raise ImportError("openai 依赖未安装")
             self.client = OpenAI(base_url=self.base_url, api_key=self.api_key)
             logger.info(f"LLM客户端初始化成功，使用模型: {self.model}")
             logger.info(f"API Base URL: {self.base_url}")
@@ -96,6 +104,11 @@ class LLMClient:
         """检查LLM客户端是否可用"""
         return self.client is not None
 
+    def _get_client(self) -> OpenAI:
+        if self.client is None:
+            raise RuntimeError("LLM客户端不可用，无法进行请求")
+        return self.client
+
     def classify_intent(self, user_query: str) -> dict[str, Any]:
         """分类用户意图"""
         if not self.is_available():
@@ -120,6 +133,31 @@ class LLMClient:
 
         return generate_summary_with_llm(self.client, self.model, query, context_data)
 
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        temperature: float = 0.7,
+        model: str | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        """通用非流式聊天方法，返回完整文本结果。"""
+        if not self.is_available():
+            raise RuntimeError("LLM客户端不可用，无法进行文本聊天")
+
+        try:
+            client = self._get_client()
+            response = client.chat.completions.create(
+                model=model or self.model,
+                messages=cast("list[ChatCompletionMessageParam]", messages),
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            content = response.choices[0].message.content or ""
+            return content
+        except Exception as e:
+            logger.error(f"文本聊天失败: {e}")
+            raise
+
     def stream_chat(
         self,
         messages: list[dict[str, str]],
@@ -130,21 +168,22 @@ class LLMClient:
         if not self.is_available():
             raise RuntimeError("LLM客户端不可用，无法进行流式生成")
         try:
-            stream = self.client.chat.completions.create(
+            # 关闭 enable_thinking 以提升性能（方案 B）
+            # 如果未来需要思考模式，可以通过参数控制
+            client = self._get_client()
+            stream = client.chat.completions.create(
                 model=model or self.model,
-                messages=messages,
+                messages=cast("list[ChatCompletionMessageParam]", messages),
                 temperature=temperature,
-                extra_body={"enable_thinking": True},
+                # extra_body={"enable_thinking": True},  # 已移除以提升性能
                 stream=True,
             )
             for chunk in stream:
-                try:
+                with contextlib.suppress(Exception):
                     delta = chunk.choices[0].delta
                     text = getattr(delta, "content", None)
                     if text:
                         yield text
-                except Exception:
-                    continue
         except Exception as e:
             logger.error(f"流式聊天失败: {e}")
             raise

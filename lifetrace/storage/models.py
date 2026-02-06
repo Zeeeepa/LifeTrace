@@ -3,7 +3,11 @@
 使用 SQLModel 重写所有数据模型，保持与现有数据库表结构兼容。
 """
 
+# pyright: reportIncompatibleVariableOverride=false
+
 from datetime import datetime
+from typing import ClassVar
+from uuid import uuid4
 
 from sqlmodel import Column, Field, SQLModel, Text
 
@@ -32,7 +36,7 @@ class TimestampMixin(SQLModel):
 class Screenshot(TimestampMixin, table=True):
     """截图记录模型"""
 
-    __tablename__ = "screenshots"
+    __tablename__: ClassVar[str] = "screenshots"
 
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500, unique=True)  # 文件路径
@@ -55,7 +59,7 @@ class Screenshot(TimestampMixin, table=True):
 class OCRResult(TimestampMixin, table=True):
     """OCR结果模型"""
 
-    __tablename__ = "ocr_results"
+    __tablename__: ClassVar[str] = "ocr_results"
 
     id: int | None = Field(default=None, primary_key=True)
     screenshot_id: int  # 关联截图ID
@@ -63,6 +67,11 @@ class OCRResult(TimestampMixin, table=True):
     confidence: float | None = None  # 置信度[0, 1]
     language: str | None = Field(default=None, max_length=10)  # 识别语言
     processing_time: float | None = None  # OCR处理耗时（秒）
+    text_hash: str | None = Field(
+        default=None,
+        max_length=64,
+        index=True,
+    )  # 文本内容的哈希值，用于去重和缓存
 
     def __repr__(self):
         return f"<OCRResult(id={self.id}, screenshot_id={self.screenshot_id})>"
@@ -71,7 +80,7 @@ class OCRResult(TimestampMixin, table=True):
 class Event(TimestampMixin, table=True):
     """事件模型（按前台应用连续使用区间聚合截图）"""
 
-    __tablename__ = "events"
+    __tablename__: ClassVar[str] = "events"
 
     id: int | None = Field(default=None, primary_key=True)
     app_name: str | None = Field(default=None, max_length=200)  # 前台应用名称
@@ -89,17 +98,51 @@ class Event(TimestampMixin, table=True):
 class Todo(TimestampMixin, table=True):
     """待办事项模型"""
 
-    __tablename__ = "todos"
+    __tablename__: ClassVar[str] = "todos"
 
     id: int | None = Field(default=None, primary_key=True)
+    uid: str = Field(
+        default_factory=lambda: str(uuid4()), max_length=64, index=True
+    )  # iCalendar UID
     name: str = Field(max_length=200)  # 待办名称
+    summary: str | None = Field(default=None, max_length=200)  # iCalendar SUMMARY
     description: str | None = Field(default=None, sa_column=Column(Text))  # 描述
     user_notes: str | None = Field(default=None, sa_column=Column(Text))  # 用户笔记
     parent_todo_id: int | None = None  # 父级待办ID（自关联）
-    deadline: datetime | None = None  # 截止时间
+    item_type: str = Field(default="VTODO", max_length=10)  # iCalendar VTODO/VEVENT
+    location: str | None = Field(default=None, max_length=200)  # iCalendar LOCATION
+    categories: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar CATEGORIES
+    classification: str | None = Field(default=None, max_length=20)  # iCalendar CLASS
+    deadline: datetime | None = None  # 截止时间（旧字段，逐步废弃）
     start_time: datetime | None = None  # 开始时间
+    end_time: datetime | None = None  # 结束时间
+    dtstart: datetime | None = None  # iCalendar DTSTART
+    dtend: datetime | None = None  # iCalendar DTEND
+    due: datetime | None = None  # iCalendar DUE
+    duration: str | None = Field(default=None, max_length=64)  # iCalendar DURATION (ISO 8601)
+    time_zone: str | None = Field(default=None, max_length=64)  # 时区（IANA）
+    tzid: str | None = Field(default=None, max_length=64)  # iCalendar TZID
+    is_all_day: bool = Field(default=False)  # 是否全天
+    dtstamp: datetime | None = None  # iCalendar DTSTAMP
+    created: datetime | None = None  # iCalendar CREATED
+    last_modified: datetime | None = None  # iCalendar LAST-MODIFIED
+    sequence: int = Field(default=0)  # iCalendar SEQUENCE
+    rdate: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar RDATE
+    exdate: str | None = Field(default=None, sa_column=Column(Text))  # iCalendar EXDATE
+    recurrence_id: datetime | None = None  # iCalendar RECURRENCE-ID
+    related_to_uid: str | None = Field(default=None, max_length=64)  # iCalendar RELATED-TO UID
+    related_to_reltype: str | None = Field(
+        default=None, max_length=20
+    )  # iCalendar RELATED-TO RELTYPE
+    ical_status: str | None = Field(default=None, max_length=20)  # iCalendar STATUS
+    reminder_offsets: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 提醒偏移列表（分钟）
     status: str = Field(default="active", max_length=20)  # active/completed/canceled
     priority: str = Field(default="none", max_length=20)  # high/medium/low/none
+    completed_at: datetime | None = None  # 完成时间（iCalendar COMPLETED）
+    percent_complete: int = Field(default=0, ge=0, le=100)  # 完成百分比（PERCENT-COMPLETE）
+    rrule: str | None = Field(default=None, max_length=500)  # iCalendar RRULE
     order: int = 0  # 同级待办之间的展示排序
     related_activities: str | None = Field(
         default=None, sa_column=Column(Text)
@@ -109,10 +152,32 @@ class Todo(TimestampMixin, table=True):
         return f"<Todo(id={self.id}, name={self.name}, status={self.status})>"
 
 
+class AutomationTask(TimestampMixin, table=True):
+    """用户自定义自动化任务"""
+
+    __tablename__: ClassVar[str] = "automation_tasks"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200)
+    description: str | None = Field(default=None, sa_column=Column(Text))
+    enabled: bool = Field(default=True)
+    schedule_type: str = Field(max_length=20)
+    schedule_config: str | None = Field(default=None, sa_column=Column(Text))
+    action_type: str = Field(max_length=50)
+    action_payload: str | None = Field(default=None, sa_column=Column(Text))
+    last_run_at: datetime | None = None
+    last_status: str | None = Field(default=None, max_length=20)
+    last_error: str | None = Field(default=None, sa_column=Column(Text))
+    last_output: str | None = Field(default=None, sa_column=Column(Text))
+
+    def __repr__(self):
+        return f"<AutomationTask(id={self.id}, name={self.name}, enabled={self.enabled})>"
+
+
 class Attachment(TimestampMixin, table=True):
     """附件信息模型"""
 
-    __tablename__ = "attachments"
+    __tablename__: ClassVar[str] = "attachments"
 
     id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500)  # 本地持久化路径
@@ -128,11 +193,12 @@ class Attachment(TimestampMixin, table=True):
 class TodoAttachmentRelation(SQLModel, table=True):
     """待办与附件的多对多关联关系"""
 
-    __tablename__ = "todo_attachment_relations"
+    __tablename__: ClassVar[str] = "todo_attachment_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     todo_id: int  # 关联的待办ID
     attachment_id: int  # 关联的附件ID
+    source: str = Field(default="user", max_length=20)  # user/ai
     created_at: datetime = Field(default_factory=get_utc_time)
     deleted_at: datetime | None = None
 
@@ -143,7 +209,7 @@ class TodoAttachmentRelation(SQLModel, table=True):
 class Tag(SQLModel, table=True):
     """标签模型"""
 
-    __tablename__ = "tags"
+    __tablename__: ClassVar[str] = "tags"
 
     id: int | None = Field(default=None, primary_key=True)
     tag_name: str = Field(max_length=50, unique=True)  # 标签名称
@@ -157,7 +223,7 @@ class Tag(SQLModel, table=True):
 class TodoTagRelation(SQLModel, table=True):
     """待办与标签的多对多关联关系"""
 
-    __tablename__ = "todo_tag_relations"
+    __tablename__: ClassVar[str] = "todo_tag_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     todo_id: int  # 关联的待办ID
@@ -172,13 +238,21 @@ class TodoTagRelation(SQLModel, table=True):
 class Journal(TimestampMixin, table=True):
     """日记模型"""
 
-    __tablename__ = "journals"
+    __tablename__: ClassVar[str] = "journals"
 
     id: int | None = Field(default=None, primary_key=True)
+    uid: str = Field(
+        default_factory=lambda: str(uuid4()), max_length=64, index=True
+    )  # iCalendar UID
     name: str = Field(max_length=200)  # 日记标题
     user_notes: str = Field(sa_column=Column(Text))  # 富文本内容
     date: datetime  # 日记日期
     content_format: str = Field(default="markdown", max_length=20)  # 内容格式
+    content_objective: str | None = Field(default=None, sa_column=Column(Text))  # 客观记录
+    content_ai: str | None = Field(default=None, sa_column=Column(Text))  # AI 视角
+    mood: str | None = Field(default=None, max_length=50)  # 情绪
+    energy: int | None = None  # 精力
+    day_bucket_start: datetime | None = None  # 日记归属的刷新点时间
 
     def __repr__(self):
         return f"<Journal(id={self.id}, name={self.name}, date={self.date})>"
@@ -187,7 +261,7 @@ class Journal(TimestampMixin, table=True):
 class JournalTagRelation(SQLModel, table=True):
     """日记与标签的多对多关联关系"""
 
-    __tablename__ = "journal_tag_relations"
+    __tablename__: ClassVar[str] = "journal_tag_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     journal_id: int  # 关联的日记ID
@@ -199,10 +273,43 @@ class JournalTagRelation(SQLModel, table=True):
         return f"<JournalTagRelation(id={self.id}, journal_id={self.journal_id}, tag_id={self.tag_id})>"
 
 
+class JournalTodoRelation(SQLModel, table=True):
+    """日记与待办的关联关系"""
+
+    __tablename__: ClassVar[str] = "journal_todo_relations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    journal_id: int  # 关联的日记ID
+    todo_id: int  # 关联的待办ID
+    created_at: datetime = Field(default_factory=get_utc_time)
+    deleted_at: datetime | None = None
+
+    def __repr__(self):
+        return f"<JournalTodoRelation(id={self.id}, journal_id={self.journal_id}, todo_id={self.todo_id})>"
+
+
+class JournalActivityRelation(SQLModel, table=True):
+    """日记与活动的关联关系"""
+
+    __tablename__: ClassVar[str] = "journal_activity_relations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    journal_id: int  # 关联的日记ID
+    activity_id: int  # 关联的活动ID
+    created_at: datetime = Field(default_factory=get_utc_time)
+    deleted_at: datetime | None = None
+
+    def __repr__(self):
+        return (
+            f"<JournalActivityRelation(id={self.id}, journal_id={self.journal_id}, "
+            f"activity_id={self.activity_id})>"
+        )
+
+
 class Chat(TimestampMixin, table=True):
     """聊天会话模型"""
 
-    __tablename__ = "chats"
+    __tablename__: ClassVar[str] = "chats"
 
     id: int | None = Field(default=None, primary_key=True)
     session_id: str = Field(max_length=100, unique=True)  # 会话ID
@@ -220,7 +327,7 @@ class Chat(TimestampMixin, table=True):
 class Message(TimestampMixin, table=True):
     """消息模型"""
 
-    __tablename__ = "messages"
+    __tablename__: ClassVar[str] = "messages"
 
     id: int | None = Field(default=None, primary_key=True)
     chat_id: int  # 关联的聊天会话ID
@@ -237,7 +344,7 @@ class Message(TimestampMixin, table=True):
 class TokenUsage(TimestampMixin, table=True):
     """Token使用量记录模型"""
 
-    __tablename__ = "token_usage"
+    __tablename__: ClassVar[str] = "token_usage"
 
     id: int | None = Field(default=None, primary_key=True)
     model: str = Field(max_length=100)  # 使用的模型名称
@@ -260,7 +367,7 @@ class TokenUsage(TimestampMixin, table=True):
 class Activity(TimestampMixin, table=True):
     """活动模型（聚合15分钟内的事件）"""
 
-    __tablename__ = "activities"
+    __tablename__: ClassVar[str] = "activities"
 
     id: int | None = Field(default=None, primary_key=True)
     start_time: datetime  # 活动开始时间
@@ -276,7 +383,7 @@ class Activity(TimestampMixin, table=True):
 class ActivityEventRelation(SQLModel, table=True):
     """活动与事件的关联关系表"""
 
-    __tablename__ = "activity_event_relations"
+    __tablename__: ClassVar[str] = "activity_event_relations"
 
     id: int | None = Field(default=None, primary_key=True)
     activity_id: int  # 关联的活动ID
@@ -286,6 +393,64 @@ class ActivityEventRelation(SQLModel, table=True):
 
     def __repr__(self):
         return f"<ActivityEventRelation(id={self.id}, activity_id={self.activity_id})>"
+
+
+class AudioRecording(TimestampMixin, table=True):
+    """音频录制记录模型"""
+
+    __tablename__: ClassVar[str] = "audio_recordings"
+
+    id: int | None = Field(default=None, primary_key=True)
+    file_path: str = Field(max_length=500)  # 音频文件路径
+    file_size: int  # 文件大小（字节）
+    duration: float  # 录音时长（秒）
+    start_time: datetime = Field(default_factory=get_utc_time)  # 开始时间
+    end_time: datetime | None = None  # 结束时间
+    status: str = Field(default="recording", max_length=20)  # 状态：recording, completed, failed
+    is_24x7: bool = False  # 是否为7x24小时录制
+    is_transcribed: bool = False  # 是否已完成转录
+    is_extracted: bool = False  # 是否已完成待办/日程提取
+    is_summarized: bool = False  # 是否已完成摘要
+    is_full_audio: bool = False  # 是否为完整音频
+    is_segment_audio: bool = False  # 是否为分段音频（用于句子级回放/定位）
+    transcription_status: str = Field(
+        default="pending", max_length=20
+    )  # 转录状态：pending, processing, completed, failed
+
+    def __repr__(self):
+        return f"<AudioRecording(id={self.id}, duration={self.duration}s)>"
+
+
+class Transcription(TimestampMixin, table=True):
+    """转录文本模型"""
+
+    __tablename__: ClassVar[str] = "transcriptions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    audio_recording_id: int  # 关联音频录制ID
+    original_text: str | None = Field(default=None, sa_column=Column(Text))  # 原始转录文本
+    optimized_text: str | None = Field(default=None, sa_column=Column(Text))  # 优化后的文本
+    extraction_status: str = Field(
+        default="pending", max_length=20
+    )  # 提取状态：pending, processing, completed, failed
+    extracted_todos: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从原文提取的待办事项（JSON格式）
+    extracted_schedules: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从原文提取的日程安排（JSON格式）
+    extracted_todos_optimized: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从优化文本提取的待办事项（JSON格式）
+    extracted_schedules_optimized: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 从优化文本提取的日程安排（JSON格式）
+    segment_timestamps: str | None = Field(
+        default=None, sa_column=Column(Text)
+    )  # 每段文本的精确时间戳（JSON格式，单位：秒，相对于录音开始时间）
+
+    def __repr__(self):
+        return f"<Transcription(id={self.id}, audio_recording_id={self.audio_recording_id})>"
 
 
 # 为兼容旧代码，保留 Base 引用（指向 SQLModel.metadata）

@@ -1,14 +1,14 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 import type { PanelFeature, PanelPosition } from "@/lib/config/panel-config";
 import { ALL_PANEL_FEATURES } from "@/lib/config/panel-config";
-import { LAYOUT_PRESETS } from "./layout-presets";
-import type { DockDisplayMode, UiStoreState } from "./types";
+import { createLayoutActions } from "./layout-actions";
+import { createUiStoreStorage } from "./storage";
+import type { UiStoreState } from "./types";
 import {
 	clampWidth,
 	DEFAULT_PANEL_STATE,
 	getPositionByFeature,
-	validatePanelFeatureMap,
 } from "./utils";
 
 export const useUiStore = create<UiStoreState>()(
@@ -22,14 +22,22 @@ export const useUiStore = create<UiStoreState>()(
 			panelCWidth: DEFAULT_PANEL_STATE.panelCWidth,
 			// 动态功能分配初始状态：默认分配
 			panelFeatureMap: DEFAULT_PANEL_STATE.panelFeatureMap,
+			panelPinMap: DEFAULT_PANEL_STATE.panelPinMap,
 			// 默认没有禁用的功能
 			disabledFeatures: DEFAULT_PANEL_STATE.disabledFeatures,
+			backendDisabledFeatures: DEFAULT_PANEL_STATE.backendDisabledFeatures,
 			// 自动关闭的panel栈
 			autoClosedPanels: DEFAULT_PANEL_STATE.autoClosedPanels,
 			// Dock 显示模式
 			dockDisplayMode: DEFAULT_PANEL_STATE.dockDisplayMode,
-			// 是否显示 Chat 模式切换器
-			showModeSwitcher: DEFAULT_PANEL_STATE.showModeSwitcher,
+			// 是否显示 Agno 工具选择器
+			showAgnoToolSelector: DEFAULT_PANEL_STATE.showAgnoToolSelector,
+			// Agno 模式下选中的 FreeTodo 工具
+			selectedAgnoTools: DEFAULT_PANEL_STATE.selectedAgnoTools,
+			// Agno 模式下选中的外部工具
+			selectedExternalTools: DEFAULT_PANEL_STATE.selectedExternalTools,
+			// 用户自定义布局
+			customLayouts: DEFAULT_PANEL_STATE.customLayouts,
 
 			// 位置槽位 toggle 方法
 			togglePanelA: () =>
@@ -73,7 +81,10 @@ export const useUiStore = create<UiStoreState>()(
 			// 位置槽位宽度设置方法
 			setPanelAWidth: (width: number) =>
 				set((state) => {
-					if (!state.isPanelAOpen || !state.isPanelBOpen) {
+					if (
+						!state.isPanelAOpen ||
+						(!state.isPanelBOpen && !state.isPanelCOpen)
+					) {
 						return state;
 					}
 
@@ -101,16 +112,31 @@ export const useUiStore = create<UiStoreState>()(
 			setPanelFeature: (position, feature) =>
 				set((state) => {
 					// 禁用的功能不允许分配
-					if (state.disabledFeatures.includes(feature)) {
+					if (
+						state.disabledFeatures.includes(feature) ||
+						state.backendDisabledFeatures.includes(feature)
+					) {
 						return state;
 					}
-					// 如果该功能已经在其他位置，先清除那个位置的分配
+					// 固定面板不允许替换
 					const currentMap = { ...state.panelFeatureMap };
+					const currentFeature = currentMap[position];
+					if (
+						state.panelPinMap[position] &&
+						currentFeature !== feature
+					) {
+						return state;
+					}
+
+					// 如果该功能已经在其他位置，先清除那个位置的分配
 					for (const [pos, assignedFeature] of Object.entries(currentMap) as [
 						PanelPosition,
 						PanelFeature | null,
 					][]) {
 						if (assignedFeature === feature && pos !== position) {
+							if (state.panelPinMap[pos]) {
+								return state;
+							}
 							currentMap[pos] = null;
 						}
 					}
@@ -123,18 +149,23 @@ export const useUiStore = create<UiStoreState>()(
 				const state = get();
 				const feature = state.panelFeatureMap[position];
 				if (!feature) return null;
-				return state.disabledFeatures.includes(feature) ? null : feature;
+				if (state.disabledFeatures.includes(feature)) return null;
+				if (state.backendDisabledFeatures.includes(feature)) return null;
+				return feature;
 			},
 
 			getAvailableFeatures: () => {
 				const state = get();
+				const disabledSet = new Set([
+					...state.disabledFeatures,
+					...state.backendDisabledFeatures,
+				]);
 				const assignedFeatures = Object.values(state.panelFeatureMap).filter(
 					(f): f is PanelFeature => f !== null,
 				);
 				return ALL_PANEL_FEATURES.filter(
 					(feature) =>
-						!assignedFeatures.includes(feature) &&
-						!state.disabledFeatures.includes(feature),
+						!assignedFeatures.includes(feature) && !disabledSet.has(feature),
 				);
 			},
 
@@ -154,7 +185,9 @@ export const useUiStore = create<UiStoreState>()(
 							}
 						}
 					} else {
-						disabledFeatures.delete(feature);
+						if (!state.backendDisabledFeatures.includes(feature)) {
+							disabledFeatures.delete(feature);
+						}
 					}
 
 					return {
@@ -165,14 +198,39 @@ export const useUiStore = create<UiStoreState>()(
 
 			isFeatureEnabled: (feature) => {
 				const state = get();
-				return !state.disabledFeatures.includes(feature);
+				return (
+					!state.disabledFeatures.includes(feature) &&
+					!state.backendDisabledFeatures.includes(feature)
+				);
 			},
+
+			setPanelPinned: (position, pinned) =>
+				set((state) => ({
+					panelPinMap: {
+						...state.panelPinMap,
+						[position]: pinned,
+					},
+				})),
+
+			togglePanelPinned: (position) =>
+				set((state) => ({
+					panelPinMap: {
+						...state.panelPinMap,
+						[position]: !state.panelPinMap[position],
+					},
+				})),
 
 			// 兼容性方法：基于功能的访问
 			getIsFeatureOpen: (feature) => {
 				const position = getPositionByFeature(feature, get().panelFeatureMap);
 				const state = get();
-				if (!position || state.disabledFeatures.includes(feature)) return false;
+				if (
+					!position ||
+					state.disabledFeatures.includes(feature) ||
+					state.backendDisabledFeatures.includes(feature)
+				) {
+					return false;
+				}
 				switch (position) {
 					case "panelA":
 						return state.isPanelAOpen;
@@ -234,28 +292,15 @@ export const useUiStore = create<UiStoreState>()(
 				}
 			},
 
-			applyLayout: (layoutId) => {
-				const layout = LAYOUT_PRESETS.find((l) => l.id === layoutId);
-				if (!layout) return;
-
-				set({
-					panelFeatureMap: { ...layout.panelFeatureMap },
-					isPanelAOpen: layout.isPanelAOpen,
-					isPanelBOpen: layout.isPanelBOpen,
-					isPanelCOpen: layout.isPanelCOpen,
-					...(layout.panelAWidth !== undefined && {
-						panelAWidth: layout.panelAWidth,
-					}),
-					...(layout.panelCWidth !== undefined && {
-						panelCWidth: layout.panelCWidth,
-					}),
-				});
-			},
+			...createLayoutActions(set, get),
 
 			swapPanelPositions: (position1, position2) => {
 				set((state) => {
 					// 如果两个位置相同，不需要交换
 					if (position1 === position2) return state;
+					if (state.panelPinMap[position1] || state.panelPinMap[position2]) {
+						return state;
+					}
 
 					const newMap = { ...state.panelFeatureMap };
 					// 交换两个位置的功能
@@ -264,7 +309,48 @@ export const useUiStore = create<UiStoreState>()(
 					newMap[position1] = feature2;
 					newMap[position2] = feature1;
 
-					return { panelFeatureMap: newMap };
+					// 获取两个位置的当前激活状态
+					const getIsOpen = (pos: PanelPosition): boolean => {
+						switch (pos) {
+							case "panelA":
+								return state.isPanelAOpen;
+							case "panelB":
+								return state.isPanelBOpen;
+							case "panelC":
+								return state.isPanelCOpen;
+						}
+					};
+
+					const isOpen1 = getIsOpen(position1);
+					const isOpen2 = getIsOpen(position2);
+
+					// 构建更新对象，同时交换功能映射和激活状态
+					const updates: Partial<UiStoreState> = {
+						panelFeatureMap: newMap,
+					};
+
+					// 交换激活状态：将 position1 的激活状态设置为 position2 的，反之亦然
+					const setPanelOpen = (
+						pos: PanelPosition,
+						isOpen: boolean,
+					) => {
+						switch (pos) {
+							case "panelA":
+								updates.isPanelAOpen = isOpen;
+								break;
+							case "panelB":
+								updates.isPanelBOpen = isOpen;
+								break;
+							case "panelC":
+								updates.isPanelCOpen = isOpen;
+								break;
+						}
+					};
+
+					setPanelOpen(position1, isOpen2);
+					setPanelOpen(position2, isOpen1);
+
+					return updates;
 				});
 			},
 
@@ -336,138 +422,49 @@ export const useUiStore = create<UiStoreState>()(
 					dockDisplayMode: mode,
 				})),
 
-			// 设置是否显示 Chat 模式切换器
-			setShowModeSwitcher: (show) =>
+			// 设置是否显示 Agno 工具选择器
+			setShowAgnoToolSelector: (show) =>
 				set(() => ({
-					showModeSwitcher: show,
+					showAgnoToolSelector: show,
 				})),
+
+			// 设置 Agno 模式下选中的 FreeTodo 工具
+			setSelectedAgnoTools: (tools) =>
+				set(() => ({
+					selectedAgnoTools: tools,
+				})),
+
+			// 设置 Agno 模式下选中的外部工具
+			setSelectedExternalTools: (tools) =>
+				set(() => ({
+					selectedExternalTools: tools,
+				})),
+
+			setBackendDisabledFeatures: (features) =>
+				set((state) => {
+					const sanitized = features.filter((feature) =>
+						ALL_PANEL_FEATURES.includes(feature),
+					);
+					const panelFeatureMap = { ...state.panelFeatureMap };
+
+					for (const position of Object.keys(
+						panelFeatureMap,
+					) as PanelPosition[]) {
+						const feature = panelFeatureMap[position];
+						if (feature && sanitized.includes(feature)) {
+							panelFeatureMap[position] = null;
+						}
+					}
+
+					return {
+						backendDisabledFeatures: sanitized,
+						panelFeatureMap,
+					};
+				}),
 		}),
 		{
 			name: "ui-panel-config",
-			storage: createJSONStorage(() => {
-				const customStorage = {
-					getItem: (name: string): string | null => {
-						if (typeof window === "undefined") return null;
-
-						try {
-							const stored = localStorage.getItem(name);
-							if (!stored) return null;
-
-							const parsed = JSON.parse(stored);
-							const state = parsed.state || parsed;
-
-							// 验证并修复 panelFeatureMap
-							if (state.panelFeatureMap) {
-								state.panelFeatureMap = validatePanelFeatureMap(
-									state.panelFeatureMap,
-								);
-							}
-
-							// 验证宽度值
-							if (
-								typeof state.panelAWidth === "number" &&
-								!Number.isNaN(state.panelAWidth)
-							) {
-								state.panelAWidth = clampWidth(state.panelAWidth);
-							} else {
-								state.panelAWidth = DEFAULT_PANEL_STATE.panelAWidth;
-							}
-
-							if (
-								typeof state.panelCWidth === "number" &&
-								!Number.isNaN(state.panelCWidth)
-							) {
-								state.panelCWidth = clampWidth(state.panelCWidth);
-							} else {
-								state.panelCWidth = DEFAULT_PANEL_STATE.panelCWidth;
-							}
-
-							// 验证布尔值
-							if (typeof state.isPanelAOpen !== "boolean") {
-								state.isPanelAOpen = DEFAULT_PANEL_STATE.isPanelAOpen;
-							}
-							if (typeof state.isPanelBOpen !== "boolean") {
-								state.isPanelBOpen = DEFAULT_PANEL_STATE.isPanelBOpen;
-							}
-							if (typeof state.isPanelCOpen !== "boolean") {
-								state.isPanelCOpen = DEFAULT_PANEL_STATE.isPanelCOpen;
-							}
-
-							// 校验禁用功能列表
-							if (Array.isArray(state.disabledFeatures)) {
-								state.disabledFeatures = state.disabledFeatures.filter(
-									(feature: PanelFeature): feature is PanelFeature =>
-										ALL_PANEL_FEATURES.includes(feature),
-								);
-							} else {
-								state.disabledFeatures = DEFAULT_PANEL_STATE.disabledFeatures;
-							}
-
-							// 校验自动关闭的panel栈
-							if (Array.isArray(state.autoClosedPanels)) {
-								const validPositions: PanelPosition[] = [
-									"panelA",
-									"panelB",
-									"panelC",
-								];
-								state.autoClosedPanels = state.autoClosedPanels.filter(
-									(pos: unknown): pos is PanelPosition =>
-										typeof pos === "string" &&
-										validPositions.includes(pos as PanelPosition),
-								);
-							} else {
-								state.autoClosedPanels = DEFAULT_PANEL_STATE.autoClosedPanels;
-							}
-
-							// 校验 dock 显示模式
-							const validDockModes: DockDisplayMode[] = ["fixed", "auto-hide"];
-							if (
-								!state.dockDisplayMode ||
-								!validDockModes.includes(state.dockDisplayMode)
-							) {
-								state.dockDisplayMode = DEFAULT_PANEL_STATE.dockDisplayMode;
-							}
-
-							// 校验 showModeSwitcher（默认 false）
-							if (typeof state.showModeSwitcher !== "boolean") {
-								state.showModeSwitcher = DEFAULT_PANEL_STATE.showModeSwitcher;
-							}
-
-							// 如果有功能被禁用，确保对应位置不再保留
-							for (const position of Object.keys(
-								state.panelFeatureMap,
-							) as PanelPosition[]) {
-								const feature = state.panelFeatureMap[position];
-								if (
-									feature &&
-									state.disabledFeatures.includes(feature as PanelFeature)
-								) {
-									state.panelFeatureMap[position] = null;
-								}
-							}
-
-							return JSON.stringify({ state });
-						} catch (e) {
-							console.error("Error loading panel config:", e);
-							return null;
-						}
-					},
-					setItem: (name: string, value: string): void => {
-						if (typeof window === "undefined") return;
-
-						try {
-							localStorage.setItem(name, value);
-						} catch (e) {
-							console.error("Error saving panel config:", e);
-						}
-					},
-					removeItem: (name: string): void => {
-						if (typeof window === "undefined") return;
-						localStorage.removeItem(name);
-					},
-				};
-				return customStorage;
-			}),
+			storage: createUiStoreStorage(),
 		},
 	),
 );

@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, Clock, Edit2, Pause, Play, RefreshCw, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { unwrapApiData } from "@/lib/api/fetcher";
 import {
 	getGetAllJobsApiSchedulerJobsGetQueryKey,
 	getGetSchedulerStatusApiSchedulerStatusGetQueryKey,
@@ -15,6 +16,7 @@ import {
 	useResumeJobApiSchedulerJobsJobIdResumePost,
 	useUpdateJobIntervalApiSchedulerJobsJobIdIntervalPut,
 } from "@/lib/generated/scheduler/scheduler";
+import type { JobInfo, JobListResponse } from "@/lib/generated/schemas";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { SettingsSection } from "./SettingsSection";
 
@@ -240,30 +242,21 @@ export function SchedulerSection({ loading = false }: SchedulerSectionProps) {
 		return { hours: 0, minutes: 0, seconds: 10 };
 	};
 
-	const status = statusData as
-		| {
-				running?: boolean;
-				totalJobs?: number;
-				runningJobs?: number;
-				pausedJobs?: number;
-		  }
-		| undefined;
-	const allJobs = jobsData?.jobs || [];
+	const status = unwrapApiData<{
+		running?: boolean;
+		totalJobs?: number;
+		runningJobs?: number;
+		pausedJobs?: number;
+	}>(statusData);
+	const jobsResponse = unwrapApiData<JobListResponse>(jobsData);
+	const allJobs = jobsResponse?.jobs || [];
 
 	// 分离活跃任务和 legacy 任务
 	const activeJobs = allJobs.filter((job) => !isLegacyJob(job.id));
 	const legacyJobs = allJobs.filter((job) => isLegacyJob(job.id));
 
 	// 渲染单个任务项
-	const renderJobItem = (
-		job: {
-			id: string;
-			trigger: string;
-			next_run_time?: string | null;
-			pending?: boolean;
-		},
-		isLegacy = false,
-	) => {
+	const renderJobItem = (job: JobInfo, isLegacy = false) => {
 		const isRunning = job.pending ?? false;
 		const isEditing = editingJobId === job.id;
 
@@ -295,7 +288,7 @@ export function SchedulerSection({ loading = false }: SchedulerSectionProps) {
 									</span>
 								)}
 							</div>
-							<p className="text-xs text-muted-foreground truncate">
+							<p className="text-xs text-muted-foreground truncate" title={job.id === "audio_recording_job" ? "此任务的间隔是状态检查间隔（用于监控录音状态），不是录音间隔。实际录音由前端WebSocket持续控制，不受此间隔影响。" : undefined}>
 								{getJobDescription(job.id)}
 							</p>
 						</div>

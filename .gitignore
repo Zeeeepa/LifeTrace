@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
 ENV/
 env/
 
@@ -62,9 +63,15 @@ lifetrace/config/config.yaml
 *.log
 *.tmp
 .cache/
-
-# Chatgpt
-AGENTS.md
+.ruff_cache/
 
 # Build
 dist-backend/
+
+# Rust / Tauri
+**/target/
+**/target-clippy*/
+**/*.rs.bk
+**/Cargo.lock
+**/WixTools/
+**/gen/

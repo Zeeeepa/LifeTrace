@@ -42,8 +42,8 @@ export function AchievementsPanel() {
 						{/* 示例成就 1 */}
 						<div className="group relative overflow-hidden rounded-lg border border-border bg-card p-4 transition-all hover:shadow-md">
 							<div className="flex items-start gap-3">
-								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
-									<Star className="h-5 w-5 text-blue-500" />
+								<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+									<Star className="h-5 w-5 text-primary" />
 								</div>
 								<div className="flex-1">
 									<h4 className="mb-1 text-sm font-medium text-foreground">
@@ -53,7 +53,7 @@ export function AchievementsPanel() {
 										{tAchievements("achievement1.description")}
 									</p>
 									<div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-										<div className="h-full w-0 bg-blue-500 transition-all" />
+										<div className="h-full w-0 bg-primary transition-all" />
 									</div>
 								</div>
 							</div>

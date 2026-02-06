@@ -7,6 +7,7 @@
 
 import { type DragEndEvent, useDndMonitor } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type React from "react";
 import { useCallback, useState } from "react";
@@ -16,6 +17,7 @@ import { useTodoMutations, useTodos } from "@/lib/query";
 import type { ReorderTodoItem } from "@/lib/query/todos";
 import { useTodoStore } from "@/lib/store/todo-store";
 import type { CreateTodoInput, Todo } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import type { TodoFilterState } from "./components/TodoFilter";
 import { useOrderedTodos } from "./hooks/useOrderedTodos";
 import { NewTodoInlineForm } from "./NewTodoInlineForm";
@@ -43,13 +45,19 @@ export function TodoList() {
 
 	const [searchQuery, setSearchQuery] = useState("");
 	const [newTodoName, setNewTodoName] = useState("");
+	const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
 	const [filter, setFilter] = useState<TodoFilterState>({
 		status: "all",
 		tag: "all",
 		dueTime: "all",
 	});
 
-	const { filteredTodos, orderedTodos } = useOrderedTodos(
+	const {
+		filteredTodos,
+		orderedTodos,
+		completedOrderedTodos,
+		completedRootCount,
+	} = useOrderedTodos(
 		todos,
 		searchQuery,
 		collapsedTodoIds,
@@ -350,12 +358,47 @@ export function TodoList() {
 							{tTodoList("noTodos")}
 						</div>
 					) : (
-						<TodoTreeList
-							orderedTodos={orderedTodos}
-							selectedTodoIds={selectedTodoIds}
-							onSelect={handleSelect}
-							onSelectSingle={(id) => setSelectedTodoId(id)}
-						/>
+						<>
+							{orderedTodos.length > 0 && (
+								<TodoTreeList
+									orderedTodos={orderedTodos}
+									selectedTodoIds={selectedTodoIds}
+									onSelect={handleSelect}
+									onSelectSingle={(id) => setSelectedTodoId(id)}
+								/>
+							)}
+							{filter.status === "all" && completedRootCount > 0 && (
+								<div className="px-6 pb-6">
+									<button
+										type="button"
+										onClick={() => setIsCompletedCollapsed((prev) => !prev)}
+										className="flex w-full items-center justify-between rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/30"
+									>
+										<span className="flex items-center gap-2 font-medium">
+											<ChevronRight
+												className={cn(
+													"h-4 w-4 transition-transform",
+													!isCompletedCollapsed && "rotate-90",
+												)}
+											/>
+											{tTodoList("statusCompleted")}
+										</span>
+										<span className="text-xs text-muted-foreground">
+											{completedRootCount}
+										</span>
+									</button>
+									{!isCompletedCollapsed &&
+										completedOrderedTodos.length > 0 && (
+											<TodoTreeList
+												orderedTodos={completedOrderedTodos}
+												selectedTodoIds={selectedTodoIds}
+												onSelect={handleSelect}
+												onSelectSingle={(id) => setSelectedTodoId(id)}
+											/>
+										)}
+								</div>
+							)}
+						</>
 					)}
 				</div>
 			</MultiTodoContextMenu>

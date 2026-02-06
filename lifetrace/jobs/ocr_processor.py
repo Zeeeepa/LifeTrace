@@ -3,38 +3,54 @@ OCR 处理器模块
 包含 SimpleOCRProcessor 类和图像处理相关函数
 """
 
+import contextlib
 import hashlib
 import os
-import sys
 import time
+from typing import TYPE_CHECKING, Any
 
 from lifetrace.storage import get_session, ocr_mgr, screenshot_mgr
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
 
-from .ocr_config import (
-    DEFAULT_IMAGE_MAX_SIZE,
-    create_rapidocr_instance,
-    get_ocr_config,
-    setup_rapidocr_config,
-)
+from .ocr_config import DEFAULT_IMAGE_MAX_SIZE, create_rapidocr_instance, get_ocr_config
 
 logger = get_logger()
 
-# 设置RapidOCR配置
-setup_rapidocr_config()
-
-try:
+if TYPE_CHECKING:
     import numpy as np
-    from PIL import Image
-    from rapidocr_onnxruntime import RapidOCR  # noqa: F401
 
-    RAPIDOCR_AVAILABLE = True
-except ImportError:
-    RAPIDOCR_AVAILABLE = False
-    logger.error("RapidOCR 未安装！请运行: pip install rapidocr-onnxruntime")
-    sys.exit(1)
+RAPIDOCR_STATE: dict[str, bool | None] = {"available": None}
+RAPIDOCR_AVAILABLE = False
+_OCR_DEPS: dict[str, Any] = {}
+
+
+def _set_rapidocr_available(value: bool) -> None:
+    RAPIDOCR_STATE["available"] = value
+    globals()["RAPIDOCR_AVAILABLE"] = value
+
+
+def _load_ocr_deps() -> bool:
+    """延迟加载 OCR 依赖，避免启动时阻塞。"""
+    status = RAPIDOCR_STATE["available"]
+    if status is not None:
+        return bool(status)
+    try:
+        import numpy as np  # noqa: PLC0415
+        from PIL import Image  # noqa: PLC0415
+        from rapidocr_onnxruntime import RapidOCR  # noqa: PLC0415
+    except ImportError:
+        _set_rapidocr_available(False)
+        logger.error("RapidOCR 未安装！请运行: pip install rapidocr-onnxruntime")
+        return False
+
+    _OCR_DEPS["np"] = np
+    _OCR_DEPS["Image"] = Image
+    _OCR_DEPS["RapidOCR"] = RapidOCR
+    _set_rapidocr_available(True)
+    return True
 
 
 def preprocess_image(image_path: str) -> "np.ndarray":
@@ -46,13 +62,18 @@ def preprocess_image(image_path: str) -> "np.ndarray":
     Returns:
         预处理后的图像数组
     """
-    with Image.open(image_path) as img:
-        img = img.convert("RGB")
-        img.thumbnail(DEFAULT_IMAGE_MAX_SIZE, Image.Resampling.LANCZOS)
-        return np.array(img)
+    if not _load_ocr_deps():
+        raise RuntimeError("RapidOCR 未安装，无法处理图像")
+    pil_image = _OCR_DEPS["Image"]
+    np = _OCR_DEPS["np"]
+
+    with pil_image.open(image_path) as image:
+        rgb_image = image.convert("RGB")
+        rgb_image.thumbnail(DEFAULT_IMAGE_MAX_SIZE, pil_image.Resampling.LANCZOS)
+        return np.array(rgb_image)
 
 
-def extract_text_from_ocr_result(result, confidence_threshold: float = None) -> str:
+def extract_text_from_ocr_result(result, confidence_threshold: float | None = None) -> str:
     """从OCR结果中提取文本内容
 
     Args:
@@ -63,14 +84,15 @@ def extract_text_from_ocr_result(result, confidence_threshold: float = None) -> 
         提取的文本内容
     """
     if confidence_threshold is None:
-        confidence_threshold = settings.get("jobs.ocr.params.confidence_threshold")
+        raw_threshold = settings.get("jobs.ocr.params.confidence_threshold")
+        confidence_threshold = float(raw_threshold) if raw_threshold is not None else 0.0
 
-    MIN_OCR_RESULT_FIELDS = 3
+    min_ocr_result_fields = 3
 
     ocr_text = ""
     if result:
         for item in result:
-            if len(item) >= MIN_OCR_RESULT_FIELDS:
+            if len(item) >= min_ocr_result_fields:
                 text = item[1]
                 confidence = float(item[2])
                 if text and text.strip() and confidence > confidence_threshold:
@@ -89,7 +111,7 @@ class SimpleOCRProcessor:
 
     def is_available(self):
         """检查OCR引擎是否可用"""
-        return RAPIDOCR_AVAILABLE
+        return _load_ocr_deps()
 
     def start(self):
         """启动OCR处理服务"""
@@ -127,6 +149,8 @@ class SimpleOCRProcessor:
         """处理单个图像文件"""
         try:
             self._ensure_ocr_initialized()
+            if self.ocr is None:
+                raise RuntimeError("OCR engine is not initialized.")
 
             start_time = time.time()
             img_array = preprocess_image(image_path)
@@ -190,9 +214,9 @@ def _add_to_vector_database(ocr_result_id: int, screenshot_id: int, vector_servi
     """将OCR结果添加到向量数据库"""
     try:
         with get_session() as session:
-            ocr_obj = session.query(OCRResult).filter(OCRResult.id == ocr_result_id).first()
+            ocr_obj = session.query(OCRResult).filter(col(OCRResult.id) == ocr_result_id).first()
             screenshot_obj = (
-                session.query(Screenshot).filter(Screenshot.id == screenshot_id).first()
+                session.query(Screenshot).filter(col(Screenshot.id) == screenshot_id).first()
             )
 
             if ocr_obj:
@@ -203,10 +227,8 @@ def _add_to_vector_database(ocr_result_id: int, screenshot_id: int, vector_servi
                     logger.warning(f"向量数据库添加失败: {ocr_result_id}")
 
             if screenshot_obj and getattr(screenshot_obj, "event_id", None):
-                try:
+                with contextlib.suppress(Exception):
                     vector_service.upsert_event_document(screenshot_obj.event_id)
-                except Exception:
-                    pass
     except Exception as ve:
         logger.error(f"向量数据库操作失败: {ve}")
 
@@ -217,11 +239,15 @@ def create_screenshot_record(image_path: str):
         if not os.path.exists(image_path):
             return None
 
+        if not _load_ocr_deps():
+            raise RuntimeError("RapidOCR 未安装，无法处理截图")
+        pil_image = _OCR_DEPS["Image"]
+
         with open(image_path, "rb") as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()
+            file_hash = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()
 
         try:
-            with Image.open(image_path) as img:
+            with pil_image.open(image_path) as img:
                 width, height = img.size
         except Exception:
             width, height = 0, 0

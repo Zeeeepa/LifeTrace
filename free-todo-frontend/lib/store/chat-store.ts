@@ -1,25 +1,27 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { ChatMode } from "@/apps/chat/types";
 
 interface ChatStoreState {
-	chatMode: ChatMode;
 	conversationId: string | null;
 	historyOpen: boolean;
-	setChatMode: (mode: ChatMode) => void;
+	pendingPrompt: string | null; // 待发送的预设消息（由其他组件触发）
+	pendingNewChat: boolean; // 是否需要先开启新会话再发送消息
 	setConversationId: (id: string | null) => void;
 	setHistoryOpen: (open: boolean) => void;
+	setPendingPrompt: (prompt: string | null, startNewChat?: boolean) => void;
 }
 
 export const useChatStore = create<ChatStoreState>()(
 	persist(
 		(set) => ({
-			chatMode: "ask",
 			conversationId: null,
 			historyOpen: false,
-			setChatMode: (mode) => set({ chatMode: mode }),
+			pendingPrompt: null,
+			pendingNewChat: false,
 			setConversationId: (id) => set({ conversationId: id }),
 			setHistoryOpen: (open) => set({ historyOpen: open }),
+			setPendingPrompt: (prompt, startNewChat = false) =>
+				set({ pendingPrompt: prompt, pendingNewChat: startNewChat }),
 		}),
 		{
 			name: "chat-config",
@@ -30,14 +32,8 @@ export const useChatStore = create<ChatStoreState>()(
 
 						try {
 							const stored = localStorage.getItem(name);
-							if (!stored) return null;
-
-							const parsed = JSON.parse(stored);
-							const state = parsed.state || parsed;
-
-							// chatMode 始终使用默认值 "ask"，不再从 localStorage 恢复
-							// 用户每次对话默认进入 Ask 模式
-							const chatMode: ChatMode = "ask";
+							const parsed = stored ? JSON.parse(stored) : null;
+							const state = parsed?.state || parsed || {};
 
 							// 验证 conversationId - 刷新后清空，不默认选中历史记录
 							const conversationId: string | null = null;
@@ -50,7 +46,6 @@ export const useChatStore = create<ChatStoreState>()(
 
 							return JSON.stringify({
 								state: {
-									chatMode,
 									conversationId,
 									historyOpen,
 								},

@@ -11,6 +11,15 @@ export {
 	useEvents,
 	useEventsList,
 } from "./activities";
+// Automation Hooks
+export {
+	useAutomationTasks,
+	useCreateAutomationTask,
+	useDeleteAutomationTask,
+	useRunAutomationTask,
+	useToggleAutomationTask,
+	useUpdateAutomationTask,
+} from "./automation";
 // Chat Hooks
 export { useChatHistory, useChatSessions } from "./chat";
 // Config Hooks
@@ -23,6 +32,13 @@ export {
 } from "./config";
 // Cost Hooks
 export { useCostConfig, useCostStats } from "./cost";
+// Journal Hooks
+export {
+	type JournalAutoLinkResult,
+	type JournalView,
+	useJournalMutations,
+	useJournals,
+} from "./journals";
 // Query Keys
 export { type QueryKeys, queryKeys } from "./keys";
 // Provider

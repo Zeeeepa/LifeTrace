@@ -25,25 +25,36 @@ def _format_todo_context(context: dict[str, Any]) -> str:  # noqa: C901
         # 包含描述信息（如果存在）
         description = todo.get("description")
         if description and description.strip():
-            parts.append(f"  描述: {description}")
+            parts.append(f"{prefix}  描述: {description}")
         # 包含用户笔记（如果存在）
         user_notes = todo.get("user_notes")
         if user_notes and user_notes.strip():
-            parts.append(f"  用户笔记: {user_notes}")
-        if todo.get("deadline"):
-            parts.append(f"  截止日期: {todo['deadline']}")
+            parts.append(f"{prefix}  用户笔记: {user_notes}")
+        schedule_start = todo.get("start_time") or todo.get("deadline")
+        schedule_end = todo.get("end_time")
+        if schedule_start:
+            schedule_label = schedule_start
+            if schedule_end:
+                schedule_label = f"{schedule_start} ~ {schedule_end}"
+            parts.append(f"{prefix}  时间: {schedule_label}")
         if todo.get("priority") and todo["priority"] != "none":
-            parts.append(f"  优先级: {todo['priority']}")
+            parts.append(f"{prefix}  优先级: {todo['priority']}")
         if todo.get("tags"):
-            parts.append(f"  标签: {', '.join(todo['tags'])}")
+            parts.append(f"{prefix}  标签: {', '.join(todo['tags'])}")
         if todo.get("status"):
-            parts.append(f"  状态: {todo['status']}")
+            parts.append(f"{prefix}  状态: {todo['status']}")
         return "\n".join(parts)
+
+    # 当前任务的详细信息（最重要，放在最前面）
+    current = context.get("current")
+    if current:
+        lines.append("**当前任务详细信息：**")
+        lines.append(_format_todo(current))
 
     # 父任务链
     parents = context.get("parents", [])
     if parents:
-        lines.append("**父任务链（从直接父任务到根任务）：**")
+        lines.append("\n**父任务链（从直接父任务到根任务）：**")
         for i, parent in enumerate(parents):
             indent = "  " * (len(parents) - i - 1)
             lines.append(_format_todo(parent, indent))
@@ -173,8 +184,11 @@ def _build_plan_questionnaire_prompts(
         context = todo_mgr.get_todo_context(request.todo_id)
         if context:
             context_info = _format_todo_context(context)
+            current_todo = context.get("current", {})
             logger.info(
-                f"[plan/questionnaire] 获取到任务上下文，包含 {len(context.get('parents', []))} 个父任务, "
+                f"[plan/questionnaire] 获取到任务上下文: "
+                f"当前任务(id={current_todo.get('id')}, desc={bool(current_todo.get('description'))}, notes={bool(current_todo.get('user_notes'))}), "
+                f"{len(context.get('parents', []))} 个父任务, "
                 f"{len(context.get('siblings', []))} 个同级任务, {len(context.get('children', []))} 个子任务"
             )
         else:

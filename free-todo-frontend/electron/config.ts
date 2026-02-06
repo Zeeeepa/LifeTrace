@@ -132,6 +132,92 @@ export const WINDOW_CONFIG = {
 } as const;
 
 /**
+ * 窗口模式类型
+ * - island: 灵动岛模式（默认，透明悬浮窗）
+ * - web: Web 界面模式（普通窗口，类似浏览器）
+ */
+export type WindowMode = "island" | "web";
+
+/**
+ * 编译时注入的默认窗口模式
+ * 由 esbuild 在构建时通过 define 选项设置
+ * 如果未定义，默认为 "web"
+ */
+declare const __DEFAULT_WINDOW_MODE__: string | undefined;
+
+/**
+ * 后端运行时类型
+ * - script: 使用系统 Python + venv
+ * - pyinstaller: 使用 PyInstaller 打包的可执行文件
+ */
+export type BackendRuntime = "script" | "pyinstaller";
+
+/**
+ * 编译时注入的默认后端运行时
+ */
+declare const __DEFAULT_BACKEND_RUNTIME__: string | undefined;
+
+/**
+ * 获取当前窗口模式
+ *
+ * 优先级：
+ * 1. 运行时环境变量 WINDOW_MODE（方便调试）
+ * 2. 编译时注入的默认值 __DEFAULT_WINDOW_MODE__
+ * 3. 硬编码默认值 "web"
+ */
+export function getWindowMode(): WindowMode {
+	// 运行时环境变量优先（方便调试和开发）
+	const envMode = process.env.WINDOW_MODE?.toLowerCase();
+	if (envMode === "web" || envMode === "island") {
+		return envMode;
+	}
+
+	// 编译时注入的默认值
+	try {
+		const buildTimeDefault = typeof __DEFAULT_WINDOW_MODE__ !== "undefined"
+			? __DEFAULT_WINDOW_MODE__
+			: undefined;
+		if (buildTimeDefault === "web") {
+			return "web";
+		}
+	} catch {
+		// __DEFAULT_WINDOW_MODE__ 未定义，使用硬编码默认值
+	}
+
+	// 硬编码默认值
+	return "web";
+}
+
+/**
+ * 获取后端运行时类型
+ *
+ * 优先级：
+ * 1. 运行时环境变量 FREETODO_BACKEND_RUNTIME
+ * 2. 编译时注入的默认值 __DEFAULT_BACKEND_RUNTIME__
+ * 3. 硬编码默认值 "script"
+ */
+export function getBackendRuntime(): BackendRuntime {
+	const envRuntime = process.env.FREETODO_BACKEND_RUNTIME?.toLowerCase();
+	if (envRuntime === "script" || envRuntime === "pyinstaller") {
+		return envRuntime;
+	}
+
+	try {
+		const buildTimeDefault =
+			typeof __DEFAULT_BACKEND_RUNTIME__ !== "undefined"
+				? __DEFAULT_BACKEND_RUNTIME__
+				: undefined;
+		if (buildTimeDefault === "pyinstaller") {
+			return "pyinstaller";
+		}
+	} catch {
+		// ignore
+	}
+
+	return "script";
+}
+
+/**
  * 日志配置
  */
 export const LOG_CONFIG = {
@@ -145,8 +231,17 @@ export const LOG_CONFIG = {
  * 进程配置
  */
 export const PROCESS_CONFIG = {
-	/** 后端可执行文件名 */
-	backendExecName: process.platform === "win32" ? "lifetrace.exe" : "lifetrace",
+	/** 后端入口脚本（相对 backend 根目录） */
+	backendEntryScript: "lifetrace/scripts/start_backend.py",
+	/** 后端可执行文件名称 */
+	backendExecutable:
+		process.platform === "win32" ? "lifetrace.exe" : "lifetrace",
+	/** 后端依赖清单（相对 backend 根目录） */
+	backendRequirementsFile: "requirements-runtime.txt",
+	/** 后端运行时目录名（应用安装目录下） */
+	backendRuntimeDir: "runtime",
+	/** 后端虚拟环境目录名（运行时目录下） */
+	backendVenvDir: "python-venv",
 	/** 后端数据目录名 */
 	backendDataDir: "lifetrace-data",
 } as const;

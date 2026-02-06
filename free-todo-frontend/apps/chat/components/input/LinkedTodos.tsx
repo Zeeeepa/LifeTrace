@@ -31,7 +31,7 @@ export function LinkedTodos({
 	const hiddenCount = Math.max(0, effectiveTodos.length - previewTodos.length);
 
 	return (
-		<div className="flex flex-wrap items-center gap-2 pb-2 mb-2 border-b border-border">
+		<div className="flex flex-wrap items-center gap-2 pb-2 mb-2 border-b border-border/70">
 			<span className="text-xs font-semibold text-foreground">
 				{t("linkedTodos", { count: effectiveTodos.length })}
 			</span>
@@ -40,7 +40,7 @@ export function LinkedTodos({
 					key={todo.id}
 					type="button"
 					onClick={() => onToggleTodo(todo.id)}
-					className="rounded-full border border-border bg-muted/40 px-2 py-1 text-xs text-foreground hover:bg-muted/60 hover:border-primary/50 transition-colors cursor-pointer"
+					className="rounded-full border border-border/70 bg-card/80 px-2 py-1 text-xs text-foreground hover:bg-accent hover:border-primary/40 transition-colors cursor-pointer"
 				>
 					{todo.name}
 				</button>

@@ -1,16 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { InputBox } from "@/apps/chat/components/input/InputBox";
 import { LinkedTodos } from "@/apps/chat/components/input/LinkedTodos";
-import { ModeSwitcher } from "@/apps/chat/components/input/ModeSwitcher";
-import type { ChatMode } from "@/apps/chat/types";
-import { useUiStore } from "@/lib/store/ui-store";
+import { ToolSelector } from "@/apps/chat/components/input/ToolSelector";
 import type { Todo } from "@/lib/types";
 
 type ChatInputSectionProps = {
-	chatMode: ChatMode;
 	locale: string;
 	inputValue: string;
 	isStreaming: boolean;
@@ -18,7 +15,6 @@ type ChatInputSectionProps = {
 	effectiveTodos: Todo[];
 	hasSelection: boolean;
 	showTodosExpanded: boolean;
-	modeMenuOpen: boolean;
 	onInputChange: (value: string) => void;
 	onSend: () => void;
 	onStop?: () => void;
@@ -28,12 +24,9 @@ type ChatInputSectionProps = {
 	onToggleExpand: () => void;
 	onClearSelection: () => void;
 	onToggleTodo: (todoId: number) => void;
-	onToggleModeMenu: () => void;
-	onChangeMode: (mode: ChatMode) => void;
 };
 
 export function ChatInputSection({
-	chatMode,
 	locale,
 	inputValue,
 	isStreaming,
@@ -41,7 +34,6 @@ export function ChatInputSection({
 	effectiveTodos,
 	hasSelection,
 	showTodosExpanded,
-	modeMenuOpen,
 	onInputChange,
 	onSend,
 	onStop,
@@ -51,34 +43,10 @@ export function ChatInputSection({
 	onToggleExpand,
 	onClearSelection,
 	onToggleTodo,
-	onToggleModeMenu,
-	onChangeMode,
 }: ChatInputSectionProps) {
-	const tChat = useTranslations("chat");
 	const tPage = useTranslations("page");
 	const modeMenuRef = useRef<HTMLDivElement | null>(null);
-	// 从 ui-store 读取是否显示模式切换器
-	const showModeSwitcher = useUiStore((state) => state.showModeSwitcher);
-
-	const inputPlaceholder =
-		chatMode === "plan"
-			? tChat("planModeInputPlaceholder")
-			: chatMode === "edit"
-				? tChat("editMode.inputPlaceholder")
-				: chatMode === "difyTest"
-					? tChat("difyTest.inputPlaceholder")
-					: tPage("chatInputPlaceholder");
-
-	useEffect(() => {
-		if (!modeMenuOpen) return;
-		const handleClickOutside = (event: MouseEvent) => {
-			const target = event.target as Node;
-			if (modeMenuRef.current?.contains(target)) return;
-			onToggleModeMenu();
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [modeMenuOpen, onToggleModeMenu]);
+	const inputPlaceholder = tPage("chatInputPlaceholder");
 
 	return (
 		<div className="bg-background p-4">
@@ -95,23 +63,10 @@ export function ChatInputSection({
 					/>
 				}
 				modeSwitcher={
-					showModeSwitcher ? (
-						<div className="flex items-center gap-2" ref={modeMenuRef}>
-							<ModeSwitcher
-								chatMode={chatMode}
-								locale={locale}
-								modeMenuOpen={modeMenuOpen}
-								onToggleMenu={onToggleModeMenu}
-								onChangeMode={(mode) => {
-									onChangeMode(mode);
-									onToggleModeMenu();
-								}}
-								variant="inline"
-							/>
-						</div>
-					) : null
+					<div className="flex items-center gap-2" ref={modeMenuRef}>
+						<ToolSelector disabled={isStreaming} />
+					</div>
 				}
-				modeMenuOpen={modeMenuOpen}
 				inputValue={inputValue}
 				placeholder={inputPlaceholder}
 				isStreaming={isStreaming}

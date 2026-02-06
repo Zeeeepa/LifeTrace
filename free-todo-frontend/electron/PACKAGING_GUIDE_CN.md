@@ -21,7 +21,7 @@
 rm -rf dist-electron-app dist-electron .next
 
 # 执行 Mac 打包
-pnpm electron:build-mac
+pnpm build:desktop:web:full:mac
 ```
 
 打包完成后，DMG 文件将生成在 `dist-electron-app/` 目录下：
@@ -31,13 +31,13 @@ pnpm electron:build-mac
 ### Windows 打包
 
 ```bash
-pnpm electron:build-win
+pnpm build:desktop:web:full:win
 ```
 
 ### Linux 打包
 
 ```bash
-pnpm electron:build-linux
+pnpm build:desktop:web:full:linux
 ```
 
 ## 系统要求
@@ -50,22 +50,21 @@ pnpm electron:build-linux
   - Intel (x64) - Intel 芯片
 - **开发工具**:
   - Node.js 18+ 和 pnpm
-  - Python 3.12
-  - PyInstaller 6.0+
+  - Python 3.12（首次启动自动安装）
 
 ### 磁盘空间
 
-- **构建过程**: 至少需要 10-15 GB 可用空间
-- **最终 DMG**: 约 1-2 GB
+- **构建过程**: 取决于 Next.js 构建输出
+- **最终 DMG**: 取决于前端资源和后端模型
 
 ## 打包流程
 
-完整的打包流程（`pnpm electron:build-mac`）包含以下步骤：
+完整的打包流程（`pnpm build:desktop:web:full:mac`）包含以下步骤：
 
 ### 1. Next.js 生产构建
 
 ```bash
-pnpm build
+pnpm build:frontend:web
 ```
 
 **输出**:
@@ -73,22 +72,10 @@ pnpm build
 - `.next/static/` - 静态资源文件（CSS、JS chunks）
 - `.next/server/` - 服务器端代码
 
-### 2. 后端打包（PyInstaller）
+### 2. 后端运行时打包（源码）
 
-```bash
-pnpm backend:build
-```
-
-使用 PyInstaller 将 Python 后端打包为独立可执行文件。
-
-**输出结构**:
-```
-dist-backend/
-├── lifetrace              # 可执行文件（macOS/Linux）
-├── _internal/             # Python 运行时和依赖
-├── config/                # 配置文件
-└── models/                # ONNX 模型文件
-```
+后端源码（`lifetrace/`）和 `requirements-runtime.txt` 会被打包进应用中。
+首次启动时会自动安装 Python 3.12 和后端依赖。
 
 ### 3. 解析符号链接
 
@@ -110,18 +97,18 @@ pnpm electron:copy-missing-deps
 - `@next/env`
 - `client-only`
 
-### 5. 编译 Electron 主进程
+### 5. 编译 Electron 主进程（Web 模式）
 
 ```bash
-pnpm electron:build-main
+pnpm build:desktop:web:frontend-shell
 ```
 
-将 TypeScript 主进程代码编译到 `dist-electron/main.js`。
+将 TypeScript 主进程代码编译到 `dist-electron/main.js`，并启用 Web 窗口模式。
 
 ### 6. 打包应用
 
 ```bash
-electron-builder --mac
+pnpm build:desktop:web:full:mac
 ```
 
 使用 `electron-builder.yml` 配置创建平台特定的安装包。
@@ -143,11 +130,9 @@ FreeTodo.app/Contents/
 │   │   ├── node_modules/
 │   │   ├── .next/
 │   │   └── public/
-│   └── backend/              # Python 后端
-│       ├── lifetrace
-│       ├── _internal/
-│       ├── config/
-│       └── models/
+│   └── backend/              # Python 后端（源码）
+│       ├── lifetrace/
+│       └── requirements-runtime.txt
 └── ...
 ```
 
@@ -218,8 +203,8 @@ tail -100 "$(ls -t ~/Library/Application\ Support/FreeTodo/lifetrace-data/logs/*
 ### 启动顺序
 
 1. **后端服务器启动**
-   - 查找后端可执行文件
-   - 使用数据目录参数启动
+   - 确保 Python 3.12 与后端依赖已安装
+   - 启动 `lifetrace/scripts/start_backend.py`
    - 等待健康检查通过（最多 180 秒）
 
 2. **前端服务器启动**
@@ -255,27 +240,19 @@ curl http://localhost:3100
 
 ## 常见问题
 
-### 问题 1: 后端可执行文件未找到
+### 问题 1: 后端运行时文件未找到
 
 **症状**:
-- 显示 "Backend executable not found" 错误
+- 显示 "Backend source files were not found" 错误
 - 应用无法启动
 
 **解决方案**:
-1. 检查可执行文件是否存在：
+1. 检查后端文件是否存在：
    ```bash
    ls -la /Applications/FreeTodo.app/Contents/Resources/backend/lifetrace
    ```
 
-2. 确保有执行权限：
-   ```bash
-   chmod +x /Applications/FreeTodo.app/Contents/Resources/backend/lifetrace
-   ```
-
-3. 重新构建后端：
-   ```bash
-   pnpm backend:build
-   ```
+2. 重新打包并重新安装应用。
 
 ### 问题 2: Next.js 服务器立即退出
 
@@ -341,14 +318,14 @@ xattr -cr /Applications/FreeTodo.app
 **症状**:
 - DMG 文件超过 2 GB
 
-**这是正常的**，因为应用包含：
-- 完整的 Python 运行时和依赖
+**常见原因**：
 - Node.js 运行时
+- Next.js standalone 输出
 - OCR 所需的 ONNX 模型
 
 如需减小体积：
-- 如果不需要 GPU，使用 CPU-only 版本的 PyTorch
-- 在 `pyinstaller.spec` 中排除不需要的 Python 包
+- 精简前端资源
+- 移除未使用的后端模型或可选依赖
 
 ## 相关文件
 
@@ -360,15 +337,13 @@ xattr -cr /Applications/FreeTodo.app
 - `next.config.ts` - Next.js 配置
 
 ### 后端相关
-- `lifetrace/scripts/build-backend.sh` - 后端构建脚本（macOS/Linux）
-- `lifetrace/scripts/build-backend.ps1` - 后端构建脚本（Windows）
-- `lifetrace/pyinstaller.spec` - PyInstaller 配置
+- `lifetrace/scripts/start_backend.py` - 后端启动入口
+- `requirements-runtime.txt` - 运行时依赖清单
 
 ---
 
-**最后更新**: 2026-01-11
+**最后更新**: 2026-01-29
 **适用版本**:
 - Next.js 16.x
 - Electron 39.x
 - electron-builder 26.x
-- PyInstaller 6.x

@@ -2,7 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useCreateTodo, useUpdateTodo } from "@/lib/query";
 import type { Todo } from "@/lib/types";
@@ -12,6 +12,10 @@ interface ExtractedTodo {
 	name: string;
 	description?: string | null;
 	tags: string[];
+	startTime?: string | null;
+	deadline?: string | null;
+	rawTime?: string | null;
+	key?: string;
 }
 
 interface MessageTodoExtractionModalProps {
@@ -20,6 +24,13 @@ interface MessageTodoExtractionModalProps {
 	todos: ExtractedTodo[];
 	parentTodoId: number | null;
 	onSuccess?: () => void;
+	/** 可选：由外部控制选中项（用于 Audio 等需要“保留勾选”的场景） */
+	selectedTodoIndexes?: Set<number>;
+	onSelectedTodoIndexesChange?: (next: Set<number>) => void;
+	/** 可选：确认成功后回传本次确认的 item keys（用于去重） */
+	onSuccessWithKeys?: (keys: string[]) => void;
+	/** 可选：确认成功后回传创建结果（用于音频把提取项标记为 linked） */
+	onSuccessWithCreated?: (created: Array<{ index: number; key?: string; todoId: number }>) => void;
 }
 
 export function MessageTodoExtractionModal({
@@ -28,17 +39,36 @@ export function MessageTodoExtractionModal({
 	todos,
 	parentTodoId,
 	onSuccess,
+	selectedTodoIndexes,
+	onSelectedTodoIndexesChange,
+	onSuccessWithKeys,
+	onSuccessWithCreated,
 }: MessageTodoExtractionModalProps) {
 	const t = useTranslations("contextMenu");
 	const tChat = useTranslations("chat");
 	const createTodoMutation = useCreateTodo();
 	const updateTodoMutation = useUpdateTodo();
-	const [selectedTodos, setSelectedTodos] = useState<Set<number>>(
-		new Set(todos.map((_, index) => index)),
-	);
+	const [internalSelectedTodos, setInternalSelectedTodos] = useState<Set<number>>(new Set());
 	const [isProcessing, setIsProcessing] = useState(false);
 
-	if (!isOpen) return null;
+	const selectedTodos = selectedTodoIndexes ?? internalSelectedTodos;
+	const setSelectedTodos = (next: Set<number>) => {
+		onSelectedTodoIndexesChange?.(next);
+		if (!selectedTodoIndexes) {
+			setInternalSelectedTodos(next);
+		}
+	};
+
+	// 打开时，如果有外部 selection 则同步到内部，否则保持现有（默认不自动全选）
+	useEffect(() => {
+		if (!isOpen) return;
+		if (selectedTodoIndexes) {
+			setInternalSelectedTodos(new Set(selectedTodoIndexes));
+		} else if (internalSelectedTodos.size > todos.length) {
+			// 数据变化导致越界时，收敛到有效范围
+			setInternalSelectedTodos(new Set());
+		}
+	}, [isOpen, selectedTodoIndexes, internalSelectedTodos.size, todos.length]);
 
 	const handleToggleTodo = (index: number) => {
 		const newSelected = new Set(selectedTodos);
@@ -48,6 +78,13 @@ export function MessageTodoExtractionModal({
 			newSelected.add(index);
 		}
 		setSelectedTodos(newSelected);
+	};
+
+	const normalizeScheduleTime = (value?: string | null): string | undefined => {
+		if (!value) return undefined;
+		const parsed = Date.parse(value);
+		if (Number.isNaN(parsed)) return undefined;
+		return new Date(parsed).toISOString();
 	};
 
 	const handleConfirm = async () => {
@@ -60,16 +97,29 @@ export function MessageTodoExtractionModal({
 		try {
 			// 创建选中的待办（status 为 draft）
 			const createdTodos: Todo[] = [];
+			const confirmedKeys: string[] = [];
+			const createdMap: Array<{ index: number; key?: string; todoId: number }> = [];
 			for (const index of selectedTodos) {
 				const todo = todos[index];
+				if (todo?.key) confirmedKeys.push(todo.key);
+				// NOTE: avoid hard dependency on a translation key that may be missing
+				const userNotesParts = [
+					todo.rawTime ? `时间: ${todo.rawTime}` : null,
+				].filter(Boolean);
+				const safeStartTime = normalizeScheduleTime(
+					todo.startTime ?? todo.deadline,
+				);
 				const created = await createTodoMutation.mutateAsync({
 					name: todo.name,
 					description: todo.description || undefined,
 					tags: todo.tags,
 					status: "draft",
 					parentTodoId: parentTodoId,
+					startTime: safeStartTime,
+					userNotes: userNotesParts.length > 0 ? userNotesParts.join("\n") : undefined,
 				});
 				createdTodos.push(created);
+				createdMap.push({ index, key: todo?.key, todoId: created.id });
 			}
 
 			// 将所有创建的待办从 draft 更新为 active
@@ -82,6 +132,8 @@ export function MessageTodoExtractionModal({
 				),
 			);
 
+			onSuccessWithKeys?.(confirmedKeys);
+			onSuccessWithCreated?.(createdMap);
 			onSuccess?.();
 			onClose();
 		} catch (error) {
@@ -94,6 +146,8 @@ export function MessageTodoExtractionModal({
 	const handleCancel = () => {
 		onClose();
 	};
+
+	if (!isOpen) return null;
 
 	const modalContent = (
 		<div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -140,7 +194,7 @@ export function MessageTodoExtractionModal({
 							const isSelected = selectedTodos.has(index);
 							return (
 								<div
-									key={`${todo.name}-${index}`}
+									key={todo.key || `${todo.name}-${index}`}
 									role="button"
 									tabIndex={0}
 									className={cn(

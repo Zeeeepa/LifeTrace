@@ -9,10 +9,28 @@ from pydantic import BaseModel, ConfigDict
 class ChatMessage(BaseModel):
     model_config = ConfigDict(extra="allow")  # 允许额外字段，用于传递 Dify 等服务的参数
 
-    message: str
+    message: str  # 发送给 LLM 的完整消息（包含 system prompt + context + user input）
+    user_input: str | None = None  # 用户真正输入的内容（用于保存到历史记录）
+    context: str | None = None  # 待办上下文（可选，用于 Agent 处理）
+    system_prompt: str | None = None  # 系统提示词（可选）
     conversation_id: str | None = None  # 会话ID
     use_rag: bool = True  # 是否使用RAG
-    mode: str | None = None  # 前端聊天模式（ask/plan/edit/dify_test 等）
+    mode: str | None = None  # 前端聊天模式（ask/plan/edit/dify_test/agno 等）
+
+    # Agno Agent 工具配置
+    selected_tools: list[str] | None = None  # FreeTodo 工具列表（如 ['create_todo', 'list_todos']）
+    external_tools: list[str] | None = None  # 外部工具列表（如 ['duckduckgo']）
+
+    # Cowork 配置（本地文件操作）
+    workspace_path: str | None = None  # 工作区目录路径（用于 Cowork 模式）
+    enable_file_delete: bool = False  # 是否允许删除文件（默认不允许）
+
+    def get_user_input_for_storage(self) -> str:
+        """获取用于保存到历史记录的用户输入内容。
+
+        优先返回 user_input 字段，如果未提供则降级返回完整 message。
+        """
+        return self.user_input if self.user_input is not None else self.message
 
 
 class ChatMessageWithContext(BaseModel):

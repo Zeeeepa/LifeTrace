@@ -183,10 +183,15 @@ export function ChildTodoSection({
 												</span>
 											</div>
 											<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-												{child.deadline && (
+												{(child.startTime || child.endTime) && (
 													<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
 														<Calendar className="h-3 w-3" />
-														<span>{formatDateTime(child.deadline)}</span>
+														<span>
+															{formatDateTime(
+																child.startTime ?? child.endTime,
+																child.timeZone,
+															)}
+														</span>
 													</div>
 												)}
 												{child.tags && child.tags.length > 0 && (

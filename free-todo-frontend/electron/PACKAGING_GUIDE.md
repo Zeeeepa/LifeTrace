@@ -21,7 +21,7 @@ This document describes how to package the FreeTodo application (Next.js fronten
 rm -rf dist-electron-app dist-electron .next
 
 # Build for macOS
-pnpm electron:build-mac
+pnpm build:desktop:web:full:mac
 ```
 
 Output files will be in `dist-electron-app/`:
@@ -31,13 +31,13 @@ Output files will be in `dist-electron-app/`:
 ### Windows
 
 ```bash
-pnpm electron:build-win
+pnpm build:desktop:web:full:win
 ```
 
 ### Linux
 
 ```bash
-pnpm electron:build-linux
+pnpm build:desktop:web:full:linux
 ```
 
 ## System Requirements
@@ -48,22 +48,21 @@ pnpm electron:build-linux
 - **Architecture**: Apple Silicon (arm64) or Intel (x64)
 - **Tools**:
   - Node.js 18+ and pnpm
-  - Python 3.12
-  - PyInstaller 6.0+
+  - Python 3.12 (installed automatically on first launch)
 
 ### Disk Space
 
-- **Build process**: ~10-15 GB
-- **Final DMG**: ~1-2 GB
+- **Build process**: depends on Next.js build output
+- **Final DMG**: depends on frontend assets and backend models
 
 ## Packaging Process
 
-The complete packaging flow (`pnpm electron:build-mac`) executes these steps:
+The complete packaging flow (`pnpm build:desktop:web:full:mac`) executes these steps:
 
 ### 1. Next.js Production Build
 
 ```bash
-pnpm build
+pnpm build:frontend:web
 ```
 
 Generates:
@@ -71,22 +70,11 @@ Generates:
 - `.next/static/` - Static assets (CSS, JS chunks)
 - `.next/server/` - Server-side code
 
-### 2. Backend Build (PyInstaller)
+### 2. Backend Runtime Packaging (Source)
 
-```bash
-pnpm backend:build
-```
-
-Uses PyInstaller to package the Python backend into a standalone executable.
-
-**Output structure**:
-```
-dist-backend/
-├── lifetrace              # Executable (macOS/Linux)
-├── _internal/             # Python runtime and dependencies
-├── config/                # Configuration files
-└── models/                # ONNX model files
-```
+The backend source (`lifetrace/`) and `requirements-runtime.txt` are bundled into
+the Electron app. On first launch, the app installs Python 3.12 and backend
+dependencies automatically.
 
 ### 3. Resolve Symlinks
 
@@ -108,18 +96,18 @@ Copies runtime dependencies that Next.js standalone build may not include:
 - `@next/env`
 - `client-only`
 
-### 5. Build Electron Main Process
+### 5. Build Electron Main Process (Web mode)
 
 ```bash
-pnpm electron:build-main
+pnpm build:desktop:web:frontend-shell
 ```
 
-Compiles TypeScript main process code to `dist-electron/main.js`.
+Compiles TypeScript main process code to `dist-electron/main.js` with Web window mode.
 
 ### 6. Create Installer
 
 ```bash
-electron-builder --mac
+pnpm build:desktop:web:full:mac
 ```
 
 Creates platform-specific installers using `electron-builder.yml` configuration.
@@ -141,11 +129,9 @@ FreeTodo.app/Contents/
 │   │   ├── node_modules/
 │   │   ├── .next/
 │   │   └── public/
-│   └── backend/              # Python backend
-│       ├── lifetrace
-│       ├── _internal/
-│       ├── config/
-│       └── models/
+│   └── backend/              # Python backend (source)
+│       ├── lifetrace/
+│       └── requirements-runtime.txt
 └── ...
 ```
 
@@ -216,8 +202,8 @@ Ports automatically increment if the default is occupied.
 ### Startup Sequence
 
 1. **Backend Server Start**
-   - Find backend executable
-   - Start with data directory parameter
+   - Ensure Python 3.12 + backend dependencies
+   - Start `lifetrace/scripts/start_backend.py`
    - Wait for health check (up to 180 seconds)
 
 2. **Frontend Server Start**
@@ -253,27 +239,19 @@ curl http://localhost:3100
 
 ## Common Issues
 
-### Issue 1: Backend Executable Not Found
+### Issue 1: Backend Runtime Files Not Found
 
 **Symptoms**:
-- "Backend executable not found" error
+- "Backend source files were not found" error
 - Application fails to start
 
 **Solutions**:
-1. Check if executable exists:
+1. Check if backend files exist:
    ```bash
    ls -la /Applications/FreeTodo.app/Contents/Resources/backend/lifetrace
    ```
 
-2. Ensure execution permission:
-   ```bash
-   chmod +x /Applications/FreeTodo.app/Contents/Resources/backend/lifetrace
-   ```
-
-3. Rebuild the backend:
-   ```bash
-   pnpm backend:build
-   ```
+2. Rebuild the installer and reinstall the app.
 
 ### Issue 2: Next.js Server Exits Immediately
 
@@ -339,14 +317,14 @@ xattr -cr /Applications/FreeTodo.app
 **Symptoms**:
 - DMG exceeds 2 GB
 
-**This is expected** because the app includes:
-- Complete Python runtime with dependencies
+**Common causes**:
 - Node.js runtime
+- Next.js standalone output
 - ONNX models for OCR
 
 To reduce size:
-- Use CPU-only PyTorch if GPU not needed
-- Exclude unused Python packages in `pyinstaller.spec`
+- Prune unused frontend assets
+- Remove unused backend models or optional dependencies
 
 ## Related Files
 
@@ -358,15 +336,13 @@ To reduce size:
 - `next.config.ts` - Next.js configuration
 
 ### Backend
-- `lifetrace/scripts/build-backend.sh` - Backend build script (macOS/Linux)
-- `lifetrace/scripts/build-backend.ps1` - Backend build script (Windows)
-- `lifetrace/pyinstaller.spec` - PyInstaller configuration
+- `lifetrace/scripts/start_backend.py` - Backend startup entrypoint
+- `requirements-runtime.txt` - Runtime dependency list
 
 ---
 
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-29
 **Applicable Versions**:
 - Next.js 16.x
 - Electron 39.x
 - electron-builder 26.x
-- PyInstaller 6.x

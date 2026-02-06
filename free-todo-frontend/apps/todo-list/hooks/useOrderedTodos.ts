@@ -9,12 +9,13 @@ export type OrderedTodo = {
 };
 
 function isDueTimeMatch(todo: Todo, dueTimeFilter: DueTimeFilter): boolean {
-	if (!todo.deadline) {
-		// If no deadline, only match "all" or "future"
+	const scheduleTime = todo.startTime ?? todo.endTime;
+	if (!scheduleTime) {
+		// If no schedule time, only match "all" or "future"
 		return dueTimeFilter === "all" || dueTimeFilter === "future";
 	}
 
-	const deadline = new Date(todo.deadline);
+	const deadline = new Date(scheduleTime);
 	const now = new Date();
 
 	// Normalize to date only (remove time)
@@ -119,17 +120,20 @@ export function useOrderedTodos(
 		});
 
 		const ordered: OrderedTodo[] = [];
+		const completedOrdered: OrderedTodo[] = [];
+		const shouldSplitCompleted = !filter || filter.status === "all";
 		const traverse = (
 			items: Todo[],
 			depth: number,
 			isRoot: boolean = false,
+			target: OrderedTodo[] = ordered,
 		) => {
 			// 根任务按原始顺序排序（支持用户拖拽），子任务按order字段排序
 			const sortedItems = isRoot
 				? sortTodosByOriginalOrder(items, orderMap)
 				: sortTodosByOrder(items);
 			sortedItems.forEach((item) => {
-				ordered.push({ todo: item, depth });
+				target.push({ todo: item, depth });
 				const children = childrenMap.get(item.id);
 				// 如果有子任务且父任务已展开（collapsedTodoIds 为空或未定义时默认展开，否则检查是否不在 Set 中）
 				if (children?.length) {
@@ -137,14 +141,28 @@ export function useOrderedTodos(
 						collapsedTodoIds === undefined || !collapsedTodoIds.has(item.id);
 					if (isExpanded) {
 						// 子任务优先按order字段排序，其次按创建时间排序
-						traverse(children, depth + 1, false);
+						traverse(children, depth + 1, false, target);
 					}
 				}
 			});
 		};
 
-		traverse(roots, 0, true);
+		if (shouldSplitCompleted) {
+			const activeRoots = roots.filter((todo) => todo.status !== "completed");
+			const completedRoots = roots.filter((todo) => todo.status === "completed");
+			traverse(activeRoots, 0, true, ordered);
+			traverse(completedRoots, 0, true, completedOrdered);
+		} else {
+			traverse(roots, 0, true, ordered);
+		}
 
-		return { filteredTodos: result, orderedTodos: ordered };
+		return {
+			filteredTodos: result,
+			orderedTodos: ordered,
+			completedOrderedTodos: completedOrdered,
+			completedRootCount: shouldSplitCompleted
+				? roots.filter((todo) => todo.status === "completed").length
+				: 0,
+		};
 	}, [todos, searchQuery, collapsedTodoIds, filter]);
 }

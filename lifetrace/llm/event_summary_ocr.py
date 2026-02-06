@@ -8,6 +8,7 @@ from typing import Any
 
 from lifetrace.storage import get_session
 from lifetrace.storage.models import OCRResult, Screenshot
+from lifetrace.storage.sql_utils import col
 from lifetrace.util.logging_config import get_logger
 
 from .event_summary_config import (
@@ -52,8 +53,8 @@ def process_ocr_block(
 ) -> None:
     """处理单个OCR块，提取并过滤文本行"""
     lines = ocr_block.split("\n")
-    for line in lines:
-        line = line.strip()
+    for raw_line in lines:
+        line = raw_line.strip()
         if should_filter_line(line, debug_info):
             continue
 
@@ -90,11 +91,15 @@ def get_event_ocr_texts(event_id: int) -> tuple[list[str], dict[str, Any]]:
 
     try:
         with get_session() as session:
-            screenshots = session.query(Screenshot).filter(Screenshot.event_id == event_id).all()
+            screenshots = (
+                session.query(Screenshot).filter(col(Screenshot.event_id) == event_id).all()
+            )
 
             for screenshot in screenshots:
                 ocr_results = (
-                    session.query(OCRResult).filter(OCRResult.screenshot_id == screenshot.id).all()
+                    session.query(OCRResult)
+                    .filter(col(OCRResult.screenshot_id) == screenshot.id)
+                    .all()
                 )
 
                 for ocr in ocr_results:

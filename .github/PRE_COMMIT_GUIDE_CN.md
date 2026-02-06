@@ -30,21 +30,36 @@ Pre-commit 会在每次 `git commit` 时自动检查并修复以下问题：
 uv sync --group dev
 ```
 
-### 2. 安装 Git Hooks
+### 2. 配置 Git Hooks（仓库内）
 
-**重要**：这一步必须在项目根目录执行！
+本仓库使用共享的 `.githooks/` 目录（仓库内），不使用 `pre-commit install`。
+每个 clone/worktree 执行一次即可：
 
 ```bash
-# 确保虚拟环境已激活
-source .venv/bin/activate
+# macOS/Linux
+bash scripts/setup_hooks_here.sh
 
-# 安装 pre-commit hooks
-pre-commit install
+# Windows（PowerShell）
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
+```
 
-# 验证安装
-ls -la .git/hooks/pre-commit
+**注意**：设置了 `core.hooksPath` 后，`pre-commit install` 会拒绝执行，这是预期行为。
+
+### 3.（可选）预热检查
+
+```bash
+pre-commit run --all-files
 ```
 ---
+
+## 仓库 Hook（post-checkout）
+
+本仓库还在 `.githooks/` 中提供了 `post-checkout` hook，用于自动连接 worktree 依赖。它会执行：
+
+- `scripts/link_worktree_deps_here.sh`（优先）
+- 若失败则回退到 `scripts/link_worktree_deps_here.ps1`
+
+该 hook 可重复执行，已存在的链接会被跳过（除非使用 `--force`）。
 
 ## 使用方法
 
@@ -58,6 +73,8 @@ git commit -m "your commit message"
 ```
 
 如果检查通过，提交成功；如果检查失败，提交会被阻止，修复后需重新提交。
+
+> **注意**：仓库 hook 优先使用 `pre-commit`，若未找到则会回退到 `uv run pre-commit`（需要已安装 uv）。
 
 **示例输出**：
 ```
@@ -199,7 +216,7 @@ repos:
     rev: "v0.6.1"
     hooks:
       - id: biome-check
-        additional_dependencies: ["@biomejs/biome@2.3.8"]
+        additional_dependencies: ["@biomejs/biome@2.3.13"]
         files: ^(free-todo-frontend/)
 
   # Local hooks
@@ -259,24 +276,27 @@ uv run pre-commit --version
 
 ### 问题：提交时没有触发检查
 
-**原因**：hooks 未安装
+**原因**：hooks 未配置或 `.githooks` 缺失
 
 **解决**：
 ```bash
-# 重新安装 hooks
-pre-commit install
+# 确认 hooksPath
+git config --get core.hooksPath
 
-# 检查 hooks 文件
-ls -la .git/hooks/pre-commit
+# 重新执行仓库 hook 配置（在仓库根目录）
+bash scripts/setup_hooks_here.sh
+# 或
+powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
 ```
 
-### 问题：hooks 没有执行权限
+### 问题：pre-commit install 报错 core.hooksPath
 
-**原因**：文件权限不足
+**原因**：本仓库使用 `.githooks/`，因此 `pre-commit install` 会拒绝执行。
 
 **解决**：
 ```bash
-chmod +x .git/hooks/pre-commit
+# 不要运行 pre-commit install，直接使用：
+pre-commit run --all-files
 ```
 
 ### 问题：检查速度太慢
@@ -312,7 +332,8 @@ chmod +x .git/hooks/pre-commit
    git clone <repo>
    cd <repo>
    uv sync --group dev
-   pre-commit install
+   bash scripts/setup_hooks_here.sh
+   # 或：powershell -ExecutionPolicy Bypass -File scripts/setup_hooks_here.ps1
    pre-commit run --all-files
    ```
 

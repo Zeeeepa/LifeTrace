@@ -1,11 +1,12 @@
 """费用统计相关路由"""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.settings import settings
+from lifetrace.util.time_utils import get_utc_now
 from lifetrace.util.token_usage_logger import get_token_logger
 
 router = APIRouter(prefix="/api/cost-tracking", tags=["cost-tracking"])
@@ -73,6 +74,7 @@ async def get_cost_stats(days: int = Query(30, description="统计天数")):
                 "cost": round(daily_stats.get("total_cost", 0), 4),
             }
 
+        now = get_utc_now().astimezone()
         return {
             "success": True,
             "data": {
@@ -85,8 +87,8 @@ async def get_cost_stats(days: int = Query(30, description="统计天数")):
                 "feature_costs": feature_costs,
                 "model_costs": model_costs,
                 "daily_costs": daily_costs,
-                "start_date": (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d"),
-                "end_date": datetime.now().strftime("%Y-%m-%d"),
+                "start_date": (now - timedelta(days=days)).strftime("%Y-%m-%d"),
+                "end_date": now.strftime("%Y-%m-%d"),
             },
         }
 
@@ -94,7 +96,7 @@ async def get_cost_stats(days: int = Query(30, description="统计天数")):
         raise
     except Exception as e:
         logger.error(f"获取费用统计失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取费用统计失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取费用统计失败: {e!s}") from e
 
 
 @router.get("/config")
@@ -118,4 +120,4 @@ async def get_cost_config():
         }
     except Exception as e:
         logger.error(f"获取费用配置失败: {e}")
-        raise HTTPException(status_code=500, detail=f"获取费用配置失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"获取费用配置失败: {e!s}") from e

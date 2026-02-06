@@ -1,5 +1,7 @@
 """工具注册表"""
 
+from typing import ClassVar
+
 from lifetrace.llm.tools.base import Tool
 from lifetrace.util.logging_config import get_logger
 
@@ -9,8 +11,8 @@ logger = get_logger()
 class ToolRegistry:
     """工具注册表（单例）"""
 
-    _instance = None
-    _tools: dict[str, Tool] = {}
+    _instance: ClassVar["ToolRegistry | None"] = None
+    _tools: ClassVar[dict[str, Tool]] = {}
 
     def __new__(cls):
         if cls._instance is None:

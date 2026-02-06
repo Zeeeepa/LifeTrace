@@ -43,14 +43,40 @@ function getPriorityBgColor(priority: TodoPriority) {
 	}
 }
 
-function formatDate(dateString?: string) {
-	if (!dateString) return null;
-	const date = new Date(dateString);
-	return date.toLocaleDateString("en-US", {
+function formatScheduleLabel(startTime?: string, endTime?: string) {
+	const schedule = startTime ?? endTime;
+	if (!schedule) return null;
+	const startDate = new Date(schedule);
+	if (Number.isNaN(startDate.getTime())) return null;
+	const dateLabel = startDate.toLocaleDateString("en-US", {
 		year: "numeric",
 		month: "short",
 		day: "numeric",
 	});
+	const timeLabel = startDate.toLocaleTimeString("en-US", {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+	const startLabel =
+		startDate.getHours() === 0 && startDate.getMinutes() === 0
+			? dateLabel
+			: `${dateLabel} ${timeLabel}`;
+
+	if (!endTime) return startLabel;
+	const endDate = new Date(endTime);
+	if (Number.isNaN(endDate.getTime())) return startLabel;
+	const sameDay = startDate.toDateString() === endDate.toDateString();
+	const endDateLabel = endDate.toLocaleDateString("en-US", {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
+	const endTimeLabel = endDate.toLocaleTimeString("en-US", {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+	const endLabel = sameDay ? endTimeLabel : `${endDateLabel} ${endTimeLabel}`;
+	return `${startLabel} - ${endLabel}`;
 }
 
 // ============================================================================
@@ -154,10 +180,12 @@ function TodoCardOverlay({ todo, depth = 0 }: TodoCardOverlayProps) {
 						</div>
 
 						<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-							{todo.deadline && (
+							{(todo.startTime || todo.endTime) && (
 								<div className="flex items-center gap-1 rounded-md bg-muted/40 px-2 py-1">
 									<Calendar className="h-3 w-3" />
-									<span>{formatDate(todo.deadline)}</span>
+									<span>
+										{formatScheduleLabel(todo.startTime, todo.endTime)}
+									</span>
 								</div>
 							)}
 

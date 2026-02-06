@@ -75,4 +75,4 @@ async def create_activity_manual(
         raise
     except Exception as e:
         logger.error(f"手动聚合活动失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"手动聚合活动失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"手动聚合活动失败: {e!s}") from e

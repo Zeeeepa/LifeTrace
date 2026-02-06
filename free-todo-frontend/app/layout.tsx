@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/common/theme/ThemeProvider";
+import { BackendReadyGate } from "@/components/common/ui/BackendReadyGate";
+import { CapabilitiesSync } from "@/components/common/ui/CapabilitiesSync";
 import { DockTriggerZone } from "@/components/common/ui/DockTriggerZone";
 import { LocaleSync } from "@/components/common/ui/LocaleSync";
 import { ScrollbarController } from "@/components/common/ui/ScrollbarController";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
+import "driver.js/dist/driver.css";
 
 interface RootLayoutProps {
 	children: React.ReactNode;
@@ -31,8 +34,11 @@ export default async function RootLayout({ children }: RootLayoutProps) {
 				<QueryProvider>
 					<NextIntlClientProvider messages={messages}>
 						<LocaleSync />
+						<CapabilitiesSync />
 						<DockTriggerZone />
-						<ThemeProvider>{children}</ThemeProvider>
+						<ThemeProvider>
+							<BackendReadyGate>{children}</BackendReadyGate>
+						</ThemeProvider>
 					</NextIntlClientProvider>
 				</QueryProvider>
 			</body>

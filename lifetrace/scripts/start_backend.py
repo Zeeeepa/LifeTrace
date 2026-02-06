@@ -5,18 +5,22 @@ Handles data directory setup and config initialization before starting the FastA
 """
 
 import argparse
+import contextlib
+import importlib
 import os
 import shutil
 import sys
+import traceback
 from pathlib import Path
 
 # Handle PyInstaller bundled application
 if getattr(sys, "frozen", False):
     # PyInstaller bundled - use _MEIPASS for resource path
     # In one-folder bundle, _MEIPASS points to _internal directory
-    if hasattr(sys, "_MEIPASS"):
+    bundle_path = getattr(sys, "_MEIPASS", None)
+    if bundle_path:
         # Add _internal to path where lifetrace modules are located
-        sys.path.insert(0, sys._MEIPASS)
+        sys.path.insert(0, bundle_path)
     else:
         # Fallback: try to find _internal directory relative to executable
         bundle_dir = Path(sys.executable).parent
@@ -31,11 +35,10 @@ else:
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import loguru first to ensure PyInstaller detects it
-try:
+with contextlib.suppress(ImportError):
     import loguru  # noqa: F401
-except ImportError:
-    pass  # Will fail later if not available
 
+from lifetrace.util.base_paths import get_config_dir
 from lifetrace.util.logging_config import get_logger
 
 logger = get_logger()
@@ -66,9 +69,12 @@ def setup_data_directory(data_dir: str) -> None:
             bundle_dir / "config",
         ]
         source_config_dir = None
-        for config_dir in potential_config_dirs:
-            if config_dir.exists() and (config_dir / "default_config.yaml").exists():
-                source_config_dir = config_dir
+        for potential_config_dir in potential_config_dirs:
+            if (
+                potential_config_dir.exists()
+                and (potential_config_dir / "default_config.yaml").exists()
+            ):
+                source_config_dir = potential_config_dir
                 logger.info(f"Found config directory: {source_config_dir}")
                 break
         if source_config_dir is None:
@@ -79,8 +85,6 @@ def setup_data_directory(data_dir: str) -> None:
             source_config_dir = bundle_dir / "config"
     else:
         # Development mode
-        from lifetrace.util.path_utils import get_config_dir
-
         source_config_dir = get_config_dir()
 
     # Copy default config files if they don't exist in data directory
@@ -149,19 +153,20 @@ def main():
     # The config module will read LIFETRACE_DATA_DIR environment variable
     # Note: In PyInstaller bundle, lifetrace modules should be in sys._MEIPASS
     try:
-        import uvicorn
+        uvicorn = importlib.import_module("uvicorn")
+        health_module = importlib.import_module("lifetrace.routers.health")
+        server_module = importlib.import_module("lifetrace.server")
+        settings_module = importlib.import_module("lifetrace.util.settings")
 
-        from lifetrace.routers.health import set_server_mode
-        from lifetrace.server import app
-        from lifetrace.util.settings import settings
+        set_server_mode = health_module.set_server_mode
+        app = server_module.app
+        settings = settings_module.settings
 
         # Set server mode for health check endpoint
         set_server_mode(args.mode)
         logger.info(f"Server mode: {args.mode}")
     except ImportError as e:
         # If import fails, log the error with path information
-        import traceback
-
         error_info = f"""
 Import Error: {e}
 sys.path: {sys.path}
@@ -206,8 +211,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         # Ensure errors are logged and visible
-        import traceback
-
         error_msg = f"Fatal error in backend startup: {e}\n{traceback.format_exc()}"
         print(error_msg, file=sys.stderr)
         if logger:

@@ -1,7 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+	MouseEvent as ReactMouseEvent,
+	PointerEvent as ReactPointerEvent,
+} from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -33,20 +36,30 @@ export function ResizeHandle({
 			role="separator"
 			aria-orientation="vertical"
 			onPointerDown={isVisible ? onPointerDown : undefined}
+			// 兼容性更好：同时监听 mouseDown，转交给同一个处理函数
+			onMouseDown={
+				isVisible
+					? (event: ReactMouseEvent<HTMLDivElement>) =>
+							onPointerDown(
+								event as unknown as ReactPointerEvent<HTMLDivElement>,
+							)
+					: undefined
+			}
 			onMouseEnter={() => isVisible && setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			initial={false}
 			animate={{
 				opacity: isVisible ? 1 : 0,
 				scaleX: isVisible ? 1 : 0,
-				width: isVisible ? 4 : 0,
-				// 当可见时添加左右 margin 来创建间距（替代 container 的 gap）
-				marginLeft: isVisible ? 3 : 0,
-				marginRight: isVisible ? 3 : 0,
+				// 分隔条整体宽度（含可点击区域）
+				width: isVisible ? 5 : 0,
+				// 取消左右 margin，让 panel 之间的间距再小一点
+				marginLeft: 0,
+				marginRight: 0,
 			}}
 			transition={ANIMATION_CONFIG.spring}
 			className={cn(
-				"relative flex h-full items-center justify-center select-none touch-none",
+				"relative z-10 flex h-full items-center justify-center select-none touch-none",
 				isVisible && "cursor-col-resize",
 				isDragging || isHovered ? "bg-foreground/5" : "bg-transparent",
 			)}
@@ -57,7 +70,8 @@ export function ResizeHandle({
 		>
 			<div
 				className={cn(
-					"pointer-events-none h-7 w-[2px] rounded-full transition-all duration-150",
+					// 分隔条本体宽度 2px
+					"pointer-events-none h-7 w-0.5 rounded-full transition-all duration-150",
 					isDragging
 						? "bg-primary shadow-[0_0_0_1px_oklch(var(--primary))]"
 						: isHovered

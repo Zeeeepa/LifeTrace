@@ -45,3 +45,10 @@ next-env.d.ts
 /dist-electron/
 /dist-electron-app/
 /dist
+/dist-artifacts/
+
+# Tauri / Rust
+/src-tauri/target/
+/src-tauri/Cargo.lock
+/src-tauri/WixTools/
+/src-tauri/gen/

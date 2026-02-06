@@ -46,15 +46,40 @@ export const DEFAULT_PANEL_STATE = {
 	panelCWidth: 0.25, // panelC 占右边 1/4
 	// 默认关闭的功能：开发中的面板（用户可在设置中手动开启）
 	disabledFeatures: DEV_IN_PROGRESS_FEATURES as PanelFeature[],
+	backendDisabledFeatures: [] as PanelFeature[],
 	panelFeatureMap: {
 		panelA: "todos" as PanelFeature,
 		panelB: "chat" as PanelFeature,
 		panelC: "todoDetail" as PanelFeature,
 	},
+	panelPinMap: {
+		panelA: false,
+		panelB: false,
+		panelC: false,
+	},
 	autoClosedPanels: [] as PanelPosition[],
-	dockDisplayMode: "auto-hide" as DockDisplayMode,
-	// 是否显示 Chat 模式切换器（开发者选项，默认关闭）
-	showModeSwitcher: false,
+	dockDisplayMode: "fixed" as DockDisplayMode,
+	// 是否显示 Agno 模式的工具选择器（默认开启）
+	showAgnoToolSelector: true,
+	// Agno 模式下选中的 FreeTodo 工具列表（默认只选中 todo 管理类工具）
+	selectedAgnoTools: [
+		"create_todo",
+		"complete_todo",
+		"update_todo",
+		"list_todos",
+		"search_todos",
+		"delete_todo",
+	] as string[],
+	// Agno 模式下选中的外部工具列表（默认全部选中）
+	selectedExternalTools: [
+		"websearch",
+		"hackernews",
+		"file",
+		"local_fs",
+		"shell",
+		"sleep",
+	] as string[],
+	customLayouts: [],
 };
 
 /**

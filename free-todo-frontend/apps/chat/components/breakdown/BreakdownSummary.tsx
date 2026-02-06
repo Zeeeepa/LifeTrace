@@ -30,11 +30,6 @@ function SubtaskTree({
 						<span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
 						<div className="flex-1">
 							<div className="font-medium">{subtask.name}</div>
-							{subtask.description && (
-								<div className="mt-1 text-xs text-muted-foreground">
-									{subtask.description}
-								</div>
-							)}
 							{subtask.subtasks && subtask.subtasks.length > 0 && (
 								<SubtaskTree subtasks={subtask.subtasks} depth={depth + 1} />
 							)}

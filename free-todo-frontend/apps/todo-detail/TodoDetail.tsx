@@ -1,20 +1,41 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { removeTodoAttachment, uploadTodoAttachments } from "@/lib/attachments";
 import { useTodoMutations, useTodos } from "@/lib/query";
+import { queryKeys } from "@/lib/query/keys";
 import { useTodoStore } from "@/lib/store/todo-store";
-import type { Todo } from "@/lib/types";
+import { useUiStore } from "@/lib/store/ui-store";
+import { getPositionByFeature } from "@/lib/store/ui-store/utils";
+import { toastError } from "@/lib/toast";
+import type { Todo, TodoAttachment } from "@/lib/types";
+import { ArtifactsView } from "./components/ArtifactsView";
+import { AttachmentPreviewPanel } from "./components/AttachmentPreviewPanel";
+import { BackgroundSection } from "./components/BackgroundSection";
 import { ChildTodoSection } from "./components/ChildTodoSection";
-import { DescriptionSection } from "./components/DescriptionSection";
 import { DetailHeader } from "./components/DetailHeader";
 import { DetailTitle } from "./components/DetailTitle";
 import { MetaSection } from "./components/MetaSection";
 import { NotesEditor } from "./components/NotesEditor";
-import { useNotesAutosize } from "./hooks/useNotesAutosize";
+
+const collectChildIds = (parentId: number, allTodos: Todo[]): number[] => {
+	const childIds: number[] = [];
+	const children = allTodos.filter(
+		(t: Todo) => t.parentTodoId === parentId,
+	);
+	for (const child of children) {
+		childIds.push(child.id);
+		childIds.push(...collectChildIds(child.id, allTodos));
+	}
+	return childIds;
+};
 
 export function TodoDetail() {
 	const t = useTranslations("todoDetail");
+	const queryClient = useQueryClient();
 	// 从 TanStack Query 获取 todos 数据
 	const { data: todos = [] } = useTodos();
 
@@ -24,11 +45,18 @@ export function TodoDetail() {
 
 	// 从 Zustand 获取 UI 状态
 	const { selectedTodoId, setSelectedTodoId, onTodoDeleted } = useTodoStore();
+	const { panelFeatureMap, isPanelAOpen, isPanelBOpen } = useUiStore();
 
 	// 各 section 的折叠状态
-	const [showDescription, setShowDescription] = useState(true);
+	const [showDescription, setShowDescription] = useState(false);
 	const [showNotes, setShowNotes] = useState(true);
 	const [showChildTodos, setShowChildTodos] = useState(true);
+	const [activeView, setActiveView] = useState<"detail" | "artifacts">(
+		"detail",
+	);
+	const [selectedAttachment, setSelectedAttachment] =
+		useState<TodoAttachment | null>(null);
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	// 本地状态管理 userNotes，用于即时输入响应
 	const [localUserNotes, setLocalUserNotes] = useState<string>("");
@@ -64,14 +92,26 @@ export function TodoDetail() {
 		[todo?.id, todos],
 	);
 
-	const { notesRef, adjustNotesHeight } = useNotesAutosize([
-		todo?.id,
-		localUserNotes,
-	]);
+	const childIds = useMemo(
+		() => (todo?.id ? collectChildIds(todo.id, todos) : []),
+		[todo?.id, todos],
+	);
 
 	useEffect(() => {
-		adjustNotesHeight();
-	}, [adjustNotesHeight]);
+		if (todo?.id == null) {
+			setSelectedAttachment(null);
+			return;
+		}
+		setSelectedAttachment(null);
+	}, [todo?.id]);
+
+	useEffect(() => {
+		if (todo?.id == null) {
+			setShowDeleteConfirm(false);
+			return;
+		}
+		setShowDeleteConfirm(false);
+	}, [todo?.id]);
 
 	// 清理防抖定时器
 	useEffect(() => {
@@ -93,7 +133,6 @@ export function TodoDetail() {
 	const handleNotesChange = (userNotes: string) => {
 		// 立即更新本地状态，保证输入流畅
 		setLocalUserNotes(userNotes);
-		requestAnimationFrame(adjustNotesHeight);
 
 		// 标记正在更新
 		isUpdatingRef.current = true;
@@ -167,23 +206,7 @@ export function TodoDetail() {
 
 	const handleDelete = async () => {
 		try {
-			// 递归查找所有子任务 ID
-			const findAllChildIds = (
-				parentId: number,
-				allTodos: Todo[],
-			): number[] => {
-				const childIds: number[] = [];
-				const children = allTodos.filter(
-					(t: Todo) => t.parentTodoId === parentId,
-				);
-				for (const child of children) {
-					childIds.push(child.id);
-					childIds.push(...findAllChildIds(child.id, allTodos));
-				}
-				return childIds;
-			};
-
-			const allIdsToDelete = [todo.id, ...findAllChildIds(todo.id, todos)];
+			const allIdsToDelete = [todo.id, ...childIds];
 
 			await deleteTodo(todo.id);
 			onTodoDeleted(allIdsToDelete);
@@ -191,6 +214,37 @@ export function TodoDetail() {
 		} catch (err) {
 			console.error("Failed to delete todo:", err);
 		}
+	};
+
+	const handleUploadAttachments = async (files: File[]) => {
+		if (!todo) return;
+		setActiveView("artifacts");
+		try {
+			await uploadTodoAttachments(todo.id, files);
+			queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+		} catch (err) {
+			console.error("Failed to upload attachments:", err);
+			toastError(t("uploadFailed"));
+		}
+	};
+
+	const handleRemoveAttachment = async (attachmentId: number) => {
+		if (!todo) return;
+		try {
+			await removeTodoAttachment(todo.id, attachmentId);
+			if (selectedAttachment?.id === attachmentId) {
+				setSelectedAttachment(null);
+			}
+			queryClient.invalidateQueries({ queryKey: queryKeys.todos.all });
+		} catch (err) {
+			console.error("Failed to remove attachment:", err);
+			toastError(t("removeAttachmentFailed"));
+		}
+	};
+
+	const handleSelectAttachment = (attachment: TodoAttachment) => {
+		setActiveView("artifacts");
+		setSelectedAttachment(attachment);
 	};
 
 	const handleCreateChild = async (name: string) => {
@@ -204,52 +258,149 @@ export function TodoDetail() {
 		}
 	};
 
+	const handleDeleteRequest = () => {
+		setShowDeleteConfirm(true);
+	};
+
+	const handleDeleteConfirm = async () => {
+		setShowDeleteConfirm(false);
+		await handleDelete();
+	};
+
+	if (!todo) {
+		return (
+			<div className="flex h-full items-center justify-center text-sm text-muted-foreground bg-background">
+				{t("selectTodoPrompt")}
+			</div>
+		);
+	}
+
+	const detailPosition = getPositionByFeature("todoDetail", panelFeatureMap);
+	const leftNeighbor =
+		detailPosition === "panelC"
+			? "panelB"
+			: detailPosition === "panelB"
+				? "panelA"
+				: null;
+	const leftNeighborOpen =
+		leftNeighbor === "panelA"
+			? isPanelAOpen
+			: leftNeighbor === "panelB"
+				? isPanelBOpen
+				: false;
+	const leftNeighborFeature = leftNeighbor
+		? panelFeatureMap[leftNeighbor]
+		: null;
+	const previewPlacement =
+		leftNeighborOpen && leftNeighborFeature === "chat" ? "left" : "right";
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden bg-background">
 			<DetailHeader
 				onToggleComplete={handleToggleComplete}
-				onDelete={handleDelete}
+				onDelete={handleDeleteRequest}
+				activeView={activeView}
+				onViewChange={setActiveView}
 			/>
 
-			<div className="flex-1 overflow-y-scroll px-4 py-6">
-				<DetailTitle name={todo.name} onNameChange={handleNameChange} />
+			{showDeleteConfirm && (
+				<div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div className="min-w-[200px]">
+							<p className="text-sm font-semibold text-foreground">
+								{t("deleteConfirmTitle")}
+							</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{childIds.length > 0
+									? t("deleteConfirmWithChildren", {
+											count: childIds.length,
+										})
+									: t("deleteConfirmDescription")}
+							</p>
+						</div>
+						<div className="flex items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setShowDeleteConfirm(false)}
+							>
+								{t("deleteConfirmCancel")}
+							</Button>
+							<Button
+								variant="destructive"
+								size="sm"
+								onClick={handleDeleteConfirm}
+							>
+								{t("deleteConfirmDelete")}
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
 
-				<MetaSection
-					todo={todo}
-					onStatusChange={(status) => updateTodo(todo.id, { status })}
-					onPriorityChange={(priority) => updateTodo(todo.id, { priority })}
-					onDeadlineChange={(deadline) => updateTodo(todo.id, { deadline })}
-					onTagsChange={(tags) => updateTodo(todo.id, { tags })}
-				/>
+			<div className="flex-1 overflow-y-auto px-4 py-6">
+				{activeView === "detail" ? (
+					<>
+						<DetailTitle name={todo.name} onNameChange={handleNameChange} />
 
-				<DescriptionSection
-					description={todo.description}
-					attachments={todo.attachments}
-					show={showDescription}
-					onToggle={() => setShowDescription((prev) => !prev)}
-					onDescriptionChange={handleDescriptionChange}
-				/>
+						<MetaSection
+							todo={todo}
+							onStatusChange={(status) => updateTodo(todo.id, { status })}
+							onPriorityChange={(priority) => updateTodo(todo.id, { priority })}
+							onTagsChange={(tags) => updateTodo(todo.id, { tags })}
+							onScheduleChange={(input) => updateTodo(todo.id, input)}
+						/>
 
-				<NotesEditor
-					value={localUserNotes}
-					show={showNotes}
-					onToggle={() => setShowNotes((prev) => !prev)}
-					onChange={handleNotesChange}
-					onBlur={handleNotesBlur}
-					notesRef={notesRef}
-					adjustHeight={adjustNotesHeight}
-				/>
+						<BackgroundSection
+							description={todo.description}
+							show={showDescription}
+							onToggle={() => setShowDescription((prev) => !prev)}
+							onDescriptionChange={handleDescriptionChange}
+						/>
 
-				<ChildTodoSection
-					childTodos={childTodos}
-					allTodos={todos}
-					show={showChildTodos}
-					onToggle={() => setShowChildTodos((prev) => !prev)}
-					onSelectTodo={setSelectedTodoId}
-					onCreateChild={handleCreateChild}
-					onToggleStatus={toggleTodoStatus}
-					onUpdateTodo={updateTodo}
-				/>
+						<NotesEditor
+							value={localUserNotes}
+							show={showNotes}
+							onToggle={() => setShowNotes((prev) => !prev)}
+							onChange={handleNotesChange}
+							onBlur={handleNotesBlur}
+						/>
+
+						<ChildTodoSection
+							childTodos={childTodos}
+							allTodos={todos}
+							show={showChildTodos}
+							onToggle={() => setShowChildTodos((prev) => !prev)}
+							onSelectTodo={setSelectedTodoId}
+							onCreateChild={handleCreateChild}
+							onToggleStatus={toggleTodoStatus}
+							onUpdateTodo={updateTodo}
+						/>
+					</>
+				) : (
+					<div className="flex h-full min-h-0 gap-4">
+						{previewPlacement === "left" && selectedAttachment && (
+							<AttachmentPreviewPanel
+								attachment={selectedAttachment}
+								onClose={() => setSelectedAttachment(null)}
+							/>
+						)}
+						<ArtifactsView
+							todo={todo}
+							attachments={todo.attachments ?? []}
+							onUpload={handleUploadAttachments}
+							onRemove={handleRemoveAttachment}
+							onSelectAttachment={handleSelectAttachment}
+							onShowDetail={() => setActiveView("detail")}
+						/>
+						{previewPlacement === "right" && selectedAttachment && (
+							<AttachmentPreviewPanel
+								attachment={selectedAttachment}
+								onClose={() => setSelectedAttachment(null)}
+							/>
+						)}
+					</div>
+				)}
 			</div>
 		</div>
 	);

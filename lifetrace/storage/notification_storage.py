@@ -11,18 +11,34 @@ logger = get_logger()
 # 内存存储：使用字典存储通知，key 为唯一标识符
 _notifications: dict[str, dict[str, Any]] = {}
 
-# 已取消通知跟踪：记录用户已取消的通知（todo_id -> deadline）
-# 用于防止同一deadline下重复提醒
-_dismissed_notifications: dict[int, datetime] = {}
+# 已取消通知跟踪：记录用户已取消的提醒（todo_id -> reminder_at set）
+_dismissed_notifications: dict[int, set[str]] = {}
 
 
-def add_notification(
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+    return naive_as_utc(parsed)
+
+
+def _build_reminder_key(reminder_at: datetime) -> str:
+    return naive_as_utc(reminder_at).isoformat()
+
+
+def add_notification(  # noqa: PLR0913
     notification_id: str,
     title: str,
     content: str,
     timestamp: datetime,
     todo_id: int | None = None,
+    schedule_time: datetime | None = None,
     deadline: datetime | None = None,
+    reminder_at: datetime | None = None,
+    reminder_offset: int | None = None,
 ) -> bool:
     """
     添加通知到存储
@@ -33,7 +49,10 @@ def add_notification(
         content: 通知内容
         timestamp: 通知时间戳
         todo_id: 关联的待办 ID（可选）
-        deadline: 待办截止时间（可选，用于检测deadline更新）
+        schedule_time: 待办时间点（可选，用于检测更新时间）
+        deadline: 待办截止时间（旧字段，兼容旧调用）
+        reminder_at: 提醒触发时间（可选，用于去重和取消）
+        reminder_offset: 提醒偏移分钟数（可选）
 
     Returns:
         bool: 如果通知已存在（去重），返回 False；否则返回 True
@@ -42,7 +61,7 @@ def add_notification(
         logger.debug(f"通知已存在，跳过: {notification_id}")
         return False
 
-    notification = {
+    notification: dict[str, Any] = {
         "id": notification_id,
         "title": title,
         "content": content,
@@ -52,8 +71,17 @@ def add_notification(
     if todo_id is not None:
         notification["todo_id"] = todo_id
 
+    effective_time = schedule_time or deadline
+    if effective_time is not None:
+        notification["schedule_time"] = effective_time.isoformat()
     if deadline is not None:
         notification["deadline"] = deadline.isoformat()
+
+    if reminder_at is not None:
+        notification["reminder_at"] = reminder_at.isoformat()
+
+    if reminder_offset is not None:
+        notification["reminder_offset"] = reminder_offset
 
     _notifications[notification_id] = notification
     logger.info(f"添加通知: {notification_id} - {title}")
@@ -67,17 +95,19 @@ def get_latest_notification() -> dict[str, Any] | None:
     Returns:
         最新通知的字典，如果没有通知则返回 None
     """
-    if not _notifications:
-        return None
+    notifications = get_notifications()
+    return notifications[0] if notifications else None
 
-    # 按时间戳排序，返回最新的
-    sorted_notifications = sorted(
+
+def get_notifications() -> list[dict[str, Any]]:
+    """获取所有通知（按时间倒序）"""
+    if not _notifications:
+        return []
+    return sorted(
         _notifications.values(),
         key=lambda x: x.get("timestamp", ""),
         reverse=True,
     )
-
-    return sorted_notifications[0] if sorted_notifications else None
 
 
 def get_notification(notification_id: str) -> dict[str, Any] | None:
@@ -105,19 +135,24 @@ def clear_notification(notification_id: str) -> bool:
     """
     if notification_id in _notifications:
         notification = _notifications[notification_id]
-        # 如果通知有关联的todo_id和deadline，记录到已取消列表
         todo_id = notification.get("todo_id")
-        deadline_str = notification.get("deadline")
-        if todo_id is not None and deadline_str:
-            try:
-                deadline_parsed = datetime.fromisoformat(deadline_str)
-                # 确保是 timezone-aware datetime（如果解析出来是 naive，假设为 UTC）
-                deadline_utc = naive_as_utc(deadline_parsed)
-                _dismissed_notifications[todo_id] = deadline_utc
-                logger.debug(f"标记通知为已取消: todo_id={todo_id}, deadline={deadline_str}")
-            except (ValueError, TypeError):
-                # 解析失败，仍然删除通知但不记录已取消
-                pass
+        reminder_at = _parse_iso_datetime(
+            notification.get("reminder_at")
+            or notification.get("schedule_time")
+            or notification.get("deadline")
+        )
+        if todo_id is not None and reminder_at is not None:
+            key = _build_reminder_key(reminder_at)
+            existing = _dismissed_notifications.get(todo_id)
+            if existing is None:
+                existing = set()
+                _dismissed_notifications[todo_id] = existing
+            existing.add(key)
+            logger.debug(
+                "标记通知为已取消: todo_id=%s, reminder_at=%s",
+                todo_id,
+                reminder_at.isoformat(),
+            )
 
         del _notifications[notification_id]
         logger.debug(f"清除通知: {notification_id}")
@@ -148,64 +183,39 @@ def get_notification_count() -> int:
     return len(_notifications)
 
 
+def get_notifications_by_todo_id(todo_id: int) -> list[dict[str, Any]]:
+    """根据待办ID查找所有通知"""
+    return [n for n in _notifications.values() if n.get("todo_id") == todo_id]
+
+
 def get_notification_by_todo_id(todo_id: int) -> dict[str, Any] | None:
-    """
-    根据待办ID查找通知
-
-    Args:
-        todo_id: 待办ID
-
-    Returns:
-        通知字典，如果不存在则返回 None
-    """
-    for notification in _notifications.values():
-        if notification.get("todo_id") == todo_id:
-            return notification
-    return None
+    """根据待办ID查找单条通知（兼容旧逻辑）"""
+    notifications = get_notifications_by_todo_id(todo_id)
+    return notifications[0] if notifications else None
 
 
-def clear_notification_by_todo_id(todo_id: int) -> bool:
-    """
-    根据待办ID清除通知
-
-    Args:
-        todo_id: 待办ID
-
-    Returns:
-        如果通知存在并已清除，返回 True；否则返回 False
-    """
-    notification = get_notification_by_todo_id(todo_id)
-    if notification:
+def clear_notification_by_todo_id(todo_id: int) -> int:
+    """根据待办ID清除所有通知"""
+    notifications = get_notifications_by_todo_id(todo_id)
+    removed = 0
+    for notification in notifications:
         notification_id = notification.get("id")
-        if notification_id:
-            return clear_notification(notification_id)
-    return False
+        if notification_id and clear_notification(notification_id):
+            removed += 1
+    return removed
 
 
-def is_notification_dismissed(todo_id: int, deadline: datetime) -> bool:
-    """
-    检查指定待办的deadline是否已被用户取消
-
-    Args:
-        todo_id: 待办ID
-        deadline: 待办deadline
-
-    Returns:
-        如果该deadline已被取消，返回 True；否则返回 False
-    """
-    dismissed_deadline = _dismissed_notifications.get(todo_id)
-    if dismissed_deadline is None:
+def is_notification_dismissed(todo_id: int, reminder_at: datetime) -> bool:
+    """检查指定待办的提醒时间是否已被取消"""
+    dismissed = _dismissed_notifications.get(todo_id)
+    if not dismissed:
         return False
-
-    # 比较deadline（忽略微秒级别的差异）
-    if abs((deadline - dismissed_deadline).total_seconds()) < 1:
-        return True
-    return False
+    return _build_reminder_key(reminder_at) in dismissed
 
 
 def clear_dismissed_mark(todo_id: int) -> None:
     """
-    清除指定待办的已取消标记（用于deadline更新时）
+    清除指定待办的已取消标记（用于时间更新时）
 
     Args:
         todo_id: 待办ID

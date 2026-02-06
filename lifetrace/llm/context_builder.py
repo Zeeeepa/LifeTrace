@@ -1,9 +1,11 @@
+import contextlib
 import json
 from datetime import datetime
 from typing import Any
 
 from lifetrace.util.logging_config import get_logger
 from lifetrace.util.prompt_loader import get_prompt
+from lifetrace.util.time_utils import get_utc_now
 
 logger = get_logger()
 
@@ -173,11 +175,9 @@ class ContextBuilder:
         for i, record in enumerate(sorted_data[:10]):  # 最多显示10条
             timestamp = record.get("timestamp", "未知时间")
             if timestamp and timestamp != "未知时间":
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                     timestamp = dt.strftime("%Y-%m-%d %H:%M")
-                except:  # noqa: E722
-                    pass
 
             app_name = record.get("app_name", "未知应用")
             ocr_text = record.get("ocr_text", "无文本内容")
@@ -279,6 +279,7 @@ class ContextBuilder:
         Returns:
             格式化的上下文文本
         """
+        _ = retrieved_data
         context_parts = [
             get_prompt("context_builder", "data_analysis_base"),
             "",
@@ -359,7 +360,7 @@ class ContextBuilder:
         """构建元数据"""
         return {
             "total_retrieved": len(retrieved_data),
-            "build_time": datetime.now().isoformat(),
+            "build_time": get_utc_now().isoformat(),
             "context_version": "1.0",
         }
 

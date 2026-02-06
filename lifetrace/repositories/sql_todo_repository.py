@@ -20,6 +20,9 @@ class SqlTodoRepository(ITodoRepository):
     def get_by_id(self, todo_id: int) -> dict[str, Any] | None:
         return self._manager.get_todo(todo_id)
 
+    def get_by_uid(self, uid: str) -> dict[str, Any] | None:
+        return self._manager.get_todo_by_uid(uid)
+
     def list_todos(self, limit: int, offset: int, status: str | None) -> list[dict[str, Any]]:
         return self._manager.list_todos(limit=limit, offset=offset, status=status)
 
@@ -37,3 +40,33 @@ class SqlTodoRepository(ITodoRepository):
 
     def reorder(self, items: list[dict[str, Any]]) -> bool:
         return self._manager.reorder_todos(items)
+
+    def add_attachment(
+        self,
+        *,
+        todo_id: int,
+        file_name: str,
+        file_path: str,
+        file_size: int | None,
+        mime_type: str | None,
+        file_hash: str | None,
+        source: str = "user",
+    ) -> dict[str, Any] | None:
+        return self._manager.add_todo_attachment(
+            todo_id=todo_id,
+            file_name=file_name,
+            file_path=file_path,
+            file_size=file_size,
+            mime_type=mime_type,
+            file_hash=file_hash,
+            source=source,
+        )
+
+    def remove_attachment(self, *, todo_id: int, attachment_id: int) -> bool:
+        return self._manager.remove_todo_attachment(
+            todo_id=todo_id,
+            attachment_id=attachment_id,
+        )
+
+    def get_attachment(self, attachment_id: int) -> dict[str, Any] | None:
+        return self._manager.get_attachment(attachment_id)

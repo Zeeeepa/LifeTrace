@@ -1,6 +1,6 @@
 "use client";
 
-import { Lightbulb, ListChecks, TrendingUp } from "lucide-react";
+import { Hammer, Sparkles, TrendingUp } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ export function PromptSuggestions({
 	const suggestions: PromptSuggestion[] = [
 		{
 			id: "breakdown",
-			icon: ListChecks,
+			icon: Hammer,
 			label: t("suggestions.breakdown"),
 			prompt: t("suggestions.breakdownPrompt"),
 		},
@@ -38,7 +38,7 @@ export function PromptSuggestions({
 		},
 		{
 			id: "advice",
-			icon: Lightbulb,
+			icon: Sparkles,
 			label: t("suggestions.advice"),
 			prompt: t("suggestions.advicePrompt"),
 		},
@@ -62,14 +62,14 @@ export function PromptSuggestions({
 						onClick={() => handleClick(suggestion.prompt)}
 						className={cn(
 							"flex items-center gap-2 rounded-full px-4 py-2.5",
-							"bg-muted/80 hover:bg-muted",
-							"text-sm text-foreground/80 hover:text-foreground",
-							"border border-border/40 hover:border-border",
+							"bg-[oklch(var(--primary-weak))] hover:bg-[oklch(var(--primary-weak-hover))]",
+							"text-sm font-medium text-foreground",
+							"border border-[oklch(var(--primary-border))]/30 hover:border-[oklch(var(--primary-border))]/60",
 							"transition-all duration-200",
-							"hover:shadow-sm",
+							"shadow-sm hover:shadow-md",
 						)}
 					>
-						<Icon className="h-4 w-4" />
+						<Icon className="h-4 w-4 text-[oklch(var(--primary))]" />
 						<span>{suggestion.label}</span>
 					</button>
 				);

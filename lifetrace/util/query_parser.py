@@ -11,6 +11,7 @@ from typing import Any
 
 from lifetrace.util.app_utils import app_mapper
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.time_utils import get_utc_now, to_utc
 
 logger = get_logger()
 
@@ -152,7 +153,7 @@ class QueryParser:
 
     def _extract_time_range(self, query: str) -> tuple[datetime | None, datetime | None]:
         """提取时间范围"""
-        now = datetime.now()
+        now = get_utc_now().astimezone()
         start_date = None
         end_date = None
 
@@ -184,13 +185,16 @@ class QueryParser:
         if dates:
             try:
                 date_str = dates[0].replace("/", "-")
-                parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+                parsed_date = datetime.strptime(date_str, "%Y-%m-%d").astimezone()
                 start_date = parsed_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 end_date = parsed_date.replace(hour=23, minute=59, second=59, microsecond=999999)
             except ValueError:
                 pass
 
-        return start_date, end_date
+        return (
+            to_utc(start_date) if start_date else None,
+            to_utc(end_date) if end_date else None,
+        )
 
     def _find_app_names_from_mappings(self, query: str) -> list[str]:
         """从映射表中查找应用名称"""
@@ -299,11 +303,11 @@ class QueryParser:
         processed_query = query
 
         # 移除时间词汇
-        for time_word in self.time_keywords.keys():
+        for time_word in self.time_keywords:
             processed_query = processed_query.replace(time_word, "")
 
         # 移除应用名称
-        for app_alias in self.app_name_mapping.keys():
+        for app_alias in self.app_name_mapping:
             processed_query = processed_query.replace(app_alias, "")
 
         # 分词并过滤

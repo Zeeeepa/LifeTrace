@@ -10,7 +10,10 @@
 from collections.abc import Callable
 from typing import Any
 
+from lifetrace.core.lazy_services import reinit_rag_service
+from lifetrace.jobs.job_manager import get_job_manager
 from lifetrace.util.logging_config import get_logger
+from lifetrace.util.settings import settings
 
 logger = get_logger()
 
@@ -98,8 +101,6 @@ def take_snapshot():
 
     在配置重载前调用，用于后续比对变更。
     """
-    from lifetrace.util.settings import settings
-
     _config_snapshot.clear()
 
     # 记录所有已注册回调的配置键的当前值
@@ -115,8 +116,6 @@ def detect_and_notify_changes():
 
     在配置重载后调用，比对快照与当前值，触发变更回调。
     """
-    from lifetrace.util.settings import settings
-
     for key in _callbacks:
         old_value = _config_snapshot.get(key)
         try:
@@ -138,8 +137,6 @@ def reload_with_callbacks() -> bool:
     Returns:
         bool: 重载是否成功
     """
-    from lifetrace.util.settings import settings
-
     # 获取快照
     take_snapshot()
 
@@ -163,102 +160,90 @@ def reload_with_callbacks() -> bool:
 
 
 @on_config_change("llm.api_key")
-def _on_llm_api_key_change(old_val: Any, new_val: Any):
+def _on_llm_api_key_change(_old_val: Any, _new_val: Any):
     """LLM API Key 变更时重新初始化 RAG 服务"""
     try:
-        from lifetrace.core.lazy_services import reinit_rag_service
-
         reinit_rag_service()
         logger.info("LLM API Key 变更，已重新初始化 RAG 服务")
-    except ImportError:
-        logger.debug("lazy_services 模块未加载，跳过 RAG 服务重新初始化")
     except Exception as e:
         logger.error(f"重新初始化 RAG 服务失败: {e}")
 
 
 @on_config_change("llm.base_url")
-def _on_llm_base_url_change(old_val: Any, new_val: Any):
+def _on_llm_base_url_change(_old_val: Any, _new_val: Any):
     """LLM Base URL 变更时重新初始化 RAG 服务"""
     try:
-        from lifetrace.core.lazy_services import reinit_rag_service
-
         reinit_rag_service()
         logger.info("LLM Base URL 变更，已重新初始化 RAG 服务")
-    except ImportError:
-        logger.debug("lazy_services 模块未加载，跳过 RAG 服务重新初始化")
     except Exception as e:
         logger.error(f"重新初始化 RAG 服务失败: {e}")
 
 
 @on_config_change("jobs.recorder.enabled")
-def _on_recorder_toggle(old_val: Any, new_val: Any):
+def _on_recorder_toggle(_old_val: Any, new_val: Any):
     """录制器任务开关变更"""
     try:
-        from lifetrace.jobs.job_manager import get_job_manager
-
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新录制器任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("recorder_job")
+            scheduler.resume_job("recorder_job")
             logger.info("录制器任务已启用")
         else:
-            manager.scheduler_manager.pause_job("recorder_job")
+            scheduler.pause_job("recorder_job")
             logger.info("录制器任务已暂停")
-    except ImportError:
-        logger.debug("job_manager 模块未加载，跳过任务状态变更")
     except Exception as e:
         logger.error(f"变更录制器任务状态失败: {e}")
 
 
 @on_config_change("jobs.ocr.enabled")
-def _on_ocr_toggle(old_val: Any, new_val: Any):
+def _on_ocr_toggle(_old_val: Any, new_val: Any):
     """OCR 任务开关变更"""
     try:
-        from lifetrace.jobs.job_manager import get_job_manager
-
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新 OCR 任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("ocr_job")
+            scheduler.resume_job("ocr_job")
             logger.info("OCR 任务已启用")
         else:
-            manager.scheduler_manager.pause_job("ocr_job")
+            scheduler.pause_job("ocr_job")
             logger.info("OCR 任务已暂停")
-    except ImportError:
-        logger.debug("job_manager 模块未加载，跳过任务状态变更")
     except Exception as e:
         logger.error(f"变更 OCR 任务状态失败: {e}")
 
 
 @on_config_change("jobs.auto_todo_detection.enabled")
-def _on_auto_todo_detection_toggle(old_val: Any, new_val: Any):
+def _on_auto_todo_detection_toggle(_old_val: Any, new_val: Any):
     """自动待办检测任务开关变更"""
     try:
-        from lifetrace.jobs.job_manager import get_job_manager
-
         manager = get_job_manager()
+        scheduler = manager.scheduler_manager
+        if not scheduler:
+            logger.warning("调度器未初始化，无法更新自动待办检测任务状态")
+            return
         if new_val:
-            manager.scheduler_manager.resume_job("auto_todo_detection_job")
+            scheduler.resume_job("auto_todo_detection_job")
             logger.info("自动待办检测任务已启用")
         else:
-            manager.scheduler_manager.pause_job("auto_todo_detection_job")
+            scheduler.pause_job("auto_todo_detection_job")
             logger.info("自动待办检测任务已暂停")
-    except ImportError:
-        logger.debug("job_manager 模块未加载，跳过任务状态变更")
     except Exception as e:
         logger.error(f"变更自动待办检测任务状态失败: {e}")
 
 
 @on_config_change("vector_db.enabled")
-def _on_vector_db_toggle(old_val: Any, new_val: Any):
+def _on_vector_db_toggle(_old_val: Any, new_val: Any):
     """向量数据库开关变更"""
     try:
-        from lifetrace.core.lazy_services import reinit_rag_service
-
         if new_val:
             reinit_rag_service()
             logger.info("向量数据库已启用，重新初始化 RAG 服务")
         else:
             logger.info("向量数据库已禁用")
-    except ImportError:
-        logger.debug("lazy_services 模块未加载，跳过向量数据库状态变更")
     except Exception as e:
         logger.error(f"变更向量数据库状态失败: {e}")
